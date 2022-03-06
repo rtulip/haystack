@@ -1,0 +1,8 @@
+
+fn dup<T>(T: t) -> [T T] {
+    t t 
+}
+
+fn main() {
+    123 dup + print
+}

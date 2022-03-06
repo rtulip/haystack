@@ -176,13 +176,17 @@ fn parse_function_from_tokens(mut tokens: &mut Vec<Token>) -> Function {
     }
 }
 
-pub fn hay_into_ir<P: AsRef<std::path::Path>>(input_path: P, output_path: P) {
+pub fn hay_into_ir<P: AsRef<std::path::Path>>(input_path: P) -> Program {
     let file = fs::read_to_string(input_path).unwrap();
 
     let mut lexer = LogosToken::lexer(file.as_str());
     let mut tokens: Vec<Token> = vec![];
     while let Some(tok) = lexer.next() {
-        tokens.push(Token::from((tok, lexer.slice())));
+        let tok = Token::from((tok, lexer.slice()));
+        match tok {
+            Token::Comment(_) => (),
+            _ => tokens.push(tok),
+        }
     }
     tokens.reverse();
 
@@ -197,6 +201,5 @@ pub fn hay_into_ir<P: AsRef<std::path::Path>>(input_path: P, output_path: P) {
         }
     }
 
-    let json = serde_json::to_string_pretty(&program).unwrap();
-    fs::write(output_path, json).unwrap();
+    program
 }

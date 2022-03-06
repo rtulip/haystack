@@ -1,3 +1,5 @@
 /target
 *.json
 Cargo.lock
+*.o
+*.asm

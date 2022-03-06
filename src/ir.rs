@@ -92,7 +92,7 @@ impl From<(LogosToken, &str)> for Token {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Op {
     PushInt(u64),
     PushBool(bool),
@@ -109,6 +109,10 @@ pub enum Op {
     NotEquals,
     Print,
     Word(String),
+    PushIdent(usize),
+    Call(String),
+    PrepareFunc(Function),
+    Return,
 }
 
 impl From<Token> for Op {
@@ -138,19 +142,19 @@ impl From<Token> for Op {
     }
 }
 
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct Type {
     pub name: String,
     pub ident: Option<String>,
 }
 
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct Signature {
     pub inputs: Vec<Type>,
     pub outputs: Vec<Type>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Function {
     pub name: String,
     pub gen: Vec<Type>,

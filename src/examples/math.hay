@@ -1,9 +1,13 @@
 
-//fn dup<T>(T: t) -> [T T] {
-//    t t 
-//}
+fn dup<T>(T: t) -> [T T] {
+    t t
+}
+
+fn swap<A B>(A: a B: b) -> [B A] {
+    b a
+}
 
 fn main() {
-    123 234 + print
-    4 2 - print
+    123 dup + print
+    1 2 swap print print
 }

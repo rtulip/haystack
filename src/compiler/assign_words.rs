@@ -13,11 +13,11 @@ pub fn assign_words(program: &mut Program) {
     for func in &mut program.functions {
         let mut scope: Vec<String> = vec![];
         if func.sig.inputs.iter().all(|typ| typ.ident.is_some()) {
-            for input in &func.sig.inputs {
+            func.sig.inputs.iter().rev().for_each(|input| {
                 if let Some(ident) = &input.ident {
                     scope.push(ident.clone())
                 }
-            }
+            })
         } else if !func.sig.inputs.iter().all(|typ| typ.ident.is_none()) {
             panic!("Compiler Error: All inputs must be named if any are.")
         }

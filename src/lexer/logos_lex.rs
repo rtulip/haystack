@@ -5,6 +5,8 @@ pub enum LogosToken {
     // Keywords
     #[token("fn")]
     FunctionKeyword,
+    #[token("var")]
+    VarKeyword,
 
     // Markers
     #[token("{")]

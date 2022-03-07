@@ -24,11 +24,16 @@ pub fn assign_words(program: &mut Program) {
 
         for op in &mut func.ops {
             match op {
+                Op::MakeIdent(s) => {
+                    scope.push(s.clone());
+                }
                 Op::Word(s) => {
                     if let Some(idx) = &scope.iter().position(|ident| ident == s) {
                         *op = Op::PushIdent(*idx);
                     } else if fn_names.contains(s) {
                         *op = Op::Call(s.clone());
+                    } else {
+                        panic!("Unrecognized word: {s}");
                     }
                 }
                 _ => (),

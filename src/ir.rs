@@ -38,6 +38,7 @@ pub enum Marker {
 #[derive(Debug, PartialEq)]
 pub enum Keyword {
     Function,
+    Var,
 }
 
 #[derive(Debug, PartialEq)]
@@ -55,6 +56,7 @@ impl From<(LogosToken, &str)> for Token {
         match pair {
             // Keywords
             (LogosToken::FunctionKeyword, _) => Token::Keyword(Keyword::Function),
+            (LogosToken::VarKeyword, _) => Token::Keyword(Keyword::Var),
             // Markers
             (LogosToken::OpenBrace, _) => Token::Marker(Marker::OpenBrace),
             (LogosToken::CloseBrace, _) => Token::Marker(Marker::CloseBrace),
@@ -109,6 +111,7 @@ pub enum Op {
     NotEquals,
     Print,
     Word(String),
+    MakeIdent(String),
     PushIdent(usize),
     Call(String),
     PrepareFunc(Function),
@@ -132,7 +135,10 @@ impl From<Token> for Op {
             Token::Operator(Operator::Equals) => Op::Equals,
             Token::Operator(Operator::NotEquals) => Op::NotEquals,
             Token::Comment(c) => panic!("Cannot convert comment to op: {:?}", c),
-            Token::Keyword(kw) => panic!("Cannot convert keyword to op: {:?}", kw),
+            Token::Keyword(kw) => match kw {
+                Keyword::Function => panic!("Cannot convert function keyword into an op"),
+                Keyword::Var => todo!("Var keyword isn't implemented yet"),
+            },
             Token::Marker(m) => panic!("Cannot convert marker to op: {:?}", m),
             Token::Word(word) => match word.as_str() {
                 "print" => Op::Print,

@@ -38,6 +38,10 @@ fn compile_op(op: &Op, mut file: &mut std::fs::File) {
             writeln!(file, "  call print").unwrap();
         }
         Op::Word(_) => todo!(),
+        Op::MakeIdent(_) => {
+            writeln!(file, "  pop  rax").unwrap();
+            frame_push_rax(&mut file);
+        }
         Op::PushIdent(idx) => {
             writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
             writeln!(file, "  mov  rax, [rax - {}]", (2 + idx) * 8).unwrap();

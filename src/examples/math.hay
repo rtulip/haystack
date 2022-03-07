@@ -8,6 +8,9 @@ fn swap<A B>(A: a B: b) -> [B A] {
 }
 
 fn main() {
-    123 dup + print
-    1 2 swap print print
+    1 2 var [one two]
+    one print
+    two print
+    two print
+    one print
 }

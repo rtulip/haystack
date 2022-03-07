@@ -128,15 +128,62 @@ fn parse_signature_from_tokens(mut tokens: &mut Vec<Token>) -> Signature {
     Signature { inputs, outputs }
 }
 
+fn parse_word_list_from_tokens(tokens: &mut Vec<Token>) -> Vec<String> {
+    assert_eq!(
+        tokens.last(),
+        Some(&Token::Marker(Marker::OpenBracket)),
+        "Expected '[', but found {:?} instead",
+        tokens.last()
+    );
+    tokens.pop();
+
+    let mut words = vec![];
+
+    loop {
+        let maybe_tok = tokens.last();
+        match maybe_tok {
+            Some(Token::Marker(Marker::CloseBracket)) => {
+                tokens.pop();
+                break;
+            }
+            Some(Token::Word(s)) => {
+                words.push(s.clone());
+                tokens.pop();
+            }
+            t => panic!("Expected word or ']', but found {:?}", t),
+        }
+    }
+
+    words
+}
+
+fn parse_var_from_tokens(mut tokens: &mut Vec<Token>) -> Vec<Op> {
+    assert_eq!(tokens.last(), Some(&Token::Keyword(Keyword::Var)));
+    tokens.pop();
+
+    let idents = parse_word_list_from_tokens(&mut tokens);
+    assert!(
+        idents.len() > 0,
+        "Must provide at least one identifier in var block"
+    );
+    idents
+        .iter()
+        .rev()
+        .map(|ident| Op::MakeIdent(ident.clone()))
+        .collect()
+}
+
 fn parse_function_from_tokens(mut tokens: &mut Vec<Token>) -> Function {
-    match tokens.last() {
-        Some(Token::Keyword(Keyword::Function)) => (),
+    let maybe_tok = tokens.last();
+    match maybe_tok {
+        Some(Token::Keyword(Keyword::Function)) => {
+            tokens.pop();
+        }
         _ => panic!(
             "Expected keyword `fn` but found {:?} instead",
             tokens.last()
         ),
     }
-    tokens.pop();
     match tokens.last() {
         Some(Token::Word(_)) => (),
         t => panic!("Expected function name, but found {:?} instead", t),
@@ -158,13 +205,16 @@ fn parse_function_from_tokens(mut tokens: &mut Vec<Token>) -> Function {
     let mut ops: Vec<Op> = vec![];
 
     loop {
-        match tokens.last() {
+        let maybe_tok = tokens.last();
+        match maybe_tok {
             Some(Token::Marker(Marker::CloseBrace)) => break,
-            Some(_) => (),
+            Some(Token::Keyword(Keyword::Var)) => {
+                let mut idents = parse_var_from_tokens(&mut tokens);
+                ops.append(&mut idents);
+            }
+            Some(_) => ops.push(Op::from(tokens.pop().unwrap())),
             None => panic!("Expected `}}`, but found end of file instead."),
         }
-
-        ops.push(Op::from(tokens.pop().unwrap()))
     }
     tokens.pop();
 
@@ -197,7 +247,8 @@ pub fn hay_into_ir<P: AsRef<std::path::Path>>(input_path: P) -> Program {
             Some(Token::Keyword(Keyword::Function)) => program
                 .functions
                 .push(parse_function_from_tokens(&mut tokens)),
-            _ => break,
+            None => break,
+            _ => panic!("Unexpected Token: {:?}", maybe_tok),
         }
     }
 

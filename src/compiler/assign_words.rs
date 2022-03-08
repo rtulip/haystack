@@ -1,14 +1,8 @@
+use crate::compiler::program_meta;
 use crate::ir::{Op, Program};
-use std::collections::HashSet;
 
 pub fn assign_words(program: &mut Program) {
-    let mut fn_names: HashSet<String> = HashSet::new();
-
-    for func in &program.functions {
-        if !fn_names.insert(func.name.clone()) {
-            panic!("Compiler Error: Redefinition of `{}`", func.name)
-        }
-    }
+    let fn_names = program_meta(program);
 
     for func in &mut program.functions {
         let mut scope: Vec<String> = vec![];

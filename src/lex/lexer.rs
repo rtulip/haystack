@@ -374,11 +374,12 @@ fn parse_function_from_tokens(tokens: &mut Vec<Token>) -> Function {
             vec![],
         ),
     }
-    let name = match tokens.pop() {
+    let name_tok = tokens.pop();
+    let name = match name_tok {
         Some(Token {
-            kind: TokenKind::Word(s),
+            kind: TokenKind::Word(ref s),
             ..
-        }) => s,
+        }) => s.clone(),
         _ => unreachable!(),
     };
 
@@ -431,6 +432,7 @@ fn parse_function_from_tokens(tokens: &mut Vec<Token>) -> Function {
 
     Function {
         name,
+        token: name_tok.unwrap(),
         gen,
         sig,
         ops,

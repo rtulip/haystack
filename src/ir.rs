@@ -1,7 +1,7 @@
 use crate::lex::logos_lex::{last_loc, LogosToken};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Operator {
     Add,
     Sub,
@@ -15,14 +15,14 @@ pub enum Operator {
     NotEquals,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Literal {
     Int(u64),
     String(String),
     Bool(bool),
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Marker {
     OpenBrace,
     CloseBrace,
@@ -35,13 +35,13 @@ pub enum Marker {
     Arrow,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Keyword {
     Function,
     Var,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum TokenKind {
     Keyword(Keyword),
     Operator(Operator),
@@ -59,14 +59,14 @@ pub fn eof_tok() -> Token {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Loc {
     pub file: String,
     pub row: usize,
     pub col: usize,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Token {
     pub kind: TokenKind,
     pub loc: Loc,
@@ -81,6 +81,11 @@ impl std::fmt::Display for Loc {
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.kind)
+    }
+}
+impl std::fmt::Debug for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.loc, self)
     }
 }
 
@@ -236,10 +241,34 @@ impl From<Token> for Op {
     }
 }
 
-#[derive(Default, Debug, Serialize, Deserialize, Clone)]
+#[derive(Default, Serialize, Deserialize, Clone)]
 pub struct Type {
     pub name: String,
     pub ident: Option<String>,
+}
+impl Type {
+    pub fn u64_t() -> Type {
+        Type {
+            name: String::from("u64"),
+            ident: None,
+        }
+    }
+
+    pub fn bool_t() -> Type {
+        Type {
+            name: String::from("bool"),
+            ident: None,
+        }
+    }
+}
+
+impl std::fmt::Debug for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.ident {
+            Some(ref s) => write!(f, "{}: {}", self.name, s),
+            None => write!(f, "{}", self.name),
+        }
+    }
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone)]
@@ -251,6 +280,7 @@ pub struct Signature {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Function {
     pub name: String,
+    pub token: Token,
     pub gen: Vec<Type>,
     pub sig: Signature,
     pub ops: Vec<Op>,

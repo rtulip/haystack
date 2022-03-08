@@ -1,4 +1,4 @@
-use crate::ir::{Op, Program};
+use crate::ir::{Op, OpKind, Program};
 use std::io::prelude::*;
 
 fn frame_push_rax(file: &mut std::fs::File) {
@@ -9,52 +9,52 @@ fn frame_push_rax(file: &mut std::fs::File) {
 
 fn compile_op(op: &Op, file: &mut std::fs::File) {
     writeln!(file, "; -- {:?}", op).unwrap();
-    match op {
-        Op::PushInt(x) => writeln!(file, "  push {x}").unwrap(),
-        Op::PushBool(_b) => todo!(),
-        Op::PushString(_s) => todo!(),
-        Op::Add => {
+    match &op.kind {
+        OpKind::PushInt(x) => writeln!(file, "  push {x}").unwrap(),
+        OpKind::PushBool(_b) => todo!(),
+        OpKind::PushString(_s) => todo!(),
+        OpKind::Add => {
             writeln!(file, "  pop  rbx").unwrap();
             writeln!(file, "  pop  rax").unwrap();
             writeln!(file, "  add  rax, rbx").unwrap();
             writeln!(file, "  push rax").unwrap();
         }
-        Op::Sub => {
+        OpKind::Sub => {
             writeln!(file, "  pop  rbx").unwrap();
             writeln!(file, "  pop  rax").unwrap();
             writeln!(file, "  sub  rax, rbx").unwrap();
             writeln!(file, "  push rax").unwrap();
         }
-        Op::Mul => todo!(),
-        Op::Div => todo!(),
-        Op::LessThan => todo!(),
-        Op::LessEqual => todo!(),
-        Op::GreaterThan => todo!(),
-        Op::GreaterEqual => todo!(),
-        Op::Equals => todo!(),
-        Op::NotEquals => todo!(),
-        Op::Print => {
+        OpKind::Mul => todo!(),
+        OpKind::Div => todo!(),
+        OpKind::LessThan => todo!(),
+        OpKind::LessEqual => todo!(),
+        OpKind::GreaterThan => todo!(),
+        OpKind::GreaterEqual => todo!(),
+        OpKind::Equals => todo!(),
+        OpKind::NotEquals => todo!(),
+        OpKind::Print => {
             writeln!(file, "  pop  rdi").unwrap();
             writeln!(file, "  call print").unwrap();
         }
-        Op::Word(_) => todo!(),
-        Op::MakeIdent(_) => {
+        OpKind::Word(_) => todo!(),
+        OpKind::MakeIdent(_) => {
             writeln!(file, "  pop  rax").unwrap();
             frame_push_rax(file);
         }
-        Op::PushIdent(idx) => {
+        OpKind::PushIdent(idx) => {
             writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
             writeln!(file, "  mov  rax, [rax - {}]", (2 + idx) * 8).unwrap();
             writeln!(file, "  push rax").unwrap();
         }
-        Op::Call(name) => {
+        OpKind::Call(name) => {
             writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
             frame_push_rax(file);
             writeln!(file, "  mov  rax, [frame_end_ptr]").unwrap();
             writeln!(file, "  mov  qword [frame_start_ptr], rax").unwrap();
             writeln!(file, "  call {name}").unwrap();
         }
-        Op::PrepareFunc(f) => {
+        OpKind::PrepareFunc(f) => {
             writeln!(file, "{}:", f.name).unwrap();
             writeln!(file, "  pop  rax").unwrap();
             frame_push_rax(file);
@@ -65,7 +65,7 @@ fn compile_op(op: &Op, file: &mut std::fs::File) {
                 }
             })
         }
-        Op::Return => {
+        OpKind::Return => {
             writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
             writeln!(file, "  push qword [rax-8]").unwrap();
             writeln!(file, "  mov  [frame_end_ptr], rax").unwrap();
@@ -74,6 +74,7 @@ fn compile_op(op: &Op, file: &mut std::fs::File) {
             writeln!(file, "  mov  qword [frame_start_ptr], rax").unwrap();
             writeln!(file, "  ret").unwrap();
         }
+        OpKind::Default => panic!("Unexpected Default Operation"),
     }
 }
 
@@ -123,7 +124,13 @@ fn nasm_close(file: &mut std::fs::File) {
     writeln!(file, "_start: ").unwrap();
     writeln!(file, "  mov  qword [frame_start_ptr], frame_stack_end").unwrap();
     writeln!(file, "  mov  qword [frame_end_ptr], frame_stack_end").unwrap();
-    compile_op(&Op::Call("main".to_string()), file);
+    compile_op(
+        &Op {
+            kind: OpKind::Call("main".to_string()),
+            ..Default::default()
+        },
+        file,
+    );
     writeln!(file, "exit:").unwrap();
     writeln!(file, "  mov  rax, 60").unwrap();
     writeln!(file, "  mov  rdi, 0").unwrap();
@@ -139,11 +146,23 @@ pub fn compile_program<P: AsRef<std::path::Path>>(program: Program, out_path: P)
     let mut file = std::fs::File::create(out_path).unwrap();
     nasm_prelude(&mut file);
     for func in &program.functions {
-        compile_op(&Op::PrepareFunc((*func).clone()), &mut file);
+        compile_op(
+            &Op {
+                kind: OpKind::PrepareFunc((*func).clone()),
+                ..Default::default()
+            },
+            &mut file,
+        );
         for op in &func.ops {
             compile_op(op, &mut file);
         }
-        compile_op(&Op::Return, &mut file);
+        compile_op(
+            &Op {
+                kind: OpKind::Return,
+                ..Default::default()
+            },
+            &mut file,
+        );
     }
     nasm_close(&mut file);
 }

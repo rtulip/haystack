@@ -1,11 +1,18 @@
-use crate::ir::{Function, Op, Program, Signature, Type};
+use crate::compiler::compiler_error;
+use crate::ir::{Function, Op, OpKind, Program, Signature, Type};
 
-fn evaluate_signature(signature: Signature, stack: &mut Vec<Type>) {
+fn evaluate_signature(op: &Op, signature: Signature, stack: &mut Vec<Type>) {
     let tail: Vec<&Type> = stack.iter().rev().take(signature.inputs.len()).collect();
-    signature.inputs.iter().zip(tail).for_each(|(input, typ)| {
+    signature.inputs.iter().zip(&tail).for_each(|(input, typ)| {
         if input.name != typ.name {
-            panic!("Compiler error isn't implemented yet for type checking...");
-            // compiler_error()
+            compiler_error(
+                &op.token,
+                format!("Type Error -- Invalid inputs for `{:?}`", op.kind).as_str(),
+                vec![
+                    format!("Expected: {:?}", signature.inputs).as_str(),
+                    format!("Found:    {:?}", tail).as_str(),
+                ],
+            )
         }
     });
 
@@ -16,43 +23,136 @@ fn evaluate_signature(signature: Signature, stack: &mut Vec<Type>) {
 }
 
 fn type_check_op(op: &Op, stack: &mut Vec<Type>, frame: &mut Vec<Type>, _program: &Program) {
-    match op {
-        Op::PushIdent(n) => evaluate_signature(
+    match &op.kind {
+        OpKind::Add => evaluate_signature(
+            op,
+            Signature {
+                inputs: vec![Type::u64_t(), Type::u64_t()],
+                outputs: vec![Type::u64_t()],
+            },
+            stack,
+        ),
+        OpKind::Sub => evaluate_signature(
+            op,
+            Signature {
+                inputs: vec![Type::u64_t(), Type::u64_t()],
+                outputs: vec![Type::u64_t()],
+            },
+            stack,
+        ),
+        OpKind::Mul => evaluate_signature(
+            op,
+            Signature {
+                inputs: vec![Type::u64_t(), Type::u64_t()],
+                outputs: vec![Type::u64_t()],
+            },
+            stack,
+        ),
+        OpKind::Div => evaluate_signature(
+            op,
+            Signature {
+                inputs: vec![Type::u64_t(), Type::u64_t()],
+                outputs: vec![Type::u64_t()],
+            },
+            stack,
+        ),
+        OpKind::LessThan => evaluate_signature(
+            op,
+            Signature {
+                inputs: vec![Type::u64_t(), Type::u64_t()],
+                outputs: vec![Type::bool_t()],
+            },
+            stack,
+        ),
+        OpKind::LessEqual => evaluate_signature(
+            op,
+            Signature {
+                inputs: vec![Type::u64_t(), Type::u64_t()],
+                outputs: vec![Type::bool_t()],
+            },
+            stack,
+        ),
+        OpKind::GreaterThan => evaluate_signature(
+            op,
+            Signature {
+                inputs: vec![Type::u64_t(), Type::u64_t()],
+                outputs: vec![Type::bool_t()],
+            },
+            stack,
+        ),
+        OpKind::GreaterEqual => evaluate_signature(
+            op,
+            Signature {
+                inputs: vec![Type::u64_t(), Type::u64_t()],
+                outputs: vec![Type::bool_t()],
+            },
+            stack,
+        ),
+        OpKind::Equals => evaluate_signature(
+            op,
+            Signature {
+                inputs: vec![Type::u64_t(), Type::u64_t()],
+                outputs: vec![Type::bool_t()],
+            },
+            stack,
+        ),
+        OpKind::NotEquals => evaluate_signature(
+            op,
+            Signature {
+                inputs: vec![Type::u64_t(), Type::u64_t()],
+                outputs: vec![Type::bool_t()],
+            },
+            stack,
+        ),
+        OpKind::PushIdent(n) => evaluate_signature(
+            op,
             Signature {
                 inputs: vec![],
                 outputs: vec![frame[*n].clone()],
             },
             stack,
         ),
-        Op::PushInt(_) => evaluate_signature(
+        OpKind::PushString(_) => todo!(),
+        OpKind::PushInt(_) => evaluate_signature(
+            op,
             Signature {
                 inputs: vec![],
                 outputs: vec![Type::u64_t()],
             },
             stack,
         ),
-        Op::PushBool(_) => evaluate_signature(
+        OpKind::PushBool(_) => evaluate_signature(
+            op,
             Signature {
                 inputs: vec![],
                 outputs: vec![Type::bool_t()],
             },
             stack,
         ),
-        Op::MakeIdent(_) => {
+        OpKind::MakeIdent(_) => {
             if let Some(typ) = stack.pop() {
                 frame.push(typ);
             } else {
-                panic!("Compiler Errors aren't supported for type checking yet...");
+                compiler_error(
+                    &op.token,
+                    "Type Error - Creating a `var` requires at least one element on the stack.",
+                    vec![format!("Stack: {:?}", stack).as_str()],
+                )
             }
         }
-        Op::Print => evaluate_signature(
+        OpKind::Print => evaluate_signature(
+            op,
             Signature {
                 inputs: vec![Type::u64_t()],
                 outputs: vec![],
             },
             stack,
         ),
-        o => println!("Type Checking {:?} isn't implemented yet...", o),
+        OpKind::Return => *frame = Vec::<Type>::new(),
+        OpKind::Call(_func) => todo!("Type Checking calls isn't implemented yet"),
+        OpKind::Word(_) => unreachable!("Shouldn't have any words left to type check"),
+        OpKind::PrepareFunc(_) => unreachable!("PrepareFunction shouldn't be type checked."),
+        OpKind::Default => unreachable!("Default op shouldn't be compiled"),
     }
 }
 
@@ -79,8 +179,9 @@ fn type_check_function(func: &Function, program: &Program) {
 }
 
 pub fn type_check_program(program: &Program) {
-    program
-        .functions
-        .iter()
-        .for_each(|func| type_check_function(&func, &program))
+    program.functions.iter().for_each(|func| {
+        if func.gen.len() == 0 {
+            type_check_function(&func, &program)
+        }
+    })
 }

@@ -52,6 +52,12 @@ pub enum TokenKind {
     EndOfFile,
 }
 
+impl std::default::Default for TokenKind {
+    fn default() -> Self {
+        TokenKind::Comment(String::from("Default"))
+    }
+}
+
 pub fn eof_tok() -> Token {
     Token {
         kind: TokenKind::EndOfFile,
@@ -59,14 +65,14 @@ pub fn eof_tok() -> Token {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Loc {
     pub file: String,
     pub row: usize,
     pub col: usize,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Default)]
 pub struct Token {
     pub kind: TokenKind,
     pub loc: Loc,
@@ -133,7 +139,7 @@ impl From<(LogosToken, &str)> for TokenKind {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum Op {
+pub enum OpKind {
     PushInt(u64),
     PushBool(bool),
     PushString(String),
@@ -154,89 +160,93 @@ pub enum Op {
     Call(String),
     PrepareFunc(Function),
     Return,
+    Default,
+}
+
+impl Default for OpKind {
+    fn default() -> Self {
+        OpKind::Default
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct Op {
+    pub kind: OpKind,
+    pub token: Token,
 }
 
 impl From<Token> for Op {
     fn from(token: Token) -> Op {
-        match token {
-            Token {
-                kind: TokenKind::Literal(Literal::Int(x)),
-                ..
-            } => Op::PushInt(x),
-            Token {
-                kind: TokenKind::Literal(Literal::Bool(b)),
-                ..
-            } => Op::PushBool(b),
-            Token {
-                kind: TokenKind::Literal(Literal::String(s)),
-                ..
-            } => Op::PushString(s),
-            Token {
-                kind: TokenKind::Operator(Operator::Add),
-                ..
-            } => Op::Add,
-            Token {
-                kind: TokenKind::Operator(Operator::Sub),
-                ..
-            } => Op::Sub,
-            Token {
-                kind: TokenKind::Operator(Operator::Mul),
-                ..
-            } => Op::Mul,
-            Token {
-                kind: TokenKind::Operator(Operator::Div),
-                ..
-            } => Op::Div,
-            Token {
-                kind: TokenKind::Operator(Operator::LessThan),
-                ..
-            } => Op::LessThan,
-            Token {
-                kind: TokenKind::Operator(Operator::LessEqual),
-                ..
-            } => Op::LessEqual,
-            Token {
-                kind: TokenKind::Operator(Operator::GreaterThan),
-                ..
-            } => Op::GreaterThan,
-            Token {
-                kind: TokenKind::Operator(Operator::GreaterEqual),
-                ..
-            } => Op::GreaterEqual,
-            Token {
-                kind: TokenKind::Operator(Operator::Equals),
-                ..
-            } => Op::Equals,
-            Token {
-                kind: TokenKind::Operator(Operator::NotEquals),
-                ..
-            } => Op::NotEquals,
-            Token {
-                kind: TokenKind::Comment(c),
-                ..
-            } => panic!("Cannot convert comment to op: {:?}", c),
-            Token {
-                kind: TokenKind::Keyword(kw),
-                ..
-            } => match kw {
+        match &token.kind {
+            TokenKind::Literal(Literal::Int(x)) => Op {
+                kind: OpKind::PushInt(*x),
+                token,
+            },
+            TokenKind::Literal(Literal::Bool(b)) => Op {
+                kind: OpKind::PushBool(*b),
+                token,
+            },
+            TokenKind::Literal(Literal::String(s)) => Op {
+                kind: OpKind::PushString(s.clone()),
+                token,
+            },
+            TokenKind::Operator(Operator::Add) => Op {
+                kind: OpKind::Add,
+                token,
+            },
+            TokenKind::Operator(Operator::Sub) => Op {
+                kind: OpKind::Sub,
+                token,
+            },
+            TokenKind::Operator(Operator::Mul) => Op {
+                kind: OpKind::Mul,
+                token,
+            },
+            TokenKind::Operator(Operator::Div) => Op {
+                kind: OpKind::Div,
+                token,
+            },
+            TokenKind::Operator(Operator::LessThan) => Op {
+                kind: OpKind::LessThan,
+                token,
+            },
+            TokenKind::Operator(Operator::LessEqual) => Op {
+                kind: OpKind::LessEqual,
+                token,
+            },
+            TokenKind::Operator(Operator::GreaterThan) => Op {
+                kind: OpKind::GreaterThan,
+                token,
+            },
+            TokenKind::Operator(Operator::GreaterEqual) => Op {
+                kind: OpKind::GreaterEqual,
+                token,
+            },
+            TokenKind::Operator(Operator::Equals) => Op {
+                kind: OpKind::Equals,
+                token,
+            },
+            TokenKind::Operator(Operator::NotEquals) => Op {
+                kind: OpKind::NotEquals,
+                token,
+            },
+            TokenKind::Comment(c) => panic!("Cannot convert comment to op: {:?}", c),
+            TokenKind::Keyword(kw) => match kw {
                 Keyword::Function => panic!("Cannot convert function keyword into an op"),
                 Keyword::Var => todo!("Var keyword isn't implemented yet"),
             },
-            Token {
-                kind: TokenKind::Marker(m),
-                ..
-            } => panic!("Cannot convert marker to op: {:?}", m),
-            Token {
-                kind: TokenKind::Word(word),
-                ..
-            } => match word.as_str() {
-                "print" => Op::Print,
-                _ => Op::Word(word),
+            TokenKind::Marker(m) => panic!("Cannot convert marker to op: {:?}", m),
+            TokenKind::Word(word) => match word.as_str() {
+                "print" => Op {
+                    kind: OpKind::Print,
+                    token,
+                },
+                _ => Op {
+                    kind: OpKind::Word(word.clone()),
+                    token,
+                },
             },
-            Token {
-                kind: TokenKind::EndOfFile,
-                ..
-            } => panic!("Cannot convert end of file into an op!"),
+            TokenKind::EndOfFile => panic!("Cannot convert end of file into an op!"),
         }
     }
 }

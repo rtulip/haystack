@@ -1,5 +1,5 @@
 use crate::compiler::program_meta;
-use crate::ir::{Op, Program};
+use crate::ir::{OpKind, Program};
 
 pub fn assign_words(program: &mut Program) {
     let fn_names = program_meta(program);
@@ -17,15 +17,15 @@ pub fn assign_words(program: &mut Program) {
         }
 
         for op in &mut func.ops {
-            match op {
-                Op::MakeIdent(s) => {
+            match &mut op.kind {
+                OpKind::MakeIdent(s) => {
                     scope.push(s.clone());
                 }
-                Op::Word(s) => {
+                OpKind::Word(s) => {
                     if let Some(idx) = &scope.iter().position(|ident| ident == s) {
-                        *op = Op::PushIdent(*idx);
+                        op.kind = OpKind::PushIdent(*idx);
                     } else if fn_names.contains(s) {
-                        *op = Op::Call(s.clone());
+                        op.kind = OpKind::Call(s.clone());
                     } else {
                         panic!("Unrecognized word: {s}");
                     }

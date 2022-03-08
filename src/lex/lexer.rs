@@ -1,6 +1,7 @@
 use crate::compiler::compiler_error;
 use crate::ir::{
-    eof_tok, Function, Keyword, Marker, Op, Operator, Program, Signature, Token, TokenKind, Type,
+    eof_tok, Function, Keyword, Marker, Op, OpKind, Operator, Program, Signature, Token, TokenKind,
+    Type,
 };
 use crate::lex::logos_lex::{into_token, LogosToken};
 use logos::Logos;
@@ -243,7 +244,7 @@ fn parse_signature_from_tokens(tokens: &mut Vec<Token>) -> Signature {
     Signature { inputs, outputs }
 }
 
-fn parse_word_list_from_tokens(tokens: &mut Vec<Token>) -> (Token, Vec<String>) {
+fn parse_word_list_from_tokens(tokens: &mut Vec<Token>) -> (Token, Vec<(Token, String)>) {
     let maybe_tok = tokens.last();
     let open_bracket_tok = match maybe_tok {
         Some(Token {
@@ -282,7 +283,7 @@ fn parse_word_list_from_tokens(tokens: &mut Vec<Token>) -> (Token, Vec<String>) 
                 kind: TokenKind::Word(s),
                 ..
             }) => {
-                words.push(s.clone());
+                words.push((maybe_tok.unwrap().clone(), s.clone()));
                 tokens.pop();
             }
             Some(tok) => compiler_error(
@@ -321,7 +322,6 @@ fn parse_var_from_tokens(tokens: &mut Vec<Token>) -> Vec<Op> {
             vec![],
         ),
     }
-    // tokens.pop().unwrap();
 
     let (tok, idents) = parse_word_list_from_tokens(tokens);
     if idents.is_empty() {
@@ -334,7 +334,10 @@ fn parse_var_from_tokens(tokens: &mut Vec<Token>) -> Vec<Op> {
     idents
         .iter()
         .rev()
-        .map(|ident| Op::MakeIdent(ident.clone()))
+        .map(|(token, ident)| Op {
+            kind: OpKind::MakeIdent(ident.clone()),
+            token: token.clone(),
+        })
         .collect()
 }
 

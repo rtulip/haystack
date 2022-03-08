@@ -1,7 +1,7 @@
-use crate::lexer::logos_lex::LogosToken;
+use crate::lex::logos_lex::{last_loc, LogosToken};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Operator {
     Add,
     Sub,
@@ -15,14 +15,14 @@ pub enum Operator {
     NotEquals,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Literal {
     Int(u64),
     String(String),
     Bool(bool),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Marker {
     OpenBrace,
     CloseBrace,
@@ -35,59 +35,92 @@ pub enum Marker {
     Arrow,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Keyword {
     Function,
     Var,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum Token {
+#[derive(Debug, PartialEq, Clone)]
+pub enum TokenKind {
     Keyword(Keyword),
     Operator(Operator),
     Literal(Literal),
     Marker(Marker),
     Word(String),
     Comment(String),
+    EndOfFile,
 }
 
-impl From<(LogosToken, &str)> for Token {
+pub fn eof_tok() -> Token {
+    Token {
+        kind: TokenKind::EndOfFile,
+        loc: unsafe { last_loc() },
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Loc {
+    pub file: String,
+    pub row: usize,
+    pub col: usize,
+}
+
+#[derive(Clone)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub loc: Loc,
+}
+
+impl std::fmt::Display for Loc {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}:{}", self.file, self.row, self.col)
+    }
+}
+
+impl std::fmt::Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.kind)
+    }
+}
+
+impl From<(LogosToken, &str)> for TokenKind {
     fn from(pair: (LogosToken, &str)) -> Self {
         match pair {
             // Keywords
-            (LogosToken::FunctionKeyword, _) => Token::Keyword(Keyword::Function),
-            (LogosToken::VarKeyword, _) => Token::Keyword(Keyword::Var),
+            (LogosToken::FunctionKeyword, _) => TokenKind::Keyword(Keyword::Function),
+            (LogosToken::VarKeyword, _) => TokenKind::Keyword(Keyword::Var),
             // Markers
-            (LogosToken::OpenBrace, _) => Token::Marker(Marker::OpenBrace),
-            (LogosToken::CloseBrace, _) => Token::Marker(Marker::CloseBrace),
-            (LogosToken::OpenBracket, _) => Token::Marker(Marker::OpenBracket),
-            (LogosToken::CloseBracket, _) => Token::Marker(Marker::CloseBracket),
-            (LogosToken::OpenParen, _) => Token::Marker(Marker::OpenParen),
-            (LogosToken::CloseParen, _) => Token::Marker(Marker::CloseParen),
-            (LogosToken::Colon, _) => Token::Marker(Marker::Colon),
-            (LogosToken::DoubleColon, _) => Token::Marker(Marker::DoubleColon),
-            (LogosToken::Arrow, _) => Token::Marker(Marker::Arrow),
+            (LogosToken::OpenBrace, _) => TokenKind::Marker(Marker::OpenBrace),
+            (LogosToken::CloseBrace, _) => TokenKind::Marker(Marker::CloseBrace),
+            (LogosToken::OpenBracket, _) => TokenKind::Marker(Marker::OpenBracket),
+            (LogosToken::CloseBracket, _) => TokenKind::Marker(Marker::CloseBracket),
+            (LogosToken::OpenParen, _) => TokenKind::Marker(Marker::OpenParen),
+            (LogosToken::CloseParen, _) => TokenKind::Marker(Marker::CloseParen),
+            (LogosToken::Colon, _) => TokenKind::Marker(Marker::Colon),
+            (LogosToken::DoubleColon, _) => TokenKind::Marker(Marker::DoubleColon),
+            (LogosToken::Arrow, _) => TokenKind::Marker(Marker::Arrow),
             // Literals
-            (LogosToken::Int, s) => Token::Literal(Literal::Int(s.parse::<u64>().unwrap())),
+            (LogosToken::U64, s) => TokenKind::Literal(Literal::Int(s.parse::<u64>().unwrap())),
             (LogosToken::String, s) => {
-                Token::Literal(Literal::String(s[1..s.len() - 1].to_string()))
+                TokenKind::Literal(Literal::String(s[1..s.len() - 1].to_string()))
             }
-            (LogosToken::True, _) => Token::Literal(Literal::Bool(true)),
-            (LogosToken::False, _) => Token::Literal(Literal::Bool(false)),
+            (LogosToken::True, _) => TokenKind::Literal(Literal::Bool(true)),
+            (LogosToken::False, _) => TokenKind::Literal(Literal::Bool(false)),
             // Operators
-            (LogosToken::Add, _) => Token::Operator(Operator::Add),
-            (LogosToken::Sub, _) => Token::Operator(Operator::Sub),
-            (LogosToken::Mul, _) => Token::Operator(Operator::Mul),
-            (LogosToken::Div, _) => Token::Operator(Operator::Div),
-            (LogosToken::LessThan, _) => Token::Operator(Operator::LessThan),
-            (LogosToken::LessEqual, _) => Token::Operator(Operator::LessEqual),
-            (LogosToken::GreaterThan, _) => Token::Operator(Operator::GreaterThan),
-            (LogosToken::GreaterEqual, _) => Token::Operator(Operator::GreaterEqual),
-            (LogosToken::Equals, _) => Token::Operator(Operator::Equals),
-            (LogosToken::NotEquals, _) => Token::Operator(Operator::NotEquals),
+            (LogosToken::Add, _) => TokenKind::Operator(Operator::Add),
+            (LogosToken::Sub, _) => TokenKind::Operator(Operator::Sub),
+            (LogosToken::Mul, _) => TokenKind::Operator(Operator::Mul),
+            (LogosToken::Div, _) => TokenKind::Operator(Operator::Div),
+            (LogosToken::LessThan, _) => TokenKind::Operator(Operator::LessThan),
+            (LogosToken::LessEqual, _) => TokenKind::Operator(Operator::LessEqual),
+            (LogosToken::GreaterThan, _) => TokenKind::Operator(Operator::GreaterThan),
+            (LogosToken::GreaterEqual, _) => TokenKind::Operator(Operator::GreaterEqual),
+            (LogosToken::Equals, _) => TokenKind::Operator(Operator::Equals),
+            (LogosToken::NotEquals, _) => TokenKind::Operator(Operator::NotEquals),
             // Word
-            (LogosToken::Word, s) => Token::Word(s.to_string()),
-            (LogosToken::Comment, s) => Token::Comment(s.to_string()),
+            (LogosToken::Word, s) => TokenKind::Word(s.to_string()),
+            (LogosToken::Comment, s) => TokenKind::Comment(s.to_string()),
             // Error
             (LogosToken::Error, s) => panic!("Unrecognized Token: {s}"),
         }
@@ -121,29 +154,84 @@ pub enum Op {
 impl From<Token> for Op {
     fn from(token: Token) -> Op {
         match token {
-            Token::Literal(Literal::Int(x)) => Op::PushInt(x),
-            Token::Literal(Literal::Bool(b)) => Op::PushBool(b),
-            Token::Literal(Literal::String(s)) => Op::PushString(s),
-            Token::Operator(Operator::Add) => Op::Add,
-            Token::Operator(Operator::Sub) => Op::Sub,
-            Token::Operator(Operator::Mul) => Op::Mul,
-            Token::Operator(Operator::Div) => Op::Div,
-            Token::Operator(Operator::LessThan) => Op::LessThan,
-            Token::Operator(Operator::LessEqual) => Op::LessEqual,
-            Token::Operator(Operator::GreaterThan) => Op::GreaterThan,
-            Token::Operator(Operator::GreaterEqual) => Op::GreaterEqual,
-            Token::Operator(Operator::Equals) => Op::Equals,
-            Token::Operator(Operator::NotEquals) => Op::NotEquals,
-            Token::Comment(c) => panic!("Cannot convert comment to op: {:?}", c),
-            Token::Keyword(kw) => match kw {
+            Token {
+                kind: TokenKind::Literal(Literal::Int(x)),
+                ..
+            } => Op::PushInt(x),
+            Token {
+                kind: TokenKind::Literal(Literal::Bool(b)),
+                ..
+            } => Op::PushBool(b),
+            Token {
+                kind: TokenKind::Literal(Literal::String(s)),
+                ..
+            } => Op::PushString(s),
+            Token {
+                kind: TokenKind::Operator(Operator::Add),
+                ..
+            } => Op::Add,
+            Token {
+                kind: TokenKind::Operator(Operator::Sub),
+                ..
+            } => Op::Sub,
+            Token {
+                kind: TokenKind::Operator(Operator::Mul),
+                ..
+            } => Op::Mul,
+            Token {
+                kind: TokenKind::Operator(Operator::Div),
+                ..
+            } => Op::Div,
+            Token {
+                kind: TokenKind::Operator(Operator::LessThan),
+                ..
+            } => Op::LessThan,
+            Token {
+                kind: TokenKind::Operator(Operator::LessEqual),
+                ..
+            } => Op::LessEqual,
+            Token {
+                kind: TokenKind::Operator(Operator::GreaterThan),
+                ..
+            } => Op::GreaterThan,
+            Token {
+                kind: TokenKind::Operator(Operator::GreaterEqual),
+                ..
+            } => Op::GreaterEqual,
+            Token {
+                kind: TokenKind::Operator(Operator::Equals),
+                ..
+            } => Op::Equals,
+            Token {
+                kind: TokenKind::Operator(Operator::NotEquals),
+                ..
+            } => Op::NotEquals,
+            Token {
+                kind: TokenKind::Comment(c),
+                ..
+            } => panic!("Cannot convert comment to op: {:?}", c),
+            Token {
+                kind: TokenKind::Keyword(kw),
+                ..
+            } => match kw {
                 Keyword::Function => panic!("Cannot convert function keyword into an op"),
                 Keyword::Var => todo!("Var keyword isn't implemented yet"),
             },
-            Token::Marker(m) => panic!("Cannot convert marker to op: {:?}", m),
-            Token::Word(word) => match word.as_str() {
+            Token {
+                kind: TokenKind::Marker(m),
+                ..
+            } => panic!("Cannot convert marker to op: {:?}", m),
+            Token {
+                kind: TokenKind::Word(word),
+                ..
+            } => match word.as_str() {
                 "print" => Op::Print,
                 _ => Op::Word(word),
             },
+            Token {
+                kind: TokenKind::EndOfFile,
+                ..
+            } => panic!("Cannot convert end of file into an op!"),
         }
     }
 }

@@ -7,7 +7,7 @@ fn frame_push_rax(file: &mut std::fs::File) {
     writeln!(file, "  mov  [rbx], rax").unwrap();
 }
 
-fn compile_op(op: &Op, mut file: &mut std::fs::File) {
+fn compile_op(op: &Op, file: &mut std::fs::File) {
     writeln!(file, "; -- {:?}", op).unwrap();
     match op {
         Op::PushInt(x) => writeln!(file, "  push {x}").unwrap(),
@@ -40,7 +40,7 @@ fn compile_op(op: &Op, mut file: &mut std::fs::File) {
         Op::Word(_) => todo!(),
         Op::MakeIdent(_) => {
             writeln!(file, "  pop  rax").unwrap();
-            frame_push_rax(&mut file);
+            frame_push_rax(file);
         }
         Op::PushIdent(idx) => {
             writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
@@ -49,7 +49,7 @@ fn compile_op(op: &Op, mut file: &mut std::fs::File) {
         }
         Op::Call(name) => {
             writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
-            frame_push_rax(&mut file);
+            frame_push_rax(file);
             writeln!(file, "  mov  rax, [frame_end_ptr]").unwrap();
             writeln!(file, "  mov  qword [frame_start_ptr], rax").unwrap();
             writeln!(file, "  call {name}").unwrap();
@@ -57,11 +57,11 @@ fn compile_op(op: &Op, mut file: &mut std::fs::File) {
         Op::PrepareFunc(f) => {
             writeln!(file, "{}:", f.name).unwrap();
             writeln!(file, "  pop  rax").unwrap();
-            frame_push_rax(&mut file);
+            frame_push_rax(file);
             f.sig.inputs.iter().for_each(|typ| {
                 if typ.ident.is_some() {
                     writeln!(file, "  pop  rax").unwrap();
-                    frame_push_rax(&mut file);
+                    frame_push_rax(file);
                 }
             })
         }
@@ -118,12 +118,12 @@ print:
     .unwrap();
 }
 
-fn nasm_close(mut file: &mut std::fs::File) {
+fn nasm_close(file: &mut std::fs::File) {
     writeln!(file, "global _start").unwrap();
     writeln!(file, "_start: ").unwrap();
     writeln!(file, "  mov  qword [frame_start_ptr], frame_stack_end").unwrap();
     writeln!(file, "  mov  qword [frame_end_ptr], frame_stack_end").unwrap();
-    compile_op(&Op::Call("main".to_string()), &mut file);
+    compile_op(&Op::Call("main".to_string()), file);
     writeln!(file, "exit:").unwrap();
     writeln!(file, "  mov  rax, 60").unwrap();
     writeln!(file, "  mov  rdi, 0").unwrap();

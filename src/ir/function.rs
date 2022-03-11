@@ -19,7 +19,7 @@ pub struct Function {
 
 impl Function {
     pub fn is_generic(&self) -> bool {
-        self.gen.len() > 0
+        !self.gen.is_empty()
     }
 
     pub fn type_check(&mut self, fn_table: &FnTable) -> Option<Vec<Function>> {
@@ -27,7 +27,7 @@ impl Function {
             return None;
         }
         let mut new_fns: Vec<Function> = vec![];
-        let (mut stack, mut frame) = self.sig.into_stack();
+        let (mut stack, mut frame) = self.sig.create_stack_and_frame();
 
         self.ops.iter_mut().for_each(|op| {
             if let Some(f) = op.type_check(&mut stack, &mut frame, fn_table) {
@@ -37,14 +37,14 @@ impl Function {
 
         self.check_output(&stack);
 
-        if new_fns.len() > 0 {
-            return Some(new_fns);
+        if !new_fns.is_empty() {
+            Some(new_fns)
         } else {
             None
         }
     }
 
-    fn check_output(&self, stack: &Vec<Type>) {
+    fn check_output(&self, stack: &Stack) {
         if self.sig.outputs.len() != stack.len() {
             compiler_error(
                 &self.token,
@@ -78,10 +78,10 @@ impl Function {
         }
     }
 
-    pub fn into_concrete(&self, stack: &Stack) -> Self {
+    pub fn make_concrete(&self, stack: &Stack) -> Self {
         let mut generic_map: HashMap<String, Option<Type>> = HashMap::new();
         self.gen.iter().for_each(|t| {
-            if let Some(_) = generic_map.insert(t.name.clone(), None) {
+            if generic_map.insert(t.name.clone(), None).is_some() {
                 compiler_error(
                     &self.token,
                     "Cannot use the same identifier multiple times in function generic list",

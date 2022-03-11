@@ -232,7 +232,7 @@ impl Op {
                     .expect("Function names should be recognizable at this point...");
 
                 if f.is_generic() {
-                    let new_fn = f.into_concrete(stack);
+                    let new_fn = f.make_concrete(stack);
                     evaluate_signature(self, &new_fn.sig, stack);
                     Some((OpKind::Call(new_fn.name.clone()), new_fn))
                 } else {

@@ -41,7 +41,7 @@ impl Program {
                 }
             });
 
-            if new_fns.len() == 0 {
+            if new_fns.is_empty() {
                 break;
             } else {
                 new_fns.iter().for_each(|f| {

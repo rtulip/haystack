@@ -44,7 +44,7 @@ pub struct Signature {
 }
 
 impl Signature {
-    pub fn into_stack(&self) -> (Stack, Frame) {
+    pub fn create_stack_and_frame(&self) -> (Stack, Frame) {
         let mut stack: Stack = vec![];
         let mut frame: Frame = vec![];
         if self.inputs.iter().any(|i| i.ident.is_some()) {

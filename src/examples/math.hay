@@ -1,16 +1,10 @@
 
-fn dup<T>(T: t) -> [T T] {
-    t t
-}
+fn drop<T>(T: t) {}
 
 fn swap<A B>(A: a B: b) -> [B A] {
     b a
 }
 
 fn main() {
-    1 2 var [one two]
-    one print
-    two print
-    two print
-    one print
+    1234 true swap print drop
 }

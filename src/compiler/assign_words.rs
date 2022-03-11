@@ -1,8 +1,8 @@
 use crate::compiler::program_meta;
-use crate::ir::{OpKind, Program};
+use crate::ir::{op::OpKind, Program};
 
 pub fn assign_words(program: &mut Program) {
-    let fn_names = program_meta(program);
+    let fn_names = program_meta(&program);
 
     for func in &mut program.functions {
         let mut scope: Vec<String> = vec![];
@@ -24,7 +24,7 @@ pub fn assign_words(program: &mut Program) {
                 OpKind::Word(s) => {
                     if let Some(idx) = &scope.iter().position(|ident| ident == s) {
                         op.kind = OpKind::PushIdent(*idx);
-                    } else if fn_names.contains(s) {
+                    } else if let Some(_) = fn_names.get(s) {
                         op.kind = OpKind::Call(s.clone());
                     } else {
                         panic!("Unrecognized word: {s}");

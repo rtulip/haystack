@@ -1,4 +1,4 @@
-use crate::ir::{Loc, Token, TokenKind};
+use crate::ir::token::{Loc, Token, TokenKind};
 use logos::{Lexer, Logos};
 
 static mut LOC: Loc = Loc {

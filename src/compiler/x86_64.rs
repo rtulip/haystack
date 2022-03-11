@@ -1,4 +1,7 @@
-use crate::ir::{Op, OpKind, Program};
+use crate::ir::{
+    op::{Op, OpKind},
+    Program,
+};
 use std::io::prelude::*;
 
 fn frame_push_rax(file: &mut std::fs::File) {
@@ -11,7 +14,13 @@ fn compile_op(op: &Op, file: &mut std::fs::File) {
     writeln!(file, "; -- {:?}", op).unwrap();
     match &op.kind {
         OpKind::PushInt(x) => writeln!(file, "  push {x}").unwrap(),
-        OpKind::PushBool(_b) => todo!(),
+        OpKind::PushBool(b) => {
+            if *b {
+                writeln!(file, "  push 1").unwrap()
+            } else {
+                writeln!(file, "  push 0").unwrap()
+            }
+        }
         OpKind::PushString(_s) => todo!(),
         OpKind::Add => {
             writeln!(file, "  pop  rbx").unwrap();
@@ -145,17 +154,20 @@ fn nasm_close(file: &mut std::fs::File) {
 pub fn compile_program<P: AsRef<std::path::Path>>(program: Program, out_path: P) {
     let mut file = std::fs::File::create(out_path).unwrap();
     nasm_prelude(&mut file);
-    for func in &program.functions {
+    program.functions.iter().for_each(|f| {
+        if f.is_generic() {
+            return;
+        }
+
         compile_op(
             &Op {
-                kind: OpKind::PrepareFunc((*func).clone()),
+                kind: OpKind::PrepareFunc(f.clone()),
                 ..Default::default()
             },
             &mut file,
         );
-        for op in &func.ops {
-            compile_op(op, &mut file);
-        }
+
+        f.ops.iter().for_each(|op| compile_op(op, &mut file));
         compile_op(
             &Op {
                 kind: OpKind::Return,
@@ -163,6 +175,6 @@ pub fn compile_program<P: AsRef<std::path::Path>>(program: Program, out_path: P)
             },
             &mut file,
         );
-    }
+    });
     nasm_close(&mut file);
 }

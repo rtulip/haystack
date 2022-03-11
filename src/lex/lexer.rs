@@ -1,7 +1,13 @@
 use crate::compiler::compiler_error;
 use crate::ir::{
-    eof_tok, Function, Keyword, Marker, Op, OpKind, Operator, Program, Signature, Token, TokenKind,
-    Type,
+    function::Function,
+    keyword::Keyword,
+    marker::Marker,
+    op::{Op, OpKind},
+    operator::Operator,
+    token::{eof_tok, Token, TokenKind},
+    types::{Signature, Type},
+    Program,
 };
 use crate::lex::logos_lex::{into_token, LogosToken};
 use logos::Logos;

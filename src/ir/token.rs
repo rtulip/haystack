@@ -62,6 +62,8 @@ impl From<(LogosToken, &str)> for TokenKind {
             // Keywords
             (LogosToken::FunctionKeyword, _) => TokenKind::Keyword(Keyword::Function),
             (LogosToken::VarKeyword, _) => TokenKind::Keyword(Keyword::Var),
+            (LogosToken::IfKeyword, _) => TokenKind::Keyword(Keyword::If),
+            (LogosToken::ElseKeyword, _) => TokenKind::Keyword(Keyword::Else),
             // Markers
             (LogosToken::OpenBrace, _) => TokenKind::Marker(Marker::OpenBrace),
             (LogosToken::CloseBrace, _) => TokenKind::Marker(Marker::CloseBrace),

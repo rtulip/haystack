@@ -10,8 +10,12 @@ fn frame_push_rax(file: &mut std::fs::File) {
     writeln!(file, "  mov  [rbx], rax").unwrap();
 }
 
+fn frame_pop_n(file: &mut std::fs::File, n: &usize) {
+    writeln!(file, "  add qword [frame_end_ptr], {}", 8 * n).unwrap();
+}
+
 fn compile_op(op: &Op, file: &mut std::fs::File) {
-    writeln!(file, "; -- {:?}", op).unwrap();
+    writeln!(file, "  ; -- {:?}", op).unwrap();
     match &op.kind {
         OpKind::PushInt(x) => writeln!(file, "  push {x}").unwrap(),
         OpKind::PushBool(b) => {
@@ -36,11 +40,51 @@ fn compile_op(op: &Op, file: &mut std::fs::File) {
         }
         OpKind::Mul => todo!(),
         OpKind::Div => todo!(),
-        OpKind::LessThan => todo!(),
-        OpKind::LessEqual => todo!(),
-        OpKind::GreaterThan => todo!(),
-        OpKind::GreaterEqual => todo!(),
-        OpKind::Equals => todo!(),
+        OpKind::LessThan => {
+            writeln!(file, "  mov  rcx, 0").unwrap();
+            writeln!(file, "  mov  rdx, 1").unwrap();
+            writeln!(file, "  pop  rbx").unwrap();
+            writeln!(file, "  pop  rax").unwrap();
+            writeln!(file, "  cmp  rax, rbx").unwrap();
+            writeln!(file, "  cmovl rcx, rdx").unwrap();
+            writeln!(file, "  push rcx").unwrap();
+        }
+        OpKind::LessEqual => {
+            writeln!(file, "  mov  rcx, 0").unwrap();
+            writeln!(file, "  mov  rdx, 1").unwrap();
+            writeln!(file, "  pop  rbx").unwrap();
+            writeln!(file, "  pop  rax").unwrap();
+            writeln!(file, "  cmp  rax, rbx").unwrap();
+            writeln!(file, "  cmovle rcx, rdx").unwrap();
+            writeln!(file, "  push rcx").unwrap();
+        }
+        OpKind::GreaterThan => {
+            writeln!(file, "  mov  rcx, 0").unwrap();
+            writeln!(file, "  mov  rdx, 1").unwrap();
+            writeln!(file, "  pop  rbx").unwrap();
+            writeln!(file, "  pop  rax").unwrap();
+            writeln!(file, "  cmp  rax, rbx").unwrap();
+            writeln!(file, "  cmovg rcx, rdx").unwrap();
+            writeln!(file, "  push rcx").unwrap();
+        }
+        OpKind::GreaterEqual => {
+            writeln!(file, "  mov  rcx, 0").unwrap();
+            writeln!(file, "  mov  rdx, 1").unwrap();
+            writeln!(file, "  pop  rbx").unwrap();
+            writeln!(file, "  pop  rax").unwrap();
+            writeln!(file, "  cmp  rax, rbx").unwrap();
+            writeln!(file, "  cmovge rcx, rdx").unwrap();
+            writeln!(file, "  push rcx").unwrap();
+        }
+        OpKind::Equals => {
+            writeln!(file, "  mov  rcx, 0").unwrap();
+            writeln!(file, "  mov  rdx, 1").unwrap();
+            writeln!(file, "  pop  rbx").unwrap();
+            writeln!(file, "  pop  rax").unwrap();
+            writeln!(file, "  cmp  rax, rbx").unwrap();
+            writeln!(file, "  cmove rcx, rdx").unwrap();
+            writeln!(file, "  push rcx").unwrap();
+        }
         OpKind::NotEquals => todo!(),
         OpKind::Print => {
             writeln!(file, "  pop  rdi").unwrap();
@@ -56,6 +100,21 @@ fn compile_op(op: &Op, file: &mut std::fs::File) {
             writeln!(file, "  mov  rax, [rax - {}]", (2 + idx) * 8).unwrap();
             writeln!(file, "  push rax").unwrap();
         }
+        OpKind::Jump(Some(n)) => {
+            writeln!(file, "  jmp jmp_dest_{}", n).unwrap();
+        }
+        OpKind::Jump(None) => panic!("Unhandled unconditional jump at {}", op.token),
+        OpKind::JumpCond(Some(n)) => {
+            writeln!(file, "  pop  rax").unwrap();
+            writeln!(file, "  test rax, rax").unwrap();
+            writeln!(file, "  jz jmp_dest_{}", n).unwrap();
+        }
+        OpKind::JumpCond(None) => panic!("Unhandled conditional jump at {}", op.token),
+        OpKind::JumpDest(n) => {
+            writeln!(file, "jmp_dest_{}:", n).unwrap();
+        }
+        OpKind::StartBlock => (),
+        OpKind::EndBlock(n) => frame_pop_n(file, n),
         OpKind::Call(name) => {
             writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
             frame_push_rax(file);
@@ -151,7 +210,7 @@ fn nasm_close(file: &mut std::fs::File) {
     writeln!(file, "  frame_stack_end:").unwrap();
 }
 
-pub fn compile_program<P: AsRef<std::path::Path>>(program: Program, out_path: P) {
+pub fn compile_program<P: AsRef<std::path::Path>>(program: &Program, out_path: P) {
     let mut file = std::fs::File::create(out_path).unwrap();
     nasm_prelude(&mut file);
     program.functions.iter().for_each(|f| {

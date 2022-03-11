@@ -51,6 +51,10 @@ pub enum LogosToken {
     FunctionKeyword,
     #[token("var")]
     VarKeyword,
+    #[token("if")]
+    IfKeyword,
+    #[token("else")]
+    ElseKeyword,
 
     // Markers
     #[token("{")]

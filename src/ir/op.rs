@@ -1,7 +1,6 @@
 use crate::compiler::{compiler_error, evaluate_signature};
 use crate::ir::{
     function::Function,
-    keyword::Keyword,
     literal::Literal,
     operator::Operator,
     token::{Token, TokenKind},
@@ -10,7 +9,7 @@ use crate::ir::{
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub enum OpKind {
     PushInt(u64),
     PushBool(bool),
@@ -31,8 +30,48 @@ pub enum OpKind {
     PushIdent(usize),
     Call(String),
     PrepareFunc(Function),
+    JumpCond(Option<usize>),
+    Jump(Option<usize>),
+    JumpDest(usize),
+    StartBlock,
+    EndBlock(usize),
     Return,
     Default,
+}
+
+impl std::fmt::Debug for OpKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OpKind::PushInt(i) => write!(f, "Push({i})"),
+            OpKind::PushBool(b) => write!(f, "Push({b})"),
+            OpKind::PushString(s) => write!(f, "Push(\"{s}\")"),
+            OpKind::Add => write!(f, "+"),
+            OpKind::Sub => write!(f, "-"),
+            OpKind::Mul => write!(f, "*"),
+            OpKind::Div => write!(f, "/"),
+            OpKind::LessThan => write!(f, "<"),
+            OpKind::LessEqual => write!(f, "<="),
+            OpKind::GreaterThan => write!(f, ">"),
+            OpKind::GreaterEqual => write!(f, ">="),
+            OpKind::Equals => write!(f, "=="),
+            OpKind::NotEquals => write!(f, "!="),
+            OpKind::Print => write!(f, "print"),
+            OpKind::Word(s) => write!(f, "Word({s})"),
+            OpKind::MakeIdent(s) => write!(f, "MakeIdent({s})"),
+            OpKind::PushIdent(i) => write!(f, "PushIdent({i})"),
+            OpKind::Call(func) => write!(f, "Call({func})"),
+            OpKind::PrepareFunc(func) => write!(f, "PrepareFunc({})", func.name),
+            OpKind::JumpCond(Some(dest)) => write!(f, "JumpCond({dest})"),
+            OpKind::JumpCond(None) => unreachable!(),
+            OpKind::Jump(Some(dest)) => write!(f, "Jump({dest})"),
+            OpKind::Jump(None) => unreachable!(),
+            OpKind::JumpDest(dest) => write!(f, "JumpDest({dest})"),
+            OpKind::StartBlock => write!(f, "StartBlock"),
+            OpKind::EndBlock(n) => write!(f, "EndBlock({n})"),
+            OpKind::Return => write!(f, "Return"),
+            OpKind::Default => write!(f, "Default"),
+        }
+    }
 }
 
 impl Default for OpKind {
@@ -222,6 +261,34 @@ impl Op {
                 );
                 None
             }
+            OpKind::JumpCond(_) => {
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![Type::bool_t()],
+                        outputs: vec![],
+                    },
+                    stack,
+                );
+                None
+            }
+            OpKind::Jump(_) => None,
+            OpKind::JumpDest(_) => None,
+            OpKind::StartBlock => None,
+            OpKind::EndBlock(n) => {
+                if *n > frame.len() {
+                    panic!(
+                        "Logic error - Frame doesn't have enough items! N: {} len: {}",
+                        n,
+                        frame.len()
+                    );
+                }
+                for _ in 0..*n {
+                    frame.pop();
+                }
+
+                None
+            }
             OpKind::Return => {
                 *frame = Vec::<Type>::new();
                 None
@@ -310,11 +377,12 @@ impl From<Token> for Op {
                 token,
             },
             TokenKind::Comment(c) => panic!("Cannot convert comment to op: {:?}", c),
-            TokenKind::Keyword(kw) => match kw {
-                Keyword::Function => panic!("Cannot convert function keyword into an op"),
-                Keyword::Var => todo!("Var keyword isn't implemented yet"),
-            },
-            TokenKind::Marker(m) => panic!("Cannot convert marker to op: {:?}", m),
+            TokenKind::Keyword(kw) => panic!("Keywords cannot be converted into ops: {:?}", kw),
+            TokenKind::Marker(m) => compiler_error(
+                &token,
+                format!("Unexpected Marker: {:?}", m).as_str(),
+                vec![],
+            ),
             TokenKind::Word(word) => match word.as_str() {
                 "print" => Op {
                     kind: OpKind::Print,

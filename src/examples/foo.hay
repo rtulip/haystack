@@ -1,0 +1,16 @@
+
+fn main() {
+
+    2 2 var [a b]
+
+    a b > if {
+        1 print
+    } else a b <= if {
+        2 print
+    } else a b == if {
+        3 print
+    } else {
+        4 print
+    }
+
+}

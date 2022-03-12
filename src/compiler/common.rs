@@ -1,5 +1,4 @@
-use crate::ir::{function::Function, token::Token, Program};
-use std::collections::HashMap;
+use crate::ir::{program::Program, token::Token};
 use std::fs;
 use std::io::Write;
 
@@ -38,13 +37,4 @@ pub fn compiler_error(token: &Token, msg: &str, notes: Vec<&str>) -> ! {
     eprintln!("{}: ERROR: {msg}", token.loc);
     notes.iter().for_each(|note| eprintln!("    Note: {note}"));
     std::process::exit(1);
-}
-
-pub fn program_meta(program: &Program) -> HashMap<String, Function> {
-    let mut fn_names: HashMap<String, Function> = HashMap::new();
-
-    program.functions.iter().for_each(|func| {
-        fn_names.insert(func.name.clone(), func.clone());
-    });
-    fn_names
 }

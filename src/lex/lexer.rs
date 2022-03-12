@@ -5,9 +5,9 @@ use crate::ir::{
     marker::Marker,
     op::{Op, OpKind},
     operator::Operator,
+    program::Program,
     token::{eof_tok, Token, TokenKind},
     types::{Signature, Type},
-    Program,
 };
 use crate::lex::logos_lex::{into_token, LogosToken};
 use logos::Logos;
@@ -494,6 +494,7 @@ pub fn parse_while_block_from_tokens(token: &Token, tokens: &mut Vec<Token>, ops
 pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
     input_path: P,
 ) -> Program {
+    println!("Converting {input_path} into IR...");
     let file = fs::read_to_string(input_path.clone()).unwrap();
 
     let mut lexer = LogosToken::lexer(file.as_str());

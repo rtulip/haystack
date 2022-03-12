@@ -1,7 +1,7 @@
 use crate::ir::{
     function::Function,
     op::{Op, OpKind},
-    Program,
+    program::Program,
 };
 use std::io::prelude::*;
 

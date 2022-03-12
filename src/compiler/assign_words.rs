@@ -1,5 +1,5 @@
 use crate::compiler::{compiler_error, program_meta};
-use crate::ir::{op::OpKind, Program};
+use crate::ir::{op::OpKind, program::Program};
 
 pub fn assign_words(program: &mut Program) {
     let fn_names = program_meta(program);

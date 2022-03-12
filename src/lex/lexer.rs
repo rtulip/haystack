@@ -5,9 +5,9 @@ use crate::ir::{
     marker::Marker,
     op::{Op, OpKind},
     operator::Operator,
+    program::Program,
     token::{eof_tok, Token, TokenKind},
     types::{Signature, Type},
-    Program,
 };
 use crate::lex::logos_lex::{into_token, LogosToken};
 use logos::Logos;

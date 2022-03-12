@@ -1,4 +1,4 @@
-use crate::ir::{function::Function, token::Token, Program};
+use crate::ir::{function::Function, program::Program, token::Token};
 use std::collections::HashMap;
 use std::fs;
 use std::io::Write;

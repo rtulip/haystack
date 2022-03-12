@@ -15,12 +15,12 @@ use std::fs;
 
 fn parse_tokens_until_tokenkind(
     tokens: &mut Vec<Token>,
+    ops: &mut Vec<Op>,
     break_on: Vec<TokenKind>,
-) -> (Token, Vec<Op>) {
-    let mut ops: Vec<Op> = vec![];
+) -> Token {
     while let Some(token) = tokens.pop() {
         if break_on.contains(&token.kind) {
-            return (token, ops);
+            return token;
         }
 
         match &token.kind {
@@ -29,8 +29,7 @@ fn parse_tokens_until_tokenkind(
                 ops.append(&mut idents);
             }
             &TokenKind::Keyword(Keyword::If) => {
-                let (_tok, mut if_ops) = parse_if_block_from_tokens(&token, tokens, ops.len());
-                ops.append(&mut if_ops);
+                let _tok = parse_if_block_from_tokens(&token, tokens, ops);
             }
             _ => ops.push(Op::from(token.clone())),
         }
@@ -261,8 +260,12 @@ fn parse_function_from_tokens(start_tok: &Token, tokens: &mut Vec<Token>) -> Fun
         parse_function_generics(&name_tok, tokens).unwrap_or((name_tok.clone(), vec![]));
     let (tok, sig) = parse_signature_from_tokens(&tok, tokens);
     let _tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
-    let (_tok, ops) =
-        parse_tokens_until_tokenkind(tokens, vec![TokenKind::Marker(Marker::CloseBrace)]);
+    let mut ops = vec![];
+    let _tok = parse_tokens_until_tokenkind(
+        tokens,
+        &mut ops,
+        vec![TokenKind::Marker(Marker::CloseBrace)],
+    );
 
     Function {
         name,
@@ -291,29 +294,34 @@ fn start_if_ops(token: &Token, ops: &mut Vec<Op>) -> usize {
     if_idx
 }
 
-fn close_if_block(
-    token: &Token,
-    block_ops: &mut Vec<Op>,
-    ops: &mut Vec<Op>,
-    if_idx: usize,
-    start_idx: usize,
-) -> usize {
+fn make_ident_count(ops: &Vec<Op>, start_ip: usize) -> usize {
     let mut var_count = 0;
-    block_ops.iter().for_each(|op| match op.kind {
-        OpKind::MakeIdent(_) => var_count += 1,
-        _ => (),
-    });
-    block_ops.push(Op {
+    let mut ip = start_ip;
+    while ip < ops.len() {
+        match ops[ip].kind {
+            OpKind::MakeIdent(_) => {
+                var_count += 1;
+                ip += 1
+            }
+            OpKind::JumpCond(Some(n)) => ip = n,
+            _ => ip += 1,
+        }
+    }
+
+    var_count
+}
+
+fn close_if_block(token: &Token, ops: &mut Vec<Op>, if_idx: usize) -> usize {
+    let var_count = make_ident_count(&ops, if_idx);
+    ops.push(Op {
         kind: OpKind::EndBlock(var_count),
         token: token.clone(),
     });
-    block_ops.push(Op {
+    ops.push(Op {
         kind: OpKind::Jump(None),
         token: token.clone(),
     });
-
-    ops.append(block_ops);
-    let jump_dest = ops.len() + start_idx;
+    let jump_dest = ops.len();
 
     assert!(
         matches!(ops[if_idx + 1].kind, OpKind::JumpCond(None)),
@@ -334,53 +342,44 @@ fn if_block_to_ops(
     start_tok: &Token,
     tokens: &mut Vec<Token>,
     ops: &mut Vec<Op>,
-    start_idx: usize,
 ) -> (Token, usize) {
     let if_idx = start_if_ops(start_tok, ops);
     let _tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenBrace));
-    let (tok, mut block_ops) =
-        parse_tokens_until_tokenkind(tokens, vec![TokenKind::Marker(Marker::CloseBrace)]);
+    let tok =
+        parse_tokens_until_tokenkind(tokens, ops, vec![TokenKind::Marker(Marker::CloseBrace)]);
     // Count how many times we push a variable onto the frame stack.
-    (
-        tok.clone(),
-        close_if_block(&tok, &mut block_ops, ops, if_idx, start_idx),
-    )
+    (tok.clone(), close_if_block(&tok, ops, if_idx))
 }
 
 pub fn parse_if_block_from_tokens(
     token: &Token,
     tokens: &mut Vec<Token>,
-    start_idx: usize,
-) -> (Token, Vec<Op>) {
-    let mut ops = vec![];
-    let (tok, mut jump_dest) = if_block_to_ops(token, tokens, &mut ops, start_idx);
+    ops: &mut Vec<Op>,
+) -> Token {
+    let (tok, mut jump_dest) = if_block_to_ops(token, tokens, ops);
 
     while peek_token_kind(tokens, TokenKind::Keyword(Keyword::Else)) {
         let tok = expect_token_kind(&tok, tokens, TokenKind::Keyword(Keyword::Else));
-        ops.push(Op {
-            kind: OpKind::Nop(Keyword::Else),
-            token: tok.clone(),
-        });
         if peek_token_kind(tokens, TokenKind::Marker(Marker::OpenBrace)) {
             let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
+            let block_idx = ops.len();
             ops.push(Op {
                 kind: OpKind::StartBlock,
                 token: tok.clone(),
             });
-            let (tok, mut block_ops) =
-                parse_tokens_until_tokenkind(tokens, vec![TokenKind::Marker(Marker::CloseBrace)]);
-            let mut var_count = 0;
-            block_ops.iter().for_each(|op| match op.kind {
-                OpKind::MakeIdent(_) => var_count += 1,
-                _ => (),
-            });
-            ops.append(&mut block_ops);
+            let tok = parse_tokens_until_tokenkind(
+                tokens,
+                ops,
+                vec![TokenKind::Marker(Marker::CloseBrace)],
+            );
+            let var_count = make_ident_count(&ops, block_idx);
+            // ops.append(&mut block_ops);
             ops.push(Op {
                 kind: OpKind::EndBlock(var_count),
                 token: tok.clone(),
             });
 
-            jump_dest = ops.len() + start_idx;
+            jump_dest = ops.len();
 
             ops.push(Op {
                 kind: OpKind::JumpDest(jump_dest),
@@ -388,16 +387,18 @@ pub fn parse_if_block_from_tokens(
             });
             break;
         } else {
-            let (tok, mut else_ops) =
-                parse_tokens_until_tokenkind(tokens, vec![TokenKind::Keyword(Keyword::If)]);
-            ops.append(&mut else_ops);
+            let tok =
+                parse_tokens_until_tokenkind(tokens, ops, vec![TokenKind::Keyword(Keyword::If)]);
 
-            let if_idx = start_if_ops(&tok, &mut ops);
+            let if_idx = start_if_ops(&tok, ops);
             let _tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
-            let (tok, mut block_ops) =
-                parse_tokens_until_tokenkind(tokens, vec![TokenKind::Marker(Marker::CloseBrace)]);
+            let tok = parse_tokens_until_tokenkind(
+                tokens,
+                ops,
+                vec![TokenKind::Marker(Marker::CloseBrace)],
+            );
             // Count how many times we push a variable onto the frame stack.
-            jump_dest = close_if_block(&tok, &mut block_ops, &mut ops, if_idx, start_idx);
+            jump_dest = close_if_block(&tok, ops, if_idx);
         }
     }
 
@@ -405,7 +406,7 @@ pub fn parse_if_block_from_tokens(
         .filter(|op| matches!(op.kind, OpKind::Jump(None)))
         .for_each(|op| op.kind = OpKind::Jump(Some(jump_dest)));
 
-    (tok, ops)
+    tok
 }
 
 pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(

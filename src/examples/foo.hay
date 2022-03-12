@@ -3,19 +3,11 @@ fn drop<T>(T: t) {}
 
 fn main() {
 
-    2 2 var [a b]
-
-    a b > if {
-        0 0 0 var [x y z]
-        x y z drop
-    } else a b < if {
-        2 2 2 drop 
-    } else a b == if {
-        3 3 3 drop
+    true if {
+        2
     } else {
-        4 4 
+        3
     }
 
-    print print
-
+    print
 }

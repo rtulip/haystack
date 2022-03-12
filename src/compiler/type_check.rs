@@ -134,9 +134,7 @@ pub fn type_check_while_block(
     frame: &mut Frame,
     fn_table: &FnTable,
 ) -> (usize, Vec<Function>) {
-    println!("Type checking while loop");
     let initial_stack = stack.clone();
-    println!("Initial Stack: {:?}", initial_stack);
     let initial_frame = stack.clone();
     let (jump_cond_ip, mut pre_jump_fns) = type_check_ops_list(
         ops,
@@ -147,7 +145,6 @@ pub fn type_check_while_block(
         vec![Box::new(|op| matches!(op.kind, OpKind::JumpCond(Some(_))))],
     );
 
-    println!("Initial Stack (2): {:?}", initial_stack);
     ops[jump_cond_ip].type_check(stack, frame, fn_table);
     assert!(matches!(ops[jump_cond_ip].kind, OpKind::JumpCond(Some(_))));
     let jump_cond_dest = match ops[jump_cond_ip].kind {
@@ -199,7 +196,6 @@ pub fn type_check_ops_list(
     let mut ip = start_ip;
     let mut new_fns = vec![];
     while ip < ops.len() {
-        println!("  {ip}: Op: {:?}", ops[ip]);
         if break_on.iter().any(|f| f(&ops[ip])) {
             return (ip, new_fns);
         }

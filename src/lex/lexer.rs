@@ -23,29 +23,29 @@ fn parse_tokens_until_tokenkind(
             return token;
         }
 
-        match &token.kind {
-            &TokenKind::Keyword(Keyword::Var) => {
+        match token.kind {
+            TokenKind::Keyword(Keyword::Var) => {
                 let (_tok, mut idents) = parse_var_from_tokens(&token, tokens);
                 ops.append(&mut idents);
             }
-            &TokenKind::Keyword(Keyword::If) => {
+            TokenKind::Keyword(Keyword::If) => {
                 let _tok = parse_if_block_from_tokens(&token, tokens, ops);
             }
-            &TokenKind::Keyword(Keyword::Else) => {
+            TokenKind::Keyword(Keyword::Else) => {
                 panic!("Else keyword should be turned into an op")
             }
-            &TokenKind::Keyword(Keyword::Function) => {
+            TokenKind::Keyword(Keyword::Function) => {
                 panic!("Function keyword can't be converted into ops.")
             }
-            &TokenKind::Keyword(Keyword::While) => {
+            TokenKind::Keyword(Keyword::While) => {
                 let _tok = parse_while_block_from_tokens(&token, tokens, ops);
             }
-            &TokenKind::Comment(_) => (),
-            &TokenKind::Operator(_) => ops.push(Op::from(token.clone())),
-            &TokenKind::Literal(_) => ops.push(Op::from(token.clone())),
-            &TokenKind::Marker(_) => panic!("Markers shouldn't be converted into ops..."),
-            &TokenKind::Word(_) => ops.push(Op::from(token.clone())),
-            &TokenKind::EndOfFile => panic!("End of file shouldn't be converted into an op."),
+            TokenKind::Comment(_) => (),
+            TokenKind::Operator(_) => ops.push(Op::from(token.clone())),
+            TokenKind::Literal(_) => ops.push(Op::from(token.clone())),
+            TokenKind::Marker(_) => panic!("Markers shouldn't be converted into ops..."),
+            TokenKind::Word(_) => ops.push(Op::from(token.clone())),
+            TokenKind::EndOfFile => panic!("End of file shouldn't be converted into an op."),
             // _ => ops.push(Op::from(token.clone())),
         }
     }
@@ -72,7 +72,7 @@ fn expect_token_kind(prev_tok: &Token, tokens: &mut Vec<Token>, kind: TokenKind)
         token
     } else {
         compiler_error(
-            &prev_tok,
+            prev_tok,
             format!("Expected {:?}, but found end of file instead", kind).as_str(),
             vec![],
         );
@@ -81,11 +81,7 @@ fn expect_token_kind(prev_tok: &Token, tokens: &mut Vec<Token>, kind: TokenKind)
 
 fn peek_token_kind(tokens: &mut Vec<Token>, kind: TokenKind) -> bool {
     if let Some(token) = tokens.last() {
-        if token.kind != kind {
-            false
-        } else {
-            true
-        }
+        token.kind == kind
     } else {
         false
     }
@@ -104,19 +100,16 @@ fn expect_word(prev_tok: &Token, tokens: &mut Vec<Token>) -> (Token, String) {
         (token, s)
     } else {
         compiler_error(
-            &prev_tok,
+            prev_tok,
             "Expected a word, but found end of file instead",
             vec![],
         );
     }
 }
 
-fn peek_word(tokens: &Vec<Token>) -> bool {
+fn peek_word(tokens: &[Token]) -> bool {
     if let Some(token) = tokens.last() {
-        match token.kind {
-            TokenKind::Word(_) => true,
-            _ => false,
-        }
+        matches!(token.kind, TokenKind::Word(_))
     } else {
         false
     }
@@ -247,7 +240,7 @@ fn parse_word_list_from_tokens(
 }
 
 fn parse_var_from_tokens(start_tok: &Token, tokens: &mut Vec<Token>) -> (Token, Vec<Op>) {
-    let (tok, idents) = parse_word_list_from_tokens(&start_tok, tokens);
+    let (tok, idents) = parse_word_list_from_tokens(start_tok, tokens);
     if idents.is_empty() {
         compiler_error(
             &tok,
@@ -309,7 +302,7 @@ fn start_if_ops(token: &Token, ops: &mut Vec<Op>) -> usize {
     if_idx
 }
 
-fn make_ident_count(ops: &Vec<Op>, start_ip: usize) -> usize {
+fn make_ident_count(ops: &[Op], start_ip: usize) -> usize {
     let mut var_count = 0;
     let mut ip = start_ip;
     while ip < ops.len() {
@@ -327,7 +320,7 @@ fn make_ident_count(ops: &Vec<Op>, start_ip: usize) -> usize {
 }
 
 fn close_if_block(token: &Token, ops: &mut Vec<Op>, if_idx: usize) -> usize {
-    let var_count = make_ident_count(&ops, if_idx);
+    let var_count = make_ident_count(ops, if_idx);
     ops.push(Op {
         kind: OpKind::EndBlock(var_count),
         token: token.clone(),
@@ -380,14 +373,14 @@ pub fn parse_if_block_from_tokens(
             let block_idx = ops.len();
             ops.push(Op {
                 kind: OpKind::StartBlock,
-                token: tok.clone(),
+                token: tok,
             });
             let tok = parse_tokens_until_tokenkind(
                 tokens,
                 ops,
                 vec![TokenKind::Marker(Marker::CloseBrace)],
             );
-            let var_count = make_ident_count(&ops, block_idx);
+            let var_count = make_ident_count(ops, block_idx);
             // ops.append(&mut block_ops);
             ops.push(Op {
                 kind: OpKind::EndBlock(var_count),
@@ -398,7 +391,7 @@ pub fn parse_if_block_from_tokens(
 
             ops.push(Op {
                 kind: OpKind::JumpDest(jump_dest),
-                token: tok.clone(),
+                token: tok,
             });
             break;
         } else {
@@ -442,7 +435,7 @@ pub fn parse_while_block_from_tokens(token: &Token, tokens: &mut Vec<Token>, ops
     });
     ops.push(Op {
         kind: OpKind::StartBlock,
-        token: tok.clone(),
+        token: tok,
     });
 
     let tok =
@@ -460,7 +453,7 @@ pub fn parse_while_block_from_tokens(token: &Token, tokens: &mut Vec<Token>, ops
     let end_loc = ops.len();
     ops.push(Op {
         kind: OpKind::JumpDest(end_loc),
-        token: tok.clone(),
+        token: tok,
     });
 
     assert!(matches!(ops[cond_jump_loc].kind, OpKind::JumpCond(None)));
@@ -498,7 +491,7 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
                 &maybe_tok.unwrap().clone(),
                 &mut tokens,
             )),
-            Some(tok) => compiler_error(&tok, format!("Unexpected token {}", tok).as_str(), vec![]),
+            Some(tok) => compiler_error(tok, format!("Unexpected token {}", tok).as_str(), vec![]),
             None => break,
         }
     }

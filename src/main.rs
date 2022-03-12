@@ -7,7 +7,7 @@ use std::process::Command;
 fn run_command(cmd: &str, args: Vec<&str>) {
     print!("[CMD]: {cmd}");
     args.iter().for_each(|arg| print!(" {arg}"));
-    println!("");
+    println!();
     let nasm_output = Command::new(cmd)
         .args(args)
         .output()

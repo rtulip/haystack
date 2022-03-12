@@ -297,10 +297,9 @@ impl Op {
                 None
             }
             OpKind::Call(func_name) => {
-                let f = fn_table.get(func_name).expect(
-                    format!("Function names should be recognizable at this point... {func_name}")
-                        .as_str(),
-                );
+                let f = fn_table.get(func_name).unwrap_or_else(|| {
+                    panic!("Function names should be recognizable at this point... {func_name}")
+                });
 
                 if f.is_generic() {
                     let new_fn = f.make_concrete(stack);

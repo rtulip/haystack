@@ -267,6 +267,19 @@ fn parse_function_from_tokens(start_tok: &Token, tokens: &mut Vec<Token>) -> Fun
     let (tok, gen) =
         parse_function_generics(&name_tok, tokens).unwrap_or((name_tok.clone(), vec![]));
     let (tok, sig) = parse_signature_from_tokens(&tok, tokens);
+
+    sig.inputs.iter().for_each(|i| {
+        if !Type::primitives_names().contains(&i.name)
+            && !gen.iter().any(|generic| generic.name == i.name)
+        {
+            compiler_error(
+                &tok,
+                format!("Unrecognized type: `{:?}`", i).as_str(),
+                vec![format!("Consider adding `{:?}` to the generic list", i).as_str()],
+            )
+        }
+    });
+
     let _tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
     let mut ops = vec![Op {
         kind: OpKind::PrepareFunc,

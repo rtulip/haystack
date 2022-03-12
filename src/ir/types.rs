@@ -20,6 +20,10 @@ impl Type {
             ident: None,
         }
     }
+
+    pub fn primitives_names() -> Vec<String> {
+        vec![Type::u64_t().name, Type::bool_t().name]
+    }
 }
 
 impl std::fmt::Debug for Type {

@@ -127,6 +127,67 @@ fn type_check_if_block(
     (true_end_ip, new_fns)
 }
 
+pub fn type_check_while_block(
+    ops: &mut Vec<Op>,
+    start_ip: usize,
+    stack: &mut Stack,
+    frame: &mut Frame,
+    fn_table: &FnTable,
+) -> (usize, Vec<Function>) {
+    println!("Type checking while loop");
+    let initial_stack = stack.clone();
+    println!("Initial Stack: {:?}", initial_stack);
+    let initial_frame = stack.clone();
+    let (jump_cond_ip, mut pre_jump_fns) = type_check_ops_list(
+        ops,
+        start_ip + 1,
+        stack,
+        frame,
+        fn_table,
+        vec![Box::new(|op| matches!(op.kind, OpKind::JumpCond(Some(_))))],
+    );
+
+    println!("Initial Stack (2): {:?}", initial_stack);
+    ops[jump_cond_ip].type_check(stack, frame, fn_table);
+    assert!(matches!(ops[jump_cond_ip].kind, OpKind::JumpCond(Some(_))));
+    let jump_cond_dest = match ops[jump_cond_ip].kind {
+        OpKind::JumpCond(Some(n)) => n,
+        _ => unreachable!(),
+    };
+
+    let mut while_body_stack = initial_stack.clone();
+    let mut while_body_frame = initial_frame.clone();
+    let (jump_ip, mut while_body_fns) = type_check_ops_list(
+        ops,
+        jump_cond_ip + 1,
+        &mut while_body_stack,
+        &mut while_body_frame,
+        fn_table,
+        vec![Box::new(move |op| matches!(op.kind, OpKind::Jump(Some(_))))],
+    );
+    assert!(matches!(ops[jump_ip].kind, OpKind::Jump(Some(_))));
+    let jump_dest = match ops[jump_ip].kind {
+        OpKind::Jump(Some(n)) => n,
+        _ => unreachable!(),
+    };
+
+    assert_eq!(jump_dest, start_ip + 1);
+
+    if while_body_stack != initial_stack {
+        compiler_error(
+            &ops[jump_cond_ip].token,
+            "Branches do not create similar stacks",
+            vec![
+                format!("Stack Before while body:  {:?}", initial_stack).as_str(),
+                format!("Stack After while body:   {:?}", while_body_stack).as_str(),
+            ],
+        )
+    }
+    assert_eq!(initial_frame, while_body_frame);
+    while_body_fns.append(&mut pre_jump_fns);
+    (jump_cond_dest, while_body_fns)
+}
+
 pub fn type_check_ops_list(
     ops: &mut Vec<Op>,
     start_ip: usize,
@@ -138,6 +199,7 @@ pub fn type_check_ops_list(
     let mut ip = start_ip;
     let mut new_fns = vec![];
     while ip < ops.len() {
+        println!("  {ip}: Op: {:?}", ops[ip]);
         if break_on.iter().any(|f| f(&ops[ip])) {
             return (ip, new_fns);
         }
@@ -146,6 +208,12 @@ pub fn type_check_ops_list(
                 let (end_ip, mut if_new_fns) = type_check_if_block(ops, ip, stack, frame, fn_table);
                 ip = end_ip;
                 new_fns.append(&mut if_new_fns);
+            }
+            OpKind::Nop(Keyword::While) => {
+                let (end_ip, mut whlie_new_fns) =
+                    type_check_while_block(ops, ip, stack, frame, fn_table);
+                ip = end_ip;
+                new_fns.append(&mut whlie_new_fns);
             }
             OpKind::Jump(Some(n)) => {
                 ip = n;

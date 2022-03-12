@@ -31,7 +31,22 @@ fn parse_tokens_until_tokenkind(
             &TokenKind::Keyword(Keyword::If) => {
                 let _tok = parse_if_block_from_tokens(&token, tokens, ops);
             }
-            _ => ops.push(Op::from(token.clone())),
+            &TokenKind::Keyword(Keyword::Else) => {
+                panic!("Else keyword should be turned into an op")
+            }
+            &TokenKind::Keyword(Keyword::Function) => {
+                panic!("Function keyword can't be converted into ops.")
+            }
+            &TokenKind::Keyword(Keyword::While) => {
+                let _tok = parse_while_block_from_tokens(&token, tokens, ops);
+            }
+            &TokenKind::Comment(_) => (),
+            &TokenKind::Operator(_) => ops.push(Op::from(token.clone())),
+            &TokenKind::Literal(_) => ops.push(Op::from(token.clone())),
+            &TokenKind::Marker(_) => panic!("Markers shouldn't be converted into ops..."),
+            &TokenKind::Word(_) => ops.push(Op::from(token.clone())),
+            &TokenKind::EndOfFile => panic!("End of file shouldn't be converted into an op."),
+            // _ => ops.push(Op::from(token.clone())),
         }
     }
     compiler_error(
@@ -407,6 +422,49 @@ pub fn parse_if_block_from_tokens(
         .for_each(|op| op.kind = OpKind::Jump(Some(jump_dest)));
 
     tok
+}
+
+pub fn parse_while_block_from_tokens(token: &Token, tokens: &mut Vec<Token>, ops: &mut Vec<Op>) {
+    ops.push(Op {
+        kind: OpKind::Nop(Keyword::While),
+        token: token.clone(),
+    });
+    let loop_dest = ops.len();
+    ops.push(Op {
+        kind: OpKind::JumpDest(loop_dest),
+        token: token.clone(),
+    });
+    let tok = parse_tokens_until_tokenkind(tokens, ops, vec![TokenKind::Marker(Marker::OpenBrace)]);
+    let cond_jump_loc = ops.len();
+    ops.push(Op {
+        kind: OpKind::JumpCond(None),
+        token: tok.clone(),
+    });
+    ops.push(Op {
+        kind: OpKind::StartBlock,
+        token: tok.clone(),
+    });
+
+    let tok =
+        parse_tokens_until_tokenkind(tokens, ops, vec![TokenKind::Marker(Marker::CloseBrace)]);
+
+    let var_count = make_ident_count(ops, cond_jump_loc + 1);
+    ops.push(Op {
+        kind: OpKind::EndBlock(var_count),
+        token: tok.clone(),
+    });
+    ops.push(Op {
+        kind: OpKind::Jump(Some(loop_dest)),
+        token: tok.clone(),
+    });
+    let end_loc = ops.len();
+    ops.push(Op {
+        kind: OpKind::JumpDest(end_loc),
+        token: tok.clone(),
+    });
+
+    assert!(matches!(ops[cond_jump_loc].kind, OpKind::JumpCond(None)));
+    ops[cond_jump_loc].kind = OpKind::JumpCond(Some(end_loc));
 }
 
 pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(

@@ -55,6 +55,8 @@ pub enum LogosToken {
     IfKeyword,
     #[token("else")]
     ElseKeyword,
+    #[token("while")]
+    WhileKeyword,
 
     // Markers
     #[token("{")]

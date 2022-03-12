@@ -18,12 +18,16 @@ fn run_command(cmd: &str, args: Vec<&str>) {
 }
 
 fn main() {
-    let input_path = "src/examples/foo.hay";
+    let input_path = "src/examples/loop.hay";
     let ir_path = "src/ir.json";
+    println!("Converting {input_path} into IR");
     let mut program = lex::hay_into_ir(input_path);
+    println!("Generating concrete functions");
     compiler::assign_words(&mut program);
     compiler::program_to_json(ir_path, &program);
+    println!("Type checking...");
     program.type_check();
+    println!("Normalizing Function Names");
     program.normalize_function_names();
     compiler::x86_64::compile_program(&program, "src/output.asm");
 

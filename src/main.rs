@@ -20,15 +20,12 @@ fn run_command(cmd: &str, args: Vec<&str>) {
 fn main() {
     let input_path = "src/examples/fib.hay";
     let ir_path = "src/ir.json";
-    println!("Converting {input_path} into IR");
     let mut program = lex::hay_into_ir(input_path);
-    println!("Generating concrete functions");
-    compiler::assign_words(&mut program);
+    program.check_for_name_conflicts();
+    program.assign_words();
     compiler::program_to_json(ir_path, &program);
     compiler::simplify_ir(ir_path, "src/ir.simple");
-    println!("Type checking...");
     program.type_check();
-    println!("Normalizing Function Names");
     program.normalize_function_names();
     compiler::x86_64::compile_program(&program, "src/output.asm");
 

@@ -1,4 +1,5 @@
-use crate::ir::{function::Function, op::OpKind};
+use crate::compiler::compiler_error;
+use crate::ir::{function::Function, op::OpKind, token::Token};
 
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -10,6 +11,7 @@ pub struct Program {
 
 impl Program {
     pub fn type_check(&mut self) {
+        println!("Type checking...");
         let mut fn_table: HashMap<String, Function> = HashMap::new();
         let mut checked: HashSet<String> = HashSet::new();
         self.functions.iter().for_each(|f| {
@@ -40,6 +42,7 @@ impl Program {
     }
 
     pub fn normalize_function_names(&mut self) {
+        println!("Normalizing function names...");
         let mut fn_name_map: HashMap<String, String> = HashMap::new();
         self.functions.iter().enumerate().for_each(|(i, f)| {
             let new_name = match f.name.as_str() {
@@ -60,5 +63,109 @@ impl Program {
                 }
             })
         });
+    }
+
+    pub fn check_for_name_conflicts(&self) {
+        println!("Checking for name conflicts...");
+        let mut name_map: HashMap<&String, (NameKind, &Token)> = HashMap::new();
+
+        self.functions.iter().for_each(|f| {
+            if let Some((kind, tok)) = name_map.insert(&f.name, (NameKind::Function, &f.token)) {
+                compiler_error(
+                    &f.token,
+                    format!("Redefinition of {} `{}`", kind, f.name).as_str(),
+                    vec![format!("Originally defined here: {}", tok.loc).as_str()],
+                )
+            }
+
+            let mut vars: Vec<&String> = vec![];
+            f.ops.iter().for_each(|op| match &op.kind {
+                OpKind::MakeIdent(s) => {
+                    vars.push(&s);
+                    if let Some((kind, tok)) = name_map.insert(&s, (NameKind::Var, &op.token)) {
+                        compiler_error(
+                            &op.token,
+                            format!("Redefinition of {} `{}`", kind, s).as_str(),
+                            vec![format!("Originally defined here: {}", tok.loc).as_str()],
+                        )
+                    }
+                }
+                OpKind::EndBlock(n) => {
+                    for _ in 0..*n {
+                        let s = vars.pop().unwrap();
+                        name_map.remove(&s).unwrap();
+                    }
+                }
+                OpKind::Return => vars.drain(..).for_each(|s| {
+                    name_map.remove(&s).unwrap();
+                }),
+                _ => (),
+            });
+        })
+    }
+
+    pub fn meta(&self) -> HashMap<String, Function> {
+        let mut fn_names: HashMap<String, Function> = HashMap::new();
+        self.functions.iter().for_each(|func| {
+            fn_names.insert(func.name.clone(), func.clone());
+        });
+        fn_names
+    }
+
+    pub fn assign_words(&mut self) {
+        println!("Generating concrete functions...");
+        let fn_names = self.meta();
+        self.functions.iter_mut().for_each(|func| {
+            let mut scope: Vec<String> = vec![];
+            if func.sig.inputs.iter().all(|typ| typ.ident.is_some()) {
+                func.sig.inputs.iter().rev().for_each(|input| {
+                    if let Some(ident) = &input.ident {
+                        scope.push(ident.clone())
+                    }
+                })
+            } else if !func.sig.inputs.iter().all(|typ| typ.ident.is_none()) {
+                compiler_error(&func.token, "All inputs must be named if any are.", vec![]);
+            }
+            for op in &mut func.ops {
+                match &mut op.kind {
+                    OpKind::MakeIdent(s) => {
+                        scope.push(s.clone());
+                    }
+                    OpKind::EndBlock(n) => {
+                        for _ in 0..*n {
+                            scope.pop();
+                        }
+                    }
+                    OpKind::Word(s) => {
+                        if let Some(idx) = &scope.iter().position(|ident| ident == s) {
+                            op.kind = OpKind::PushIdent(*idx);
+                        } else if fn_names.get(s).is_some() {
+                            op.kind = OpKind::Call(s.clone());
+                        } else {
+                            compiler_error(
+                                &op.token,
+                                format!("Unrecognized Word: `{s}`").as_str(),
+                                vec![],
+                            )
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        });
+    }
+}
+
+enum NameKind {
+    Var,
+    Function,
+}
+
+impl std::fmt::Display for NameKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            NameKind::Var => write!(f, "Var"),
+            NameKind::Function => write!(f, "Function"),
+        }
     }
 }

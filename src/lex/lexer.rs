@@ -494,6 +494,7 @@ pub fn parse_while_block_from_tokens(token: &Token, tokens: &mut Vec<Token>, ops
 pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
     input_path: P,
 ) -> Program {
+    println!("Converting {input_path} into IR...");
     let file = fs::read_to_string(input_path.clone()).unwrap();
 
     let mut lexer = LogosToken::lexer(file.as_str());

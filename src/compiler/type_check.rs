@@ -51,6 +51,14 @@ pub fn evaluate_signature(op: &Op, signature: &Signature, stack: &mut Vec<Type>)
         .for_each(|output| stack.push(output.clone()));
 }
 
+fn check_stacks_similar(stack1: &Stack, stack2: &Stack) -> bool {
+    stack1.len() == stack2.len()
+        && stack1
+            .iter()
+            .zip(stack2.iter())
+            .all(|(t, f)| t.name == f.name)
+}
+
 fn type_check_if_block(
     ops: &mut Vec<Op>,
     start_ip: usize,
@@ -108,7 +116,7 @@ fn type_check_if_block(
 
     new_fns.append(&mut new_fns_if_false);
 
-    if stack_if_true != stack_if_false {
+    if !check_stacks_similar(&stack_if_true, &stack_if_false) {
         compiler_error(
             &ops[start_ip].token,
             "Branches do not create similar stacks",
@@ -170,7 +178,7 @@ pub fn type_check_while_block(
 
     assert_eq!(jump_dest, start_ip + 1);
 
-    if while_body_stack != initial_stack {
+    if !check_stacks_similar(&while_body_stack, &initial_stack) {
         compiler_error(
             &ops[jump_cond_ip].token,
             "Branches do not create similar stacks",

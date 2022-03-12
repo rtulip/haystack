@@ -10,15 +10,24 @@ fn swap<A B>(A: a B: b) -> [B A] {
 
 fn fib(u64) -> [u64] {
     dup 2 > if {
+        var [x]
+        x 1 - fib
+        x 2 - fib +
+    }
+}
+
+fn fib2(u64) -> [u64] {
+    dup 2 > if {
         dup 1 - fib swap
-        2 - fib +
+        2 - fib + 
     }
 }
 
 fn main() {
 
-    0 while dup 10 < {
-        dup fib print
-        1 +
+    0 while dup 20 < {
+        var [i]
+        i fib print
+        i 1 +
     } drop
 }

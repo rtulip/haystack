@@ -1,4 +1,5 @@
 use crate::ir::{
+    function::Function,
     op::{Op, OpKind},
     Program,
 };
@@ -14,7 +15,7 @@ fn frame_pop_n(file: &mut std::fs::File, n: &usize) {
     writeln!(file, "  add qword [frame_end_ptr], {}", 8 * n).unwrap();
 }
 
-fn compile_op(op: &Op, file: &mut std::fs::File) {
+fn compile_op(op: &Op, func: Option<&Function>, file: &mut std::fs::File) {
     writeln!(file, "  ; -- {:?}", op).unwrap();
     match &op.kind {
         OpKind::PushInt(x) => writeln!(file, "  push {x}").unwrap(),
@@ -101,17 +102,17 @@ fn compile_op(op: &Op, file: &mut std::fs::File) {
             writeln!(file, "  push rax").unwrap();
         }
         OpKind::Jump(Some(n)) => {
-            writeln!(file, "  jmp jmp_dest_{}", n).unwrap();
+            writeln!(file, "  jmp {}_jmp_dest_{}", func.unwrap().name, n).unwrap();
         }
         OpKind::Jump(None) => panic!("Unhandled unconditional jump at {}", op.token),
         OpKind::JumpCond(Some(n)) => {
             writeln!(file, "  pop  rax").unwrap();
             writeln!(file, "  test rax, rax").unwrap();
-            writeln!(file, "  jz jmp_dest_{}", n).unwrap();
+            writeln!(file, "  jz {}_jmp_dest_{}", func.unwrap().name, n).unwrap();
         }
         OpKind::JumpCond(None) => panic!("Unhandled conditional jump at {}", op.token),
         OpKind::JumpDest(n) => {
-            writeln!(file, "jmp_dest_{}:", n).unwrap();
+            writeln!(file, "{}_jmp_dest_{}:", func.unwrap().name, n).unwrap();
         }
         OpKind::StartBlock => (),
         OpKind::EndBlock(n) => frame_pop_n(file, n),
@@ -198,6 +199,7 @@ fn nasm_close(file: &mut std::fs::File) {
             kind: OpKind::Call("main".to_string()),
             ..Default::default()
         },
+        None,
         file,
     );
     writeln!(file, "exit:").unwrap();
@@ -224,15 +226,19 @@ pub fn compile_program<P: AsRef<std::path::Path>>(program: &Program, out_path: P
                 kind: OpKind::PrepareFunc(f.clone()),
                 ..Default::default()
             },
+            Some(&f),
             &mut file,
         );
 
-        f.ops.iter().for_each(|op| compile_op(op, &mut file));
+        f.ops
+            .iter()
+            .for_each(|op| compile_op(op, Some(&f), &mut file));
         compile_op(
             &Op {
                 kind: OpKind::Return,
                 ..Default::default()
             },
+            Some(&f),
             &mut file,
         );
     });

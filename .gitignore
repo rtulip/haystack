@@ -4,3 +4,4 @@ Cargo.lock
 *.o
 *.asm
 *.out
+*.simple

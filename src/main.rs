@@ -25,6 +25,7 @@ fn main() {
     println!("Generating concrete functions");
     compiler::assign_words(&mut program);
     compiler::program_to_json(ir_path, &program);
+    compiler::simplify_ir(ir_path, "src/ir.simple");
     println!("Type checking...");
     program.type_check();
     println!("Normalizing Function Names");

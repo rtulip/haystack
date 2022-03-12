@@ -1,15 +1,21 @@
 
+fn dup<T>(T: t) -> [T T] {
+    t t 
+}
+
+fn A(u64: x) -> [u64] {
+    x 0 > if {
+        x 1 - A
+    } else {
+        x
+    }
+}
+
+fn B(u64: x) -> [u64] {
+    x A
+}
+
 fn main() {
 
-    false if {
-        
-        false if {
-            1
-        } else {
-            2
-        }
-
-    } else { 3 }
     
-    print
 }

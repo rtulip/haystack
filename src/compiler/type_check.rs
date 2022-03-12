@@ -57,8 +57,7 @@ fn type_check_if_block(
     stack: &mut Stack,
     frame: &mut Frame,
     fn_table: &FnTable,
-) -> usize {
-    println!("Type Checking If Block...");
+) -> (usize, Vec<Function>) {
     assert!(matches!(ops[start_ip].kind, OpKind::Nop(Keyword::If)));
     assert!(
         matches!(ops[start_ip + 1].kind, OpKind::JumpCond(Some(_))),
@@ -68,17 +67,15 @@ fn type_check_if_block(
 
     ops[start_ip + 1].type_check(stack, frame, fn_table);
 
-    println!("Initial Stack: {:?}", stack);
-
     let jump_dest = match ops[start_ip + 1].kind {
         OpKind::JumpCond(Some(n)) => n,
         _ => unreachable!(),
     };
+    let mut new_fns = vec![];
 
     let mut stack_if_true = stack.clone();
     let mut frame_if_true = frame.clone();
-    println!("Type Checking true branch");
-    let (true_end_ip, _) = type_check_ops_list(
+    let (true_end_ip, mut new_fns_if_true) = type_check_ops_list(
         ops,
         start_ip + 2,
         &mut stack_if_true,
@@ -86,13 +83,11 @@ fn type_check_if_block(
         fn_table,
         vec![Box::new(|op| matches!(op.kind, OpKind::JumpDest(_)))],
     );
-
-    println!("Stack if true: {:?}", stack_if_true);
+    new_fns.append(&mut new_fns_if_true);
 
     let mut stack_if_false = stack.clone();
     let mut frame_if_false = frame.clone();
-    println!("Type Checking false branch");
-    let (false_end_ip, _) = type_check_ops_list(
+    let (false_end_ip, mut new_fns_if_false) = type_check_ops_list(
         ops,
         jump_dest + 1,
         &mut stack_if_false,
@@ -101,7 +96,7 @@ fn type_check_if_block(
         vec![Box::new(|op| matches!(op.kind, OpKind::JumpDest(_)))],
     );
 
-    println!("Stack if false: {:?}", stack_if_false);
+    new_fns.append(&mut new_fns_if_false);
 
     if stack_if_true != stack_if_false {
         compiler_error(
@@ -119,7 +114,7 @@ fn type_check_if_block(
     *stack = stack_if_true;
     *frame = frame_if_true;
 
-    true_end_ip
+    (true_end_ip, new_fns)
 }
 
 pub fn type_check_ops_list(
@@ -133,13 +128,14 @@ pub fn type_check_ops_list(
     let mut ip = start_ip;
     let mut new_fns = vec![];
     while ip < ops.len() {
-        println!("Looking at Op: {:?}", ops[ip]);
         if break_on.iter().any(|f| f(&ops[ip])) {
             return (ip, new_fns);
         }
         match ops[ip].kind {
             OpKind::Nop(Keyword::If) => {
-                ip = type_check_if_block(ops, ip, stack, frame, fn_table);
+                let (end_ip, mut if_new_fns) = type_check_if_block(ops, ip, stack, frame, fn_table);
+                ip = end_ip;
+                new_fns.append(&mut if_new_fns);
             }
             OpKind::Jump(Some(n)) => {
                 ip = n;

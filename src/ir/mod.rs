@@ -44,37 +44,33 @@ impl Program {
             if new_fns.is_empty() {
                 break;
             } else {
-                new_fns.iter().for_each(|f| {
-                    fn_table.insert(f.name.clone(), f.clone());
+                new_fns.drain(..).for_each(|f| {
+                    if fn_table.insert(f.name.clone(), f.clone()).is_none() {
+                        self.functions.push(f);
+                    }
                 });
-                self.functions.append(&mut new_fns);
             }
         }
     }
 
     pub fn normalize_function_names(&mut self) {
-        let mut fn_name_map: HashMap<String, Function> = HashMap::new();
-        self.functions.drain(..).enumerate().for_each(|(i, f)| {
+        let mut fn_name_map: HashMap<String, String> = HashMap::new();
+        self.functions.iter().enumerate().for_each(|(i, f)| {
             let new_name = match f.name.as_str() {
                 "main" => String::from("main"),
                 _ => format!("fn_{}", i),
             };
-            let mut new_f = f.clone();
-            new_f.name = new_name;
-            fn_name_map.insert(f.name.clone(), new_f);
+            fn_name_map.insert(f.name.clone(), new_name);
         });
 
-        fn_name_map
-            .iter()
-            .for_each(|(_k, v)| self.functions.push(v.clone()));
-
         self.functions.iter_mut().for_each(|f| {
+            f.name = fn_name_map.get(&f.name).unwrap().clone();
             f.ops.iter_mut().for_each(|op| {
                 if let Some(fn_name) = match &op.kind {
                     OpKind::Call(fn_name) => Some(fn_name),
                     _ => None,
                 } {
-                    op.kind = OpKind::Call(fn_name_map.get(fn_name).unwrap().name.clone());
+                    op.kind = OpKind::Call(fn_name_map.get(fn_name).unwrap().clone());
                 }
             })
         });

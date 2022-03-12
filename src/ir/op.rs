@@ -1,6 +1,7 @@
 use crate::compiler::{compiler_error, evaluate_signature};
 use crate::ir::{
     function::Function,
+    keyword::Keyword,
     literal::Literal,
     operator::Operator,
     token::{Token, TokenKind},
@@ -9,7 +10,7 @@ use crate::ir::{
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub enum OpKind {
     PushInt(u64),
     PushBool(bool),
@@ -37,6 +38,7 @@ pub enum OpKind {
     EndBlock(usize),
     Return,
     Default,
+    Nop(Keyword),
 }
 
 impl std::fmt::Debug for OpKind {
@@ -70,6 +72,7 @@ impl std::fmt::Debug for OpKind {
             OpKind::EndBlock(n) => write!(f, "EndBlock({n})"),
             OpKind::Return => write!(f, "Return"),
             OpKind::Default => write!(f, "Default"),
+            OpKind::Nop(kw) => write!(f, "Marker({:?})", kw),
         }
     }
 }
@@ -80,7 +83,7 @@ impl Default for OpKind {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct Op {
     pub kind: OpKind,
     pub token: Token,
@@ -307,6 +310,7 @@ impl Op {
                     None
                 }
             }
+            OpKind::Nop(_) => None,
             OpKind::Word(_) => unreachable!("Shouldn't have any words left to type check"),
             OpKind::PrepareFunc(_) => unreachable!("PrepareFunction shouldn't be type checked."),
             OpKind::Default => unreachable!("Default op shouldn't be compiled"),

@@ -1,7 +1,7 @@
 use crate::ir::{Frame, Stack};
 use serde::{Deserialize, Serialize};
 
-#[derive(Default, Serialize, Deserialize, Clone)]
+#[derive(Default, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Type {
     pub name: String,
     pub ident: Option<String>,
@@ -37,7 +37,7 @@ impl std::fmt::Display for Type {
     }
 }
 
-#[derive(Default, Debug, Serialize, Deserialize, Clone)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Signature {
     pub inputs: Stack,
     pub outputs: Stack,

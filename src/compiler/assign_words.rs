@@ -21,6 +21,11 @@ pub fn assign_words(program: &mut Program) {
                 OpKind::MakeIdent(s) => {
                     scope.push(s.clone());
                 }
+                OpKind::EndBlock(n) => {
+                    for _ in 0..*n {
+                        scope.pop();
+                    }
+                }
                 OpKind::Word(s) => {
                     if let Some(idx) = &scope.iter().position(|ident| ident == s) {
                         op.kind = OpKind::PushIdent(*idx);

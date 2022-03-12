@@ -4,13 +4,16 @@ fn main() {
     2 2 var [a b]
 
     a b > if {
-        1 print
+        0 0 0 var [x y z]
+        x y z
     } else a b <= if {
-        2 print
+        2 2 2
     } else a b == if {
-        3 print
+        3 3 3
     } else {
-        4 print
+        4 4 4
     }
+
+    var [x y z]
 
 }

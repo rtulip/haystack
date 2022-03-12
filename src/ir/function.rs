@@ -1,4 +1,4 @@
-use crate::compiler::compiler_error;
+use crate::compiler::{compiler_error, type_check_ops_list};
 use crate::ir::{
     op::Op,
     token::Token,
@@ -8,7 +8,7 @@ use crate::ir::{
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Function {
     pub name: String,
     pub token: Token,
@@ -26,21 +26,15 @@ impl Function {
         if self.is_generic() {
             return None;
         }
-        let mut new_fns: Vec<Function> = vec![];
         let (mut stack, mut frame) = self.sig.create_stack_and_frame();
-
-        self.ops.iter_mut().for_each(|op| {
-            if let Some(f) = op.type_check(&mut stack, &mut frame, fn_table) {
-                new_fns.push(f);
-            }
-        });
-
+        let (_, new_fns) =
+            type_check_ops_list(&mut self.ops, 0, &mut stack, &mut frame, fn_table, vec![]);
         self.check_output(&stack);
 
-        if !new_fns.is_empty() {
-            Some(new_fns)
-        } else {
+        if new_fns.is_empty() {
             None
+        } else {
+            Some(new_fns)
         }
     }
 

@@ -142,6 +142,7 @@ fn compile_op(op: &Op, file: &mut std::fs::File) {
             writeln!(file, "  mov  qword [frame_start_ptr], rax").unwrap();
             writeln!(file, "  ret").unwrap();
         }
+        OpKind::Nop(_) => (),
         OpKind::Default => panic!("Unexpected Default Operation"),
     }
 }

@@ -11,6 +11,6 @@ fn main() {
         3
     }
 
-    putu
+    print
 
 }

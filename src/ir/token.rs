@@ -26,14 +26,14 @@ pub fn eof_tok() -> Token {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct Loc {
     pub file: String,
     pub row: usize,
     pub col: usize,
 }
 
-#[derive(Clone, Serialize, Deserialize, Default)]
+#[derive(Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct Token {
     pub kind: TokenKind,
     pub loc: Loc,

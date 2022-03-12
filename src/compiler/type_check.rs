@@ -1,7 +1,10 @@
 use crate::compiler::compiler_error;
 use crate::ir::{
-    op::Op,
+    function::Function,
+    keyword::Keyword,
+    op::{Op, OpKind},
     types::{Signature, Type},
+    FnTable, Frame, Stack,
 };
 
 pub fn evaluate_signature(op: &Op, signature: &Signature, stack: &mut Vec<Type>) {
@@ -46,4 +49,109 @@ pub fn evaluate_signature(op: &Op, signature: &Signature, stack: &mut Vec<Type>)
         .outputs
         .iter()
         .for_each(|output| stack.push(output.clone()));
+}
+
+fn type_check_if_block(
+    ops: &mut Vec<Op>,
+    start_ip: usize,
+    stack: &mut Stack,
+    frame: &mut Frame,
+    fn_table: &FnTable,
+) -> usize {
+    println!("Type Checking If Block...");
+    assert!(matches!(ops[start_ip].kind, OpKind::Nop(Keyword::If)));
+    assert!(
+        matches!(ops[start_ip + 1].kind, OpKind::JumpCond(Some(_))),
+        "Expected JumpCond, but found {:?}",
+        ops[start_ip + 1].kind
+    );
+
+    ops[start_ip + 1].type_check(stack, frame, fn_table);
+
+    println!("Initial Stack: {:?}", stack);
+
+    let jump_dest = match ops[start_ip + 1].kind {
+        OpKind::JumpCond(Some(n)) => n,
+        _ => unreachable!(),
+    };
+
+    let mut stack_if_true = stack.clone();
+    let mut frame_if_true = frame.clone();
+    println!("Type Checking true branch");
+    let (true_end_ip, _) = type_check_ops_list(
+        ops,
+        start_ip + 2,
+        &mut stack_if_true,
+        &mut frame_if_true,
+        fn_table,
+        vec![Box::new(|op| matches!(op.kind, OpKind::JumpDest(_)))],
+    );
+
+    println!("Stack if true: {:?}", stack_if_true);
+
+    let mut stack_if_false = stack.clone();
+    let mut frame_if_false = frame.clone();
+    println!("Type Checking false branch");
+    let (false_end_ip, _) = type_check_ops_list(
+        ops,
+        jump_dest + 1,
+        &mut stack_if_false,
+        &mut frame_if_false,
+        fn_table,
+        vec![Box::new(|op| matches!(op.kind, OpKind::JumpDest(_)))],
+    );
+
+    println!("Stack if false: {:?}", stack_if_false);
+
+    if stack_if_true != stack_if_false {
+        compiler_error(
+            &ops[start_ip].token,
+            "Branches do not create similar stacks",
+            vec![
+                format!("Stack if True:  {:?}", stack_if_true).as_str(),
+                format!("Stack if False: {:?}", stack_if_false).as_str(),
+            ],
+        )
+    }
+
+    assert_eq!(frame_if_true, frame_if_false);
+    assert_eq!(true_end_ip, false_end_ip);
+    *stack = stack_if_true;
+    *frame = frame_if_true;
+
+    true_end_ip
+}
+
+pub fn type_check_ops_list(
+    ops: &mut Vec<Op>,
+    start_ip: usize,
+    stack: &mut Stack,
+    frame: &mut Frame,
+    fn_table: &FnTable,
+    break_on: Vec<Box<dyn Fn(&Op) -> bool>>,
+) -> (usize, Vec<Function>) {
+    let mut ip = start_ip;
+    let mut new_fns = vec![];
+    while ip < ops.len() {
+        println!("Looking at Op: {:?}", ops[ip]);
+        if break_on.iter().any(|f| f(&ops[ip])) {
+            return (ip, new_fns);
+        }
+        match ops[ip].kind {
+            OpKind::Nop(Keyword::If) => {
+                ip = type_check_if_block(ops, ip, stack, frame, fn_table);
+            }
+            OpKind::Jump(Some(n)) => {
+                ip = n;
+            }
+            _ => {
+                if let Some(f) = ops[ip].type_check(stack, frame, fn_table) {
+                    new_fns.push(f);
+                }
+                ip += 1;
+            }
+        }
+    }
+
+    (ip, new_fns)
 }

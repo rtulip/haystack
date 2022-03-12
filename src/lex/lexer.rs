@@ -276,6 +276,10 @@ fn parse_function_from_tokens(start_tok: &Token, tokens: &mut Vec<Token>) -> Fun
 fn start_if_ops(token: &Token, ops: &mut Vec<Op>) -> usize {
     let if_idx = ops.len();
     ops.push(Op {
+        kind: OpKind::Nop(Keyword::If),
+        token: token.clone(),
+    });
+    ops.push(Op {
         kind: OpKind::JumpCond(None),
         token: token.clone(),
     });
@@ -311,8 +315,12 @@ fn close_if_block(
     ops.append(block_ops);
     let jump_dest = ops.len() + start_idx;
 
-    assert!(matches!(ops[if_idx].kind, OpKind::JumpCond(None)));
-    ops[if_idx].kind = OpKind::JumpCond(Some(jump_dest));
+    assert!(
+        matches!(ops[if_idx + 1].kind, OpKind::JumpCond(None)),
+        "Expected JumpCond(None), but found {:?}",
+        ops[if_idx].kind
+    );
+    ops[if_idx + 1].kind = OpKind::JumpCond(Some(jump_dest));
 
     ops.push(Op {
         kind: OpKind::JumpDest(jump_dest),
@@ -349,6 +357,10 @@ pub fn parse_if_block_from_tokens(
 
     while peek_token_kind(tokens, TokenKind::Keyword(Keyword::Else)) {
         let tok = expect_token_kind(&tok, tokens, TokenKind::Keyword(Keyword::Else));
+        ops.push(Op {
+            kind: OpKind::Nop(Keyword::Else),
+            token: tok.clone(),
+        });
         if peek_token_kind(tokens, TokenKind::Marker(Marker::OpenBrace)) {
             let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
             ops.push(Op {

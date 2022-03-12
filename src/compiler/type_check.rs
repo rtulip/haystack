@@ -58,12 +58,6 @@ fn type_check_if_block(
     frame: &mut Frame,
     fn_table: &FnTable,
 ) -> (usize, Vec<Function>) {
-    // static mut COUNT: usize = 0;
-
-    // unsafe { COUNT += 1 };
-    // if unsafe { COUNT >= 3 } {
-    //     panic!();
-    // }
     assert!(matches!(ops[start_ip].kind, OpKind::Nop(Keyword::If)));
     assert!(
         matches!(ops[start_ip + 1].kind, OpKind::JumpCond(Some(_))),
@@ -88,22 +82,26 @@ fn type_check_if_block(
         &mut frame_if_true,
         fn_table,
         vec![Box::new(move |op| match op.kind {
-            OpKind::JumpDest(n) => n > jump_dest,
+            OpKind::JumpDest(n) => n >= jump_dest,
             _ => false,
         })],
     );
-    new_fns.append(&mut new_fns_if_true);
 
+    new_fns.append(&mut new_fns_if_true);
+    let mut false_start_ip = jump_dest;
+    if jump_dest + 1 < ops.len() && matches!(ops[jump_dest + 1].kind, OpKind::StartBlock) {
+        false_start_ip += 1;
+    }
     let mut stack_if_false = stack.clone();
     let mut frame_if_false = frame.clone();
     let (false_end_ip, mut new_fns_if_false) = type_check_ops_list(
         ops,
-        jump_dest,
+        false_start_ip,
         &mut stack_if_false,
         &mut frame_if_false,
         fn_table,
         vec![Box::new(move |op| match op.kind {
-            OpKind::JumpDest(n) => n > jump_dest,
+            OpKind::JumpDest(n) => n >= jump_dest,
             _ => false,
         })],
     );

@@ -1,13 +1,15 @@
 
-fn drop<T>(T: t) {}
-
 fn main() {
 
-    true if {
-        2
-    } else {
-        3
-    }
+    false if {
+        
+        false if {
+            1
+        } else {
+            2
+        }
 
+    } else { 3 }
+    
     print
 }

@@ -18,7 +18,7 @@ fn run_command(cmd: &str, args: Vec<&str>) {
 }
 
 fn main() {
-    let input_path = "src/examples/loop.hay";
+    let input_path = "src/examples/fib.hay";
     let ir_path = "src/ir.json";
     println!("Converting {input_path} into IR");
     let mut program = lex::hay_into_ir(input_path);

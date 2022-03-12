@@ -123,16 +123,10 @@ fn compile_op(op: &Op, func: Option<&Function>, file: &mut std::fs::File) {
             writeln!(file, "  mov  qword [frame_start_ptr], rax").unwrap();
             writeln!(file, "  call {name}").unwrap();
         }
-        OpKind::PrepareFunc(f) => {
-            writeln!(file, "{}:", f.name).unwrap();
+        OpKind::PrepareFunc => {
+            writeln!(file, "{}:", func.unwrap().name).unwrap();
             writeln!(file, "  pop  rax").unwrap();
             frame_push_rax(file);
-            f.sig.inputs.iter().for_each(|typ| {
-                if typ.ident.is_some() {
-                    writeln!(file, "  pop  rax").unwrap();
-                    frame_push_rax(file);
-                }
-            })
         }
         OpKind::Return => {
             writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
@@ -220,27 +214,9 @@ pub fn compile_program<P: AsRef<std::path::Path>>(program: &Program, out_path: P
         if f.is_generic() {
             return;
         }
-
-        compile_op(
-            &Op {
-                kind: OpKind::PrepareFunc(f.clone()),
-                ..Default::default()
-            },
-            Some(&f),
-            &mut file,
-        );
-
         f.ops
             .iter()
             .for_each(|op| compile_op(op, Some(&f), &mut file));
-        compile_op(
-            &Op {
-                kind: OpKind::Return,
-                ..Default::default()
-            },
-            Some(&f),
-            &mut file,
-        );
     });
     nasm_close(&mut file);
 }

@@ -1,4 +1,4 @@
-use crate::compiler::program_meta;
+use crate::compiler::{compiler_error, program_meta};
 use crate::ir::{op::OpKind, Program};
 
 pub fn assign_words(program: &mut Program) {
@@ -13,7 +13,7 @@ pub fn assign_words(program: &mut Program) {
                 }
             })
         } else if !func.sig.inputs.iter().all(|typ| typ.ident.is_none()) {
-            panic!("Compiler Error: All inputs must be named if any are.")
+            compiler_error(&func.token, "All inputs must be named if any are.", vec![]);
         }
 
         for op in &mut func.ops {
@@ -32,7 +32,11 @@ pub fn assign_words(program: &mut Program) {
                     } else if fn_names.get(s).is_some() {
                         op.kind = OpKind::Call(s.clone());
                     } else {
-                        panic!("Unrecognized word: {s}");
+                        compiler_error(
+                            &op.token,
+                            format!("Unrecognized Word: `{s}`").as_str(),
+                            vec![],
+                        )
                     }
                 }
                 _ => (),

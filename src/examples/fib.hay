@@ -16,13 +16,6 @@ fn fib(u64) -> [u64] {
     }
 }
 
-fn fib2(u64) -> [u64] {
-    dup 2 > if {
-        dup 1 - fib swap
-        2 - fib + 
-    }
-}
-
 fn main() {
 
     0 while dup 20 < {

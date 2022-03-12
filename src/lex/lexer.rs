@@ -268,12 +268,30 @@ fn parse_function_from_tokens(start_tok: &Token, tokens: &mut Vec<Token>) -> Fun
         parse_function_generics(&name_tok, tokens).unwrap_or((name_tok.clone(), vec![]));
     let (tok, sig) = parse_signature_from_tokens(&tok, tokens);
     let _tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
-    let mut ops = vec![];
-    let _tok = parse_tokens_until_tokenkind(
+    let mut ops = vec![Op {
+        kind: OpKind::PrepareFunc,
+        token: name_tok.clone(),
+    }];
+
+    sig.inputs.iter().rev().for_each(|t| {
+        if let Some(ident) = &t.ident {
+            ops.push(Op {
+                kind: OpKind::MakeIdent(ident.clone()),
+                token: name_tok.clone(),
+            });
+        }
+    });
+
+    let tok = parse_tokens_until_tokenkind(
         tokens,
         &mut ops,
         vec![TokenKind::Marker(Marker::CloseBrace)],
     );
+
+    ops.push(Op {
+        kind: OpKind::Return,
+        token: tok,
+    });
 
     Function {
         name,

@@ -30,7 +30,7 @@ pub enum OpKind {
     MakeIdent(String),
     PushIdent(usize),
     Call(String),
-    PrepareFunc(Function),
+    PrepareFunc,
     JumpCond(Option<usize>),
     Jump(Option<usize>),
     JumpDest(usize),
@@ -62,7 +62,7 @@ impl std::fmt::Debug for OpKind {
             OpKind::MakeIdent(s) => write!(f, "MakeIdent({s})"),
             OpKind::PushIdent(i) => write!(f, "PushIdent({i})"),
             OpKind::Call(func) => write!(f, "Call({func})"),
-            OpKind::PrepareFunc(func) => write!(f, "PrepareFunc({})", func.name),
+            OpKind::PrepareFunc => write!(f, "PrepareFunc"),
             OpKind::JumpCond(Some(dest)) => write!(f, "JumpCond({dest})"),
             OpKind::JumpCond(None) => unreachable!(),
             OpKind::Jump(Some(dest)) => write!(f, "Jump({dest})"),
@@ -312,7 +312,7 @@ impl Op {
             }
             OpKind::Nop(_) => None,
             OpKind::Word(_) => unreachable!("Shouldn't have any words left to type check"),
-            OpKind::PrepareFunc(_) => unreachable!("PrepareFunction shouldn't be type checked."),
+            OpKind::PrepareFunc => None,
             OpKind::Default => unreachable!("Default op shouldn't be compiled"),
         };
 

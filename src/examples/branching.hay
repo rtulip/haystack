@@ -3,9 +3,8 @@ fn main() {
     3 2 var [a b]
 
     a b < if {
-        true var [this_should_be_dropped]
         1
-    } else a b ==  if {
+    } else a b == if {
         2
     } else {
         3

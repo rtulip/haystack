@@ -399,6 +399,10 @@ pub fn parse_if_block_from_tokens(
 
     while peek_token_kind(tokens, TokenKind::Keyword(Keyword::Else)) {
         let tok = expect_token_kind(&tok, tokens, TokenKind::Keyword(Keyword::Else));
+        ops.push(Op {
+            kind: OpKind::Nop(Keyword::Else),
+            token: tok.clone(),
+        });
         if peek_token_kind(tokens, TokenKind::Marker(Marker::OpenBrace)) {
             let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
             let block_idx = ops.len();

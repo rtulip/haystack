@@ -1,10 +1,6 @@
 
-fn drop<T>(T: t) {}
-
-fn swap<A B>(A: a B: b) -> [B A] {
-    b a
-}
-
 fn main() {
-    1234 true swap print drop
+    
+    1 2 + print
+
 }

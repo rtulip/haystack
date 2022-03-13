@@ -21,6 +21,7 @@ fn main() {
     let input_path = "src/examples/fib.hay";
     let ir_path = "src/ir.json";
     let mut program = lex::hay_into_ir(input_path);
+    program.check_for_entry_point();
     program.check_for_name_conflicts();
     program.assign_words();
     compiler::program_to_json(ir_path, &program);

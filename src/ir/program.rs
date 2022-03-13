@@ -10,6 +10,20 @@ pub struct Program {
 }
 
 impl Program {
+    pub fn check_for_entry_point(&self) {
+        if !self.functions.iter().any(|f| f.name == "main") {
+            let token = if self.functions.len() > 0 {
+                self.functions.last().unwrap().token.clone()
+            } else {
+                Token::default()
+            };
+            compiler_error(
+                &token,
+                "No entry point defined",
+                vec!["Try adding a `main` function."],
+            );
+        }
+    }
     pub fn type_check(&mut self) {
         println!("Type checking...");
         let mut fn_table: HashMap<String, Function> = HashMap::new();

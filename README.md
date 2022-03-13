@@ -8,7 +8,7 @@ Haystack is a statically typed, stack-based programming language that aims to im
 
 ## N'th Fibonacci Number
 ```
-// No stack manipulation operations are built into the langue
+// No stack manipulation operations are built into the language
 // apart from operators. So, for the moment, these need to be
 // constructed manually. 
 fn dup<T>(T: t) -> [T T] {t t}
@@ -37,5 +37,6 @@ fn main() {
     } 
 }
 ```
+
 
 

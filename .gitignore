@@ -1,7 +1,12 @@
-/target
+*
+!/**/
+!*.*
 *.json
 Cargo.lock
+/target
 *.o
 *.asm
 *.out
 *.simple
+
+

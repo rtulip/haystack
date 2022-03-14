@@ -101,8 +101,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::u64_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::U64],
                     },
                     stack,
                 );
@@ -112,8 +112,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::u64_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::U64],
                     },
                     stack,
                 );
@@ -123,8 +123,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::u64_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::U64],
                     },
                     stack,
                 );
@@ -134,8 +134,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::u64_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::U64],
                     },
                     stack,
                 );
@@ -145,8 +145,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::bool_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::Bool],
                     },
                     stack,
                 );
@@ -156,8 +156,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::bool_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::Bool],
                     },
                     stack,
                 );
@@ -167,8 +167,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::bool_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::Bool],
                     },
                     stack,
                 );
@@ -178,8 +178,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::bool_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::Bool],
                     },
                     stack,
                 );
@@ -189,8 +189,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::bool_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::Bool],
                     },
                     stack,
                 );
@@ -200,8 +200,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::bool_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::Bool],
                     },
                     stack,
                 );
@@ -224,7 +224,7 @@ impl Op {
                     self,
                     &Signature {
                         inputs: vec![],
-                        outputs: vec![Type::u64_t()],
+                        outputs: vec![Type::U64],
                     },
                     stack,
                 );
@@ -235,7 +235,7 @@ impl Op {
                     self,
                     &Signature {
                         inputs: vec![],
-                        outputs: vec![Type::bool_t()],
+                        outputs: vec![Type::Bool],
                     },
                     stack,
                 );
@@ -257,7 +257,7 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t()],
+                        inputs: vec![Type::U64],
                         outputs: vec![],
                     },
                     stack,
@@ -268,7 +268,7 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::bool_t()],
+                        inputs: vec![Type::Bool],
                         outputs: vec![],
                     },
                     stack,

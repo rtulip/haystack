@@ -7,4 +7,5 @@ pub enum Keyword {
     If,
     Else,
     While,
+    Struct,
 }

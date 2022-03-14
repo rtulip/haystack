@@ -62,6 +62,8 @@ pub enum LogosToken {
     ElseKeyword,
     #[token("while")]
     WhileKeyword,
+    #[token("struct")]
+    StructKeyword,
 
     // Markers
     #[token("{")]

@@ -1,0 +1,7 @@
+struct pair {
+    u64 u64
+}
+
+fn main() {
+    
+}

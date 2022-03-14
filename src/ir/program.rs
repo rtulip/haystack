@@ -1,15 +1,26 @@
 use crate::compiler::compiler_error;
-use crate::ir::{function::Function, op::OpKind, token::Token};
+use crate::ir::{function::Function, op::OpKind, token::Token, types::Type};
 
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Program {
+    pub types: HashMap<String, Type>,
     pub functions: Vec<Function>,
 }
 
 impl Program {
+    pub fn new() -> Self {
+        Program {
+            types: HashMap::from_iter([
+                (String::from("u64"), Type::U64),
+                (String::from("bool"), Type::Bool),
+            ]),
+            functions: vec![],
+        }
+    }
+
     pub fn check_for_entry_point(&self) {
         if !self.functions.iter().any(|f| f.name == "main") {
             let token = if self.functions.len() > 0 {
@@ -127,13 +138,21 @@ impl Program {
         let fn_names = self.meta();
         self.functions.iter_mut().for_each(|func| {
             let mut scope: Vec<String> = vec![];
-            if func.sig.inputs.iter().all(|typ| typ.ident.is_some()) {
-                func.sig.inputs.iter().rev().for_each(|input| {
-                    if let Some(ident) = &input.ident {
+            if func
+                .sig_idents
+                .iter()
+                .all(|maybe_ident| maybe_ident.is_some())
+            {
+                func.sig_idents.iter().rev().for_each(|input| {
+                    if let Some(ident) = input {
                         scope.push(ident.clone())
                     }
                 })
-            } else if !func.sig.inputs.iter().all(|typ| typ.ident.is_none()) {
+            } else if !func
+                .sig_idents
+                .iter()
+                .all(|maybe_ident| maybe_ident.is_none())
+            {
                 compiler_error(&func.token, "All inputs must be named if any are.", vec![]);
             }
             for op in &mut func.ops {

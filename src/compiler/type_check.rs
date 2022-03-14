@@ -20,7 +20,7 @@ pub fn evaluate_signature(op: &Op, signature: &Signature, stack: &mut Vec<Type>)
     }
 
     for (input, stk) in signature.inputs.iter().rev().zip(stack.iter().rev()) {
-        if input.name != stk.name {
+        if input != stk {
             compiler_error(
                 &op.token,
                 format!("Type Error - Invalid inputs for `{:?}`", op.kind).as_str(),
@@ -52,11 +52,7 @@ pub fn evaluate_signature(op: &Op, signature: &Signature, stack: &mut Vec<Type>)
 }
 
 fn check_stacks_similar(stack1: &Stack, stack2: &Stack) -> bool {
-    stack1.len() == stack2.len()
-        && stack1
-            .iter()
-            .zip(stack2.iter())
-            .all(|(t, f)| t.name == f.name)
+    stack1.len() == stack2.len() && stack1.iter().zip(stack2.iter()).all(|(t, f)| t == f)
 }
 
 fn type_check_if_block(

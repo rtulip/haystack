@@ -9,12 +9,12 @@ pub fn simplify_ir<P: AsRef<std::path::Path> + std::clone::Clone>(program: &Prog
         f.sig
             .inputs
             .iter()
-            .for_each(|t| write!(&mut file, "{} ", t.name).unwrap());
+            .for_each(|t| write!(&mut file, "{:?} ", t).unwrap());
         write!(&mut file, ") -> [").unwrap();
         f.sig
             .outputs
             .iter()
-            .for_each(|t| write!(&mut file, "{} ", t.name).unwrap());
+            .for_each(|t| write!(&mut file, "{:?} ", t).unwrap());
         writeln!(&mut file, "]:").unwrap();
         f.ops.iter().enumerate().for_each(|(i, op)| {
             writeln!(&mut file, "    {i}: {:?}", op.kind).unwrap();

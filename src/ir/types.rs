@@ -15,31 +15,17 @@ pub enum Type {
     },
 }
 
-// #[derive(Default, Serialize, Deserialize, Clone, PartialEq)]
-// pub struct Type {
-//     pub name: String,
-//     pub ident: Option<String>,
-// }
-
-// impl Type {
-//     pub fn u64_t() -> Type {
-//         Type {
-//             name: String::from("u64"),
-//             ident: None,
-//         }
-//     }
-
-//     pub fn bool_t() -> Type {
-//         Type {
-//             name: String::from("bool"),
-//             ident: None,
-//         }
-//     }
-
-//     pub fn primitives_names() -> Vec<String> {
-//         vec![Type::u64_t().name, Type::bool_t().name]
-//     }
-// }
+impl Type {
+    pub fn size(&self) -> usize {
+        match self {
+            Type::U64 | Type::Bool => 1,
+            Type::Placeholder { .. } => panic!("Size of Placeholder types are unknown"),
+            Type::StructType {
+                name: _, members, ..
+            } => members.iter().map(|t| t.size()).sum(),
+        }
+    }
+}
 
 impl std::fmt::Debug for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -55,15 +41,6 @@ impl std::fmt::Debug for Type {
         }
     }
 }
-
-// impl std::fmt::Display for Type {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         match self.ident {
-//             Some(ref s) => write!(f, "{}: {}", self.name, s),
-//             None => write!(f, "{}", self.name),
-//         }
-//     }
-// }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Signature {

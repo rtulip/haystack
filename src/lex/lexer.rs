@@ -322,7 +322,10 @@ fn parse_var_from_tokens(start_tok: &Token, tokens: &mut Vec<Token>) -> (Token, 
             .iter()
             .rev()
             .map(|(token, ident)| Op {
-                kind: OpKind::MakeIdent(ident.clone()),
+                kind: OpKind::MakeIdent {
+                    ident: ident.clone(),
+                    size: None,
+                },
                 token: token.clone(),
             })
             .collect(),
@@ -359,7 +362,10 @@ fn parse_function_from_tokens(
     sig_idents.iter().rev().for_each(|maybe_ident| {
         if let Some(ident) = maybe_ident {
             ops.push(Op {
-                kind: OpKind::MakeIdent(ident.clone()),
+                kind: OpKind::MakeIdent {
+                    ident: ident.clone(),
+                    size: None,
+                },
                 token: name_tok.clone(),
             });
         }
@@ -410,7 +416,7 @@ fn make_ident_count(ops: &[Op], start_ip: usize) -> usize {
     let mut ip = start_ip;
     while ip < ops.len() {
         match ops[ip].kind {
-            OpKind::MakeIdent(_) => {
+            OpKind::MakeIdent { .. } => {
                 var_count += 1;
                 ip += 1
             }

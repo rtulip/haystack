@@ -2,10 +2,16 @@ struct pair {
     u64 u64
 }
 
-fn drop(u64: x) {}
+fn swap<A B>(A: a B: b) -> [B A] {b a}
 
 fn main() {
    
-   0 5 10 cast(pair)
+    1 2 cast(pair)
+    3 4 cast(pair)
+
+    swap
+
+    split print print
+    split print print
 
 }

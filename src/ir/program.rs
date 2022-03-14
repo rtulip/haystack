@@ -102,7 +102,7 @@ impl Program {
 
             let mut vars: Vec<&String> = vec![];
             f.ops.iter().for_each(|op| match &op.kind {
-                OpKind::MakeIdent(s) => {
+                OpKind::MakeIdent { ident: s, .. } => {
                     vars.push(&s);
                     if let Some((kind, tok)) = name_map.insert(&s, (NameKind::Var, &op.token)) {
                         compiler_error(
@@ -157,7 +157,7 @@ impl Program {
             }
             for op in &mut func.ops {
                 match &mut op.kind {
-                    OpKind::MakeIdent(s) => {
+                    OpKind::MakeIdent { ident: s, .. } => {
                         scope.push(s.clone());
                     }
                     OpKind::EndBlock(n) => {
@@ -167,7 +167,11 @@ impl Program {
                     }
                     OpKind::Word(s) => {
                         if let Some(idx) = &scope.iter().position(|ident| ident == s) {
-                            op.kind = OpKind::PushIdent(*idx);
+                            op.kind = OpKind::PushIdent {
+                                index: *idx,
+                                offset: None,
+                                size: None,
+                            };
                         } else if fn_names.get(s).is_some() {
                             op.kind = OpKind::Call(s.clone());
                         } else {

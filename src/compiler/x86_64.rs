@@ -113,14 +113,33 @@ fn compile_op(op: &Op, func: Option<&Function>, file: &mut std::fs::File) {
         OpKind::Cast(_) => (),
         OpKind::Split => (),
         OpKind::Word(_) => unreachable!("Words shouldn't be compiled."),
-        OpKind::MakeIdent(_) => {
-            writeln!(file, "  pop  rax").unwrap();
-            frame_push_rax(file);
+        OpKind::MakeIdent {
+            ident: _,
+            size: Some(n),
+        } => {
+            for _ in 0..*n {
+                writeln!(file, "  pop  rax").unwrap();
+                frame_push_rax(file);
+            }
         }
-        OpKind::PushIdent(idx) => {
-            writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
-            writeln!(file, "  mov  rax, [rax - {}]", (2 + idx) * 8).unwrap();
-            writeln!(file, "  push rax").unwrap();
+        OpKind::MakeIdent {
+            ident: _,
+            size: None,
+        } => panic!("Size hasn't been provided for MakeIdent"),
+        OpKind::PushIdent {
+            index: _,
+            offset: Some(offset),
+            size: Some(size),
+        } => {
+            for delta in 0..*size {
+                let x = offset + size - delta;
+                writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
+                writeln!(file, "  mov  rax, [rax - {}]", (1 + x) * 8).unwrap();
+                writeln!(file, "  push rax").unwrap();
+            }
+        }
+        OpKind::PushIdent { index: _, .. } => {
+            panic!("Size and/or offset haven't been provided for PushIdent")
         }
         OpKind::Jump(Some(n)) => {
             writeln!(file, "  jmp {}_jmp_dest_{}", func.unwrap().name, n).unwrap();

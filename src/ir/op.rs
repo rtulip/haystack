@@ -30,8 +30,15 @@ pub enum OpKind {
     Cast(String),
     Split,
     Word(String),
-    MakeIdent(String),
-    PushIdent(usize),
+    MakeIdent {
+        ident: String,
+        size: Option<usize>,
+    },
+    PushIdent {
+        index: usize,
+        offset: Option<usize>,
+        size: Option<usize>,
+    },
     Call(String),
     PrepareFunc,
     JumpCond(Option<usize>),
@@ -64,8 +71,8 @@ impl std::fmt::Debug for OpKind {
             OpKind::Cast(name) => write!(f, "Cast({name})"),
             OpKind::Split => write!(f, "Split"),
             OpKind::Word(s) => write!(f, "Word({s})"),
-            OpKind::MakeIdent(s) => write!(f, "MakeIdent({s})"),
-            OpKind::PushIdent(i) => write!(f, "PushIdent({i})"),
+            OpKind::MakeIdent { ident: s, .. } => write!(f, "MakeIdent({s})"),
+            OpKind::PushIdent { index: i, .. } => write!(f, "PushIdent({i})"),
             OpKind::Call(func) => write!(f, "Call({func})"),
             OpKind::PrepareFunc => write!(f, "PrepareFunc"),
             OpKind::JumpCond(Some(dest)) => write!(f, "JumpCond({dest})"),
@@ -266,17 +273,6 @@ impl Op {
 
                 None
             }
-            OpKind::PushIdent(n) => {
-                evaluate_signature(
-                    self,
-                    &Signature {
-                        inputs: vec![],
-                        outputs: vec![frame[*n].clone()],
-                    },
-                    stack,
-                );
-                None
-            }
             OpKind::PushString(_) => todo!(),
             OpKind::PushInt(_) => {
                 evaluate_signature(
@@ -300,8 +296,12 @@ impl Op {
                 );
                 None
             }
-            OpKind::MakeIdent(_) => {
+            OpKind::MakeIdent { ident, .. } => {
                 if let Some(typ) = stack.pop() {
+                    self.kind = OpKind::MakeIdent {
+                        ident: ident.clone(),
+                        size: Some(typ.size()),
+                    };
                     frame.push(typ);
                 } else {
                     compiler_error(
@@ -310,6 +310,28 @@ impl Op {
                         vec![format!("Stack: {:?}", stack).as_str()],
                     )
                 }
+                None
+            }
+            OpKind::PushIdent { index: n, .. } => {
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![],
+                        outputs: vec![frame[*n].clone()],
+                    },
+                    stack,
+                );
+
+                println!("{n}: Frame: {:?}", frame);
+
+                let offset = frame[0..*n].iter().map(|t| t.size()).sum();
+                println!("Offset: {offset}");
+                self.kind = OpKind::PushIdent {
+                    index: *n,
+                    offset: Some(offset),
+                    size: Some(frame[*n].size()),
+                };
+
                 None
             }
             OpKind::Print => {

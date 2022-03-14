@@ -27,7 +27,7 @@ pub fn compile_haystack(input_path: String, run: bool, ir: bool, simple: bool) -
 
     assert!(run_command(
         "nasm",
-        vec!["-felf64", &path.with_extension("asm").to_str().unwrap()],
+        vec!["-felf64", path.with_extension("asm").to_str().unwrap()],
     )
     .status
     .success());
@@ -35,8 +35,8 @@ pub fn compile_haystack(input_path: String, run: bool, ir: bool, simple: bool) -
         "ld",
         vec![
             "-o",
-            &path.file_stem().unwrap().to_str().unwrap(),
-            &path.with_extension("o").to_str().unwrap(),
+            path.file_stem().unwrap().to_str().unwrap(),
+            path.with_extension("o").to_str().unwrap(),
         ],
     )
     .status

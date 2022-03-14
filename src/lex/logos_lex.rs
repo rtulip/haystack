@@ -62,6 +62,14 @@ pub enum LogosToken {
     ElseKeyword,
     #[token("while")]
     WhileKeyword,
+    #[token("struct")]
+    StructKeyword,
+    #[token("cast")]
+    CastKeyword,
+    #[token("split")]
+    SplitKeyword,
+    #[token("syscall")]
+    SyscallKeyword,
 
     // Markers
     #[token("{")]

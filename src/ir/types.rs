@@ -1,42 +1,53 @@
 use crate::ir::Stack;
 use serde::{Deserialize, Serialize};
 
-#[derive(Default, Serialize, Deserialize, Clone, PartialEq)]
-pub struct Type {
-    pub name: String,
-    pub ident: Option<String>,
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+pub enum Type {
+    U64,
+    Bool,
+    Ptr,
+    Placeholder {
+        name: String,
+    },
+    Struct {
+        name: String,
+        members: Vec<Type>,
+        idents: Vec<Option<String>>,
+    },
 }
+
 impl Type {
-    pub fn u64_t() -> Type {
-        Type {
-            name: String::from("u64"),
-            ident: None,
+    pub fn size(&self) -> usize {
+        match self {
+            Type::U64 | Type::Bool | Type::Ptr => 1,
+            Type::Placeholder { .. } => panic!("Size of Placeholder types are unknown"),
+            Type::Struct {
+                name: _, members, ..
+            } => members.iter().map(|t| t.size()).sum(),
         }
     }
 
-    pub fn bool_t() -> Type {
-        Type {
-            name: String::from("bool"),
-            ident: None,
+    pub fn str() -> Self {
+        Type::Struct {
+            name: String::from("Str"),
+            members: vec![Type::U64, Type::Ptr],
+            idents: vec![Some(String::from("size")), Some(String::from("data"))],
         }
-    }
-
-    pub fn primitives_names() -> Vec<String> {
-        vec![Type::u64_t().name, Type::bool_t().name]
     }
 }
 
 impl std::fmt::Debug for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name)
-    }
-}
-
-impl std::fmt::Display for Type {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.ident {
-            Some(ref s) => write!(f, "{}: {}", self.name, s),
-            None => write!(f, "{}", self.name),
+        match self {
+            Type::U64 => write!(f, "u64"),
+            Type::Bool => write!(f, "bool"),
+            Type::Ptr => write!(f, "ptr"),
+            Type::Placeholder { name } => write!(f, "{name}"),
+            Type::Struct {
+                name,
+                members: _,
+                idents: _,
+            } => write!(f, "{name}"),
         }
     }
 }

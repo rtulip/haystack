@@ -1,0 +1,17 @@
+struct pair {
+    u64 u64
+}
+
+fn swap<A B>(A: a B: b) -> [B A] {b a}
+
+fn main() {
+   
+    1 2 cast(pair)
+    3 4 cast(pair)
+
+    swap
+
+    split print print
+    split print print
+
+}

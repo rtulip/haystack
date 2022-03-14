@@ -1,0 +1,13 @@
+fn drop<T>(T: t) {}
+
+fn sys_write(Str u64) -> [u64] {
+    1 syscall(3)
+}
+
+fn write(Str) {
+    split 1 sys_write drop
+}
+
+fn main() {
+    "Hello World!\n" write
+}

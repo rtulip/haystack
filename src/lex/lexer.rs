@@ -2,6 +2,7 @@ use crate::compiler::compiler_error;
 use crate::ir::{
     function::Function,
     keyword::Keyword,
+    literal::Literal,
     marker::Marker,
     op::{Op, OpKind},
     operator::Operator,
@@ -11,11 +12,14 @@ use crate::ir::{
 };
 use crate::lex::logos_lex::{into_token, LogosToken};
 use logos::Logos;
+use std::collections::HashMap;
 use std::fs;
 
 fn parse_tokens_until_tokenkind(
     tokens: &mut Vec<Token>,
     ops: &mut Vec<Op>,
+    type_map: &HashMap<String, Type>,
+    string_list: &mut Vec<String>,
     break_on: Vec<TokenKind>,
 ) -> Token {
     while let Some(token) = tokens.pop() {
@@ -28,8 +32,19 @@ fn parse_tokens_until_tokenkind(
                 let (_tok, mut idents) = parse_var_from_tokens(&token, tokens);
                 ops.append(&mut idents);
             }
+            TokenKind::Keyword(Keyword::Cast) => {
+                let op = parse_cast_from_tokens(&token, tokens, type_map);
+                ops.push(op);
+            }
+            TokenKind::Keyword(Keyword::Syscall) => {
+                ops.push(parse_syscall_from_tokens(&token, tokens));
+            }
+            TokenKind::Keyword(Keyword::Split) => ops.push(Op {
+                kind: OpKind::Split,
+                token: token.clone(),
+            }),
             TokenKind::Keyword(Keyword::If) => {
-                let _tok = parse_if_block_from_tokens(&token, tokens, ops);
+                let _tok = parse_if_block_from_tokens(&token, tokens, ops, type_map, string_list);
             }
             TokenKind::Keyword(Keyword::Else) => {
                 panic!("Else keyword should be turned into an op")
@@ -37,11 +52,22 @@ fn parse_tokens_until_tokenkind(
             TokenKind::Keyword(Keyword::Function) => {
                 panic!("Function keyword can't be converted into ops.")
             }
+            TokenKind::Keyword(Keyword::Struct) => {
+                panic!("Struct keyword can't be converted into ops")
+            }
             TokenKind::Keyword(Keyword::While) => {
-                let _tok = parse_while_block_from_tokens(&token, tokens, ops);
+                let _tok =
+                    parse_while_block_from_tokens(&token, tokens, ops, type_map, string_list);
             }
             TokenKind::Comment(_) => (),
             TokenKind::Operator(_) => ops.push(Op::from(token.clone())),
+            TokenKind::Literal(Literal::String(ref s)) => {
+                ops.push(Op {
+                    kind: OpKind::PushString(string_list.len()),
+                    token: token.clone(),
+                });
+                string_list.push(s.clone());
+            }
             TokenKind::Literal(_) => ops.push(Op::from(token.clone())),
             TokenKind::Marker(_) => panic!("Markers shouldn't be converted into ops..."),
             TokenKind::Word(_) => ops.push(Op::from(token.clone())),
@@ -107,6 +133,26 @@ fn expect_word(prev_tok: &Token, tokens: &mut Vec<Token>) -> (Token, String) {
     }
 }
 
+fn expect_u64(prev_tok: &Token, tokens: &mut Vec<Token>) -> (Token, u64) {
+    if let Some(token) = tokens.pop() {
+        let x = match &token.kind {
+            TokenKind::Literal(Literal::Int(x)) => *x,
+            _ => compiler_error(
+                &token,
+                format!("Expected a word, but found {:?} instead", token.kind).as_str(),
+                vec![],
+            ),
+        };
+        (token, x)
+    } else {
+        compiler_error(
+            prev_tok,
+            "Expected a word, but found end of file instead",
+            vec![],
+        );
+    }
+}
+
 fn peek_word(tokens: &[Token]) -> bool {
     if let Some(token) = tokens.last() {
         matches!(token.kind, TokenKind::Word(_))
@@ -118,21 +164,21 @@ fn peek_word(tokens: &[Token]) -> bool {
 fn parse_maybe_tagged_type_from_tokens(
     start_tok: &Token,
     tokens: &mut Vec<Token>,
-) -> Option<(Token, Type)> {
+    type_map: &HashMap<String, Type>,
+) -> Option<(Token, Type, Option<String>)> {
     if peek_word(tokens) {
         let (tok, name) = expect_word(start_tok, tokens);
+        let typ = if type_map.contains_key(&name) {
+            type_map.get(&name).unwrap().clone()
+        } else {
+            Type::Placeholder { name }
+        };
         if peek_token_kind(tokens, TokenKind::Marker(Marker::Colon)) {
             let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::Colon));
             let (tok, ident) = expect_word(&tok, tokens);
-            Some((
-                tok,
-                Type {
-                    name,
-                    ident: Some(ident),
-                },
-            ))
+            Some((tok, typ, Some(ident)))
         } else {
-            Some((tok, Type { name, ident: None }))
+            Some((tok, typ, None))
         }
     } else {
         None
@@ -142,10 +188,16 @@ fn parse_maybe_tagged_type_from_tokens(
 fn parse_untagged_type_from_tokens(
     start_tok: &Token,
     tokens: &mut Vec<Token>,
+    type_map: &HashMap<String, Type>,
 ) -> Option<(Token, Type)> {
     if peek_word(tokens) {
         let (tok, name) = expect_word(start_tok, tokens);
-        Some((tok, Type { name, ident: None }))
+        let typ = if type_map.contains_key(&name) {
+            type_map.get(&name).unwrap().clone()
+        } else {
+            Type::Placeholder { name }
+        };
+        Some((tok, typ))
     } else {
         None
     }
@@ -154,6 +206,7 @@ fn parse_untagged_type_from_tokens(
 fn parse_function_generics(
     start_tok: &Token,
     tokens: &mut Vec<Token>,
+    type_map: &HashMap<String, Type>,
 ) -> Option<(Token, Vec<Type>)> {
     // Check to see if any generics were provided.
     if peek_token_kind(tokens, TokenKind::Marker(Marker::OpenParen)) {
@@ -163,7 +216,7 @@ fn parse_function_generics(
     let mut tok = expect_token_kind(start_tok, tokens, TokenKind::Operator(Operator::LessThan));
     let mut gen = vec![];
 
-    while let Some((typ_tok, typ)) = parse_untagged_type_from_tokens(&tok, tokens) {
+    while let Some((typ_tok, typ)) = parse_untagged_type_from_tokens(&tok, tokens, type_map) {
         gen.push(typ);
         tok = typ_tok;
     }
@@ -172,23 +225,39 @@ fn parse_function_generics(
     Some((tok, gen))
 }
 
+fn parse_maybe_tagged_type_list_from_tokens(
+    token: &Token,
+    tokens: &mut Vec<Token>,
+    type_map: &HashMap<String, Type>,
+) -> (Vec<Type>, Vec<Option<String>>) {
+    let mut tok = token.clone();
+    let mut inputs = vec![];
+    let mut idents = vec![];
+    while let Some((typ_tok, typ, ident)) =
+        parse_maybe_tagged_type_from_tokens(&tok, tokens, type_map)
+    {
+        inputs.push(typ);
+        idents.push(ident);
+        tok = typ_tok;
+    }
+    (inputs, idents)
+}
+
 fn parse_function_inputs_from_tokens(
     start_tok: &Token,
     tokens: &mut Vec<Token>,
-) -> (Token, Vec<Type>) {
-    let mut tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenParen));
-    let mut inputs = vec![];
-    while let Some((typ_tok, typ)) = parse_maybe_tagged_type_from_tokens(&tok, tokens) {
-        inputs.push(typ);
-        tok = typ_tok;
-    }
+    type_map: &HashMap<String, Type>,
+) -> (Token, Vec<Type>, Vec<Option<String>>) {
+    let tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenParen));
+    let (inputs, idents) = parse_maybe_tagged_type_list_from_tokens(&tok, tokens, type_map);
     let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::CloseParen));
-    (tok, inputs)
+    (tok, inputs, idents)
 }
 
 fn parse_function_outputs_from_tokens(
     start_tok: &Token,
     tokens: &mut Vec<Token>,
+    type_map: &HashMap<String, Type>,
 ) -> Option<(Token, Vec<Type>)> {
     if !peek_token_kind(tokens, TokenKind::Marker(Marker::Arrow)) {
         return None;
@@ -198,7 +267,7 @@ fn parse_function_outputs_from_tokens(
     let mut tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBracket));
 
     let mut outputs = vec![];
-    while let Some((typ_tok, typ)) = parse_untagged_type_from_tokens(&tok, tokens) {
+    while let Some((typ_tok, typ)) = parse_untagged_type_from_tokens(&tok, tokens, type_map) {
         outputs.push(typ);
         tok = typ_tok;
     }
@@ -207,10 +276,14 @@ fn parse_function_outputs_from_tokens(
     Some((tok, outputs))
 }
 
-fn parse_signature_from_tokens(start_tok: &Token, tokens: &mut Vec<Token>) -> (Token, Signature) {
-    let (tok, inputs) = parse_function_inputs_from_tokens(start_tok, tokens);
-    if let Some((tok, outputs)) = parse_function_outputs_from_tokens(&tok, tokens) {
-        (tok, Signature { inputs, outputs })
+fn parse_signature_from_tokens(
+    start_tok: &Token,
+    tokens: &mut Vec<Token>,
+    type_map: &HashMap<String, Type>,
+) -> (Token, Signature, Vec<Option<String>>) {
+    let (tok, inputs, idents) = parse_function_inputs_from_tokens(start_tok, tokens, type_map);
+    if let Some((tok, outputs)) = parse_function_outputs_from_tokens(&tok, tokens, type_map) {
+        (tok, Signature { inputs, outputs }, idents)
     } else {
         (
             tok,
@@ -218,6 +291,7 @@ fn parse_signature_from_tokens(start_tok: &Token, tokens: &mut Vec<Token>) -> (T
                 inputs,
                 outputs: vec![],
             },
+            idents,
         )
     }
 }
@@ -239,6 +313,47 @@ fn parse_word_list_from_tokens(
     (tok, words)
 }
 
+fn parse_syscall_from_tokens(start_tok: &Token, tokens: &mut Vec<Token>) -> Op {
+    let tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenParen));
+    let (tok, x) = expect_u64(&tok, tokens);
+    if x > 6 {
+        compiler_error(start_tok, "Syscall's can only accept up to 6 args", vec![]);
+    }
+    let _tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::CloseParen));
+
+    Op {
+        kind: OpKind::Syscall(x),
+        token: start_tok.clone(),
+    }
+}
+
+fn parse_cast_from_tokens(
+    start_tok: &Token,
+    tokens: &mut Vec<Token>,
+    type_map: &HashMap<String, Type>,
+) -> Op {
+    let tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenParen));
+    let (tok, name) = expect_word(&tok, tokens);
+
+    if !type_map.contains_key(&name) {
+        compiler_error(&tok, "Cannot cast to unkown type: {name}", vec![]);
+    }
+    if !matches!(type_map.get(&name).unwrap(), Type::Struct { .. }) {
+        compiler_error(
+            &tok,
+            "Cannot cast to type: {name}",
+            vec!["Only casting to struct types is supported"],
+        );
+    }
+
+    let _tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::CloseParen));
+
+    Op {
+        kind: OpKind::Cast(name),
+        token: start_tok.clone(),
+    }
+}
+
 fn parse_var_from_tokens(start_tok: &Token, tokens: &mut Vec<Token>) -> (Token, Vec<Op>) {
     let (tok, idents) = parse_word_list_from_tokens(start_tok, tokens);
     if idents.is_empty() {
@@ -254,24 +369,30 @@ fn parse_var_from_tokens(start_tok: &Token, tokens: &mut Vec<Token>) -> (Token, 
             .iter()
             .rev()
             .map(|(token, ident)| Op {
-                kind: OpKind::MakeIdent(ident.clone()),
+                kind: OpKind::MakeIdent {
+                    ident: ident.clone(),
+                    size: None,
+                },
                 token: token.clone(),
             })
             .collect(),
     )
 }
 
-fn parse_function_from_tokens(start_tok: &Token, tokens: &mut Vec<Token>) -> Function {
+fn parse_function_from_tokens(
+    start_tok: &Token,
+    tokens: &mut Vec<Token>,
+    type_map: &HashMap<String, Type>,
+    string_list: &mut Vec<String>,
+) -> Function {
     let t = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Function));
     let (name_tok, name) = expect_word(&t, tokens);
     let (tok, gen) =
-        parse_function_generics(&name_tok, tokens).unwrap_or((name_tok.clone(), vec![]));
-    let (tok, sig) = parse_signature_from_tokens(&tok, tokens);
+        parse_function_generics(&name_tok, tokens, type_map).unwrap_or((name_tok.clone(), vec![]));
+    let (tok, sig, sig_idents) = parse_signature_from_tokens(&tok, tokens, type_map);
 
     sig.inputs.iter().for_each(|i| {
-        if !Type::primitives_names().contains(&i.name)
-            && !gen.iter().any(|generic| generic.name == i.name)
-        {
+        if matches!(i, Type::Placeholder { name: _ }) && !gen.contains(i) {
             compiler_error(
                 &tok,
                 format!("Unrecognized type: `{:?}`", i).as_str(),
@@ -286,10 +407,13 @@ fn parse_function_from_tokens(start_tok: &Token, tokens: &mut Vec<Token>) -> Fun
         token: name_tok.clone(),
     }];
 
-    sig.inputs.iter().rev().for_each(|t| {
-        if let Some(ident) = &t.ident {
+    sig_idents.iter().rev().for_each(|maybe_ident| {
+        if let Some(ident) = maybe_ident {
             ops.push(Op {
-                kind: OpKind::MakeIdent(ident.clone()),
+                kind: OpKind::MakeIdent {
+                    ident: ident.clone(),
+                    size: None,
+                },
                 token: name_tok.clone(),
             });
         }
@@ -298,6 +422,8 @@ fn parse_function_from_tokens(start_tok: &Token, tokens: &mut Vec<Token>) -> Fun
     let tok = parse_tokens_until_tokenkind(
         tokens,
         &mut ops,
+        type_map,
+        string_list,
         vec![TokenKind::Marker(Marker::CloseBrace)],
     );
 
@@ -311,6 +437,7 @@ fn parse_function_from_tokens(start_tok: &Token, tokens: &mut Vec<Token>) -> Fun
         token: name_tok,
         gen,
         sig,
+        sig_idents,
         ops,
     }
 }
@@ -338,7 +465,7 @@ fn make_ident_count(ops: &[Op], start_ip: usize) -> usize {
     let mut ip = start_ip;
     while ip < ops.len() {
         match ops[ip].kind {
-            OpKind::MakeIdent(_) => {
+            OpKind::MakeIdent { .. } => {
                 var_count += 1;
                 ip += 1
             }
@@ -381,11 +508,18 @@ fn if_block_to_ops(
     start_tok: &Token,
     tokens: &mut Vec<Token>,
     ops: &mut Vec<Op>,
+    type_map: &HashMap<String, Type>,
+    string_list: &mut Vec<String>,
 ) -> (Token, usize) {
     let if_idx = start_if_ops(start_tok, ops);
     let _tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenBrace));
-    let tok =
-        parse_tokens_until_tokenkind(tokens, ops, vec![TokenKind::Marker(Marker::CloseBrace)]);
+    let tok = parse_tokens_until_tokenkind(
+        tokens,
+        ops,
+        type_map,
+        string_list,
+        vec![TokenKind::Marker(Marker::CloseBrace)],
+    );
     // Count how many times we push a variable onto the frame stack.
     (tok.clone(), close_if_block(&tok, ops, if_idx))
 }
@@ -394,8 +528,10 @@ pub fn parse_if_block_from_tokens(
     token: &Token,
     tokens: &mut Vec<Token>,
     ops: &mut Vec<Op>,
+    type_map: &HashMap<String, Type>,
+    string_list: &mut Vec<String>,
 ) -> Token {
-    let (tok, mut jump_dest) = if_block_to_ops(token, tokens, ops);
+    let (tok, mut jump_dest) = if_block_to_ops(token, tokens, ops, type_map, string_list);
 
     while peek_token_kind(tokens, TokenKind::Keyword(Keyword::Else)) {
         let tok = expect_token_kind(&tok, tokens, TokenKind::Keyword(Keyword::Else));
@@ -413,6 +549,8 @@ pub fn parse_if_block_from_tokens(
             let tok = parse_tokens_until_tokenkind(
                 tokens,
                 ops,
+                type_map,
+                string_list,
                 vec![TokenKind::Marker(Marker::CloseBrace)],
             );
             let var_count = make_ident_count(ops, block_idx);
@@ -430,14 +568,21 @@ pub fn parse_if_block_from_tokens(
             });
             break;
         } else {
-            let tok =
-                parse_tokens_until_tokenkind(tokens, ops, vec![TokenKind::Keyword(Keyword::If)]);
+            let tok = parse_tokens_until_tokenkind(
+                tokens,
+                ops,
+                type_map,
+                string_list,
+                vec![TokenKind::Keyword(Keyword::If)],
+            );
 
             let if_idx = start_if_ops(&tok, ops);
             let _tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
             let tok = parse_tokens_until_tokenkind(
                 tokens,
                 ops,
+                type_map,
+                string_list,
                 vec![TokenKind::Marker(Marker::CloseBrace)],
             );
             // Count how many times we push a variable onto the frame stack.
@@ -452,7 +597,13 @@ pub fn parse_if_block_from_tokens(
     tok
 }
 
-pub fn parse_while_block_from_tokens(token: &Token, tokens: &mut Vec<Token>, ops: &mut Vec<Op>) {
+pub fn parse_while_block_from_tokens(
+    token: &Token,
+    tokens: &mut Vec<Token>,
+    ops: &mut Vec<Op>,
+    type_map: &HashMap<String, Type>,
+    string_list: &mut Vec<String>,
+) {
     ops.push(Op {
         kind: OpKind::Nop(Keyword::While),
         token: token.clone(),
@@ -462,7 +613,13 @@ pub fn parse_while_block_from_tokens(token: &Token, tokens: &mut Vec<Token>, ops
         kind: OpKind::JumpDest(loop_dest),
         token: token.clone(),
     });
-    let tok = parse_tokens_until_tokenkind(tokens, ops, vec![TokenKind::Marker(Marker::OpenBrace)]);
+    let tok = parse_tokens_until_tokenkind(
+        tokens,
+        ops,
+        type_map,
+        string_list,
+        vec![TokenKind::Marker(Marker::OpenBrace)],
+    );
     let cond_jump_loc = ops.len();
     ops.push(Op {
         kind: OpKind::JumpCond(None),
@@ -473,8 +630,13 @@ pub fn parse_while_block_from_tokens(token: &Token, tokens: &mut Vec<Token>, ops
         token: tok,
     });
 
-    let tok =
-        parse_tokens_until_tokenkind(tokens, ops, vec![TokenKind::Marker(Marker::CloseBrace)]);
+    let tok = parse_tokens_until_tokenkind(
+        tokens,
+        ops,
+        type_map,
+        string_list,
+        vec![TokenKind::Marker(Marker::CloseBrace)],
+    );
 
     let var_count = make_ident_count(ops, cond_jump_loc + 1);
     ops.push(Op {
@@ -493,6 +655,28 @@ pub fn parse_while_block_from_tokens(token: &Token, tokens: &mut Vec<Token>, ops
 
     assert!(matches!(ops[cond_jump_loc].kind, OpKind::JumpCond(None)));
     ops[cond_jump_loc].kind = OpKind::JumpCond(Some(end_loc));
+}
+
+fn parse_struct_from_tokens(
+    start_tok: &Token,
+    tokens: &mut Vec<Token>,
+    type_map: &HashMap<String, Type>,
+) -> (String, Type) {
+    let tok = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Struct));
+    let (name_tok, name) = expect_word(&tok, tokens);
+    let tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::OpenBrace));
+    let (members, idents) = parse_maybe_tagged_type_list_from_tokens(&tok, tokens, type_map);
+    let _tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
+
+    // TODO: Should all/none of the types have to be annotated?
+    (
+        name.clone(),
+        Type::Struct {
+            name,
+            members,
+            idents,
+        },
+    )
 }
 
 pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
@@ -515,7 +699,7 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
     }
     tokens.reverse();
 
-    let mut program = Program::default();
+    let mut program = Program::new();
     loop {
         let maybe_tok = tokens.last();
         match maybe_tok {
@@ -525,7 +709,20 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
             }) => program.functions.push(parse_function_from_tokens(
                 &maybe_tok.unwrap().clone(),
                 &mut tokens,
+                &program.types,
+                &mut program.strings,
             )),
+            Some(Token {
+                kind: TokenKind::Keyword(Keyword::Struct),
+                ..
+            }) => {
+                let (name, typ) = parse_struct_from_tokens(
+                    &maybe_tok.unwrap().clone(),
+                    &mut tokens,
+                    &program.types,
+                );
+                program.types.insert(name, typ);
+            }
             Some(tok) => compiler_error(tok, format!("Unexpected token {}", tok).as_str(), vec![]),
             None => break,
         }

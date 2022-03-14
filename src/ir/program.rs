@@ -1,18 +1,33 @@
 use crate::compiler::compiler_error;
-use crate::ir::{function::Function, op::OpKind, token::Token};
+use crate::ir::{function::Function, op::OpKind, token::Token, types::Type};
 
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Program {
+    pub types: HashMap<String, Type>,
     pub functions: Vec<Function>,
+    pub strings: Vec<String>,
 }
 
 impl Program {
+    pub fn new() -> Self {
+        Program {
+            types: HashMap::from_iter([
+                (String::from("u64"), Type::U64),
+                (String::from("bool"), Type::Bool),
+                (String::from("ptr"), Type::Ptr),
+                (String::from("Str"), Type::str()),
+            ]),
+            functions: vec![],
+            strings: vec![],
+        }
+    }
+
     pub fn check_for_entry_point(&self) {
         if !self.functions.iter().any(|f| f.name == "main") {
-            let token = if self.functions.len() > 0 {
+            let token = if !self.functions.is_empty() {
                 self.functions.last().unwrap().token.clone()
             } else {
                 Token::default()
@@ -35,7 +50,7 @@ impl Program {
         loop {
             self.functions.iter_mut().for_each(|f| {
                 if !checked.contains(&f.name) {
-                    if let Some(mut fns) = f.type_check(&fn_table) {
+                    if let Some(mut fns) = f.type_check(&fn_table, &self.types) {
                         new_fns.append(&mut fns);
                     }
                     checked.insert(f.name.clone());
@@ -91,9 +106,9 @@ impl Program {
 
             let mut vars: Vec<&String> = vec![];
             f.ops.iter().for_each(|op| match &op.kind {
-                OpKind::MakeIdent(s) => {
-                    vars.push(&s);
-                    if let Some((kind, tok)) = name_map.insert(&s, (NameKind::Var, &op.token)) {
+                OpKind::MakeIdent { ident: s, .. } => {
+                    vars.push(s);
+                    if let Some((kind, tok)) = name_map.insert(s, (NameKind::Var, &op.token)) {
                         compiler_error(
                             &op.token,
                             format!("Redefinition of {} `{}`", kind, s).as_str(),
@@ -127,18 +142,26 @@ impl Program {
         let fn_names = self.meta();
         self.functions.iter_mut().for_each(|func| {
             let mut scope: Vec<String> = vec![];
-            if func.sig.inputs.iter().all(|typ| typ.ident.is_some()) {
-                func.sig.inputs.iter().rev().for_each(|input| {
-                    if let Some(ident) = &input.ident {
+            if func
+                .sig_idents
+                .iter()
+                .all(|maybe_ident| maybe_ident.is_some())
+            {
+                func.sig_idents.iter().rev().for_each(|input| {
+                    if let Some(ident) = input {
                         scope.push(ident.clone())
                     }
                 })
-            } else if !func.sig.inputs.iter().all(|typ| typ.ident.is_none()) {
+            } else if !func
+                .sig_idents
+                .iter()
+                .all(|maybe_ident| maybe_ident.is_none())
+            {
                 compiler_error(&func.token, "All inputs must be named if any are.", vec![]);
             }
             for op in &mut func.ops {
                 match &mut op.kind {
-                    OpKind::MakeIdent(s) => {
+                    OpKind::MakeIdent { ident: s, .. } => {
                         scope.push(s.clone());
                     }
                     OpKind::EndBlock(n) => {
@@ -148,7 +171,11 @@ impl Program {
                     }
                     OpKind::Word(s) => {
                         if let Some(idx) = &scope.iter().position(|ident| ident == s) {
-                            op.kind = OpKind::PushIdent(*idx);
+                            op.kind = OpKind::PushIdent {
+                                index: *idx,
+                                offset: None,
+                                size: None,
+                            };
                         } else if fn_names.get(s).is_some() {
                             op.kind = OpKind::Call(s.clone());
                         } else {

@@ -9,12 +9,13 @@ use crate::ir::{
     FnTable, Frame, Stack,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub enum OpKind {
     PushInt(u64),
     PushBool(bool),
-    PushString(String),
+    PushString(usize),
     Add,
     Sub,
     Mul,
@@ -26,9 +27,19 @@ pub enum OpKind {
     Equals,
     NotEquals,
     Print,
+    Cast(String),
+    Split,
     Word(String),
-    MakeIdent(String),
-    PushIdent(usize),
+    MakeIdent {
+        ident: String,
+        size: Option<usize>,
+    },
+    PushIdent {
+        index: usize,
+        offset: Option<usize>,
+        size: Option<usize>,
+    },
+    Syscall(u64),
     Call(String),
     PrepareFunc,
     JumpCond(Option<usize>),
@@ -46,7 +57,7 @@ impl std::fmt::Debug for OpKind {
         match self {
             OpKind::PushInt(i) => write!(f, "Push({i})"),
             OpKind::PushBool(b) => write!(f, "Push({b})"),
-            OpKind::PushString(s) => write!(f, "Push(\"{s}\")"),
+            OpKind::PushString(i) => write!(f, "Push(str_{i})"),
             OpKind::Add => write!(f, "+"),
             OpKind::Sub => write!(f, "-"),
             OpKind::Mul => write!(f, "*"),
@@ -58,9 +69,12 @@ impl std::fmt::Debug for OpKind {
             OpKind::Equals => write!(f, "=="),
             OpKind::NotEquals => write!(f, "!="),
             OpKind::Print => write!(f, "print"),
+            OpKind::Cast(name) => write!(f, "Cast({name})"),
+            OpKind::Split => write!(f, "Split"),
             OpKind::Word(s) => write!(f, "Word({s})"),
-            OpKind::MakeIdent(s) => write!(f, "MakeIdent({s})"),
-            OpKind::PushIdent(i) => write!(f, "PushIdent({i})"),
+            OpKind::MakeIdent { ident: s, .. } => write!(f, "MakeIdent({s})"),
+            OpKind::PushIdent { index: i, .. } => write!(f, "PushIdent({i})"),
+            OpKind::Syscall(n) => write!(f, "Syscall({n})"),
             OpKind::Call(func) => write!(f, "Call({func})"),
             OpKind::PrepareFunc => write!(f, "PrepareFunc"),
             OpKind::JumpCond(Some(dest)) => write!(f, "JumpCond({dest})"),
@@ -95,14 +109,15 @@ impl Op {
         stack: &mut Stack,
         frame: &mut Frame,
         fn_table: &FnTable,
+        type_map: &HashMap<String, Type>,
     ) -> Option<Function> {
         let op: Option<(OpKind, Function)> = match &self.kind {
             OpKind::Add => {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::u64_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::U64],
                     },
                     stack,
                 );
@@ -112,8 +127,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::u64_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::U64],
                     },
                     stack,
                 );
@@ -123,8 +138,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::u64_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::U64],
                     },
                     stack,
                 );
@@ -134,8 +149,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::u64_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::U64],
                     },
                     stack,
                 );
@@ -145,8 +160,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::bool_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::Bool],
                     },
                     stack,
                 );
@@ -156,8 +171,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::bool_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::Bool],
                     },
                     stack,
                 );
@@ -167,8 +182,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::bool_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::Bool],
                     },
                     stack,
                 );
@@ -178,8 +193,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::bool_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::Bool],
                     },
                     stack,
                 );
@@ -189,8 +204,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::bool_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::Bool],
                     },
                     stack,
                 );
@@ -200,31 +215,83 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t(), Type::u64_t()],
-                        outputs: vec![Type::bool_t()],
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::Bool],
                     },
                     stack,
                 );
                 None
             }
-            OpKind::PushIdent(n) => {
+            OpKind::Cast(name) => {
+                assert!(type_map.contains_key(name));
+                let cast_type = type_map.get(name).unwrap();
+                assert!(matches!(cast_type, Type::Struct { .. }));
+                match cast_type {
+                    Type::Struct {
+                        name: _, members, ..
+                    } => {
+                        evaluate_signature(
+                            self,
+                            &Signature {
+                                inputs: members.clone(),
+                                outputs: vec![cast_type.clone()],
+                            },
+                            stack,
+                        );
+                    }
+                    _ => unreachable!(),
+                }
+
+                None
+            }
+            OpKind::Split => {
+                let struct_t = match stack.last() {
+                    Some(Type::Struct {
+                        name,
+                        members,
+                        idents,
+                    }) => Type::Struct {
+                        name: name.clone(),
+                        members: members.clone(),
+                        idents: idents.clone(),
+                    },
+                    Some(_) => todo!(),
+                    None => todo!(),
+                };
+
+                match &struct_t {
+                    Type::Struct {
+                        name: _, members, ..
+                    } => evaluate_signature(
+                        self,
+                        &Signature {
+                            inputs: vec![struct_t.clone()],
+                            outputs: members.clone(),
+                        },
+                        stack,
+                    ),
+                    _ => unreachable!(),
+                }
+
+                None
+            }
+            OpKind::PushString { .. } => {
                 evaluate_signature(
                     self,
                     &Signature {
                         inputs: vec![],
-                        outputs: vec![frame[*n].clone()],
+                        outputs: vec![Type::str()],
                     },
                     stack,
                 );
                 None
             }
-            OpKind::PushString(_) => todo!(),
             OpKind::PushInt(_) => {
                 evaluate_signature(
                     self,
                     &Signature {
                         inputs: vec![],
-                        outputs: vec![Type::u64_t()],
+                        outputs: vec![Type::U64],
                     },
                     stack,
                 );
@@ -235,14 +302,18 @@ impl Op {
                     self,
                     &Signature {
                         inputs: vec![],
-                        outputs: vec![Type::bool_t()],
+                        outputs: vec![Type::Bool],
                     },
                     stack,
                 );
                 None
             }
-            OpKind::MakeIdent(_) => {
+            OpKind::MakeIdent { ident, .. } => {
                 if let Some(typ) = stack.pop() {
+                    self.kind = OpKind::MakeIdent {
+                        ident: ident.clone(),
+                        size: Some(typ.size()),
+                    };
                     frame.push(typ);
                 } else {
                     compiler_error(
@@ -253,11 +324,30 @@ impl Op {
                 }
                 None
             }
+            OpKind::PushIdent { index: n, .. } => {
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![],
+                        outputs: vec![frame[*n].clone()],
+                    },
+                    stack,
+                );
+
+                let offset = frame[0..*n].iter().map(|t| t.size()).sum();
+                self.kind = OpKind::PushIdent {
+                    index: *n,
+                    offset: Some(offset),
+                    size: Some(frame[*n].size()),
+                };
+
+                None
+            }
             OpKind::Print => {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::u64_t()],
+                        inputs: vec![Type::U64],
                         outputs: vec![],
                     },
                     stack,
@@ -268,7 +358,7 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::bool_t()],
+                        inputs: vec![Type::Bool],
                         outputs: vec![],
                     },
                     stack,
@@ -294,6 +384,43 @@ impl Op {
             }
             OpKind::Return => {
                 *frame = Vec::<Type>::new();
+                None
+            }
+            OpKind::Syscall(n) => {
+                if stack.len() < *n as usize + 1 {
+                    compiler_error(
+                        &self.token,
+                        format!(
+                            "{:?} Requires {} elements on the stack.",
+                            self.kind,
+                            *n as usize + 1
+                        )
+                        .as_str(),
+                        vec![format!("Stack: {:?}", stack).as_str()],
+                    );
+                }
+
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![Type::U64],
+                        outputs: vec![],
+                    },
+                    stack,
+                );
+                for _ in 0..*n {
+                    let t = stack.pop().unwrap();
+                    if t.size() != 1 {
+                        compiler_error(
+                            &self.token,
+                            "Only u64's can be used in a syscall",
+                            vec![format!("Type: {:?}", t).as_str()],
+                        );
+                    }
+                }
+
+                stack.push(Type::U64);
+
                 None
             }
             OpKind::Call(func_name) => {
@@ -336,10 +463,9 @@ impl From<Token> for Op {
                 kind: OpKind::PushBool(*b),
                 token,
             },
-            TokenKind::Literal(Literal::String(s)) => Op {
-                kind: OpKind::PushString(s.clone()),
-                token,
-            },
+            TokenKind::Literal(Literal::String(_)) => {
+                panic!("Strings have to be made with knowledge of the string list")
+            }
             TokenKind::Operator(Operator::Add) => Op {
                 kind: OpKind::Add,
                 token,

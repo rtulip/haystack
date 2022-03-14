@@ -7,4 +7,8 @@ pub enum Keyword {
     If,
     Else,
     While,
+    Struct,
+    Cast,
+    Split,
+    Syscall,
 }

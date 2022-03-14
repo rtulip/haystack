@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "src/tests/hello_world.hay:4:7: ERROR: Syscall(3) Requires 4 elements on the stack.\n    Note: Stack: [Str, u64, u64]\n"
+}

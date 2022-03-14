@@ -322,10 +322,7 @@ impl Op {
                     stack,
                 );
 
-                println!("{n}: Frame: {:?}", frame);
-
                 let offset = frame[0..*n].iter().map(|t| t.size()).sum();
-                println!("Offset: {offset}");
                 self.kind = OpKind::PushIdent {
                     index: *n,
                     offset: Some(offset),

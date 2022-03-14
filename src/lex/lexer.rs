@@ -2,6 +2,7 @@ use crate::compiler::compiler_error;
 use crate::ir::{
     function::Function,
     keyword::Keyword,
+    literal::Literal,
     marker::Marker,
     op::{Op, OpKind},
     operator::Operator,
@@ -18,6 +19,7 @@ fn parse_tokens_until_tokenkind(
     tokens: &mut Vec<Token>,
     ops: &mut Vec<Op>,
     type_map: &HashMap<String, Type>,
+    string_list: &mut Vec<String>,
     break_on: Vec<TokenKind>,
 ) -> Token {
     while let Some(token) = tokens.pop() {
@@ -39,7 +41,7 @@ fn parse_tokens_until_tokenkind(
                 token: token.clone(),
             }),
             TokenKind::Keyword(Keyword::If) => {
-                let _tok = parse_if_block_from_tokens(&token, tokens, ops, type_map);
+                let _tok = parse_if_block_from_tokens(&token, tokens, ops, type_map, string_list);
             }
             TokenKind::Keyword(Keyword::Else) => {
                 panic!("Else keyword should be turned into an op")
@@ -51,10 +53,18 @@ fn parse_tokens_until_tokenkind(
                 panic!("Struct keyword can't be converted into ops")
             }
             TokenKind::Keyword(Keyword::While) => {
-                let _tok = parse_while_block_from_tokens(&token, tokens, ops, type_map);
+                let _tok =
+                    parse_while_block_from_tokens(&token, tokens, ops, type_map, string_list);
             }
             TokenKind::Comment(_) => (),
             TokenKind::Operator(_) => ops.push(Op::from(token.clone())),
+            TokenKind::Literal(Literal::String(ref s)) => {
+                ops.push(Op {
+                    kind: OpKind::PushString(string_list.len()),
+                    token: token.clone(),
+                });
+                string_list.push(s.clone());
+            }
             TokenKind::Literal(_) => ops.push(Op::from(token.clone())),
             TokenKind::Marker(_) => panic!("Markers shouldn't be converted into ops..."),
             TokenKind::Word(_) => ops.push(Op::from(token.clone())),
@@ -336,6 +346,7 @@ fn parse_function_from_tokens(
     start_tok: &Token,
     tokens: &mut Vec<Token>,
     type_map: &HashMap<String, Type>,
+    string_list: &mut Vec<String>,
 ) -> Function {
     let t = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Function));
     let (name_tok, name) = expect_word(&t, tokens);
@@ -375,6 +386,7 @@ fn parse_function_from_tokens(
         tokens,
         &mut ops,
         type_map,
+        string_list,
         vec![TokenKind::Marker(Marker::CloseBrace)],
     );
 
@@ -460,6 +472,7 @@ fn if_block_to_ops(
     tokens: &mut Vec<Token>,
     ops: &mut Vec<Op>,
     type_map: &HashMap<String, Type>,
+    string_list: &mut Vec<String>,
 ) -> (Token, usize) {
     let if_idx = start_if_ops(start_tok, ops);
     let _tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenBrace));
@@ -467,6 +480,7 @@ fn if_block_to_ops(
         tokens,
         ops,
         type_map,
+        string_list,
         vec![TokenKind::Marker(Marker::CloseBrace)],
     );
     // Count how many times we push a variable onto the frame stack.
@@ -478,8 +492,9 @@ pub fn parse_if_block_from_tokens(
     tokens: &mut Vec<Token>,
     ops: &mut Vec<Op>,
     type_map: &HashMap<String, Type>,
+    string_list: &mut Vec<String>,
 ) -> Token {
-    let (tok, mut jump_dest) = if_block_to_ops(token, tokens, ops, type_map);
+    let (tok, mut jump_dest) = if_block_to_ops(token, tokens, ops, type_map, string_list);
 
     while peek_token_kind(tokens, TokenKind::Keyword(Keyword::Else)) {
         let tok = expect_token_kind(&tok, tokens, TokenKind::Keyword(Keyword::Else));
@@ -498,6 +513,7 @@ pub fn parse_if_block_from_tokens(
                 tokens,
                 ops,
                 type_map,
+                string_list,
                 vec![TokenKind::Marker(Marker::CloseBrace)],
             );
             let var_count = make_ident_count(ops, block_idx);
@@ -519,6 +535,7 @@ pub fn parse_if_block_from_tokens(
                 tokens,
                 ops,
                 type_map,
+                string_list,
                 vec![TokenKind::Keyword(Keyword::If)],
             );
 
@@ -528,6 +545,7 @@ pub fn parse_if_block_from_tokens(
                 tokens,
                 ops,
                 type_map,
+                string_list,
                 vec![TokenKind::Marker(Marker::CloseBrace)],
             );
             // Count how many times we push a variable onto the frame stack.
@@ -547,6 +565,7 @@ pub fn parse_while_block_from_tokens(
     tokens: &mut Vec<Token>,
     ops: &mut Vec<Op>,
     type_map: &HashMap<String, Type>,
+    string_list: &mut Vec<String>,
 ) {
     ops.push(Op {
         kind: OpKind::Nop(Keyword::While),
@@ -561,6 +580,7 @@ pub fn parse_while_block_from_tokens(
         tokens,
         ops,
         type_map,
+        string_list,
         vec![TokenKind::Marker(Marker::OpenBrace)],
     );
     let cond_jump_loc = ops.len();
@@ -577,6 +597,7 @@ pub fn parse_while_block_from_tokens(
         tokens,
         ops,
         type_map,
+        string_list,
         vec![TokenKind::Marker(Marker::CloseBrace)],
     );
 
@@ -652,6 +673,7 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
                 &maybe_tok.unwrap().clone(),
                 &mut tokens,
                 &program.types,
+                &mut program.strings,
             )),
             Some(Token {
                 kind: TokenKind::Keyword(Keyword::Struct),

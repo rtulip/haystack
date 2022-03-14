@@ -8,6 +8,7 @@ use std::collections::{HashMap, HashSet};
 pub struct Program {
     pub types: HashMap<String, Type>,
     pub functions: Vec<Function>,
+    pub strings: Vec<String>,
 }
 
 impl Program {
@@ -18,6 +19,7 @@ impl Program {
                 (String::from("bool"), Type::Bool),
             ]),
             functions: vec![],
+            strings: vec![],
         }
     }
 

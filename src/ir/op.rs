@@ -15,7 +15,7 @@ use std::collections::HashMap;
 pub enum OpKind {
     PushInt(u64),
     PushBool(bool),
-    PushString(String),
+    PushString(usize),
     Add,
     Sub,
     Mul,
@@ -56,7 +56,7 @@ impl std::fmt::Debug for OpKind {
         match self {
             OpKind::PushInt(i) => write!(f, "Push({i})"),
             OpKind::PushBool(b) => write!(f, "Push({b})"),
-            OpKind::PushString(s) => write!(f, "Push(\"{s}\")"),
+            OpKind::PushString(i) => write!(f, "Push(str_{i})"),
             OpKind::Add => write!(f, "+"),
             OpKind::Sub => write!(f, "-"),
             OpKind::Mul => write!(f, "*"),
@@ -273,7 +273,17 @@ impl Op {
 
                 None
             }
-            OpKind::PushString(_) => todo!(),
+            OpKind::PushString { .. } => {
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![],
+                        outputs: vec![Type::str()],
+                    },
+                    stack,
+                );
+                None
+            }
             OpKind::PushInt(_) => {
                 evaluate_signature(
                     self,
@@ -414,10 +424,9 @@ impl From<Token> for Op {
                 kind: OpKind::PushBool(*b),
                 token,
             },
-            TokenKind::Literal(Literal::String(s)) => Op {
-                kind: OpKind::PushString(s.clone()),
-                token,
-            },
+            TokenKind::Literal(Literal::String(_)) => {
+                panic!("Strings have to be made with knowledge of the string list")
+            }
             TokenKind::Operator(Operator::Add) => Op {
                 kind: OpKind::Add,
                 token,

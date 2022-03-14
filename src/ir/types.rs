@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub enum Type {
     U64,
     Bool,
+    Ptr,
     Placeholder {
         name: String,
     },
@@ -18,11 +19,19 @@ pub enum Type {
 impl Type {
     pub fn size(&self) -> usize {
         match self {
-            Type::U64 | Type::Bool => 1,
+            Type::U64 | Type::Bool | Type::Ptr => 1,
             Type::Placeholder { .. } => panic!("Size of Placeholder types are unknown"),
             Type::StructType {
                 name: _, members, ..
             } => members.iter().map(|t| t.size()).sum(),
+        }
+    }
+
+    pub fn str() -> Self {
+        Type::StructType {
+            name: String::from("Str"),
+            members: vec![Type::U64, Type::Ptr],
+            idents: vec![Some(String::from("size")), Some(String::from("data"))],
         }
     }
 }
@@ -32,6 +41,7 @@ impl std::fmt::Debug for Type {
         match self {
             Type::U64 => write!(f, "u64"),
             Type::Bool => write!(f, "bool"),
+            Type::Ptr => write!(f, "ptr"),
             Type::Placeholder { name } => write!(f, "{name}"),
             Type::StructType {
                 name,

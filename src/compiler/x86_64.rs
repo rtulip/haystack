@@ -26,7 +26,7 @@ fn compile_op(op: &Op, func: Option<&Function>, file: &mut std::fs::File) {
                 writeln!(file, "  push 0").unwrap()
             }
         }
-        OpKind::PushString(_s) => todo!(),
+        OpKind::PushString(i) => writeln!(file, "  push str_{i}").unwrap(),
         OpKind::Add => {
             writeln!(file, "  pop  rbx").unwrap();
             writeln!(file, "  pop  rax").unwrap();
@@ -223,7 +223,7 @@ print:
     .unwrap();
 }
 
-fn nasm_close(file: &mut std::fs::File) {
+fn nasm_close(file: &mut std::fs::File, strings: &Vec<String>) {
     writeln!(file, "global _start").unwrap();
     writeln!(file, "_start: ").unwrap();
     writeln!(file, "  mov  qword [frame_start_ptr], frame_stack_end").unwrap();
@@ -240,6 +240,15 @@ fn nasm_close(file: &mut std::fs::File) {
     writeln!(file, "  mov  rax, 60").unwrap();
     writeln!(file, "  mov  rdi, 0").unwrap();
     writeln!(file, "  syscall").unwrap();
+    writeln!(file, "segment .data").unwrap();
+    strings.iter().enumerate().for_each(|(i, s)| {
+        writeln!(file, "  ; -- \"{s}\"").unwrap();
+        write!(file, "  str_{i}: db ").unwrap();
+        for c in s.as_bytes() {
+            write!(file, "{:#x}, ", c).unwrap();
+        }
+        writeln!(file, "").unwrap();
+    });
     writeln!(file, "segment .bss").unwrap();
     writeln!(file, "  frame_start_ptr: resq 1").unwrap();
     writeln!(file, "  frame_end_ptr: resq 1").unwrap();
@@ -258,5 +267,5 @@ pub fn compile_program<P: AsRef<std::path::Path>>(program: &Program, out_path: P
             .iter()
             .for_each(|op| compile_op(op, Some(&f), &mut file));
     });
-    nasm_close(&mut file);
+    nasm_close(&mut file, &program.strings);
 }

@@ -5,8 +5,14 @@ use serde::{Deserialize, Serialize};
 pub enum Type {
     U64,
     Bool,
-    Placeholder { name: String },
-    StructType { name: String, members: Vec<Type> },
+    Placeholder {
+        name: String,
+    },
+    StructType {
+        name: String,
+        members: Vec<Type>,
+        idents: Vec<Option<String>>,
+    },
 }
 
 // #[derive(Default, Serialize, Deserialize, Clone, PartialEq)]
@@ -41,7 +47,11 @@ impl std::fmt::Debug for Type {
             Type::U64 => write!(f, "u64"),
             Type::Bool => write!(f, "bool"),
             Type::Placeholder { name } => write!(f, "{name}"),
-            Type::StructType { name, members: _ } => write!(f, "{name}"),
+            Type::StructType {
+                name,
+                members: _,
+                idents: _,
+            } => write!(f, "{name}"),
         }
     }
 }

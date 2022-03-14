@@ -538,10 +538,18 @@ fn parse_struct_from_tokens(
     let tok = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Struct));
     let (name_tok, name) = expect_word(&tok, tokens);
     let tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::OpenBrace));
-    let (members, _idents) = parse_maybe_tagged_type_list_from_tokens(&tok, tokens, type_map);
+    let (members, idents) = parse_maybe_tagged_type_list_from_tokens(&tok, tokens, type_map);
     let _tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
 
-    (name.clone(), Type::StructType { name, members })
+    // TODO: Should all/none of the types have to be annotated?
+    (
+        name.clone(),
+        Type::StructType {
+            name,
+            members,
+            idents,
+        },
+    )
 }
 
 pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(

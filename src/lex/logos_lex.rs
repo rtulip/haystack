@@ -68,6 +68,8 @@ pub enum LogosToken {
     CastKeyword,
     #[token("split")]
     SplitKeyword,
+    #[token("syscall")]
+    SyscallKeyword,
 
     // Markers
     #[token("{")]

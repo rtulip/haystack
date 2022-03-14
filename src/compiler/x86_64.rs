@@ -15,7 +15,12 @@ fn frame_pop_n(file: &mut std::fs::File, n: &usize) {
     writeln!(file, "  add qword [frame_end_ptr], {}", 8 * n).unwrap();
 }
 
-fn compile_op(op: &Op, func: Option<&Function>, file: &mut std::fs::File) {
+fn compile_op(
+    op: &Op,
+    func: Option<&Function>,
+    string_list: &Vec<String>,
+    file: &mut std::fs::File,
+) {
     writeln!(file, "  ; -- {:?}", op).unwrap();
     match &op.kind {
         OpKind::PushInt(x) => writeln!(file, "  push {x}").unwrap(),
@@ -26,7 +31,10 @@ fn compile_op(op: &Op, func: Option<&Function>, file: &mut std::fs::File) {
                 writeln!(file, "  push 0").unwrap()
             }
         }
-        OpKind::PushString(i) => writeln!(file, "  push str_{i}").unwrap(),
+        OpKind::PushString(i) => {
+            writeln!(file, "  push {}", string_list[*i].len()).unwrap();
+            writeln!(file, "  push str_{i}").unwrap();
+        }
         OpKind::Add => {
             writeln!(file, "  pop  rbx").unwrap();
             writeln!(file, "  pop  rax").unwrap();
@@ -156,6 +164,14 @@ fn compile_op(op: &Op, func: Option<&Function>, file: &mut std::fs::File) {
         }
         OpKind::StartBlock => (),
         OpKind::EndBlock(n) => frame_pop_n(file, n),
+        OpKind::Syscall(n) => {
+            let order = ["rax", "rdi", "rsi", "rdx", "r10", "r8", "r9"];
+            for i in 0..=*n {
+                writeln!(file, "  pop  {}", order[i as usize]).unwrap();
+            }
+            writeln!(file, "  syscall").unwrap();
+            writeln!(file, "  push rax").unwrap();
+        }
         OpKind::Call(name) => {
             writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
             frame_push_rax(file);
@@ -234,6 +250,7 @@ fn nasm_close(file: &mut std::fs::File, strings: &Vec<String>) {
             ..Default::default()
         },
         None,
+        strings,
         file,
     );
     writeln!(file, "exit:").unwrap();
@@ -244,8 +261,29 @@ fn nasm_close(file: &mut std::fs::File, strings: &Vec<String>) {
     strings.iter().enumerate().for_each(|(i, s)| {
         writeln!(file, "  ; -- \"{s}\"").unwrap();
         write!(file, "  str_{i}: db ").unwrap();
-        for c in s.as_bytes() {
+        let string = s.as_bytes().clone();
+        let mut idx = 0;
+        while idx < string.len() {
+            let c = match char::from(string[idx]) {
+                '\\' => {
+                    if idx + 1 < s.len() {
+                        idx += 1;
+                        match char::from(string[idx]) {
+                            'n' => 0x0A,
+                            _ => unimplemented!("Only `\\n` is implemented yet"),
+                        }
+                    } else {
+                        panic!("Unescaping failed...");
+                    }
+                }
+                c => {
+                    let mut b = [0; 1];
+                    c.encode_utf8(&mut b);
+                    b[0]
+                }
+            };
             write!(file, "{:#x}, ", c).unwrap();
+            idx += 1
         }
         writeln!(file, "").unwrap();
     });
@@ -265,7 +303,7 @@ pub fn compile_program<P: AsRef<std::path::Path>>(program: &Program, out_path: P
         }
         f.ops
             .iter()
-            .for_each(|op| compile_op(op, Some(&f), &mut file));
+            .for_each(|op| compile_op(op, Some(&f), &program.strings, &mut file));
     });
     nasm_close(&mut file, &program.strings);
 }

@@ -36,6 +36,9 @@ fn parse_tokens_until_tokenkind(
                 let op = parse_cast_from_tokens(&token, tokens, type_map);
                 ops.push(op);
             }
+            TokenKind::Keyword(Keyword::Syscall) => {
+                ops.push(parse_syscall_from_tokens(&token, tokens));
+            }
             TokenKind::Keyword(Keyword::Split) => ops.push(Op {
                 kind: OpKind::Split,
                 token: token.clone(),
@@ -121,6 +124,26 @@ fn expect_word(prev_tok: &Token, tokens: &mut Vec<Token>) -> (Token, String) {
             ),
         };
         (token, s)
+    } else {
+        compiler_error(
+            prev_tok,
+            "Expected a word, but found end of file instead",
+            vec![],
+        );
+    }
+}
+
+fn expect_u64(prev_tok: &Token, tokens: &mut Vec<Token>) -> (Token, u64) {
+    if let Some(token) = tokens.pop() {
+        let x = match &token.kind {
+            TokenKind::Literal(Literal::Int(x)) => x.clone(),
+            _ => compiler_error(
+                &token,
+                format!("Expected a word, but found {:?} instead", token.kind).as_str(),
+                vec![],
+            ),
+        };
+        (token, x)
     } else {
         compiler_error(
             prev_tok,
@@ -288,6 +311,20 @@ fn parse_word_list_from_tokens(
     let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::CloseBracket));
 
     (tok, words)
+}
+
+fn parse_syscall_from_tokens(start_tok: &Token, tokens: &mut Vec<Token>) -> Op {
+    let tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenParen));
+    let (tok, x) = expect_u64(&tok, tokens);
+    if x > 6 {
+        compiler_error(start_tok, "Syscall's can only accept up to 6 args", vec![]);
+    }
+    let _tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::CloseParen));
+
+    Op {
+        kind: OpKind::Syscall(x),
+        token: start_tok.clone(),
+    }
 }
 
 fn parse_cast_from_tokens(

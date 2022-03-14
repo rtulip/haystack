@@ -17,6 +17,8 @@ impl Program {
             types: HashMap::from_iter([
                 (String::from("u64"), Type::U64),
                 (String::from("bool"), Type::Bool),
+                (String::from("ptr"), Type::Ptr),
+                (String::from("Str"), Type::str()),
             ]),
             functions: vec![],
             strings: vec![],

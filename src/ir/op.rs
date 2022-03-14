@@ -39,6 +39,7 @@ pub enum OpKind {
         offset: Option<usize>,
         size: Option<usize>,
     },
+    Syscall(u64),
     Call(String),
     PrepareFunc,
     JumpCond(Option<usize>),
@@ -73,6 +74,7 @@ impl std::fmt::Debug for OpKind {
             OpKind::Word(s) => write!(f, "Word({s})"),
             OpKind::MakeIdent { ident: s, .. } => write!(f, "MakeIdent({s})"),
             OpKind::PushIdent { index: i, .. } => write!(f, "PushIdent({i})"),
+            OpKind::Syscall(n) => write!(f, "Syscall({n})"),
             OpKind::Call(func) => write!(f, "Call({func})"),
             OpKind::PrepareFunc => write!(f, "PrepareFunc"),
             OpKind::JumpCond(Some(dest)) => write!(f, "JumpCond({dest})"),
@@ -382,6 +384,43 @@ impl Op {
             }
             OpKind::Return => {
                 *frame = Vec::<Type>::new();
+                None
+            }
+            OpKind::Syscall(n) => {
+                if !(stack.len() >= *n as usize + 1) {
+                    compiler_error(
+                        &self.token,
+                        format!(
+                            "{:?} Requires {} elements on the stack.",
+                            self.kind,
+                            *n as usize + 1
+                        )
+                        .as_str(),
+                        vec![format!("Stack: {:?}", stack).as_str()],
+                    );
+                }
+
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![Type::U64],
+                        outputs: vec![],
+                    },
+                    stack,
+                );
+                for _ in 0..*n {
+                    let t = stack.pop().unwrap();
+                    if t.size() != 1 {
+                        compiler_error(
+                            &self.token,
+                            "Only u64's can be used in a syscall",
+                            vec![format!("Type: {:?}", t).as_str()],
+                        );
+                    }
+                }
+
+                stack.push(Type::U64);
+
                 None
             }
             OpKind::Call(func_name) => {

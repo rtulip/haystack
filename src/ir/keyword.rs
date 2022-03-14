@@ -10,4 +10,5 @@ pub enum Keyword {
     Struct,
     Cast,
     Split,
+    Syscall,
 }

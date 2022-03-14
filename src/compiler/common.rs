@@ -3,7 +3,7 @@ use std::fs;
 use std::io::Write;
 
 pub fn simplify_ir<P: AsRef<std::path::Path> + std::clone::Clone>(program: &Program, out_path: P) {
-    let mut file = std::fs::File::create(out_path.clone()).unwrap();
+    let mut file = std::fs::File::create(out_path).unwrap();
     program.functions.iter().for_each(|f| {
         write!(&mut file, "{}(", f.name).unwrap();
         f.sig

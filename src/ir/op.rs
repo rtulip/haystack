@@ -225,9 +225,9 @@ impl Op {
             OpKind::Cast(name) => {
                 assert!(type_map.contains_key(name));
                 let cast_type = type_map.get(name).unwrap();
-                assert!(matches!(cast_type, Type::StructType { .. }));
+                assert!(matches!(cast_type, Type::Struct { .. }));
                 match cast_type {
-                    Type::StructType {
+                    Type::Struct {
                         name: _, members, ..
                     } => {
                         evaluate_signature(
@@ -246,11 +246,11 @@ impl Op {
             }
             OpKind::Split => {
                 let struct_t = match stack.last() {
-                    Some(Type::StructType {
+                    Some(Type::Struct {
                         name,
                         members,
                         idents,
-                    }) => Type::StructType {
+                    }) => Type::Struct {
                         name: name.clone(),
                         members: members.clone(),
                         idents: idents.clone(),
@@ -260,7 +260,7 @@ impl Op {
                 };
 
                 match &struct_t {
-                    Type::StructType {
+                    Type::Struct {
                         name: _, members, ..
                     } => evaluate_signature(
                         self,
@@ -387,7 +387,7 @@ impl Op {
                 None
             }
             OpKind::Syscall(n) => {
-                if !(stack.len() >= *n as usize + 1) {
+                if stack.len() < *n as usize + 1 {
                     compiler_error(
                         &self.token,
                         format!(

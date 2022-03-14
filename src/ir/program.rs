@@ -27,7 +27,7 @@ impl Program {
 
     pub fn check_for_entry_point(&self) {
         if !self.functions.iter().any(|f| f.name == "main") {
-            let token = if self.functions.len() > 0 {
+            let token = if !self.functions.is_empty() {
                 self.functions.last().unwrap().token.clone()
             } else {
                 Token::default()
@@ -107,8 +107,8 @@ impl Program {
             let mut vars: Vec<&String> = vec![];
             f.ops.iter().for_each(|op| match &op.kind {
                 OpKind::MakeIdent { ident: s, .. } => {
-                    vars.push(&s);
-                    if let Some((kind, tok)) = name_map.insert(&s, (NameKind::Var, &op.token)) {
+                    vars.push(s);
+                    if let Some((kind, tok)) = name_map.insert(s, (NameKind::Var, &op.token)) {
                         compiler_error(
                             &op.token,
                             format!("Redefinition of {} `{}`", kind, s).as_str(),

@@ -9,7 +9,7 @@ pub enum Type {
     Placeholder {
         name: String,
     },
-    StructType {
+    Struct {
         name: String,
         members: Vec<Type>,
         idents: Vec<Option<String>>,
@@ -21,14 +21,14 @@ impl Type {
         match self {
             Type::U64 | Type::Bool | Type::Ptr => 1,
             Type::Placeholder { .. } => panic!("Size of Placeholder types are unknown"),
-            Type::StructType {
+            Type::Struct {
                 name: _, members, ..
             } => members.iter().map(|t| t.size()).sum(),
         }
     }
 
     pub fn str() -> Self {
-        Type::StructType {
+        Type::Struct {
             name: String::from("Str"),
             members: vec![Type::U64, Type::Ptr],
             idents: vec![Some(String::from("size")), Some(String::from("data"))],
@@ -43,7 +43,7 @@ impl std::fmt::Debug for Type {
             Type::Bool => write!(f, "bool"),
             Type::Ptr => write!(f, "ptr"),
             Type::Placeholder { name } => write!(f, "{name}"),
-            Type::StructType {
+            Type::Struct {
                 name,
                 members: _,
                 idents: _,

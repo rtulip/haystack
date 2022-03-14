@@ -136,7 +136,7 @@ fn expect_word(prev_tok: &Token, tokens: &mut Vec<Token>) -> (Token, String) {
 fn expect_u64(prev_tok: &Token, tokens: &mut Vec<Token>) -> (Token, u64) {
     if let Some(token) = tokens.pop() {
         let x = match &token.kind {
-            TokenKind::Literal(Literal::Int(x)) => x.clone(),
+            TokenKind::Literal(Literal::Int(x)) => *x,
             _ => compiler_error(
                 &token,
                 format!("Expected a word, but found {:?} instead", token.kind).as_str(),
@@ -338,7 +338,7 @@ fn parse_cast_from_tokens(
     if !type_map.contains_key(&name) {
         compiler_error(&tok, "Cannot cast to unkown type: {name}", vec![]);
     }
-    if !matches!(type_map.get(&name).unwrap(), Type::StructType { .. }) {
+    if !matches!(type_map.get(&name).unwrap(), Type::Struct { .. }) {
         compiler_error(
             &tok,
             "Cannot cast to type: {name}",
@@ -671,7 +671,7 @@ fn parse_struct_from_tokens(
     // TODO: Should all/none of the types have to be annotated?
     (
         name.clone(),
-        Type::StructType {
+        Type::Struct {
             name,
             members,
             idents,

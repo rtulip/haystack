@@ -111,7 +111,7 @@ impl Function {
             .rev()
             .zip(stack.iter().rev())
             .for_each(|(t, s)| {
-                if generic_map.contains_key(&t) {
+                if generic_map.contains_key(t) {
                     if let Some(Some(old)) = generic_map.insert(t.clone(), Some(s.clone())) {
                         if old != *s {
                             compiler_error(
@@ -146,7 +146,7 @@ impl Function {
             });
         name.push('>');
         self.sig.outputs.iter().for_each(|t| {
-            if let Some(maybe_t) = generic_map.get(&t) {
+            if let Some(maybe_t) = generic_map.get(t) {
                 if let Some(typ) = maybe_t {
                     sig.outputs.push(typ.clone());
                 } else {

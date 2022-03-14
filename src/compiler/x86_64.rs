@@ -15,12 +15,7 @@ fn frame_pop_n(file: &mut std::fs::File, n: &usize) {
     writeln!(file, "  add qword [frame_end_ptr], {}", 8 * n).unwrap();
 }
 
-fn compile_op(
-    op: &Op,
-    func: Option<&Function>,
-    string_list: &Vec<String>,
-    file: &mut std::fs::File,
-) {
+fn compile_op(op: &Op, func: Option<&Function>, string_list: &[String], file: &mut std::fs::File) {
     writeln!(file, "  ; -- {:?}", op).unwrap();
     match &op.kind {
         OpKind::PushInt(x) => writeln!(file, "  push {x}").unwrap(),
@@ -239,7 +234,7 @@ print:
     .unwrap();
 }
 
-fn nasm_close(file: &mut std::fs::File, strings: &Vec<String>) {
+fn nasm_close(file: &mut std::fs::File, strings: &[String]) {
     writeln!(file, "global _start").unwrap();
     writeln!(file, "_start: ").unwrap();
     writeln!(file, "  mov  qword [frame_start_ptr], frame_stack_end").unwrap();
@@ -261,7 +256,7 @@ fn nasm_close(file: &mut std::fs::File, strings: &Vec<String>) {
     strings.iter().enumerate().for_each(|(i, s)| {
         writeln!(file, "  ; -- \"{s}\"").unwrap();
         write!(file, "  str_{i}: db ").unwrap();
-        let string = s.as_bytes().clone();
+        let string = s.as_bytes();
         let mut idx = 0;
         while idx < string.len() {
             let c = match char::from(string[idx]) {
@@ -285,7 +280,7 @@ fn nasm_close(file: &mut std::fs::File, strings: &Vec<String>) {
             write!(file, "{:#x}, ", c).unwrap();
             idx += 1
         }
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
     });
     writeln!(file, "segment .bss").unwrap();
     writeln!(file, "  frame_start_ptr: resq 1").unwrap();
@@ -303,7 +298,7 @@ pub fn compile_program<P: AsRef<std::path::Path>>(program: &Program, out_path: P
         }
         f.ops
             .iter()
-            .for_each(|op| compile_op(op, Some(&f), &program.strings, &mut file));
+            .for_each(|op| compile_op(op, Some(f), &program.strings, &mut file));
     });
     nasm_close(&mut file, &program.strings);
 }

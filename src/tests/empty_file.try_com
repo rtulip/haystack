@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": ":0:0: ERROR: No entry point defined\n    Note: Try adding a `main` function.\n"
+}

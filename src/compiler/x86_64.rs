@@ -39,8 +39,19 @@ fn compile_op(op: &Op, func: Option<&Function>, file: &mut std::fs::File) {
             writeln!(file, "  sub  rax, rbx").unwrap();
             writeln!(file, "  push rax").unwrap();
         }
-        OpKind::Mul => todo!(),
-        OpKind::Div => todo!(),
+        OpKind::Mul => {
+            writeln!(file, "  pop  rcx").unwrap();
+            writeln!(file, "  pop  rax").unwrap();
+            writeln!(file, "  mul  rcx").unwrap();
+            writeln!(file, "  push rax").unwrap();
+        }
+        OpKind::Div => {
+            writeln!(file, "  mov  rdx, 0").unwrap();
+            writeln!(file, "  pop  rcx").unwrap();
+            writeln!(file, "  pop  rax").unwrap();
+            writeln!(file, "  div  rcx").unwrap();
+            writeln!(file, "  push rax").unwrap();
+        }
         OpKind::LessThan => {
             writeln!(file, "  mov  rcx, 0").unwrap();
             writeln!(file, "  mov  rdx, 1").unwrap();
@@ -86,7 +97,15 @@ fn compile_op(op: &Op, func: Option<&Function>, file: &mut std::fs::File) {
             writeln!(file, "  cmove rcx, rdx").unwrap();
             writeln!(file, "  push rcx").unwrap();
         }
-        OpKind::NotEquals => todo!(),
+        OpKind::NotEquals => {
+            writeln!(file, "  mov  rcx, 0").unwrap();
+            writeln!(file, "  mov  rdx, 1").unwrap();
+            writeln!(file, "  pop  rbx").unwrap();
+            writeln!(file, "  pop  rax").unwrap();
+            writeln!(file, "  cmp  rax, rbx").unwrap();
+            writeln!(file, "  cmovne rcx, rdx").unwrap();
+            writeln!(file, "  push rcx").unwrap();
+        }
         OpKind::Print => {
             writeln!(file, "  pop  rdi").unwrap();
             writeln!(file, "  call print").unwrap();

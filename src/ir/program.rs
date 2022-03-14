@@ -25,7 +25,6 @@ impl Program {
         }
     }
     pub fn type_check(&mut self) {
-        println!("Type checking...");
         let mut fn_table: HashMap<String, Function> = HashMap::new();
         let mut checked: HashSet<String> = HashSet::new();
         self.functions.iter().for_each(|f| {
@@ -56,7 +55,6 @@ impl Program {
     }
 
     pub fn normalize_function_names(&mut self) {
-        println!("Normalizing function names...");
         let mut fn_name_map: HashMap<String, String> = HashMap::new();
         self.functions.iter().enumerate().for_each(|(i, f)| {
             let new_name = match f.name.as_str() {
@@ -80,7 +78,6 @@ impl Program {
     }
 
     pub fn check_for_name_conflicts(&self) {
-        println!("Checking for name conflicts...");
         let mut name_map: HashMap<&String, (NameKind, &Token)> = HashMap::new();
 
         self.functions.iter().for_each(|f| {
@@ -127,7 +124,6 @@ impl Program {
     }
 
     pub fn assign_words(&mut self) {
-        println!("Generating concrete functions...");
         let fn_names = self.meta();
         self.functions.iter_mut().for_each(|func| {
             let mut scope: Vec<String> = vec![];

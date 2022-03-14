@@ -16,6 +16,20 @@ pub unsafe fn into_token<P: AsRef<std::path::Path> + std::fmt::Display>(
 
     if let Some(kind) = lex.next() {
         let slice = lex.slice();
+        let tok = match kind {
+            LogosToken::Error => Some(Token {
+                kind: TokenKind::Comment(slice.to_string()),
+                loc: LOC.clone(),
+            }),
+            _ => Some(Token {
+                kind: TokenKind::from((kind, slice)),
+                loc: Loc {
+                    file: LOC.file.clone(),
+                    row: LOC.row,
+                    col: LOC.col + 1,
+                },
+            }),
+        };
         slice.chars().for_each(|c| match c {
             '\n' => unsafe {
                 LOC.row += 1;
@@ -25,16 +39,7 @@ pub unsafe fn into_token<P: AsRef<std::path::Path> + std::fmt::Display>(
                 LOC.col += 1;
             },
         });
-        match kind {
-            LogosToken::Error => Some(Token {
-                kind: TokenKind::Comment(slice.to_string()),
-                loc: LOC.clone(),
-            }),
-            _ => Some(Token {
-                kind: TokenKind::from((kind, slice)),
-                loc: LOC.clone(),
-            }),
-        }
+        tok
     } else {
         None
     }

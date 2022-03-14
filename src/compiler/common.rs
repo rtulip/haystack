@@ -2,13 +2,7 @@ use crate::ir::{program::Program, token::Token};
 use std::fs;
 use std::io::Write;
 
-pub fn program_from_json<P: AsRef<std::path::Path>>(ir_path: P) -> Program {
-    let json = fs::read_to_string(ir_path).unwrap();
-    serde_json::from_str(&json.to_string()).unwrap()
-}
-
-pub fn simplify_ir<P: AsRef<std::path::Path> + std::clone::Clone>(ir_path: P, out_path: P) {
-    let program = program_from_json(ir_path);
+pub fn simplify_ir<P: AsRef<std::path::Path> + std::clone::Clone>(program: &Program, out_path: P) {
     let mut file = std::fs::File::create(out_path.clone()).unwrap();
     program.functions.iter().for_each(|f| {
         write!(&mut file, "{}(", f.name).unwrap();

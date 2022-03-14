@@ -46,7 +46,7 @@ impl Program {
         loop {
             self.functions.iter_mut().for_each(|f| {
                 if !checked.contains(&f.name) {
-                    if let Some(mut fns) = f.type_check(&fn_table) {
+                    if let Some(mut fns) = f.type_check(&fn_table, &self.types) {
                         new_fns.append(&mut fns);
                     }
                     checked.insert(f.name.clone());

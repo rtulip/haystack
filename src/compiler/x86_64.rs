@@ -110,7 +110,9 @@ fn compile_op(op: &Op, func: Option<&Function>, file: &mut std::fs::File) {
             writeln!(file, "  pop  rdi").unwrap();
             writeln!(file, "  call print").unwrap();
         }
-        OpKind::Word(_) => todo!(),
+        OpKind::Cast(_) => (),
+        OpKind::Split => (),
+        OpKind::Word(_) => unreachable!("Words shouldn't be compiled."),
         OpKind::MakeIdent(_) => {
             writeln!(file, "  pop  rax").unwrap();
             frame_push_rax(file);

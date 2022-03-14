@@ -9,6 +9,7 @@ use crate::ir::{
     FnTable, Frame, Stack,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub enum OpKind {
@@ -26,6 +27,8 @@ pub enum OpKind {
     Equals,
     NotEquals,
     Print,
+    Cast(String),
+    Split,
     Word(String),
     MakeIdent(String),
     PushIdent(usize),
@@ -58,6 +61,8 @@ impl std::fmt::Debug for OpKind {
             OpKind::Equals => write!(f, "=="),
             OpKind::NotEquals => write!(f, "!="),
             OpKind::Print => write!(f, "print"),
+            OpKind::Cast(name) => write!(f, "Cast({name})"),
+            OpKind::Split => write!(f, "Split"),
             OpKind::Word(s) => write!(f, "Word({s})"),
             OpKind::MakeIdent(s) => write!(f, "MakeIdent({s})"),
             OpKind::PushIdent(i) => write!(f, "PushIdent({i})"),
@@ -95,6 +100,7 @@ impl Op {
         stack: &mut Stack,
         frame: &mut Frame,
         fn_table: &FnTable,
+        type_map: &HashMap<String, Type>,
     ) -> Option<Function> {
         let op: Option<(OpKind, Function)> = match &self.kind {
             OpKind::Add => {
@@ -205,6 +211,59 @@ impl Op {
                     },
                     stack,
                 );
+                None
+            }
+            OpKind::Cast(name) => {
+                assert!(type_map.contains_key(name));
+                let cast_type = type_map.get(name).unwrap();
+                assert!(matches!(cast_type, Type::StructType { .. }));
+                match cast_type {
+                    Type::StructType {
+                        name: _, members, ..
+                    } => {
+                        evaluate_signature(
+                            self,
+                            &Signature {
+                                inputs: members.clone(),
+                                outputs: vec![cast_type.clone()],
+                            },
+                            stack,
+                        );
+                    }
+                    _ => unreachable!(),
+                }
+
+                None
+            }
+            OpKind::Split => {
+                let struct_t = match stack.last() {
+                    Some(Type::StructType {
+                        name,
+                        members,
+                        idents,
+                    }) => Type::StructType {
+                        name: name.clone(),
+                        members: members.clone(),
+                        idents: idents.clone(),
+                    },
+                    Some(_) => todo!(),
+                    None => todo!(),
+                };
+
+                match &struct_t {
+                    Type::StructType {
+                        name: _, members, ..
+                    } => evaluate_signature(
+                        self,
+                        &Signature {
+                            inputs: vec![struct_t.clone()],
+                            outputs: members.clone(),
+                        },
+                        stack,
+                    ),
+                    _ => unreachable!(),
+                }
+
                 None
             }
             OpKind::PushIdent(n) => {

@@ -17,6 +17,7 @@ use std::fs;
 fn parse_tokens_until_tokenkind(
     tokens: &mut Vec<Token>,
     ops: &mut Vec<Op>,
+    type_map: &HashMap<String, Type>,
     break_on: Vec<TokenKind>,
 ) -> Token {
     while let Some(token) = tokens.pop() {
@@ -29,8 +30,16 @@ fn parse_tokens_until_tokenkind(
                 let (_tok, mut idents) = parse_var_from_tokens(&token, tokens);
                 ops.append(&mut idents);
             }
+            TokenKind::Keyword(Keyword::Cast) => {
+                let op = parse_cast_from_tokens(&token, tokens, type_map);
+                ops.push(op);
+            }
+            TokenKind::Keyword(Keyword::Split) => ops.push(Op {
+                kind: OpKind::Split,
+                token: token.clone(),
+            }),
             TokenKind::Keyword(Keyword::If) => {
-                let _tok = parse_if_block_from_tokens(&token, tokens, ops);
+                let _tok = parse_if_block_from_tokens(&token, tokens, ops, type_map);
             }
             TokenKind::Keyword(Keyword::Else) => {
                 panic!("Else keyword should be turned into an op")
@@ -42,7 +51,7 @@ fn parse_tokens_until_tokenkind(
                 panic!("Struct keyword can't be converted into ops")
             }
             TokenKind::Keyword(Keyword::While) => {
-                let _tok = parse_while_block_from_tokens(&token, tokens, ops);
+                let _tok = parse_while_block_from_tokens(&token, tokens, ops, type_map);
             }
             TokenKind::Comment(_) => (),
             TokenKind::Operator(_) => ops.push(Op::from(token.clone())),
@@ -271,6 +280,33 @@ fn parse_word_list_from_tokens(
     (tok, words)
 }
 
+fn parse_cast_from_tokens(
+    start_tok: &Token,
+    tokens: &mut Vec<Token>,
+    type_map: &HashMap<String, Type>,
+) -> Op {
+    let tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenParen));
+    let (tok, name) = expect_word(&tok, tokens);
+
+    if !type_map.contains_key(&name) {
+        compiler_error(&tok, "Cannot cast to unkown type: {name}", vec![]);
+    }
+    if !matches!(type_map.get(&name).unwrap(), Type::StructType { .. }) {
+        compiler_error(
+            &tok,
+            "Cannot cast to type: {name}",
+            vec!["Only casting to struct types is supported"],
+        );
+    }
+
+    let _tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::CloseParen));
+
+    Op {
+        kind: OpKind::Cast(name),
+        token: start_tok.clone(),
+    }
+}
+
 fn parse_var_from_tokens(start_tok: &Token, tokens: &mut Vec<Token>) -> (Token, Vec<Op>) {
     let (tok, idents) = parse_word_list_from_tokens(start_tok, tokens);
     if idents.is_empty() {
@@ -332,6 +368,7 @@ fn parse_function_from_tokens(
     let tok = parse_tokens_until_tokenkind(
         tokens,
         &mut ops,
+        type_map,
         vec![TokenKind::Marker(Marker::CloseBrace)],
     );
 
@@ -416,11 +453,16 @@ fn if_block_to_ops(
     start_tok: &Token,
     tokens: &mut Vec<Token>,
     ops: &mut Vec<Op>,
+    type_map: &HashMap<String, Type>,
 ) -> (Token, usize) {
     let if_idx = start_if_ops(start_tok, ops);
     let _tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenBrace));
-    let tok =
-        parse_tokens_until_tokenkind(tokens, ops, vec![TokenKind::Marker(Marker::CloseBrace)]);
+    let tok = parse_tokens_until_tokenkind(
+        tokens,
+        ops,
+        type_map,
+        vec![TokenKind::Marker(Marker::CloseBrace)],
+    );
     // Count how many times we push a variable onto the frame stack.
     (tok.clone(), close_if_block(&tok, ops, if_idx))
 }
@@ -429,8 +471,9 @@ pub fn parse_if_block_from_tokens(
     token: &Token,
     tokens: &mut Vec<Token>,
     ops: &mut Vec<Op>,
+    type_map: &HashMap<String, Type>,
 ) -> Token {
-    let (tok, mut jump_dest) = if_block_to_ops(token, tokens, ops);
+    let (tok, mut jump_dest) = if_block_to_ops(token, tokens, ops, type_map);
 
     while peek_token_kind(tokens, TokenKind::Keyword(Keyword::Else)) {
         let tok = expect_token_kind(&tok, tokens, TokenKind::Keyword(Keyword::Else));
@@ -448,6 +491,7 @@ pub fn parse_if_block_from_tokens(
             let tok = parse_tokens_until_tokenkind(
                 tokens,
                 ops,
+                type_map,
                 vec![TokenKind::Marker(Marker::CloseBrace)],
             );
             let var_count = make_ident_count(ops, block_idx);
@@ -465,14 +509,19 @@ pub fn parse_if_block_from_tokens(
             });
             break;
         } else {
-            let tok =
-                parse_tokens_until_tokenkind(tokens, ops, vec![TokenKind::Keyword(Keyword::If)]);
+            let tok = parse_tokens_until_tokenkind(
+                tokens,
+                ops,
+                type_map,
+                vec![TokenKind::Keyword(Keyword::If)],
+            );
 
             let if_idx = start_if_ops(&tok, ops);
             let _tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
             let tok = parse_tokens_until_tokenkind(
                 tokens,
                 ops,
+                type_map,
                 vec![TokenKind::Marker(Marker::CloseBrace)],
             );
             // Count how many times we push a variable onto the frame stack.
@@ -487,7 +536,12 @@ pub fn parse_if_block_from_tokens(
     tok
 }
 
-pub fn parse_while_block_from_tokens(token: &Token, tokens: &mut Vec<Token>, ops: &mut Vec<Op>) {
+pub fn parse_while_block_from_tokens(
+    token: &Token,
+    tokens: &mut Vec<Token>,
+    ops: &mut Vec<Op>,
+    type_map: &HashMap<String, Type>,
+) {
     ops.push(Op {
         kind: OpKind::Nop(Keyword::While),
         token: token.clone(),
@@ -497,7 +551,12 @@ pub fn parse_while_block_from_tokens(token: &Token, tokens: &mut Vec<Token>, ops
         kind: OpKind::JumpDest(loop_dest),
         token: token.clone(),
     });
-    let tok = parse_tokens_until_tokenkind(tokens, ops, vec![TokenKind::Marker(Marker::OpenBrace)]);
+    let tok = parse_tokens_until_tokenkind(
+        tokens,
+        ops,
+        type_map,
+        vec![TokenKind::Marker(Marker::OpenBrace)],
+    );
     let cond_jump_loc = ops.len();
     ops.push(Op {
         kind: OpKind::JumpCond(None),
@@ -508,8 +567,12 @@ pub fn parse_while_block_from_tokens(token: &Token, tokens: &mut Vec<Token>, ops
         token: tok,
     });
 
-    let tok =
-        parse_tokens_until_tokenkind(tokens, ops, vec![TokenKind::Marker(Marker::CloseBrace)]);
+    let tok = parse_tokens_until_tokenkind(
+        tokens,
+        ops,
+        type_map,
+        vec![TokenKind::Marker(Marker::CloseBrace)],
+    );
 
     let var_count = make_ident_count(ops, cond_jump_loc + 1);
     ops.push(Op {

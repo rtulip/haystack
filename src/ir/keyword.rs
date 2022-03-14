@@ -8,4 +8,6 @@ pub enum Keyword {
     Else,
     While,
     Struct,
+    Cast,
+    Split,
 }

@@ -2,6 +2,10 @@ struct pair {
     u64 u64
 }
 
+fn drop(u64: x) {}
+
 fn main() {
-    
+   
+   0 5 10 cast(pair)
+
 }

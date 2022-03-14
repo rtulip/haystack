@@ -64,6 +64,10 @@ pub enum LogosToken {
     WhileKeyword,
     #[token("struct")]
     StructKeyword,
+    #[token("cast")]
+    CastKeyword,
+    #[token("split")]
+    SplitKeyword,
 
     // Markers
     #[token("{")]

@@ -23,15 +23,26 @@ impl Function {
         !self.gen.is_empty()
     }
 
-    pub fn type_check(&mut self, fn_table: &FnTable) -> Option<Vec<Function>> {
+    pub fn type_check(
+        &mut self,
+        fn_table: &FnTable,
+        type_map: &HashMap<String, Type>,
+    ) -> Option<Vec<Function>> {
         if self.is_generic() {
             return None;
         }
 
         let mut stack = self.sig.inputs.clone();
         let mut frame = vec![];
-        let (_, new_fns) =
-            type_check_ops_list(&mut self.ops, 0, &mut stack, &mut frame, fn_table, vec![]);
+        let (_, new_fns) = type_check_ops_list(
+            &mut self.ops,
+            0,
+            &mut stack,
+            &mut frame,
+            fn_table,
+            type_map,
+            vec![],
+        );
         self.check_output(&stack);
 
         if new_fns.is_empty() {

@@ -1,18 +1,9 @@
-fn drop<T>(T: t) {}
-
-fn dup<T>(T: t) -> [T T] {
-    t t 
-}
-
-fn swap<A B>(A: a B: b) -> [B A] {
-    b a
-}
-
-fn fib(u64) -> [u64] {
-    dup 2 > if {
-        var [x]
+fn fib(u64: x) -> [u64] {
+    x 2 > if {
         x 1 - fib
         x 2 - fib +
+    } else {
+        x
     }
 }
 

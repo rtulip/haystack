@@ -681,7 +681,8 @@ fn parse_struct_from_tokens(
 
 pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
     input_path: P,
-) -> Program {
+    program: &mut Program,
+) {
     let file = fs::read_to_string(input_path.clone()).unwrap();
 
     let mut lexer = LogosToken::lexer(file.as_str());
@@ -699,7 +700,6 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
     }
     tokens.reverse();
 
-    let mut program = Program::new();
     loop {
         let maybe_tok = tokens.last();
         match maybe_tok {
@@ -727,6 +727,4 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
             None => break,
         }
     }
-
-    program
 }

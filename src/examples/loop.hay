@@ -1,13 +1,4 @@
-
-fn dup<T>(T: t) -> [T T] {
-    t t 
-}
-
-fn drop<T>(T: t) {}
-
-
 fn main() {
-
     0 while dup 10 < {
         dup print
         1 + 

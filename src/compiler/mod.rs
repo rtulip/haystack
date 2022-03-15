@@ -1,6 +1,7 @@
 mod common;
 mod type_check;
 pub mod x86_64;
+use crate::ir::program::Program;
 use crate::lex;
 pub use common::{compiler_error, program_to_json, simplify_ir};
 use std::io::{self, Write};
@@ -10,8 +11,10 @@ pub use type_check::{evaluate_signature, type_check_ops_list};
 pub fn compile_haystack(input_path: String, run: bool, ir: bool, simple: bool) -> Option<Output> {
     let path = std::path::Path::new(&input_path);
     let ir_path = path.with_extension("json");
+    let mut program = Program::new();
+    lex::hay_into_ir("src/libs/prelude.hay", &mut program);
+    lex::hay_into_ir(&input_path, &mut program);
 
-    let mut program = lex::hay_into_ir(&input_path);
     program.check_for_entry_point();
     program.check_for_name_conflicts();
     program.assign_words();

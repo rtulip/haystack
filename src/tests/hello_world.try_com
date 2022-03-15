@@ -1,5 +1,5 @@
 {
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "src/tests/hello_world.hay:4:7: ERROR: Syscall(3) Requires 4 elements on the stack.\n    Note: Stack: [Str, u64, u64]\n"
+  "exit_code": 0,
+  "stdout": "[CMD]: nasm -felf64 src/tests/hello_world.asm\n[CMD]: ld -o hello_world src/tests/hello_world.o\n",
+  "stderr": ""
 }

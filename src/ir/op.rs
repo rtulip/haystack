@@ -30,6 +30,7 @@ pub enum OpKind {
     Cast(String),
     Split,
     Word(String),
+    Ident(String, Vec<String>),
     MakeIdent { ident: String, size: Option<usize> },
     PushFramed { offset: usize, size: usize },
     PushIdent { index: usize, inner: Vec<String> },
@@ -66,6 +67,7 @@ impl std::fmt::Debug for OpKind {
             OpKind::Cast(name) => write!(f, "Cast({name})"),
             OpKind::Split => write!(f, "Split"),
             OpKind::Word(s) => write!(f, "Word({s})"),
+            OpKind::Ident(s, fs) => write!(f, "Ident({s}::{:?}", fs),
             OpKind::MakeIdent { ident: s, .. } => write!(f, "MakeIdent({s})"),
             OpKind::PushIdent { index: i, .. } => write!(f, "PushIdent({i})"),
             OpKind::PushFramed { offset, size } => write!(f, "PushFrame({offset}:{size})"),
@@ -99,6 +101,63 @@ pub struct Op {
 }
 
 impl Op {
+    fn get_type_from_frame(
+        &self,
+        frame: &Frame,
+        index: usize,
+        inner: &Vec<String>,
+    ) -> (Type, usize) {
+        let mut t = frame[index].clone();
+        let mut t_offset: usize = frame[0..index].iter().map(|t| t.size()).sum();
+
+        for field in inner {
+            let (new_t, new_offset) = match t {
+                Type::Struct {
+                    name,
+                    ref members,
+                    ref idents,
+                } => {
+                    if idents.contains(&Some(field.clone())) {
+                        let idx = idents
+                            .iter()
+                            .position(|s| s == &Some(field.clone()))
+                            .unwrap();
+                        (
+                            members[idx].clone(),
+                            members[idx + 1..].iter().map(|t| t.size()).sum::<usize>(),
+                        )
+                    } else {
+                        compiler_error(
+                            &self.token,
+                            format!("Struct `{name}` doesn't have a field: `{field}`").as_str(),
+                            vec![format!(
+                                "Struct `{name}` has these fields: {:?}",
+                                members
+                                    .iter()
+                                    .zip(idents.iter())
+                                    .collect::<Vec<(&Type, &Option<String>)>>()
+                            )
+                            .as_str()],
+                        );
+                    }
+                }
+                other_t => compiler_error(
+                    &self.token,
+                    format!(
+                        "Non-struct type {:?} doesn't have a member {field}",
+                        other_t
+                    )
+                    .as_str(),
+                    vec![],
+                ),
+            };
+            t = new_t;
+            t_offset += new_offset;
+        }
+
+        (t, t_offset)
+    }
+
     pub fn type_check(
         &mut self,
         stack: &mut Stack,
@@ -250,8 +309,11 @@ impl Op {
                         members: members.clone(),
                         idents: idents.clone(),
                     },
-                    Some(_) => todo!(),
-                    None => todo!(),
+                    _ => compiler_error(
+                        &self.token,
+                        "Split requires a struct on top of the stack.",
+                        vec![format!("Stack: {:?}", stack).as_str()],
+                    ),
                 };
 
                 match &struct_t {
@@ -319,21 +381,19 @@ impl Op {
                 }
                 None
             }
-            OpKind::PushIdent { index: n, .. } => {
+            OpKind::PushIdent { index, inner } => {
+                let (t, offset) = self.get_type_from_frame(&frame, *index, inner);
+                let size = t.size();
                 evaluate_signature(
                     self,
                     &Signature {
                         inputs: vec![],
-                        outputs: vec![frame[*n].clone()],
+                        outputs: vec![t],
                     },
                     stack,
                 );
 
-                let offset = frame[0..*n].iter().map(|t| t.size()).sum();
-                self.kind = OpKind::PushFramed {
-                    offset: offset,
-                    size: frame[*n].size(),
-                };
+                self.kind = OpKind::PushFramed { offset, size };
 
                 None
             }
@@ -436,6 +496,7 @@ impl Op {
             }
             OpKind::Nop(_) => None,
             OpKind::Word(_) => unreachable!("Shouldn't have any words left to type check"),
+            OpKind::Ident(_, _) => unreachable!("Shouldn't have any idents left to type check"),
             OpKind::PrepareFunc => None,
             OpKind::Default => unreachable!("Default op shouldn't be compiled"),
         };

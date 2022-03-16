@@ -116,6 +116,7 @@ fn compile_op(op: &Op, func: Option<&Function>, string_list: &[String], file: &m
         OpKind::Cast(_) => (),
         OpKind::Split => (),
         OpKind::Word(_) => unreachable!("Words shouldn't be compiled."),
+        OpKind::Ident(_, _) => unreachable!("Idents shouldn't be compiled."),
         OpKind::MakeIdent {
             ident: _,
             size: Some(n),

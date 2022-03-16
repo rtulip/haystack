@@ -254,32 +254,10 @@ fn nasm_close(file: &mut std::fs::File, strings: &[String]) {
     writeln!(file, "  syscall").unwrap();
     writeln!(file, "segment .data").unwrap();
     strings.iter().enumerate().for_each(|(i, s)| {
-        writeln!(file, "  ; -- \"{s}\"").unwrap();
         write!(file, "  str_{i}: db ").unwrap();
-        let string = s.as_bytes();
-        let mut idx = 0;
-        while idx < string.len() {
-            let c = match char::from(string[idx]) {
-                '\\' => {
-                    if idx + 1 < s.len() {
-                        idx += 1;
-                        match char::from(string[idx]) {
-                            'n' => 0x0A,
-                            _ => unimplemented!("Only `\\n` is implemented yet"),
-                        }
-                    } else {
-                        panic!("Unescaping failed...");
-                    }
-                }
-                c => {
-                    let mut b = [0; 1];
-                    c.encode_utf8(&mut b);
-                    b[0]
-                }
-            };
-            write!(file, "{:#x}, ", c).unwrap();
-            idx += 1
-        }
+        s.as_bytes()
+            .iter()
+            .for_each(|b| write!(file, "{:#x}, ", b).unwrap());
         writeln!(file).unwrap();
     });
     writeln!(file, "segment .bss").unwrap();

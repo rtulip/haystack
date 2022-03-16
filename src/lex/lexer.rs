@@ -15,6 +15,30 @@ use logos::Logos;
 use std::collections::HashMap;
 use std::fs;
 
+fn escape_string(unescaped: &String) -> String {
+    let mut escaped = String::new();
+    let bytes = unescaped.as_bytes();
+    let mut idx = 0;
+    while idx < bytes.len() {
+        match char::from(bytes[idx]) {
+            '\\' => {
+                if idx + 1 < unescaped.len() {
+                    idx += 1;
+                    match char::from(bytes[idx]) {
+                        'n' => escaped.push('\n'),
+                        _ => unimplemented!("Only `\\n` is implemented yet"),
+                    }
+                } else {
+                    panic!("Unescaping failed...");
+                }
+            }
+            c => escaped.push(c),
+        }
+        idx += 1
+    }
+    escaped
+}
+
 fn parse_tokens_until_tokenkind(
     tokens: &mut Vec<Token>,
     ops: &mut Vec<Op>,
@@ -66,7 +90,7 @@ fn parse_tokens_until_tokenkind(
                     kind: OpKind::PushString(string_list.len()),
                     token: token.clone(),
                 });
-                string_list.push(s.clone());
+                string_list.push(escape_string(s));
             }
             TokenKind::Literal(_) => ops.push(Op::from(token.clone())),
             TokenKind::Marker(_) => panic!("Markers shouldn't be converted into ops..."),

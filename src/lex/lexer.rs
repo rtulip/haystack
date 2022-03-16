@@ -94,7 +94,26 @@ fn parse_tokens_until_tokenkind(
             }
             TokenKind::Literal(_) => ops.push(Op::from(token.clone())),
             TokenKind::Marker(_) => panic!("Markers shouldn't be converted into ops..."),
-            TokenKind::Word(_) => ops.push(Op::from(token.clone())),
+            TokenKind::Word(ref s) => {
+                if peek_token_kind(tokens, TokenKind::Marker(Marker::DoubleColon)) {
+                    let mut tok = token.clone();
+                    let mut inner = vec![];
+                    while peek_token_kind(tokens, TokenKind::Marker(Marker::DoubleColon)) {
+                        let marker_tok =
+                            expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::DoubleColon));
+                        let (word_tok, field) = expect_word(&marker_tok, tokens);
+                        tok = word_tok;
+                        inner.push(field);
+                    }
+
+                    ops.push(Op {
+                        kind: OpKind::Ident(s.clone(), inner),
+                        token: token.clone(),
+                    })
+                } else {
+                    ops.push(Op::from(token.clone()))
+                }
+            }
             TokenKind::EndOfFile => panic!("End of file shouldn't be converted into an op."),
             // _ => ops.push(Op::from(token.clone())),
         }

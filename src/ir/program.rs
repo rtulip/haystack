@@ -169,12 +169,25 @@ impl Program {
                             scope.pop();
                         }
                     }
+                    OpKind::Ident(s, fields) => {
+                        if let Some(idx) = &scope.iter().position(|ident| ident == s) {
+                            op.kind = OpKind::PushIdent {
+                                index: *idx,
+                                inner: fields.clone(),
+                            };
+                        } else {
+                            compiler_error(
+                                &op.token,
+                                format!("Unrecognized Identifier: `{s}`").as_str(),
+                                vec![],
+                            )
+                        }
+                    }
                     OpKind::Word(s) => {
                         if let Some(idx) = &scope.iter().position(|ident| ident == s) {
                             op.kind = OpKind::PushIdent {
                                 index: *idx,
-                                offset: None,
-                                size: None,
+                                inner: vec![],
                             };
                         } else if fn_names.get(s).is_some() {
                             op.kind = OpKind::Call(s.clone());

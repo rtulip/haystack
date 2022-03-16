@@ -70,6 +70,8 @@ pub enum LogosToken {
     SplitKeyword,
     #[token("syscall")]
     SyscallKeyword,
+    #[token("include")]
+    IncludeKeyword,
 
     // Markers
     #[token("{")]

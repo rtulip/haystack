@@ -1,0 +1,7 @@
+fn sys_write(u64 ptr u64) -> [u64] {
+    1 syscall(3)
+}
+
+fn write(Str) {
+    split 1 sys_write drop
+}

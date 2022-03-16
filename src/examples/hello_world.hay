@@ -1,12 +1,10 @@
 
-fn sys_write(u64 ptr u64) -> [u64] {
-    1 syscall(3)
-}
+include "src/libs/std.hay"
 
-fn write(Str) {
-    split 1 sys_write drop
+fn HelloWorld() -> [Str] {
+    "Hello World\n"
 }
 
 fn main() {
-    "Hello World!\n" write
+    HelloWorld write
 }

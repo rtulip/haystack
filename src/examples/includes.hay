@@ -1,0 +1,13 @@
+fn foo() -> [Str] {
+    "Foo!!!\n"
+}
+
+include "src/examples/to_inlcude.hay"
+include "src/libs/std.hay"
+
+fn main() {
+
+    word write
+    foo write
+
+}

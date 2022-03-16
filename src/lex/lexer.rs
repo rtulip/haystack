@@ -786,8 +786,15 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
                     &mut tokens,
                     TokenKind::Keyword(Keyword::Include),
                 );
-                let (_tok, path) = expect_string_literal(&token, &mut tokens);
+                let (tok, path) = expect_string_literal(&token, &mut tokens);
                 let mut include_program = Program::new();
+                let path = if std::path::Path::new(&path).exists() {
+                    path
+                } else if std::path::Path::new(&format!("src/libs/{path}")).exists() {
+                    format!("src/libs/{path}")
+                } else {
+                    compiler_error(&tok, "Cannot find file: {path}", vec![]);
+                };
                 hay_into_ir(path, &mut include_program);
                 include_program.functions.drain(..).for_each(|mut func| {
                     func.ops.iter_mut().for_each(|op| match &op.kind {

@@ -83,6 +83,9 @@ fn parse_tokens_until_tokenkind(
                 let _tok =
                     parse_while_block_from_tokens(&token, tokens, ops, type_map, string_list);
             }
+            TokenKind::Keyword(Keyword::Include) => {
+                panic!("Include keyword can't be converted into ops")
+            }
             TokenKind::Comment(_) => (),
             TokenKind::Operator(_) => ops.push(Op::from(token.clone())),
             TokenKind::Literal(Literal::String(ref s)) => {
@@ -176,6 +179,25 @@ fn expect_word(prev_tok: &Token, tokens: &mut Vec<Token>) -> (Token, String) {
     }
 }
 
+fn expect_string_literal(prev_tok: &Token, tokens: &mut Vec<Token>) -> (Token, String) {
+    if let Some(token) = tokens.pop() {
+        let s = match &token.kind {
+            TokenKind::Literal(Literal::String(s)) => s.clone(),
+            _ => compiler_error(
+                &token,
+                format!("Expected a word, but found {:?} instead", token.kind).as_str(),
+                vec![],
+            ),
+        };
+        (token, s)
+    } else {
+        compiler_error(
+            prev_tok,
+            "Expected a word, but found end of file instead",
+            vec![],
+        );
+    }
+}
 fn expect_u64(prev_tok: &Token, tokens: &mut Vec<Token>) -> (Token, u64) {
     if let Some(token) = tokens.pop() {
         let x = match &token.kind {
@@ -755,6 +777,37 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
                 &program.types,
                 &mut program.strings,
             )),
+            Some(Token {
+                kind: TokenKind::Keyword(Keyword::Include),
+                ..
+            }) => {
+                let token = expect_token_kind(
+                    &maybe_tok.unwrap().clone(),
+                    &mut tokens,
+                    TokenKind::Keyword(Keyword::Include),
+                );
+                let (_tok, path) = expect_string_literal(&token, &mut tokens);
+                let mut include_program = Program::new();
+                hay_into_ir(path, &mut include_program);
+                include_program.functions.drain(..).for_each(|mut func| {
+                    func.ops.iter_mut().for_each(|op| match &op.kind {
+                        OpKind::PushString(n) => {
+                            op.kind = OpKind::PushString(n + program.strings.len())
+                        }
+                        _ => (),
+                    });
+
+                    program.functions.push(func);
+                });
+                include_program.types.drain().for_each(|(id, t)| {
+                    if !program.types.contains_key(&id) {
+                        program.types.insert(id, t);
+                    }
+                });
+                include_program.strings.drain(..).for_each(|s| {
+                    program.strings.push(s);
+                });
+            }
             Some(Token {
                 kind: TokenKind::Keyword(Keyword::Struct),
                 ..

@@ -129,20 +129,16 @@ fn compile_op(op: &Op, func: Option<&Function>, string_list: &[String], file: &m
             ident: _,
             size: None,
         } => panic!("Size hasn't been provided for MakeIdent"),
-        OpKind::PushIdent {
-            index: _,
-            offset: Some(offset),
-            size: Some(size),
-        } => {
+        OpKind::PushIdent { .. } => {
+            panic!("Push ident should have been transformed into PushFramed")
+        }
+        OpKind::PushFramed { offset, size } => {
             for delta in 0..*size {
                 let x = offset + size - delta;
                 writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
                 writeln!(file, "  mov  rax, [rax - {}]", (1 + x) * 8).unwrap();
                 writeln!(file, "  push rax").unwrap();
             }
-        }
-        OpKind::PushIdent { index: _, .. } => {
-            panic!("Size and/or offset haven't been provided for PushIdent")
         }
         OpKind::Jump(Some(n)) => {
             writeln!(file, "  jmp {}_jmp_dest_{}", func.unwrap().name, n).unwrap();

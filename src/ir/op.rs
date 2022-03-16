@@ -30,15 +30,9 @@ pub enum OpKind {
     Cast(String),
     Split,
     Word(String),
-    MakeIdent {
-        ident: String,
-        size: Option<usize>,
-    },
-    PushIdent {
-        index: usize,
-        offset: Option<usize>,
-        size: Option<usize>,
-    },
+    MakeIdent { ident: String, size: Option<usize> },
+    PushFramed { offset: usize, size: usize },
+    PushIdent { index: usize, inner: Vec<String> },
     Syscall(u64),
     Call(String),
     PrepareFunc,
@@ -74,6 +68,7 @@ impl std::fmt::Debug for OpKind {
             OpKind::Word(s) => write!(f, "Word({s})"),
             OpKind::MakeIdent { ident: s, .. } => write!(f, "MakeIdent({s})"),
             OpKind::PushIdent { index: i, .. } => write!(f, "PushIdent({i})"),
+            OpKind::PushFramed { offset, size } => write!(f, "PushFrame({offset}:{size})"),
             OpKind::Syscall(n) => write!(f, "Syscall({n})"),
             OpKind::Call(func) => write!(f, "Call({func})"),
             OpKind::PrepareFunc => write!(f, "PrepareFunc"),
@@ -335,13 +330,15 @@ impl Op {
                 );
 
                 let offset = frame[0..*n].iter().map(|t| t.size()).sum();
-                self.kind = OpKind::PushIdent {
-                    index: *n,
-                    offset: Some(offset),
-                    size: Some(frame[*n].size()),
+                self.kind = OpKind::PushFramed {
+                    offset: offset,
+                    size: frame[*n].size(),
                 };
 
                 None
+            }
+            OpKind::PushFramed { .. } => {
+                panic!("OpKind::PushFramed shouldn't be generated before type checking...");
             }
             OpKind::Print => {
                 evaluate_signature(

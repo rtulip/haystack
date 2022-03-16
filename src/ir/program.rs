@@ -173,8 +173,7 @@ impl Program {
                         if let Some(idx) = &scope.iter().position(|ident| ident == s) {
                             op.kind = OpKind::PushIdent {
                                 index: *idx,
-                                offset: None,
-                                size: None,
+                                inner: vec![],
                             };
                         } else if fn_names.get(s).is_some() {
                             op.kind = OpKind::Call(s.clone());

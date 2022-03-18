@@ -22,7 +22,7 @@ pub enum Type {
         idents: Vec<String>,
         generics: Vec<Type>,
     },
-    GenericStructInstance{
+    GenericStructInstance {
         base: String,
         members: Vec<Type>,
         idents: Vec<String>,
@@ -75,7 +75,7 @@ impl Type {
                     .collect();
                 (pairs, name, idents.clone(), generics.clone())
             }
-            _ => todo!(),
+            _ => panic!("Resolve struct should only be run on Base Generic Structs...\n{}: Type: {:?} Stack: {:?}", token.loc, gen_struct_t, stack),
         };
 
         let mut map: HashMap<String, Type> = HashMap::new();
@@ -84,33 +84,36 @@ impl Type {
             .map(|(t1, t2)| Type::resolve_type(&token, t1, t2, &mut map))
             .collect::<Vec<Type>>();
 
-        if !generics.iter().all(|t| map.contains_key(&format!("{:?}", t))) {
+        if !generics
+            .iter()
+            .all(|t| map.contains_key(&format!("{:?}", t)))
+        {
             compiler_error(
-                token, 
-                "Some types were not resolved during cast", 
-                vec![
-                    format!(
-                        "These types were not resolved: {:?}", 
-                        generics.iter().filter(|t| !map.contains_key(&format!("{:?}", t))).collect::<Vec<&Type>>()
-                    ).as_str()
-                    
-                ]
+                token,
+                "Some types were not resolved during cast",
+                vec![format!(
+                    "These types were not resolved: {:?}",
+                    generics
+                        .iter()
+                        .filter(|t| !map.contains_key(&format!("{:?}", t)))
+                        .collect::<Vec<&Type>>()
+                )
+                .as_str()],
             )
         }
 
-
         let mut name = base.clone();
-        name.push_str(format!("<{:?}", map.get(&format!("{:?}",generics[0])).unwrap()).as_str());
+        name.push_str(format!("<{:?}", map.get(&format!("{:?}", generics[0])).unwrap()).as_str());
         for t in generics[1..].iter() {
-            name.push_str(format!(" {:?}", map.get(&format!("{:?}",t)).unwrap()).as_str());
+            name.push_str(format!(" {:?}", map.get(&format!("{:?}", t)).unwrap()).as_str());
         }
         name.push('>');
-        
+
         Type::ResolvedStruct {
-            name, 
+            name,
             members: resolved_members,
             idents,
-            base: base.clone()
+            base: base.clone(),
         }
     }
 
@@ -120,14 +123,34 @@ impl Type {
         concrete_t: &Type,
         generic_map: &mut HashMap<String, Type>,
     ) -> Type {
-        
         let t = match (maybe_generic_t, concrete_t) {
             (Type::U64, Type::U64) => Type::U64,
-            (Type::U64, _) => todo!("compiler_error"),
+            (Type::U64, _) => compiler_error(
+                token,
+                format!(
+                    "Cannot resolve type {:?} into {:?}",
+                    maybe_generic_t, concrete_t
+                ),
+                vec![],
+            ),
             (Type::Bool, Type::Bool) => Type::Bool,
-            (Type::Bool, _) => todo!("compiler_error"),
+            (Type::Bool, _) => compiler_error(
+                token,
+                format!(
+                    "Cannot resolve type {:?} into {:?}",
+                    maybe_generic_t, concrete_t
+                ),
+                vec![],
+            ),
             (Type::Ptr, Type::Ptr) => Type::Ptr,
-            (Type::Ptr, _) => todo!("compiler_error"),
+            (Type::Ptr, _) => compiler_error(
+                token,
+                format!(
+                    "Cannot resolve type {:?} into {:?}",
+                    maybe_generic_t, concrete_t
+                ),
+                vec![],
+            ),
             (Type::Placeholder { .. }, Type::GenericStructBase { .. }) => unreachable!(),
             (Type::Placeholder { .. }, Type::GenericStructInstance { .. }) => unreachable!(),
             (Type::Placeholder { name }, t) => {
@@ -146,30 +169,43 @@ impl Type {
                             ]
                         );
                     }
-                    
                 }
 
                 t.clone()
             }
-            (Type::GenericStructBase { .. }, _) => unreachable!("Base should never be on the left hand side."),
-            (Type::GenericStructInstance {
-                base: instance_base,
-                members,
-                idents: _,
-                alias_list,
-                base_generics,
-            }, Type::ResolvedStruct {
-                name: _, 
-                members: resolved_members,
-                idents: _,
-                base: resolved_base,
-            }) => {
+            (Type::GenericStructBase { .. }, _) => {
+                unreachable!("Base should never be on the left hand side.")
+            }
+            (
+                Type::GenericStructInstance {
+                    base: instance_base,
+                    members,
+                    idents: _,
+                    alias_list,
+                    base_generics,
+                },
+                Type::ResolvedStruct {
+                    name: _,
+                    members: resolved_members,
+                    idents: _,
+                    base: resolved_base,
+                },
+            ) => {
                 if instance_base != resolved_base {
-                    compiler_error(token, format!("Cannot derive {:?} from {:?}", maybe_generic_t, concrete_t).as_str(), vec![]);
+                    compiler_error(
+                        token,
+                        format!("Cannot derive {:?} from {:?}", maybe_generic_t, concrete_t)
+                            .as_str(),
+                        vec![],
+                    );
                 }
 
-                let alias_map: HashMap<String, String> = HashMap::from_iter(base_generics.iter().map(|t| format!("{:?}", t)).zip(alias_list.iter().map(|t| format!("{:?}", t))));
-
+                let alias_map: HashMap<String, String> = HashMap::from_iter(
+                    base_generics
+                        .iter()
+                        .map(|t| format!("{:?}", t))
+                        .zip(alias_list.iter().map(|t| format!("{:?}", t))),
+                );
 
                 members.iter().zip(resolved_members.iter()).for_each(|(m, r)| {
                     match m {
@@ -197,49 +233,108 @@ impl Type {
                         _ => (),
                     }
                 });
-                
+
                 concrete_t.clone()
-            },
-            (Type::GenericStructInstance {..}, _) => todo!("compiler error"),
+            }
+            (Type::GenericStructInstance { .. }, _) => compiler_error(
+                token,
+                format!(
+                    "Cannot resolve type {:?} into {:?}",
+                    maybe_generic_t, concrete_t
+                ),
+                vec![],
+            ),
             (Type::Struct { .. }, Type::Struct { .. }) => {
-                todo!("Check that these are the same struct")
+                if maybe_generic_t != concrete_t {
+                    compiler_error(
+                        token,
+                        format!(
+                            "Cannot resolve type {:?} into {:?}",
+                            maybe_generic_t, concrete_t
+                        ),
+                        vec![],
+                    );
+                }
+
+                maybe_generic_t
             }
-            (Type::Struct { .. }, _) => todo!("compiler_error"),
+            (Type::Struct { .. }, _) => compiler_error(
+                token,
+                format!(
+                    "Cannot resolve type {:?} into {:?}",
+                    maybe_generic_t, concrete_t
+                ),
+                vec![],
+            ),
             (Type::ResolvedStruct { .. }, Type::ResolvedStruct { .. }) => {
-                todo!("Check that these are the same")
+                if maybe_generic_t != concrete_t {
+                    compiler_error(
+                        token,
+                        format!(
+                            "Cannot resolve type {:?} into {:?}",
+                            maybe_generic_t, concrete_t
+                        ),
+                        vec![],
+                    )
+                }
+
+                maybe_generic_t
             }
-            (Type::ResolvedStruct { .. }, _) => todo!("compiler error"),
+            (Type::ResolvedStruct { .. }, _) => compiler_error(
+                token,
+                format!(
+                    "Cannot resolve type {:?} into {:?}",
+                    maybe_generic_t, concrete_t
+                ),
+                vec![],
+            ),
         };
 
         t
     }
 
     pub fn assign_generics(token: &Token, typ: &Type, generic_map: &HashMap<String, Type>) -> Type {
-
-
         match typ {
-            Type::Placeholder {name} => generic_map.get(name).unwrap().clone(),
-            Type::GenericStructInstance{ base, members, idents, alias_list, base_generics } => {
-                
+            Type::Placeholder { name } => generic_map.get(name).unwrap().clone(),
+            Type::GenericStructInstance {
+                base,
+                members,
+                idents,
+                alias_list,
+                base_generics,
+            } => {
                 let alias_map: HashMap<String, String> = HashMap::from_iter(
-                    base_generics.iter().map(|t| format!("{:?}", t))
-                    .zip(alias_list.iter().map(|t| format!("{:?}", t)))
+                    base_generics
+                        .iter()
+                        .map(|t| format!("{:?}", t))
+                        .zip(alias_list.iter().map(|t| format!("{:?}", t))),
                 );
 
-                let resolved_members = members.iter().map(|t| match t {
-                    Type::Placeholder { name } => generic_map.get(alias_map.get(name).unwrap()).unwrap().clone(),
-                    Type::GenericStructInstance {..} => Type::assign_generics(token, t, generic_map),
-                    t => t.clone()
-                }).collect::<Vec<Type>>();
-                
+                let resolved_members = members
+                    .iter()
+                    .map(|t| match t {
+                        Type::Placeholder { name } => generic_map
+                            .get(alias_map.get(name).unwrap())
+                            .unwrap()
+                            .clone(),
+                        Type::GenericStructInstance { .. } => {
+                            Type::assign_generics(token, t, generic_map)
+                        }
+                        t => t.clone(),
+                    })
+                    .collect::<Vec<Type>>();
 
                 let mut name = base.clone();
                 name.push('<');
 
-                for (i, typ) in base_generics.iter().map(|t| {
-                    let alias = alias_map.get(&format!("{:?}", t)).unwrap();
-                    generic_map.get(alias).unwrap()
-                }).enumerate() {
+                for (i, typ) in base_generics
+                    .iter()
+                    .map(|t| {
+                        let alias = alias_map.get(&format!("{:?}", t)).unwrap();
+                        generic_map.get(alias).unwrap()
+                    })
+                    .enumerate()
+                {
                     if i == 0 {
                         name.push_str(format!("{:?}", typ).as_str());
                     } else {
@@ -248,20 +343,17 @@ impl Type {
                     }
                 }
                 name.push('>');
-                
+
                 Type::ResolvedStruct {
-                    name, 
+                    name,
                     members: resolved_members,
                     idents: idents.clone(),
-                    base: base.clone()
+                    base: base.clone(),
                 }
-
-
             }
-            Type::GenericStructBase { ..} => unreachable!(),
-            t => t.clone()
+            Type::GenericStructBase { .. } => unreachable!(),
+            t => t.clone(),
         }
-
     }
 }
 
@@ -286,9 +378,7 @@ impl std::fmt::Debug for Type {
                 write!(f, ">")
             }
             Type::GenericStructInstance {
-                base,
-                alias_list,
-                ..
+                base, alias_list, ..
             } => {
                 write!(f, "{base}<{:?}", alias_list[0])?;
                 for t in alias_list[1..].iter() {
@@ -296,7 +386,6 @@ impl std::fmt::Debug for Type {
                 }
                 write!(f, ">")
             }
-
         }
     }
 }

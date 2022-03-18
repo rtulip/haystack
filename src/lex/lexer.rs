@@ -15,7 +15,7 @@ use logos::Logos;
 use std::collections::HashMap;
 use std::fs;
 
-fn escape_string(unescaped: &String) -> String {
+fn escape_string(unescaped: &str) -> String {
     let mut escaped = String::new();
     let bytes = unescaped.as_bytes();
     let mut idx = 0;
@@ -122,7 +122,7 @@ fn parse_tokens_until_tokenkind(
         }
     }
     compiler_error(
-        &start_tok,
+        start_tok,
         format!(
             "Expected one of {:?}, but found end of file instead",
             break_on
@@ -232,8 +232,7 @@ fn parse_annotation_list(
     type_map: &HashMap<String, Type>,
 ) -> (Token, Option<Vec<Type>>) {
     if peek_token_kind(tokens, TokenKind::Operator(Operator::LessThan)) {
-        let mut tok =
-            expect_token_kind(&start_tok, tokens, TokenKind::Operator(Operator::LessThan));
+        let mut tok = expect_token_kind(start_tok, tokens, TokenKind::Operator(Operator::LessThan));
         let mut annotations = vec![];
         while let Some((typ_tok, typ)) = parse_untagged_type(&tok, tokens, type_map) {
             tok = typ_tok;
@@ -252,7 +251,7 @@ fn parse_annotation_list(
         }
 
         let tok = expect_token_kind(
-            &start_tok,
+            start_tok,
             tokens,
             TokenKind::Operator(Operator::GreaterThan),
         );
@@ -277,13 +276,13 @@ fn parse_type(
     type_map: &HashMap<String, Type>,
 ) -> (Token, Type) {
     if peek_token_kind(tokens, TokenKind::Operator(Operator::Mul)) {
-        let tok = expect_token_kind(&start_tok, tokens, TokenKind::Operator(Operator::Mul));
+        let tok = expect_token_kind(start_tok, tokens, TokenKind::Operator(Operator::Mul));
         let (_tok, typ) = parse_type(&tok, tokens, type_map);
 
         todo!("Return a ptr<{:?}>", typ)
     }
 
-    let (tok, name) = expect_word(&start_tok, tokens);
+    let (tok, name) = expect_word(start_tok, tokens);
     let (tok, annotations) = parse_annotation_list(&tok, tokens, type_map);
 
     let typ = match type_map.get(&name) {
@@ -542,7 +541,7 @@ fn parse_function(
     let t = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Function));
     let (name_tok, name) = expect_word(&t, tokens);
     let (tok, gen) = parse_annotation_list(&name_tok, tokens, type_map);
-    let gen = gen.unwrap_or_else(|| vec![]);
+    let gen = gen.unwrap_or_default();
     let (tok, sig, sig_idents) = parse_signature(&tok, tokens, type_map);
 
     sig.inputs.iter().for_each(|i| {
@@ -773,7 +772,7 @@ pub fn parse_while_block(
         token: token.clone(),
     });
     let tok = parse_tokens_until_tokenkind(
-        &token,
+        token,
         tokens,
         ops,
         type_map,
@@ -830,14 +829,14 @@ fn parse_struct(
     let (members, idents) = parse_tagged_type_list(&tok, tokens, type_map);
     let _tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
 
-    if generics.is_some() {
+    if let Some(gen) = generics {
         (
             name.clone(),
             Type::GenericStructBase {
                 name,
                 members,
                 idents,
-                generics: generics.unwrap(),
+                generics: gen,
             },
         )
     } else {
@@ -910,19 +909,16 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
                 };
                 hay_into_ir(path, &mut include_program);
                 include_program.functions.drain(..).for_each(|mut func| {
-                    func.ops.iter_mut().for_each(|op| match &op.kind {
-                        OpKind::PushString(n) => {
+                    func.ops.iter_mut().for_each(|op| {
+                        if let OpKind::PushString(n) = &op.kind {
                             op.kind = OpKind::PushString(n + program.strings.len())
                         }
-                        _ => (),
                     });
 
                     program.functions.push(func);
                 });
                 include_program.types.drain().for_each(|(id, t)| {
-                    if !program.types.contains_key(&id) {
-                        program.types.insert(id, t);
-                    }
+                    program.types.entry(id).or_insert(t);
                 });
                 include_program.strings.drain(..).for_each(|s| {
                     program.strings.push(s);

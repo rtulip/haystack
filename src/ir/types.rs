@@ -81,7 +81,7 @@ impl Type {
         let mut map: HashMap<String, Type> = HashMap::new();
         let resolved_members = pairs
             .iter()
-            .map(|(t1, t2)| Type::resolve_type(&token, t1, t2, &mut map))
+            .map(|(t1, t2)| Type::resolve_type(token, t1, t2, &mut map))
             .collect::<Vec<Type>>();
 
         if !generics
@@ -130,7 +130,7 @@ impl Type {
                 format!(
                     "Cannot resolve type {:?} into {:?}",
                     maybe_generic_t, concrete_t
-                ),
+                ).as_str(),
                 vec![],
             ),
             (Type::Bool, Type::Bool) => Type::Bool,
@@ -139,7 +139,7 @@ impl Type {
                 format!(
                     "Cannot resolve type {:?} into {:?}",
                     maybe_generic_t, concrete_t
-                ),
+                ).as_str(),
                 vec![],
             ),
             (Type::Ptr, Type::Ptr) => Type::Ptr,
@@ -148,7 +148,7 @@ impl Type {
                 format!(
                     "Cannot resolve type {:?} into {:?}",
                     maybe_generic_t, concrete_t
-                ),
+                ).as_str(),
                 vec![],
             ),
             (Type::Placeholder { .. }, Type::GenericStructBase { .. }) => unreachable!(),
@@ -208,30 +208,28 @@ impl Type {
                 );
 
                 members.iter().zip(resolved_members.iter()).for_each(|(m, r)| {
-                    match m {
-                        Type::Placeholder { name } => {
+                    if let Type::Placeholder {name} = m {
                             
-                            let alias = alias_map.get(name).unwrap();
-                            if let Some(prev_assignment) = generic_map.insert(alias.clone(), r.clone()) {
-                                if prev_assignment != *r {
-                                    compiler_error(
-                                        token, 
-                                        "Type Error - Failed Type Resolution", 
-                                        vec![
-                                            format!("Type `{:?}` cannot be assigned to {:?} as it was previously assigned to {:?}", 
-                                                m, 
-                                                r, 
-                                                prev_assignment
-                                            )
-                                            .as_str()
-                                        ]
-                                    );
-                                }
-                                
+                        let alias = alias_map.get(name).unwrap();
+                        if let Some(prev_assignment) = generic_map.insert(alias.clone(), r.clone()) {
+                            if prev_assignment != *r {
+                                compiler_error(
+                                    token, 
+                                    "Type Error - Failed Type Resolution", 
+                                    vec![
+                                        format!("Type `{:?}` cannot be assigned to {:?} as it was previously assigned to {:?}", 
+                                            m, 
+                                            r, 
+                                            prev_assignment
+                                        )
+                                        .as_str()
+                                    ]
+                                );
                             }
+                            
                         }
-                        _ => (),
                     }
+                    
                 });
 
                 concrete_t.clone()
@@ -241,7 +239,7 @@ impl Type {
                 format!(
                     "Cannot resolve type {:?} into {:?}",
                     maybe_generic_t, concrete_t
-                ),
+                ).as_str(),
                 vec![],
             ),
             (Type::Struct { .. }, Type::Struct { .. }) => {
@@ -251,19 +249,19 @@ impl Type {
                         format!(
                             "Cannot resolve type {:?} into {:?}",
                             maybe_generic_t, concrete_t
-                        ),
+                        ).as_str(),
                         vec![],
                     );
                 }
 
-                maybe_generic_t
+                maybe_generic_t.clone()
             }
             (Type::Struct { .. }, _) => compiler_error(
                 token,
                 format!(
                     "Cannot resolve type {:?} into {:?}",
                     maybe_generic_t, concrete_t
-                ),
+                ).as_str(),
                 vec![],
             ),
             (Type::ResolvedStruct { .. }, Type::ResolvedStruct { .. }) => {
@@ -273,19 +271,19 @@ impl Type {
                         format!(
                             "Cannot resolve type {:?} into {:?}",
                             maybe_generic_t, concrete_t
-                        ),
+                        ).as_str(),
                         vec![],
                     )
                 }
 
-                maybe_generic_t
+                maybe_generic_t.clone()
             }
             (Type::ResolvedStruct { .. }, _) => compiler_error(
                 token,
                 format!(
                     "Cannot resolve type {:?} into {:?}",
                     maybe_generic_t, concrete_t
-                ),
+                ).as_str(),
                 vec![],
             ),
         };

@@ -101,12 +101,7 @@ pub struct Op {
 }
 
 impl Op {
-    fn get_type_from_frame(
-        &self,
-        frame: &Frame,
-        index: usize,
-        inner: &Vec<String>,
-    ) -> (Type, usize) {
+    fn get_type_from_frame(&self, frame: &Frame, index: usize, inner: &[String]) -> (Type, usize) {
         let mut t = frame[index].clone();
         let mut t_offset: usize = frame[0..index].iter().map(|t| t.size()).sum();
 
@@ -303,7 +298,7 @@ impl Op {
                                 ],
                             );
                         }
-                        let resolved_struct = Type::resolve_struct(&self.token, &cast_type, &stack);
+                        let resolved_struct = Type::resolve_struct(&self.token, cast_type, stack);
                         match &resolved_struct {
                             Type::ResolvedStruct {
                                 name: _, members, ..
@@ -401,7 +396,7 @@ impl Op {
                 None
             }
             OpKind::PushIdent { index, inner } => {
-                let (t, offset) = self.get_type_from_frame(&frame, *index, inner);
+                let (t, offset) = self.get_type_from_frame(frame, *index, inner);
                 let size = t.size();
                 evaluate_signature(
                     self,

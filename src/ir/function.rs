@@ -144,15 +144,13 @@ impl Function {
             new_name.push_str(s.as_str());
         }
         new_name.push('>');
-        let f = Function {
+        Function {
             name: new_name,
             token: self.token.clone(),
             gen: vec![],
             sig,
             sig_idents: self.sig_idents.clone(),
             ops: self.ops.clone(),
-        };
-
-        f
+        }
     }
 }

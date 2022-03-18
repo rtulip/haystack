@@ -11,7 +11,7 @@ pub fn into_token(lex: &mut Lexer<LogosToken>, loc: &mut Loc) -> Option<Token> {
             }
             _ => loc.col += 1,
         });
-        let tok = match kind {
+        match kind {
             LogosToken::Error => Some(Token {
                 kind: TokenKind::Comment(slice.to_string()),
                 loc: loc.clone(),
@@ -20,8 +20,7 @@ pub fn into_token(lex: &mut Lexer<LogosToken>, loc: &mut Loc) -> Option<Token> {
                 kind: TokenKind::from((kind, slice)),
                 loc: loc.clone(),
             }),
-        };
-        tok
+        }
     } else {
         None
     }

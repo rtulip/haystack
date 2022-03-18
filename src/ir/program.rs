@@ -16,8 +16,22 @@ impl Program {
         Program {
             types: HashMap::from_iter([
                 (String::from("u64"), Type::U64),
+                (String::from("u8"), Type::U8),
                 (String::from("bool"), Type::Bool),
-                (String::from("ptr"), Type::Ptr),
+                (
+                    String::from("*64"),
+                    Type::Pointer {
+                        typ: Box::new(Type::U64),
+                        width: 64,
+                    },
+                ),
+                (
+                    String::from("*u8"),
+                    Type::Pointer {
+                        typ: Box::new(Type::U8),
+                        width: 8,
+                    },
+                ),
                 (String::from("Str"), Type::str()),
             ]),
             functions: vec![],

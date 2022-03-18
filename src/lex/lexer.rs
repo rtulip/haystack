@@ -277,9 +277,20 @@ fn parse_type(
 ) -> (Token, Type) {
     if peek_token_kind(tokens, TokenKind::Operator(Operator::Mul)) {
         let tok = expect_token_kind(start_tok, tokens, TokenKind::Operator(Operator::Mul));
-        let (_tok, typ) = parse_type(&tok, tokens, type_map);
+        let (tok, typ) = parse_type(&tok, tokens, type_map);
 
-        todo!("Return a ptr<{:?}>", typ)
+        let width = match typ {
+            Type::U8 => 8,
+            _ => typ.size() * 64,
+        };
+
+        return (
+            tok,
+            Type::Pointer {
+                typ: Box::new(typ),
+                width,
+            },
+        );
     }
 
     let (tok, name) = expect_word(start_tok, tokens);

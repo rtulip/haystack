@@ -117,11 +117,8 @@ impl Op {
                     ref members,
                     ref idents,
                 } => {
-                    if idents.contains(&Some(field.clone())) {
-                        let idx = idents
-                            .iter()
-                            .position(|s| s == &Some(field.clone()))
-                            .unwrap();
+                    if idents.contains(&field.clone()) {
+                        let idx = idents.iter().position(|s| s == &field.clone()).unwrap();
                         (
                             members[idx].clone(),
                             members[idx + 1..].iter().map(|t| t.size()).sum::<usize>(),
@@ -135,7 +132,7 @@ impl Op {
                                 members
                                     .iter()
                                     .zip(idents.iter())
-                                    .collect::<Vec<(&Type, &Option<String>)>>()
+                                    .collect::<Vec<(&Type, &String)>>()
                             )
                             .as_str()],
                         );

@@ -12,7 +12,7 @@ pub enum Type {
     Struct {
         name: String,
         members: Vec<Type>,
-        idents: Vec<Option<String>>,
+        idents: Vec<String>,
     },
 }
 
@@ -31,7 +31,7 @@ impl Type {
         Type::Struct {
             name: String::from("Str"),
             members: vec![Type::U64, Type::Ptr],
-            idents: vec![Some(String::from("size")), Some(String::from("data"))],
+            idents: vec![String::from("size"), String::from("data")],
         }
     }
 }

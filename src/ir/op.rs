@@ -111,6 +111,12 @@ impl Op {
                     name,
                     ref members,
                     ref idents,
+                }
+                | Type::ResolvedStruct {
+                    name,
+                    ref members,
+                    ref idents,
+                    ..
                 } => {
                     if idents.contains(&field.clone()) {
                         let idx = idents.iter().position(|s| s == &field.clone()).unwrap();

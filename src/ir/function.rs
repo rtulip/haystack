@@ -86,88 +86,73 @@ impl Function {
         }
     }
 
-    pub fn make_concrete(&self, stack: &Stack) -> Self {
-        let mut generic_map: HashMap<Type, Option<Type>> = HashMap::new();
-        self.gen.iter().for_each(|t| {
-            if generic_map.insert(t.clone(), None).is_some() {
-                compiler_error(
-                    &self.token,
-                    "Cannot use the same identifier multiple times in function generic list",
-                    vec![format!("Type `{:?}` is used multiple times", t).as_str()],
-                )
-            }
-        });
-
-        let mut sig = Signature {
-            inputs: vec![],
-            outputs: vec![],
-        };
-        let mut name = self.name.clone();
-        name.push('<');
-
-        self.sig
+    pub fn resolve_generic_function(&self, token: &Token, stack: &Stack) -> Self {
+        let pairs: Vec<(&Type, &Type)> = self
+            .sig
             .inputs
             .iter()
-            .rev()
-            .zip(stack.iter().rev())
-            .for_each(|(t, s)| {
-                if generic_map.contains_key(t) {
-                    if let Some(Some(old)) = generic_map.insert(t.clone(), Some(s.clone())) {
-                        if old != *s {
-                            compiler_error(
-                                &self.token,
-                                format!("Generic Type Resolution Failure for `{}", self.name)
-                                    .as_str(),
-                                vec![
-                                    format!(
-                                        "Generic type `{:?}` was assigned to both `{:?}` and `{:?}`",
-                                        t, s, old
-                                    )
-                                    .as_str(),
-                                    format!("Expected: {:?}", self.sig.inputs).as_str(),
-                                    format!(
-                                        "Found:    {:?}",
-                                        stack
-                                            .iter()
-                                            .rev()
-                                            .take(self.sig.inputs.len())
-                                            .rev()
-                                            .collect::<Vec<&Type>>()
-                                    )
-                                    .as_str(),
-                                ],
-                            );
-                        }
-                    } else {
-                        name.push_str(format!("{:?}={:?}", t, s).as_str());
-                        sig.inputs.push(s.clone());
-                    }
-                }
-            });
-        name.push('>');
-        self.sig.outputs.iter().for_each(|t| {
-            if let Some(maybe_t) = generic_map.get(t) {
-                if let Some(typ) = maybe_t {
-                    sig.outputs.push(typ.clone());
-                } else {
-                    compiler_error(
-                        &self.token,
-                        format!("Type `{:?}` was never assigned.", t).as_str(),
-                        vec![],
-                    );
-                }
-            }
-        });
+            .zip(stack[stack.len() - self.sig.inputs.len()..].iter())
+            .collect();
+        let mut map: HashMap<String, Type> = HashMap::new();
+        let resolved_inputs = pairs
+            .iter()
+            .map(|(t1, t2)| Type::resolve_type(token, t1, t2, &mut map))
+            .collect::<Vec<Type>>();
 
-        sig.inputs.reverse();
+        if !self
+            .gen
+            .iter()
+            .all(|t| map.contains_key(&format!("{:?}", t)))
+        {
+            compiler_error(
+                token,
+                "Some types were not resolved during cast",
+                vec![format!(
+                    "These types were not resolved: {:?}",
+                    self.gen
+                        .iter()
+                        .filter(|t| !map.contains_key(&format!("{:?}", t)))
+                        .collect::<Vec<&Type>>()
+                )
+                .as_str()],
+            )
+        }
 
-        Function {
-            name,
+        let resolved_outputs = self
+            .sig
+            .outputs
+            .iter()
+            .map(|t| Type::assign_generics(token, t, &map))
+            .collect::<Vec<Type>>();
+
+        let sig = Signature {
+            inputs: resolved_inputs,
+            outputs: resolved_outputs,
+        };
+
+        let mut new_name = self.name.clone();
+        new_name.push('<');
+
+        let assignments_strs = map
+            .iter()
+            .map(|(k, v)| format!("{}={:?}", k, v))
+            .collect::<Vec<String>>();
+
+        new_name.push_str(assignments_strs[0].as_str());
+        for s in assignments_strs[1..].iter() {
+            new_name.push(' ');
+            new_name.push_str(s.as_str());
+        }
+        new_name.push('>');
+        let f = Function {
+            name: new_name,
             token: self.token.clone(),
             gen: vec![],
             sig,
             sig_idents: self.sig_idents.clone(),
             ops: self.ops.clone(),
-        }
+        };
+
+        f
     }
 }

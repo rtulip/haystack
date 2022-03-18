@@ -290,7 +290,7 @@ fn parse_type(
         Some(Type::GenericStructBase {
             name: base,
             members,
-            idents: _,
+            idents,
             generics,
         }) => {
             if annotations.is_none() {
@@ -316,6 +316,7 @@ fn parse_type(
             Type::GenericStructInstance {
                 base: name.clone(),
                 members: members.clone(),
+                idents: idents.clone(),
                 alias_list: annotations,
                 base_generics: generics.clone(),
             }

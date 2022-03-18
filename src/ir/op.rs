@@ -289,7 +289,20 @@ impl Op {
                             stack,
                         );
                     }
-                    Type::GenericStructBase { .. } => {
+                    Type::GenericStructBase { name, members, .. } => {
+                        if members.len() > stack.len() {
+                            compiler_error(
+                                &self.token,
+                                format!(
+                                    "Insufficient number of elements on the stack to cast to {name}"
+                                )
+                                .as_str(),
+                                vec![
+                                    format!("Expected: {:?}", members).as_str(),
+                                    format!("Found:    {:?}", stack).as_str(),
+                                ],
+                            );
+                        }
                         let resolved_struct = Type::resolve_struct(&self.token, &cast_type, &stack);
                         match &resolved_struct {
                             Type::ResolvedStruct {
@@ -492,7 +505,7 @@ impl Op {
                 });
 
                 if f.is_generic() {
-                    let new_fn = f.make_concrete(stack);
+                    let new_fn = f.resolve_generic_function(&self.token, stack);
                     evaluate_signature(self, &new_fn.sig, stack);
                     Some((OpKind::Call(new_fn.name.clone()), new_fn))
                 } else {

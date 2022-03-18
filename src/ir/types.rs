@@ -25,6 +25,7 @@ pub enum Type {
     GenericStructInstance{
         base: String,
         members: Vec<Type>,
+        idents: Vec<String>,
         alias_list: Vec<Type>,
         base_generics: Vec<Type>,
     },
@@ -92,6 +93,7 @@ impl Type {
                         "These types were not resolved: {:?}", 
                         generics.iter().filter(|t| !map.contains_key(&format!("{:?}", t))).collect::<Vec<&Type>>()
                     ).as_str()
+                    
                 ]
             )
         }
@@ -152,7 +154,8 @@ impl Type {
             (Type::GenericStructBase { .. }, _) => unreachable!("Base should never be on the left hand side."),
             (Type::GenericStructInstance {
                 base: instance_base,
-                members, 
+                members,
+                idents: _,
                 alias_list,
                 base_generics,
             }, Type::ResolvedStruct {
@@ -209,6 +212,56 @@ impl Type {
         };
 
         t
+    }
+
+    pub fn assign_generics(token: &Token, typ: &Type, generic_map: &HashMap<String, Type>) -> Type {
+
+
+        match typ {
+            Type::Placeholder {name} => generic_map.get(name).unwrap().clone(),
+            Type::GenericStructInstance{ base, members, idents, alias_list, base_generics } => {
+                
+                let alias_map: HashMap<String, String> = HashMap::from_iter(
+                    base_generics.iter().map(|t| format!("{:?}", t))
+                    .zip(alias_list.iter().map(|t| format!("{:?}", t)))
+                );
+
+                let resolved_members = members.iter().map(|t| match t {
+                    Type::Placeholder { name } => generic_map.get(alias_map.get(name).unwrap()).unwrap().clone(),
+                    Type::GenericStructInstance {..} => Type::assign_generics(token, t, generic_map),
+                    t => t.clone()
+                }).collect::<Vec<Type>>();
+                
+
+                let mut name = base.clone();
+                name.push('<');
+
+                for (i, typ) in base_generics.iter().map(|t| {
+                    let alias = alias_map.get(&format!("{:?}", t)).unwrap();
+                    generic_map.get(alias).unwrap()
+                }).enumerate() {
+                    if i == 0 {
+                        name.push_str(format!("{:?}", typ).as_str());
+                    } else {
+                        name.push(' ');
+                        name.push_str(format!("{:?}", typ).as_str());
+                    }
+                }
+                name.push('>');
+                
+                Type::ResolvedStruct {
+                    name, 
+                    members: resolved_members,
+                    idents: idents.clone(),
+                    base: base.clone()
+                }
+
+
+            }
+            Type::GenericStructBase { ..} => unreachable!(),
+            t => t.clone()
+        }
+
     }
 }
 

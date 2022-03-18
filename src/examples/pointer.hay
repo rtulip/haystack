@@ -1,0 +1,7 @@
+fn main() {
+
+    "hello World!\n" var [word]
+
+    word::data @ print
+
+}

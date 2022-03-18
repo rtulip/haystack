@@ -14,6 +14,5 @@ fn main() {
     words::world write
     words::hello::size print
     words::world::size print
-    
 
 }

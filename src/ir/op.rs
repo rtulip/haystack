@@ -27,6 +27,8 @@ pub enum OpKind {
     Equals,
     NotEquals,
     Print,
+    Read(Option<(usize, usize)>),
+    Write(Option<(usize, usize)>),
     Cast(String),
     Split,
     Word(String),
@@ -63,6 +65,8 @@ impl std::fmt::Debug for OpKind {
             OpKind::GreaterEqual => write!(f, ">="),
             OpKind::Equals => write!(f, "=="),
             OpKind::NotEquals => write!(f, "!="),
+            OpKind::Read(_) => write!(f, "@"),
+            OpKind::Write(_) => write!(f, "!"),
             OpKind::Print => write!(f, "print"),
             OpKind::Cast(name) => write!(f, "Cast({name})"),
             OpKind::Split => write!(f, "Split"),
@@ -274,6 +278,44 @@ impl Op {
                 );
                 None
             }
+            OpKind::Read(None) => {
+                let (typ, width) = if let Some(Type::Pointer { typ, width }) = stack.last() {
+                    (typ.clone(), width.clone())
+                } else {
+                    compiler_error(
+                        &self.token,
+                        "Read expects a pointer on top of the stack",
+                        vec![format!("Found {:?} instead.", stack.last()).as_str()],
+                    );
+                };
+
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![Type::Pointer {
+                            typ: typ.clone(),
+                            width: width,
+                        }],
+                        outputs: vec![*typ.clone()],
+                    },
+                    stack,
+                );
+
+                let n = typ.size();
+                println!("N: {n}, width: {width}");
+                self.kind = OpKind::Read(Some((n, width)));
+
+                None
+            }
+            OpKind::Read(Some(_)) => {
+                panic!("Read width shouldn't have been resolved at this point...")
+            }
+            OpKind::Write(None) => {
+                todo!()
+            }
+            OpKind::Write(Some(_width)) => {
+                panic!("Read width should have been resolved at this point...")
+            }
             OpKind::Cast(name) => {
                 assert!(type_map.contains_key(name));
                 let cast_type = type_map.get(name).unwrap();
@@ -421,10 +463,17 @@ impl Op {
                 panic!("OpKind::PushFramed shouldn't be generated before type checking...");
             }
             OpKind::Print => {
+                let typ = if let Some(&Type::U8) = stack.last() {
+                    Type::U8
+                } else if let Some(&Type::U64) = stack.last() {
+                    Type::U64
+                } else {
+                    Type::U64
+                };
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::U64],
+                        inputs: vec![typ],
                         outputs: vec![],
                     },
                     stack,
@@ -582,6 +631,14 @@ impl From<Token> for Op {
             },
             TokenKind::Operator(Operator::NotEquals) => Op {
                 kind: OpKind::NotEquals,
+                token,
+            },
+            TokenKind::Operator(Operator::Read) => Op {
+                kind: OpKind::Read(None),
+                token,
+            },
+            TokenKind::Operator(Operator::Write) => Op {
+                kind: OpKind::Write(None),
                 token,
             },
             TokenKind::Comment(c) => panic!("Cannot convert comment to op: {:?}", c),

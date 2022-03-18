@@ -91,6 +91,9 @@ impl From<(LogosToken, &str)> for TokenKind {
             (LogosToken::GreaterEqual, _) => TokenKind::Operator(Operator::GreaterEqual),
             (LogosToken::Equals, _) => TokenKind::Operator(Operator::Equals),
             (LogosToken::NotEquals, _) => TokenKind::Operator(Operator::NotEquals),
+            (LogosToken::Read, _) => TokenKind::Operator(Operator::Read),
+            (LogosToken::Write, _) => TokenKind::Operator(Operator::Write),
+
             // Word
             (LogosToken::Word, s) => TokenKind::Word(s.to_string()),
             (LogosToken::Comment, s) => TokenKind::Comment(s.to_string()),

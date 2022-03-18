@@ -102,6 +102,11 @@ pub enum LogosToken {
     #[token("!=")]
     NotEquals,
 
+    #[token("@")]
+    Read,
+    #[token("!")]
+    Write,
+
     #[regex(r"[_a-zA-Z][^ \n\t:{}\[\]()<>]*")]
     Word,
 

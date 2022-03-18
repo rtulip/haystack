@@ -109,6 +109,28 @@ fn compile_op(op: &Op, func: Option<&Function>, string_list: &[String], file: &m
             writeln!(file, "  cmovne rcx, rdx").unwrap();
             writeln!(file, "  push rcx").unwrap();
         }
+        OpKind::Read(Some((n, width))) => {
+            let register = match width {
+                8 => "bl",
+                16 => "bx",
+                32 => "ebx",
+                64 => "rbx",
+                _ => unreachable!(),
+            };
+            writeln!(file, "  pop  rax").unwrap();
+            writeln!(file, "  mov  rbx, 0").unwrap();
+            writeln!(file, "  mov  {register}, [rax]").unwrap();
+            writeln!(file, "  push rbx").unwrap();
+            for _ in 1..*n {
+                writeln!(file, "add rax, {width}").unwrap();
+                writeln!(file, "  mov  rbx, 0").unwrap();
+                writeln!(file, "  mov,  {register}, [rax]").unwrap();
+                writeln!(file, "  push rbx").unwrap();
+            }
+        }
+        OpKind::Read(None) => panic!("Read size should have been resolved at this point..."),
+        OpKind::Write(Some((_n, _width))) => todo!(),
+        OpKind::Write(None) => panic!("Write size should have been resolved at this point..."),
         OpKind::Print => {
             writeln!(file, "  pop  rdi").unwrap();
             writeln!(file, "  call print").unwrap();

@@ -284,12 +284,44 @@ fn parse_type(
     }
 
     let (tok, name) = expect_word(&start_tok, tokens);
-    let (tok, _annotations) = parse_annotation_list(&tok, tokens, type_map);
+    let (tok, annotations) = parse_annotation_list(&tok, tokens, type_map);
 
-    let typ = if type_map.contains_key(&name) {
-        type_map.get(&name).unwrap().clone()
-    } else {
-        Type::Placeholder { name }
+    let typ = match type_map.get(&name) {
+        Some(Type::GenericStructBase {
+            name: base,
+            members,
+            idents: _,
+            generics,
+        }) => {
+            if annotations.is_none() {
+                compiler_error(
+                    &tok,
+                    format!("No type annotations provided for generic struct {base}").as_str(),
+                    vec![format!("Expected annotations for {:?}", generics).as_str()],
+                );
+            }
+
+            let annotations = annotations.unwrap();
+
+            if generics.len() != annotations.len() {
+                compiler_error(
+                    &tok,
+                    "Incorrect number of generic parameters provided",
+                    vec![
+                        format!("{base} is generic over {:?}", generics).as_str(),
+                        format!("These annotations were provided: {:?}", annotations).as_str(),
+                    ],
+                );
+            }
+            Type::GenericStructInstance {
+                base: name.clone(),
+                members: members.clone(),
+                alias_list: annotations,
+                base_generics: generics.clone(),
+            }
+        }
+        Some(t) => t.clone(),
+        None => Type::Placeholder { name },
     };
 
     (tok, typ)
@@ -460,13 +492,10 @@ fn parse_cast(start_tok: &Token, tokens: &mut Vec<Token>, type_map: &HashMap<Str
     let (tok, name) = expect_word(&tok, tokens);
 
     if !type_map.contains_key(&name) {
-        compiler_error(&tok, "Cannot cast to unkown type: {name}", vec![]);
-    }
-    if !matches!(type_map.get(&name).unwrap(), Type::Struct { .. }) {
         compiler_error(
             &tok,
-            "Cannot cast to type: {name}",
-            vec!["Only casting to struct types is supported"],
+            format!("Cannot cast to unkown type: {name}").as_str(),
+            vec![],
         );
     }
 
@@ -795,20 +824,31 @@ fn parse_struct(
 ) -> (String, Type) {
     let tok = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Struct));
     let (name_tok, name) = expect_word(&tok, tokens);
-    let (tok, _annotations) = parse_annotation_list(&name_tok, tokens, type_map);
+    let (tok, generics) = parse_annotation_list(&name_tok, tokens, type_map);
     let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
     let (members, idents) = parse_tagged_type_list(&tok, tokens, type_map);
     let _tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
 
-    // TODO: Should all/none of the types have to be annotated?
-    (
-        name.clone(),
-        Type::Struct {
-            name,
-            members,
-            idents,
-        },
-    )
+    if generics.is_some() {
+        (
+            name.clone(),
+            Type::GenericStructBase {
+                name,
+                members,
+                idents,
+                generics: generics.unwrap(),
+            },
+        )
+    } else {
+        (
+            name.clone(),
+            Type::Struct {
+                name,
+                members,
+                idents,
+            },
+        )
+    }
 }
 
 pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(

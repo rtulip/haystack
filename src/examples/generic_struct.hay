@@ -5,13 +5,20 @@ struct Pair<T> {
     T: second
 }
 
+struct Quad<A B> {
+    Pair<A>: a
+    Pair<B>: b
+}
+
 fn main() {
 
+    // stack: [u64 u64] => Pair<u64>
     1 2 cast(Pair)
 
     "World\n" "Hello\n" cast(Pair)
-    swap
-    split print print
-    split write write
+    cast(Quad)
 
+    split
+    split write write
+    split print print 
 }

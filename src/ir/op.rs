@@ -276,7 +276,6 @@ impl Op {
             OpKind::Cast(name) => {
                 assert!(type_map.contains_key(name));
                 let cast_type = type_map.get(name).unwrap();
-                assert!(matches!(cast_type, Type::Struct { .. }));
                 match cast_type {
                     Type::Struct {
                         name: _, members, ..
@@ -290,22 +289,37 @@ impl Op {
                             stack,
                         );
                     }
+                    Type::GenericStructBase { .. } => {
+                        let resolved_struct = Type::resolve_struct(&self.token, &cast_type, &stack);
+                        match &resolved_struct {
+                            Type::ResolvedStruct {
+                                name: _, members, ..
+                            } => {
+                                evaluate_signature(
+                                    self,
+                                    &Signature {
+                                        inputs: members.clone(),
+                                        outputs: vec![resolved_struct.clone()],
+                                    },
+                                    stack,
+                                );
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
                     _ => unreachable!(),
                 }
 
                 None
             }
             OpKind::Split => {
-                let struct_t = match stack.last() {
+                let (struct_t, members) = match stack.last() {
                     Some(Type::Struct {
-                        name,
-                        members,
-                        idents,
-                    }) => Type::Struct {
-                        name: name.clone(),
-                        members: members.clone(),
-                        idents: idents.clone(),
-                    },
+                        name: _, members, ..
+                    }) => (stack.last().unwrap().clone(), members.clone()),
+                    Some(Type::ResolvedStruct {
+                        name: _, members, ..
+                    }) => (stack.last().unwrap().clone(), members.clone()),
                     _ => compiler_error(
                         &self.token,
                         "Split requires a struct on top of the stack.",
@@ -313,19 +327,14 @@ impl Op {
                     ),
                 };
 
-                match &struct_t {
-                    Type::Struct {
-                        name: _, members, ..
-                    } => evaluate_signature(
-                        self,
-                        &Signature {
-                            inputs: vec![struct_t.clone()],
-                            outputs: members.clone(),
-                        },
-                        stack,
-                    ),
-                    _ => unreachable!(),
-                }
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![struct_t],
+                        outputs: members,
+                    },
+                    stack,
+                );
 
                 None
             }

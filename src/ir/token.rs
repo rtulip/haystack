@@ -1,5 +1,5 @@
 use crate::ir::{keyword::Keyword, literal::Literal, marker::Marker, operator::Operator};
-use crate::lex::logos_lex::{last_loc, LogosToken};
+use crate::lex::logos_lex::LogosToken;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -16,13 +16,6 @@ pub enum TokenKind {
 impl std::default::Default for TokenKind {
     fn default() -> Self {
         TokenKind::Comment(String::from("Default"))
-    }
-}
-
-pub fn eof_tok() -> Token {
-    Token {
-        kind: TokenKind::EndOfFile,
-        loc: unsafe { last_loc() },
     }
 }
 

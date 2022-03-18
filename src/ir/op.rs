@@ -101,12 +101,7 @@ pub struct Op {
 }
 
 impl Op {
-    fn get_type_from_frame(
-        &self,
-        frame: &Frame,
-        index: usize,
-        inner: &Vec<String>,
-    ) -> (Type, usize) {
+    fn get_type_from_frame(&self, frame: &Frame, index: usize, inner: &[String]) -> (Type, usize) {
         let mut t = frame[index].clone();
         let mut t_offset: usize = frame[0..index].iter().map(|t| t.size()).sum();
 
@@ -116,12 +111,15 @@ impl Op {
                     name,
                     ref members,
                     ref idents,
+                }
+                | Type::ResolvedStruct {
+                    name,
+                    ref members,
+                    ref idents,
+                    ..
                 } => {
-                    if idents.contains(&Some(field.clone())) {
-                        let idx = idents
-                            .iter()
-                            .position(|s| s == &Some(field.clone()))
-                            .unwrap();
+                    if idents.contains(&field.clone()) {
+                        let idx = idents.iter().position(|s| s == &field.clone()).unwrap();
                         (
                             members[idx].clone(),
                             members[idx + 1..].iter().map(|t| t.size()).sum::<usize>(),
@@ -135,7 +133,7 @@ impl Op {
                                 members
                                     .iter()
                                     .zip(idents.iter())
-                                    .collect::<Vec<(&Type, &Option<String>)>>()
+                                    .collect::<Vec<(&Type, &String)>>()
                             )
                             .as_str()],
                         );
@@ -279,7 +277,6 @@ impl Op {
             OpKind::Cast(name) => {
                 assert!(type_map.contains_key(name));
                 let cast_type = type_map.get(name).unwrap();
-                assert!(matches!(cast_type, Type::Struct { .. }));
                 match cast_type {
                     Type::Struct {
                         name: _, members, ..
@@ -293,22 +290,50 @@ impl Op {
                             stack,
                         );
                     }
+                    Type::GenericStructBase { name, members, .. } => {
+                        if members.len() > stack.len() {
+                            compiler_error(
+                                &self.token,
+                                format!(
+                                    "Insufficient number of elements on the stack to cast to {name}"
+                                )
+                                .as_str(),
+                                vec![
+                                    format!("Expected: {:?}", members).as_str(),
+                                    format!("Found:    {:?}", stack).as_str(),
+                                ],
+                            );
+                        }
+                        let resolved_struct = Type::resolve_struct(&self.token, cast_type, stack);
+                        match &resolved_struct {
+                            Type::ResolvedStruct {
+                                name: _, members, ..
+                            } => {
+                                evaluate_signature(
+                                    self,
+                                    &Signature {
+                                        inputs: members.clone(),
+                                        outputs: vec![resolved_struct.clone()],
+                                    },
+                                    stack,
+                                );
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
                     _ => unreachable!(),
                 }
 
                 None
             }
             OpKind::Split => {
-                let struct_t = match stack.last() {
+                let (struct_t, members) = match stack.last() {
                     Some(Type::Struct {
-                        name,
-                        members,
-                        idents,
-                    }) => Type::Struct {
-                        name: name.clone(),
-                        members: members.clone(),
-                        idents: idents.clone(),
-                    },
+                        name: _, members, ..
+                    }) => (stack.last().unwrap().clone(), members.clone()),
+                    Some(Type::ResolvedStruct {
+                        name: _, members, ..
+                    }) => (stack.last().unwrap().clone(), members.clone()),
                     _ => compiler_error(
                         &self.token,
                         "Split requires a struct on top of the stack.",
@@ -316,19 +341,14 @@ impl Op {
                     ),
                 };
 
-                match &struct_t {
-                    Type::Struct {
-                        name: _, members, ..
-                    } => evaluate_signature(
-                        self,
-                        &Signature {
-                            inputs: vec![struct_t.clone()],
-                            outputs: members.clone(),
-                        },
-                        stack,
-                    ),
-                    _ => unreachable!(),
-                }
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![struct_t],
+                        outputs: members,
+                    },
+                    stack,
+                );
 
                 None
             }
@@ -382,7 +402,7 @@ impl Op {
                 None
             }
             OpKind::PushIdent { index, inner } => {
-                let (t, offset) = self.get_type_from_frame(&frame, *index, inner);
+                let (t, offset) = self.get_type_from_frame(frame, *index, inner);
                 let size = t.size();
                 evaluate_signature(
                     self,
@@ -486,7 +506,7 @@ impl Op {
                 });
 
                 if f.is_generic() {
-                    let new_fn = f.make_concrete(stack);
+                    let new_fn = f.resolve_generic_function(&self.token, stack);
                     evaluate_signature(self, &new_fn.sig, stack);
                     Some((OpKind::Call(new_fn.name.clone()), new_fn))
                 } else {

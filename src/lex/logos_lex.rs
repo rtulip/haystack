@@ -1,52 +1,29 @@
 use crate::ir::token::{Loc, Token, TokenKind};
 use logos::{Lexer, Logos};
 
-static mut LOC: Loc = Loc {
-    file: String::new(),
-    row: 1,
-    col: 0,
-};
-
-pub unsafe fn into_token<P: AsRef<std::path::Path> + std::fmt::Display>(
-    lex: &mut Lexer<LogosToken>,
-    path: P,
-) -> Option<Token> {
-    // unsafe
-    LOC.file = path.to_string();
-
+pub fn into_token(lex: &mut Lexer<LogosToken>, loc: &mut Loc) -> Option<Token> {
     if let Some(kind) = lex.next() {
         let slice = lex.slice();
-        let tok = match kind {
+        slice.chars().for_each(|c| match c {
+            '\n' => {
+                loc.row += 1;
+                loc.col = 1;
+            }
+            _ => loc.col += 1,
+        });
+        match kind {
             LogosToken::Error => Some(Token {
                 kind: TokenKind::Comment(slice.to_string()),
-                loc: LOC.clone(),
+                loc: loc.clone(),
             }),
             _ => Some(Token {
                 kind: TokenKind::from((kind, slice)),
-                loc: Loc {
-                    file: LOC.file.clone(),
-                    row: LOC.row,
-                    col: LOC.col + 1,
-                },
+                loc: loc.clone(),
             }),
-        };
-        slice.chars().for_each(|c| match c {
-            '\n' => unsafe {
-                LOC.row += 1;
-                LOC.col = 0;
-            },
-            _ => unsafe {
-                LOC.col += 1;
-            },
-        });
-        tok
+        }
     } else {
         None
     }
-}
-
-pub unsafe fn last_loc() -> Loc {
-    LOC.clone()
 }
 
 #[derive(Logos, Debug, PartialEq)]

@@ -1,5 +1,5 @@
 struct pair {
-    u64 u64
+    u64: first u64: second
 }
 
 fn main() {

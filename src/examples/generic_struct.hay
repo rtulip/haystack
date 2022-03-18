@@ -1,0 +1,17 @@
+include "std.hay"
+
+struct Pair<T> {
+    T: first 
+    T: second
+}
+
+fn main() {
+
+    1 2 cast(Pair)
+
+    "World\n" "Hello\n" cast(Pair)
+    swap
+    split print print
+    split write write
+
+}

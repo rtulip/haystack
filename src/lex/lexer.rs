@@ -7,7 +7,7 @@ use crate::ir::{
     op::{Op, OpKind},
     operator::Operator,
     program::Program,
-    token::{eof_tok, Token, TokenKind},
+    token::{Loc, Token, TokenKind},
     types::{Signature, Type},
 };
 use crate::lex::logos_lex::{into_token, LogosToken};
@@ -40,6 +40,7 @@ fn escape_string(unescaped: &String) -> String {
 }
 
 fn parse_tokens_until_tokenkind(
+    start_tok: &Token,
     tokens: &mut Vec<Token>,
     ops: &mut Vec<Op>,
     type_map: &HashMap<String, Type>,
@@ -122,7 +123,7 @@ fn parse_tokens_until_tokenkind(
         }
     }
     compiler_error(
-        &eof_tok(),
+        &start_tok,
         format!(
             "Expected one of {:?}, but found end of file instead",
             break_on
@@ -466,7 +467,7 @@ fn parse_function_from_tokens(
         }
     });
 
-    let _tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
+    let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
     let mut ops = vec![Op {
         kind: OpKind::PrepareFunc,
         token: name_tok.clone(),
@@ -485,6 +486,7 @@ fn parse_function_from_tokens(
     });
 
     let tok = parse_tokens_until_tokenkind(
+        &tok,
         tokens,
         &mut ops,
         type_map,
@@ -577,8 +579,9 @@ fn if_block_to_ops(
     string_list: &mut Vec<String>,
 ) -> (Token, usize) {
     let if_idx = start_if_ops(start_tok, ops);
-    let _tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenBrace));
+    let tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenBrace));
     let tok = parse_tokens_until_tokenkind(
+        &tok,
         tokens,
         ops,
         type_map,
@@ -609,9 +612,10 @@ pub fn parse_if_block_from_tokens(
             let block_idx = ops.len();
             ops.push(Op {
                 kind: OpKind::StartBlock,
-                token: tok,
+                token: tok.clone(),
             });
             let tok = parse_tokens_until_tokenkind(
+                &tok,
                 tokens,
                 ops,
                 type_map,
@@ -634,6 +638,7 @@ pub fn parse_if_block_from_tokens(
             break;
         } else {
             let tok = parse_tokens_until_tokenkind(
+                &tok,
                 tokens,
                 ops,
                 type_map,
@@ -642,8 +647,9 @@ pub fn parse_if_block_from_tokens(
             );
 
             let if_idx = start_if_ops(&tok, ops);
-            let _tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
+            let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
             let tok = parse_tokens_until_tokenkind(
+                &tok,
                 tokens,
                 ops,
                 type_map,
@@ -679,6 +685,7 @@ pub fn parse_while_block_from_tokens(
         token: token.clone(),
     });
     let tok = parse_tokens_until_tokenkind(
+        &token,
         tokens,
         ops,
         type_map,
@@ -692,10 +699,11 @@ pub fn parse_while_block_from_tokens(
     });
     ops.push(Op {
         kind: OpKind::StartBlock,
-        token: tok,
+        token: tok.clone(),
     });
 
     let tok = parse_tokens_until_tokenkind(
+        &tok,
         tokens,
         ops,
         type_map,
@@ -750,9 +758,14 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
 ) {
     let file = fs::read_to_string(input_path.clone()).unwrap();
 
+    let mut loc = Loc {
+        file: input_path.to_string(),
+        row: 1,
+        col: 1,
+    };
     let mut lexer = LogosToken::lexer(file.as_str());
     let mut tokens: Vec<Token> = vec![];
-    while let Some(token) = unsafe { into_token(&mut lexer, input_path.clone()) } {
+    while let Some(token) = into_token(&mut lexer, &mut loc) {
         if !matches!(
             token,
             Token {

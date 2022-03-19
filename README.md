@@ -1,21 +1,240 @@
 # Haystack
 
 Haystack is a statically typed, stack-based programming language that aims to improve upon my eariler experimental work of [tlp](https://www.github.com/rtulip/tlp).
-
+Haysatck is also heavily inspired by [Porth](https://www.gitlab.com/tsoding/porth).
 *Note*: This langue is is very early development and is subject to frequent and rapid changes.
+
+# Getting Started:
+Getting sarted with `Haystack` is pretty simple, there's three requirements: `rust`, `nasm`, and `ld`. I'm working on Ubuntu, and can give no guarantee that `Haystack` will work properly on anything else. If you do give `Haystack` a try and something goes wrong, please open a bug and provide as many details as possible, and I'll do my best to try and figure it out. 
+
+* `rust`: I'm using rustc version `1.59.0`, older versions should work, but I haven't tried to figure out what else works. See more about installing rust [here](https://www.rust-lang.org/tools/install)
+* `nasm`: I'm using version `2.13.02`. I was able to install it using `apt`.
+* `ld`: I believe this was installed with the rest of the GNU Binutils, on `Ubuntu`. 
+
+## Install the project
+
+You can clone the project from github
+* `git clone https://www.github.com/rtulip/haystack`
+
+## Run the tests
+`cd` into the haystack directory, and run the tests with `cargo t`.
+The tests run each of the `.hay` files under `src/tests` to make sure they produce the expected outputs. If all the tests pass you should be good to write your own programs using `Haystack`.
+
+## Compile and Run examples
+
+You can try any of the examples under `src/examples`.
+* You can compile the program with: `cargo r -- src/examples/name_of_file.hay`
+* Add the `-r` or `--run` flag to also run the program:  ` cargo r -- src/examples/name_of_file.hay -r`
+
+# Tutorial:
+
+## Basics
+
+`Haystack` is a stack based language. This means that operations either consume from or produce onto a data stack. As such, `Haystack` uses reverse polish notation for most operations. For example, here's a simple program which adds two numbers together and prints the result to stdout.
+
+```
+fn main() {
+    1 2   // literals get pushed onto the stack.
+    +     // `+` consumes two `u64` from the top of the stack, and pushes the resuling sum back onto the stack.
+    print // The `print` intrinsic consumes a `u64` from the top of the stack and prints it to stdout.
+}
+```
+
+`Haystack` is statically typed, so the type checker which will make sure that you've provided the correct types for any given operation or function call.
+``` 
+// doesn't compile
+fn main() {
+    1 true + 
+}
+```
+
+Because manipulating items solely on the stack can become very tedious (not to mention adds a significant mental burden), you are able to create scoped variables using the `var [ident ..]` syntax. Variables will last for the duration of their scope, and are cosumed from the top of the stack. 
+
+```
+fn main() {
+    1 2
+    var [one two]
+    one print
+    two print
+    two print
+    one print
+}
+// outputs 1 2 2 1 to stdout
+```
+
+## Branching
+The `if` keyword will consume a `bool` from the top of the stack and will fallthrough into the block if it's `true`. `Haystack` requies that each branch of the `if` block produces a similar stack.
+
+The syntax is: `<cond> if { ... } else ... <cond> if { ... } else { ... }`
+
+```
+// This compiles fine
+fn main() {
+
+    1 2 var [a b]
+    a b < if {
+        a
+    } else a b > if {
+        b 
+    } else {
+        a b +
+    }
+
+    print
+
+}
+```
+
+```
+// This doesn't compile
+fn main() {
+    true if {
+        1
+    } else {
+        true
+    }
+}
+```
+
+## Loops
+
+Only `while` loops are supported at this time.
+
+```
+// prints number up to 10
+fn main() {
+    0 while dup 10 < {
+        var [i]
+        i print
+        i 1 +
+    } drop
+}
+```
+
+`Haystack` requires that the stack starting from the `whlie` keyword is similar to the stack at the end of the block. 
+```
+// This doesn't compile
+fn main() {
+
+    while true {
+        1
+    }
+
+}
+```
+
+## Functions
+As seen in the earlier examples, f unctions are defined with the `fn` keyword followed by the definition:
+
+`fn name<T1 T2...>(InputType1: ident1 InputType2: ident2 ...) -> [OutputType1 OutputType2 ...] { Function Body }`
+
+The type annotations `<T1 T2 ...>` are optional and only needed for making generic functions. Input arugments can be optionally given an identifier, to which the argument will be automacially bound. However, if any arguments are given an identifier, all arguments must be given an identifier. If a produces any outputs, the output types are placed in the output list without nay annotations. If the no outputs are needed, the output list shouldn't be given. Below are some examples, showing how this syntax can be used.
+
+```
+fn add_wrapper(u64 u64) -> [u64] { + } // unidentified arguments remain on the stack.
+fn add_wrapper2(u64: a u64: b) -> [u64] { a b + }
+fn duplicate<T>(T: t) -> [T T] { t t }
+fn shuffle<A B C>(A: a B: b C: c) -> [B C A] { b c a }
+```
+
+Here's how you call a function:
+```
+fn add_wrapper(u64 u64) -> [u64] { + }
+
+fn main() {
+    1 2 add_wrapper print // prints 3
+}
+```
+
+Again, the type checker is your friend, and will help make sure that each function produces the expected output, and has the expected inputs on the stack before the call is made.
+
+## Structures
+
+Sometimes, it's useful to group data together into logical components. For example, strings in `Haystack` are represented internally as the following structure:
+```
+struct Str {
+    u64: size
+    *u8: data
+}
+```
+Structured items are considered as one element on the stack. Here's how you can create a structure in `Haystack` using the `cast({type})` operation.
+
+```
+// Note: Haystack requires that struct elements have an identifier.
+struct Pair<T> {
+    T: first
+    T: second
+}
+
+fn main() {
+
+    1 2 cast(Pair)              // creates a Pair<u64>
+    "Hello" "World" cast(Pair)  // creates a Pair<Str>
+    // ...
+}
+```
+ 
+You can destructure a `struct` using the `split` operation.
+
+``` 
+fn main() {
+    // ... 
+    "Hello" "World" cast(Pair)  // creates a Pair<Str>
+    split                       // two strings are now on the stack
+    // ...
+}
+```
+
+You can access struct members directly if the struct is bound to a `var`:
+
+```
+include "std.hay"
+struct Pair<T> {
+    T: first
+    T: second
+}
+
+fn main() {
+
+    "Hello\n" "World\n" cast(Pair)
+    var [pair]
+
+    pair::first::size print
+
+    // the Write function is defined in "std.hay" and prints a Str to stdout.
+    pair::second      write 
+}
+```
+
 
 # Examples
 
+## Hello World
+
+```
+include "std.hay"
+
+fn main() {
+    "Hello World!\n" write
+}
+```
+
+## Print all numbers up to N
+
+```
+fn main() {
+    
+    100 var [n]
+    0 while dup n < {
+        var [i]
+        i print
+        i 1 +
+    }
+}
+```
+
 ## N'th Fibonacci Number
 ```
-// No stack manipulation operations are built into the language
-// apart from operators. So, for the moment, these need to be
-// constructed manually. 
-fn dup<T>(T: t) -> [T T] {t t}
-fn drop<T>(T: t){} 
-
-// Binding a variable consumes it from the stack, and makes it
-// available until the end of the scope
 fn fib(u64: x) -> [u64] {
     x 2 > if {
         x 1 - fib
@@ -24,17 +243,6 @@ fn fib(u64: x) -> [u64] {
     } else {
         x 
     }
-}
-
-fn main() {
-    0 while dup 10 < {
-        // You can also bind variables to a name outside of a
-        // function signature. You can bind multiple items at
-        // a time with `var [a b c ...]`
-        var [n]
-        n fib print
-        n 1 +
-    } 
 }
 ```
 

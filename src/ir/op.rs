@@ -313,7 +313,33 @@ impl Op {
                 panic!("Read width shouldn't have been resolved at this point...")
             }
             OpKind::Write(None) => {
-                todo!()
+                let typ = if let Some(Type::Pointer { typ }) = stack.last() {
+                    typ.clone()
+                } else {
+                    compiler_error(
+                        &self.token,
+                        "Write expects a pointer on top of the stack",
+                        vec![format!("Found {:?} instead.", stack.last()).as_str()],
+                    );
+                };
+
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![*typ.clone(), Type::Pointer { typ: typ.clone() }],
+                        outputs: vec![],
+                    },
+                    stack,
+                );
+
+                let n = typ.size();
+                let width = match *typ {
+                    Type::U8 => 8,
+                    _ => typ.size() * 64,
+                };
+
+                self.kind = OpKind::Write(Some((n, width)));
+                None
             }
             OpKind::Write(Some(_width)) => {
                 panic!("Read width should have been resolved at this point...")
@@ -387,6 +413,29 @@ impl Op {
                             &Signature {
                                 inputs: vec![typ],
                                 outputs: vec![Type::U64],
+                            },
+                            stack,
+                        );
+                    }
+                    Type::U8 => {
+                        let typ = match stack.last() {
+                            Some(Type::U64) => Type::U64,
+                            Some(Type::U8) => Type::U8,
+                            Some(Type::Bool) => Type::Bool,
+                            None
+                            | Some(Type::Pointer { .. })
+                            | Some(Type::Struct { .. })
+                            | Some(Type::GenericStructBase { .. })
+                            | Some(Type::GenericStructInstance { .. })
+                            | Some(Type::ResolvedStruct { .. })
+                            | Some(Type::Placeholder { .. }) => Type::U8,
+                        };
+
+                        evaluate_signature(
+                            self,
+                            &Signature {
+                                inputs: vec![typ],
+                                outputs: vec![Type::U8],
                             },
                             stack,
                         );

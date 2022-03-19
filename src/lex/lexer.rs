@@ -277,9 +277,9 @@ fn parse_type(
 ) -> (Token, Type) {
     if peek_token_kind(tokens, TokenKind::Operator(Operator::Mul)) {
         let tok = expect_token_kind(start_tok, tokens, TokenKind::Operator(Operator::Mul));
-        let (_tok, typ) = parse_type(&tok, tokens, type_map);
+        let (tok, typ) = parse_type(&tok, tokens, type_map);
 
-        todo!("Return a ptr<{:?}>", typ)
+        return (tok, Type::Pointer { typ: Box::new(typ) });
     }
 
     let (tok, name) = expect_word(start_tok, tokens);
@@ -320,6 +320,27 @@ fn parse_type(
                 base_generics: generics.clone(),
             }
         }
+        Some(t) => t.clone(),
+        None => Type::Placeholder { name },
+    };
+
+    (tok, typ)
+}
+
+fn parse_partial_type(
+    start_tok: &Token,
+    tokens: &mut Vec<Token>,
+    type_map: &HashMap<String, Type>,
+) -> (Token, Type) {
+    if peek_token_kind(tokens, TokenKind::Operator(Operator::Mul)) {
+        let tok = expect_token_kind(start_tok, tokens, TokenKind::Operator(Operator::Mul));
+        let (tok, typ) = parse_partial_type(&tok, tokens, type_map);
+
+        return (tok, Type::Pointer { typ: Box::new(typ) });
+    }
+
+    let (tok, name) = expect_word(start_tok, tokens);
+    let typ = match type_map.get(&name) {
         Some(t) => t.clone(),
         None => Type::Placeholder { name },
     };
@@ -489,20 +510,12 @@ fn parse_syscall(start_tok: &Token, tokens: &mut Vec<Token>) -> Op {
 
 fn parse_cast(start_tok: &Token, tokens: &mut Vec<Token>, type_map: &HashMap<String, Type>) -> Op {
     let tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenParen));
-    let (tok, name) = expect_word(&tok, tokens);
-
-    if !type_map.contains_key(&name) {
-        compiler_error(
-            &tok,
-            format!("Cannot cast to unkown type: {name}").as_str(),
-            vec![],
-        );
-    }
+    let (tok, typ) = parse_partial_type(&tok, tokens, type_map);
 
     let _tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::CloseParen));
 
     Op {
-        kind: OpKind::Cast(name),
+        kind: OpKind::Cast(typ),
         token: start_tok.clone(),
     }
 }
@@ -593,6 +606,7 @@ fn parse_function(
         sig,
         sig_idents,
         ops,
+        gen_map: HashMap::new(),
     }
 }
 

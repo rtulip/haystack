@@ -1,11 +1,5 @@
 
-fn sys_write(u64 ptr u64) -> [u64] {
-    1 syscall(3)
-}
-
-fn write(Str) {
-    split 1 sys_write drop
-}
+include "std.hay"
 
 struct Words {
     Str: hello
@@ -20,6 +14,5 @@ fn main() {
     words::world write
     words::hello::size print
     words::world::size print
-    
 
 }

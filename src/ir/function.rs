@@ -16,6 +16,7 @@ pub struct Function {
     pub sig: Signature,
     pub sig_idents: Vec<Option<String>>,
     pub ops: Vec<Op>,
+    pub gen_map: HashMap<String, Type>,
 }
 
 impl Function {
@@ -41,6 +42,7 @@ impl Function {
             &mut frame,
             fn_table,
             type_map,
+            &self.gen_map,
             vec![],
         );
         self.check_output(&stack);
@@ -144,6 +146,7 @@ impl Function {
             new_name.push_str(s.as_str());
         }
         new_name.push('>');
+
         Function {
             name: new_name,
             token: self.token.clone(),
@@ -151,6 +154,7 @@ impl Function {
             sig,
             sig_idents: self.sig_idents.clone(),
             ops: self.ops.clone(),
+            gen_map: map,
         }
     }
 }

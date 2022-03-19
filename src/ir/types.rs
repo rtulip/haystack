@@ -6,8 +6,8 @@ use std::collections::HashMap;
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
     U64,
+    U8,
     Bool,
-    Ptr,
     Placeholder {
         name: String,
     },
@@ -16,6 +16,7 @@ pub enum Type {
         members: Vec<Type>,
         idents: Vec<String>,
     },
+    Pointer {typ: Box<Type>},
     GenericStructBase {
         name: String,
         members: Vec<Type>,
@@ -38,10 +39,17 @@ pub enum Type {
 }
 
 impl Type {
+    pub fn name(&self) -> String {
+        match self {
+            Type::GenericStructBase {name, ..} => name.clone(),
+            _ => format!("{:?}", self)
+        }
+    }
+
     pub fn size(&self) -> usize {
         match self {
-            Type::U64 | Type::Bool | Type::Ptr => 1,
-            Type::Placeholder { .. } => panic!("Size of Placeholder types are unknown"),
+            Type::U64 | Type::U8 | Type::Bool | Type::Pointer { .. } => 1,
+            Type::Placeholder { .. } => panic!("Size of Placeholder types are unknown: {:?}", self),
             Type::GenericStructBase { .. } => panic!("Size of a generic struct is unknown"),
             Type::GenericStructInstance { .. } => panic!("Size of a generic struct is unknown"),
             Type::Struct {
@@ -56,7 +64,7 @@ impl Type {
     pub fn str() -> Self {
         Type::Struct {
             name: String::from("Str"),
-            members: vec![Type::U64, Type::Ptr],
+            members: vec![Type::U64, Type::Pointer {typ: Box::new(Type::U8)}],
             idents: vec![String::from("size"), String::from("data")],
         }
     }
@@ -133,6 +141,15 @@ impl Type {
                 ).as_str(),
                 vec![],
             ),
+            (Type::U8, Type::U8) => Type::U8,
+            (Type::U8, _) => compiler_error(
+                token,
+                format!(
+                    "Cannot resolve type {:?} into {:?}",
+                    maybe_generic_t, concrete_t
+                ).as_str(),
+                vec![],
+            ),
             (Type::Bool, Type::Bool) => Type::Bool,
             (Type::Bool, _) => compiler_error(
                 token,
@@ -142,8 +159,12 @@ impl Type {
                 ).as_str(),
                 vec![],
             ),
-            (Type::Ptr, Type::Ptr) => Type::Ptr,
-            (Type::Ptr, _) => compiler_error(
+            (Type::Pointer{typ, ..}, Type::Pointer {typ: typ2, ..}) => {
+                Type::Pointer {
+                    typ: Box::new(Type::resolve_type(token, &*typ, &*typ2, generic_map))
+                }
+            }
+            (Type::Pointer {..}, _) => compiler_error(
                 token,
                 format!(
                     "Cannot resolve type {:?} into {:?}",
@@ -350,6 +371,12 @@ impl Type {
                 }
             }
             Type::GenericStructBase { .. } => unreachable!(),
+            Type::Pointer { typ } => {
+
+                Type::Pointer {
+                    typ: Box::new(Type::assign_generics(token, &*typ, generic_map))
+                }
+            }
             t => t.clone(),
         }
     }
@@ -359,8 +386,9 @@ impl std::fmt::Debug for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Type::U64 => write!(f, "u64"),
+            Type::U8 => write!(f, "u8"),
             Type::Bool => write!(f, "bool"),
-            Type::Ptr => write!(f, "ptr"),
+            Type::Pointer {typ, ..} => write!(f, "*{:?}", *typ),
             Type::Placeholder { name } => write!(f, "{name}"),
             Type::Struct { name, .. } | Type::ResolvedStruct { name, .. } => write!(f, "{name}"),
             Type::GenericStructBase {

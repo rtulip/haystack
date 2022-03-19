@@ -1,4 +1,4 @@
-fn sys_write(u64 ptr u64) -> [u64] {
+fn sys_write(u64 *u8 u64) -> [u64] {
     1 syscall(3)
 }
 

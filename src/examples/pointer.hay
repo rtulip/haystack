@@ -1,0 +1,11 @@
+fn main() {
+
+    "hello World!\n" var [word]
+    0 while dup word::size < {
+        var [i]
+        word::data i ptr+ @ print
+        i 1 + 
+        
+    } drop
+
+}

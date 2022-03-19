@@ -27,7 +27,9 @@ pub enum OpKind {
     Equals,
     NotEquals,
     Print,
-    Cast(String),
+    Read(Option<(usize, usize)>),
+    Write(Option<(usize, usize)>),
+    Cast(Type),
     Split,
     Word(String),
     Ident(String, Vec<String>),
@@ -63,8 +65,10 @@ impl std::fmt::Debug for OpKind {
             OpKind::GreaterEqual => write!(f, ">="),
             OpKind::Equals => write!(f, "=="),
             OpKind::NotEquals => write!(f, "!="),
+            OpKind::Read(_) => write!(f, "@"),
+            OpKind::Write(_) => write!(f, "!"),
             OpKind::Print => write!(f, "print"),
-            OpKind::Cast(name) => write!(f, "Cast({name})"),
+            OpKind::Cast(typ) => write!(f, "Cast({:?})", typ),
             OpKind::Split => write!(f, "Split"),
             OpKind::Word(s) => write!(f, "Word({s})"),
             OpKind::Ident(s, fs) => write!(f, "Ident({s}::{:?}", fs),
@@ -162,6 +166,7 @@ impl Op {
         frame: &mut Frame,
         fn_table: &FnTable,
         type_map: &HashMap<String, Type>,
+        gen_map: &HashMap<String, Type>,
     ) -> Option<Function> {
         let op: Option<(OpKind, Function)> = match &self.kind {
             OpKind::Add => {
@@ -274,10 +279,78 @@ impl Op {
                 );
                 None
             }
-            OpKind::Cast(name) => {
-                assert!(type_map.contains_key(name));
-                let cast_type = type_map.get(name).unwrap();
-                match cast_type {
+            OpKind::Read(None) => {
+                let typ = if let Some(Type::Pointer { typ }) = stack.last() {
+                    typ.clone()
+                } else {
+                    compiler_error(
+                        &self.token,
+                        "Read expects a pointer on top of the stack",
+                        vec![format!("Found {:?} instead.", stack.last()).as_str()],
+                    );
+                };
+
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![Type::Pointer { typ: typ.clone() }],
+                        outputs: vec![*typ.clone()],
+                    },
+                    stack,
+                );
+
+                let n = typ.size();
+                let width = match *typ {
+                    Type::U8 => 8,
+                    _ => typ.size() * 64,
+                };
+
+                self.kind = OpKind::Read(Some((n, width)));
+
+                None
+            }
+            OpKind::Read(Some(_)) => {
+                panic!("Read width shouldn't have been resolved at this point...")
+            }
+            OpKind::Write(None) => {
+                let typ = if let Some(Type::Pointer { typ }) = stack.last() {
+                    typ.clone()
+                } else {
+                    compiler_error(
+                        &self.token,
+                        "Write expects a pointer on top of the stack",
+                        vec![format!("Found {:?} instead.", stack.last()).as_str()],
+                    );
+                };
+
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![*typ.clone(), Type::Pointer { typ: typ.clone() }],
+                        outputs: vec![],
+                    },
+                    stack,
+                );
+
+                let n = typ.size();
+                let width = match *typ {
+                    Type::U8 => 8,
+                    _ => typ.size() * 64,
+                };
+
+                self.kind = OpKind::Write(Some((n, width)));
+                None
+            }
+            OpKind::Write(Some(_width)) => {
+                panic!("Read width should have been resolved at this point...")
+            }
+            OpKind::Cast(typ) => {
+                let cast_type = if let Some(cast_type) = type_map.get(&typ.name()) {
+                    cast_type.clone()
+                } else {
+                    Type::assign_generics(&self.token, typ, gen_map)
+                };
+                match &cast_type {
                     Type::Struct {
                         name: _, members, ..
                     } => {
@@ -304,7 +377,7 @@ impl Op {
                                 ],
                             );
                         }
-                        let resolved_struct = Type::resolve_struct(&self.token, cast_type, stack);
+                        let resolved_struct = Type::resolve_struct(&self.token, &cast_type, stack);
                         match &resolved_struct {
                             Type::ResolvedStruct {
                                 name: _, members, ..
@@ -320,6 +393,62 @@ impl Op {
                             }
                             _ => unreachable!(),
                         }
+                    }
+                    Type::U64 => {
+                        let typ = match stack.last() {
+                            Some(Type::U64) => Type::U64,
+                            Some(Type::U8) => Type::U8,
+                            Some(Type::Bool) => Type::Bool,
+                            Some(Type::Pointer { typ }) => Type::Pointer { typ: typ.clone() },
+                            None
+                            | Some(Type::Struct { .. })
+                            | Some(Type::GenericStructBase { .. })
+                            | Some(Type::GenericStructInstance { .. })
+                            | Some(Type::ResolvedStruct { .. })
+                            | Some(Type::Placeholder { .. }) => Type::U64,
+                        };
+
+                        evaluate_signature(
+                            self,
+                            &Signature {
+                                inputs: vec![typ],
+                                outputs: vec![Type::U64],
+                            },
+                            stack,
+                        );
+                    }
+                    Type::U8 => {
+                        let typ = match stack.last() {
+                            Some(Type::U64) => Type::U64,
+                            Some(Type::U8) => Type::U8,
+                            Some(Type::Bool) => Type::Bool,
+                            None
+                            | Some(Type::Pointer { .. })
+                            | Some(Type::Struct { .. })
+                            | Some(Type::GenericStructBase { .. })
+                            | Some(Type::GenericStructInstance { .. })
+                            | Some(Type::ResolvedStruct { .. })
+                            | Some(Type::Placeholder { .. }) => Type::U8,
+                        };
+
+                        evaluate_signature(
+                            self,
+                            &Signature {
+                                inputs: vec![typ],
+                                outputs: vec![Type::U8],
+                            },
+                            stack,
+                        );
+                    }
+                    Type::Pointer { typ } => {
+                        evaluate_signature(
+                            self,
+                            &Signature {
+                                inputs: vec![Type::U64],
+                                outputs: vec![Type::Pointer { typ: typ.clone() }],
+                            },
+                            stack,
+                        );
                     }
                     _ => unreachable!(),
                 }
@@ -421,10 +550,15 @@ impl Op {
                 panic!("OpKind::PushFramed shouldn't be generated before type checking...");
             }
             OpKind::Print => {
+                let typ = if let Some(&Type::U8) = stack.last() {
+                    Type::U8
+                } else {
+                    Type::U64
+                };
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::U64],
+                        inputs: vec![typ],
                         outputs: vec![],
                     },
                     stack,
@@ -582,6 +716,14 @@ impl From<Token> for Op {
             },
             TokenKind::Operator(Operator::NotEquals) => Op {
                 kind: OpKind::NotEquals,
+                token,
+            },
+            TokenKind::Operator(Operator::Read) => Op {
+                kind: OpKind::Read(None),
+                token,
+            },
+            TokenKind::Operator(Operator::Write) => Op {
+                kind: OpKind::Write(None),
                 token,
             },
             TokenKind::Comment(c) => panic!("Cannot convert comment to op: {:?}", c),

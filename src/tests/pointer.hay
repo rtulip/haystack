@@ -1,0 +1,15 @@
+fn ptr+<T>(*T: ptr u64: n) -> [*T] {
+    ptr cast(u64) n + cast(*T) 
+}
+
+fn main() {
+
+    "hello World!\n" var [word]
+    0 while dup word::size < {
+        var [i]
+        word::data i ptr+ @ print
+        i 1 + 
+        
+    } drop
+
+}

@@ -1,5 +1,5 @@
 {
   "exit_code": 1,
   "stdout": "",
-  "stderr": "src/libs/prelude.hay:3:8: ERROR: No entry point defined\n    Note: Try adding a `main` function.\n"
+  "stderr": "src/libs/prelude.hay:4:8: ERROR: No entry point defined\n    Note: Try adding a `main` function.\n"
 }

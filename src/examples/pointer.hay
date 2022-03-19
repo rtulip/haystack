@@ -1,7 +1,3 @@
-fn ptr+<T>(*T: ptr u64: n) -> [*T] {
-    ptr cast(u64) n + cast(*T) 
-}
-
 fn main() {
 
     "hello World!\n" var [word]

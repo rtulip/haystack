@@ -327,6 +327,27 @@ fn parse_type(
     (tok, typ)
 }
 
+fn parse_partial_type(
+    start_tok: &Token,
+    tokens: &mut Vec<Token>,
+    type_map: &HashMap<String, Type>,
+) -> (Token, Type) {
+    if peek_token_kind(tokens, TokenKind::Operator(Operator::Mul)) {
+        let tok = expect_token_kind(start_tok, tokens, TokenKind::Operator(Operator::Mul));
+        let (tok, typ) = parse_partial_type(&tok, tokens, type_map);
+
+        return (tok, Type::Pointer { typ: Box::new(typ) });
+    }
+
+    let (tok, name) = expect_word(start_tok, tokens);
+    let typ = match type_map.get(&name) {
+        Some(t) => t.clone(),
+        None => Type::Placeholder { name },
+    };
+
+    (tok, typ)
+}
+
 fn parse_tagged_type(
     start_tok: &Token,
     tokens: &mut Vec<Token>,
@@ -489,7 +510,7 @@ fn parse_syscall(start_tok: &Token, tokens: &mut Vec<Token>) -> Op {
 
 fn parse_cast(start_tok: &Token, tokens: &mut Vec<Token>, type_map: &HashMap<String, Type>) -> Op {
     let tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenParen));
-    let (tok, typ) = parse_type(&tok, tokens, type_map);
+    let (tok, typ) = parse_partial_type(&tok, tokens, type_map);
 
     let _tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::CloseParen));
 
@@ -585,6 +606,7 @@ fn parse_function(
         sig,
         sig_idents,
         ops,
+        gen_map: HashMap::new(),
     }
 }
 

@@ -39,6 +39,13 @@ pub enum Type {
 }
 
 impl Type {
+    pub fn name(&self) -> String {
+        match self {
+            Type::GenericStructBase {name, ..} => format!("{name}"),
+            _ => format!("{:?}", self)
+        }
+    }
+
     pub fn size(&self) -> usize {
         match self {
             Type::U64 | Type::U8 | Type::Bool | Type::Pointer { .. } => 1,
@@ -365,7 +372,6 @@ impl Type {
             }
             Type::GenericStructBase { .. } => unreachable!(),
             Type::Pointer { typ } => {
-                println!("Type: *{:?}", typ);
 
                 Type::Pointer {
                     typ: Box::new(Type::assign_generics(token, &*typ, generic_map))

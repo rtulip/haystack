@@ -174,19 +174,15 @@ impl Program {
             for op in &mut func.ops {
                 match &mut op.kind {
                     OpKind::MakeIdent { ident: s, .. } => {
-                        println!("{}: MakeIdent: {s}", func.name);
                         scope.push(s.clone());
                     }
                     OpKind::EndBlock(n) => {
-                        println!("End Block: ({n})");
                         for _ in 0..*n {
                             scope.pop();
                         }
                     }
                     OpKind::Ident(s, fields) => {
                         if let Some(idx) = &scope.iter().position(|ident| ident == s) {
-                            println!("{}: PushIdent: {s} at {idx}", func.name);
-
                             op.kind = OpKind::PushIdent {
                                 index: *idx,
                                 inner: fields.clone(),
@@ -201,8 +197,6 @@ impl Program {
                     }
                     OpKind::Word(s) => {
                         if let Some(idx) = &scope.iter().position(|ident| ident == s) {
-                            println!("{}: PushIdent: {s} at {idx}", func.name);
-
                             op.kind = OpKind::PushIdent {
                                 index: *idx,
                                 inner: vec![],

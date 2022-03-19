@@ -166,6 +166,7 @@ impl Op {
         frame: &mut Frame,
         fn_table: &FnTable,
         type_map: &HashMap<String, Type>,
+        gen_map: &HashMap<String, Type>,
     ) -> Option<Function> {
         let op: Option<(OpKind, Function)> = match &self.kind {
             OpKind::Add => {
@@ -318,10 +319,12 @@ impl Op {
                 panic!("Read width should have been resolved at this point...")
             }
             OpKind::Cast(typ) => {
-                let name = format!("{:?}", typ);
-                assert!(type_map.contains_key(&name));
-                let cast_type = type_map.get(&name).unwrap();
-                match cast_type {
+                let cast_type = if let Some(cast_type) = type_map.get(&typ.name()) {
+                    cast_type.clone()
+                } else {
+                    Type::assign_generics(&self.token, typ, gen_map)
+                };
+                match &cast_type {
                     Type::Struct {
                         name: _, members, ..
                     } => {
@@ -348,7 +351,7 @@ impl Op {
                                 ],
                             );
                         }
-                        let resolved_struct = Type::resolve_struct(&self.token, cast_type, stack);
+                        let resolved_struct = Type::resolve_struct(&self.token, &cast_type, stack);
                         match &resolved_struct {
                             Type::ResolvedStruct {
                                 name: _, members, ..
@@ -479,8 +482,6 @@ impl Op {
                 None
             }
             OpKind::PushIdent { index, inner } => {
-                // println!("Push Ident: {index} -- {:?}", inner);
-                // println!("frame: {:?}", frame);
                 let (t, offset) = self.get_type_from_frame(frame, *index, inner);
                 let size = t.size();
                 evaluate_signature(

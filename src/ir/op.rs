@@ -29,7 +29,7 @@ pub enum OpKind {
     Print,
     Read(Option<(usize, usize)>),
     Write(Option<(usize, usize)>),
-    Cast(String),
+    Cast(Type),
     Split,
     Word(String),
     Ident(String, Vec<String>),
@@ -68,7 +68,7 @@ impl std::fmt::Debug for OpKind {
             OpKind::Read(_) => write!(f, "@"),
             OpKind::Write(_) => write!(f, "!"),
             OpKind::Print => write!(f, "print"),
-            OpKind::Cast(name) => write!(f, "Cast({name})"),
+            OpKind::Cast(typ) => write!(f, "Cast({:?})", typ),
             OpKind::Split => write!(f, "Split"),
             OpKind::Word(s) => write!(f, "Word({s})"),
             OpKind::Ident(s, fs) => write!(f, "Ident({s}::{:?}", fs),
@@ -279,8 +279,8 @@ impl Op {
                 None
             }
             OpKind::Read(None) => {
-                let (typ, width) = if let Some(Type::Pointer { typ, width }) = stack.last() {
-                    (typ.clone(), width.clone())
+                let typ = if let Some(Type::Pointer { typ }) = stack.last() {
+                    typ.clone()
                 } else {
                     compiler_error(
                         &self.token,
@@ -292,17 +292,18 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::Pointer {
-                            typ: typ.clone(),
-                            width: width,
-                        }],
+                        inputs: vec![Type::Pointer { typ: typ.clone() }],
                         outputs: vec![*typ.clone()],
                     },
                     stack,
                 );
 
                 let n = typ.size();
-                println!("N: {n}, width: {width}");
+                let width = match *typ {
+                    Type::U8 => 8,
+                    _ => typ.size() * 64,
+                };
+
                 self.kind = OpKind::Read(Some((n, width)));
 
                 None
@@ -316,9 +317,10 @@ impl Op {
             OpKind::Write(Some(_width)) => {
                 panic!("Read width should have been resolved at this point...")
             }
-            OpKind::Cast(name) => {
-                assert!(type_map.contains_key(name));
-                let cast_type = type_map.get(name).unwrap();
+            OpKind::Cast(typ) => {
+                let name = format!("{:?}", typ);
+                assert!(type_map.contains_key(&name));
+                let cast_type = type_map.get(&name).unwrap();
                 match cast_type {
                     Type::Struct {
                         name: _, members, ..
@@ -362,6 +364,39 @@ impl Op {
                             }
                             _ => unreachable!(),
                         }
+                    }
+                    Type::U64 => {
+                        let typ = match stack.last() {
+                            Some(Type::U64) => Type::U64,
+                            Some(Type::U8) => Type::U8,
+                            Some(Type::Bool) => Type::Bool,
+                            Some(Type::Pointer { typ }) => Type::Pointer { typ: typ.clone() },
+                            None
+                            | Some(Type::Struct { .. })
+                            | Some(Type::GenericStructBase { .. })
+                            | Some(Type::GenericStructInstance { .. })
+                            | Some(Type::ResolvedStruct { .. })
+                            | Some(Type::Placeholder { .. }) => Type::U64,
+                        };
+
+                        evaluate_signature(
+                            self,
+                            &Signature {
+                                inputs: vec![typ],
+                                outputs: vec![Type::U64],
+                            },
+                            stack,
+                        );
+                    }
+                    Type::Pointer { typ } => {
+                        evaluate_signature(
+                            self,
+                            &Signature {
+                                inputs: vec![Type::U64],
+                                outputs: vec![Type::Pointer { typ: typ.clone() }],
+                            },
+                            stack,
+                        );
                     }
                     _ => unreachable!(),
                 }
@@ -444,6 +479,8 @@ impl Op {
                 None
             }
             OpKind::PushIdent { index, inner } => {
+                // println!("Push Ident: {index} -- {:?}", inner);
+                // println!("frame: {:?}", frame);
                 let (t, offset) = self.get_type_from_frame(frame, *index, inner);
                 let size = t.size();
                 evaluate_signature(

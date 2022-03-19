@@ -145,7 +145,7 @@ pub fn type_check_while_block(
     type_map: &HashMap<String, Type>,
 ) -> (usize, Vec<Function>) {
     let initial_stack = stack.clone();
-    let initial_frame = stack.clone();
+    let initial_frame = frame.clone();
     let (jump_cond_ip, mut pre_jump_fns) = type_check_ops_list(
         ops,
         start_ip + 1,
@@ -209,6 +209,9 @@ pub fn type_check_ops_list(
     let mut ip = start_ip;
     let mut new_fns = vec![];
     while ip < ops.len() {
+        println!("Op: {:?}", ops[ip].kind);
+        println!("    Stack: {:?}", stack);
+        println!("    Frame: {:?}", frame);
         if break_on.iter().any(|f| f(&ops[ip])) {
             return (ip, new_fns);
         }

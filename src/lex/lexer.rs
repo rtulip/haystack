@@ -279,18 +279,7 @@ fn parse_type(
         let tok = expect_token_kind(start_tok, tokens, TokenKind::Operator(Operator::Mul));
         let (tok, typ) = parse_type(&tok, tokens, type_map);
 
-        let width = match typ {
-            Type::U8 => 8,
-            _ => typ.size() * 64,
-        };
-
-        return (
-            tok,
-            Type::Pointer {
-                typ: Box::new(typ),
-                width,
-            },
-        );
+        return (tok, Type::Pointer { typ: Box::new(typ) });
     }
 
     let (tok, name) = expect_word(start_tok, tokens);
@@ -500,20 +489,12 @@ fn parse_syscall(start_tok: &Token, tokens: &mut Vec<Token>) -> Op {
 
 fn parse_cast(start_tok: &Token, tokens: &mut Vec<Token>, type_map: &HashMap<String, Type>) -> Op {
     let tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenParen));
-    let (tok, name) = expect_word(&tok, tokens);
-
-    if !type_map.contains_key(&name) {
-        compiler_error(
-            &tok,
-            format!("Cannot cast to unkown type: {name}").as_str(),
-            vec![],
-        );
-    }
+    let (tok, typ) = parse_type(&tok, tokens, type_map);
 
     let _tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::CloseParen));
 
     Op {
-        kind: OpKind::Cast(name),
+        kind: OpKind::Cast(typ),
         token: start_tok.clone(),
     }
 }

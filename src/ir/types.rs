@@ -16,7 +16,7 @@ pub enum Type {
         members: Vec<Type>,
         idents: Vec<String>,
     },
-    Pointer {typ: Box<Type>, width: usize},
+    Pointer {typ: Box<Type>},
     GenericStructBase {
         name: String,
         members: Vec<Type>,
@@ -57,7 +57,7 @@ impl Type {
     pub fn str() -> Self {
         Type::Struct {
             name: String::from("Str"),
-            members: vec![Type::U64, Type::Pointer {typ: Box::new(Type::U8), width:8}],
+            members: vec![Type::U64, Type::Pointer {typ: Box::new(Type::U8)}],
             idents: vec![String::from("size"), String::from("data")],
         }
     }
@@ -153,17 +153,9 @@ impl Type {
                 vec![],
             ),
             (Type::Pointer{typ, ..}, Type::Pointer {typ: typ2, ..}) => {
-                if *typ != *typ2 {
-                    compiler_error(
-                        token,
-                        format!(
-                            "Cannot resolve type {:?} into {:?}",
-                            maybe_generic_t, concrete_t
-                        ).as_str(),
-                        vec![],
-                    );
+                Type::Pointer {
+                    typ: Box::new(Type::resolve_type(token, &*typ, &*typ2, generic_map))
                 }
-                maybe_generic_t.clone()
             }
             (Type::Pointer {..}, _) => compiler_error(
                 token,
@@ -372,6 +364,13 @@ impl Type {
                 }
             }
             Type::GenericStructBase { .. } => unreachable!(),
+            Type::Pointer { typ } => {
+                println!("Type: *{:?}", typ);
+
+                Type::Pointer {
+                    typ: Box::new(Type::assign_generics(token, &*typ, generic_map))
+                }
+            }
             t => t.clone(),
         }
     }

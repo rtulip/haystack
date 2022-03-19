@@ -1,6 +1,6 @@
 use crate::compiler::{compiler_error, type_check_ops_list};
 use crate::ir::{
-    op::Op,
+    op::{Op, OpKind},
     token::Token,
     types::{Signature, Type},
     FnTable, Stack,
@@ -144,13 +144,19 @@ impl Function {
             new_name.push_str(s.as_str());
         }
         new_name.push('>');
+
+        let mut new_ops = self.ops.clone();
+        new_ops.iter_mut().for_each(|op| match &op.kind {
+            OpKind::Cast(t) => op.kind = OpKind::Cast(Type::assign_generics(token, &t, &map)),
+            _ => (),
+        });
         Function {
             name: new_name,
             token: self.token.clone(),
             gen: vec![],
             sig,
             sig_idents: self.sig_idents.clone(),
-            ops: self.ops.clone(),
+            ops: new_ops,
         }
     }
 }

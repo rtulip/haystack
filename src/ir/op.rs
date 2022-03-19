@@ -552,8 +552,6 @@ impl Op {
             OpKind::Print => {
                 let typ = if let Some(&Type::U8) = stack.last() {
                     Type::U8
-                } else if let Some(&Type::U64) = stack.last() {
-                    Type::U64
                 } else {
                     Type::U64
                 };

@@ -203,6 +203,7 @@ pub fn type_check_while_block(
     (jump_cond_dest, while_body_fns)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn type_check_ops_list(
     ops: &mut Vec<Op>,
     start_ip: usize,

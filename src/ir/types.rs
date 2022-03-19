@@ -41,7 +41,7 @@ pub enum Type {
 impl Type {
     pub fn name(&self) -> String {
         match self {
-            Type::GenericStructBase {name, ..} => format!("{name}"),
+            Type::GenericStructBase {name, ..} => name.clone(),
             _ => format!("{:?}", self)
         }
     }

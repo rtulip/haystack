@@ -46,7 +46,26 @@ pub fn simplify_ir<P: AsRef<std::path::Path> + std::clone::Clone>(program: &Prog
         f.ops.iter().enumerate().for_each(|(i, op)| {
             writeln!(&mut file, "    {i}: {:?}", op.kind).unwrap();
         })
-    })
+    });
+    writeln!(
+        &mut file,
+        "--------------------- Initialized Data ---------------------"
+    )
+    .unwrap();
+
+    program.init_data.iter().for_each(|(ident, data)| {
+        writeln!(&mut file, "{ident}: {:?}", data).unwrap();
+    });
+
+    writeln!(
+        &mut file,
+        "--------------------- Uninitialized Data ---------------------"
+    )
+    .unwrap();
+
+    program.uninit_data.iter().for_each(|(ident, data)| {
+        writeln!(&mut file, "{ident}: {:?}", data).unwrap();
+    });
 }
 
 pub fn program_to_json<P: AsRef<std::path::Path>>(ir_path: P, program: &Program) {

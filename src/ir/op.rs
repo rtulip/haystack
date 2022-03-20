@@ -15,7 +15,7 @@ use std::collections::HashMap;
 pub enum OpKind {
     PushInt(u64),
     PushBool(bool),
-    PushString(usize),
+    PushString(String),
     Add,
     Sub,
     Mul,
@@ -169,7 +169,7 @@ impl Op {
         fn_table: &FnTable,
         type_map: &HashMap<String, Type>,
         gen_map: &HashMap<String, Type>,
-        globals: &HashMap<String, Type>,
+        globals: &HashMap<String, (Type, String)>,
     ) -> Option<Function> {
         let op: Option<(OpKind, Function)> = match &self.kind {
             OpKind::Add => {
@@ -304,8 +304,8 @@ impl Op {
 
                 let n = typ.size();
                 let width = match *typ {
-                    Type::U8 => 8,
-                    _ => typ.size() * 64,
+                    Type::U8 => 1,
+                    _ => 8,
                 };
 
                 self.kind = OpKind::Read(Some((n, width)));
@@ -337,8 +337,8 @@ impl Op {
 
                 let n = typ.size();
                 let width = match *typ {
-                    Type::U8 => 8,
-                    _ => typ.size() * 64,
+                    Type::U8 => 1,
+                    _ => 8,
                 };
 
                 self.kind = OpKind::Write(Some((n, width)));
@@ -404,7 +404,6 @@ impl Op {
                             Some(Type::Bool) => Type::Bool,
                             Some(Type::Pointer { typ }) => Type::Pointer { typ: typ.clone() },
                             None
-                            | Some(Type::Array { .. })
                             | Some(Type::Struct { .. })
                             | Some(Type::GenericStructBase { .. })
                             | Some(Type::GenericStructInstance { .. })
@@ -427,7 +426,6 @@ impl Op {
                             Some(Type::U8) => Type::U8,
                             Some(Type::Bool) => Type::Bool,
                             None
-                            | Some(Type::Array { .. })
                             | Some(Type::Pointer { .. })
                             | Some(Type::Struct { .. })
                             | Some(Type::GenericStructBase { .. })
@@ -659,7 +657,7 @@ impl Op {
                     self,
                     &Signature {
                         inputs: vec![],
-                        outputs: vec![globals.get(s).unwrap().clone()],
+                        outputs: vec![globals.get(s).unwrap().0.clone()],
                     },
                     stack,
                 );

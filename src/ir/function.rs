@@ -14,7 +14,6 @@ pub struct Function {
     pub token: Token,
     pub gen: Vec<Type>,
     pub sig: Signature,
-    pub sig_idents: Vec<Option<String>>,
     pub ops: Vec<Op>,
     pub gen_map: HashMap<String, Type>,
 }
@@ -28,7 +27,7 @@ impl Function {
         &mut self,
         fn_table: &FnTable,
         type_map: &HashMap<String, Type>,
-        globals: &HashMap<String, Type>,
+        globals: &HashMap<String, (Type, String)>,
     ) -> Option<Vec<Function>> {
         if self.is_generic() {
             return None;
@@ -98,10 +97,14 @@ impl Function {
             .zip(stack[stack.len() - self.sig.inputs.len()..].iter())
             .collect();
         let mut map: HashMap<String, Type> = HashMap::new();
+        // println!("Resolving inputs for {}", self.name);
         let resolved_inputs = pairs
             .iter()
-            .map(|(t1, t2)| Type::resolve_type(token, t1, t2, &mut map))
+            .map(|(t1, t2)| Type::resolve_type(token, t1, t2, &mut map, &HashMap::new()))
             .collect::<Vec<Type>>();
+
+        // println!("Resolved Types: {:?}", resolved_inputs);
+        // println!("Map: {:?}", map);
 
         if !self
             .gen
@@ -154,7 +157,6 @@ impl Function {
             token: self.token.clone(),
             gen: vec![],
             sig,
-            sig_idents: self.sig_idents.clone(),
             ops: self.ops.clone(),
             gen_map: map,
         }

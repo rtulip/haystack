@@ -1,6 +1,6 @@
-struct Pair<T> {
-    T: first 
-    T: second
+struct Pair {
+    u64: first 
+    u64: second
 }
 
 fn main() {

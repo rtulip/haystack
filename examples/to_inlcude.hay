@@ -1,3 +1,0 @@
-fn word() -> [Str] {
-    "Hello World\n"
-}

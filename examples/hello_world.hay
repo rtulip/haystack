@@ -1,10 +1,6 @@
 
 include "src/libs/std.hay"
 
-fn HelloWorld() -> [Str] {
-    "Hello World\n"
-}
-
 fn main() {
-    HelloWorld write
+    "Hello World\n" write
 }

@@ -9,28 +9,14 @@ struct Pair<T> {
     T: second
 }
 
-struct Quad<A B> {
+struct TwoPairs<A B> {
     Pair<A>: a
     Pair<B>: b
 }
 
-fn into_quad<A B>(Pair<A>: a Pair<B>: b) -> [Quad<A B>] {
-    a::first a::second cast(Pair)
-    b
-    cast(Quad)
-}
-
 fn main() {
 
-    // stack: [u64 u64] => Pair<u64>
-    1 2 cast(Pair)
-
-    "World\n" "Hello\n" cast(Pair)
-
-    into_quad
-
-    split 
+    "World\n" "Hello\n" cast(Pair) 
     split write write 
-    split print print
 
 }

@@ -356,7 +356,6 @@ impl Op {
                     Type::assign_generics(&self.token, typ, gen_map)
                 };
 
-                println!("Typ: {:?} After: {:?}", typ, typ_after);
                 let size = match typ_after {
                     Type::U8 => 1,
                     _ => typ_after.size() * 8,

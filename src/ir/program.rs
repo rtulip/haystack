@@ -203,10 +203,7 @@ impl Program {
                         }
                     }
                     OpKind::Ident(s, fields) => {
-                        // println!("ident: {s}::{:?}", fields);
-                        // println!("Scope: {:?}", scope);
                         if let Some(idx) = &scope.iter().position(|ident| ident == s) {
-                            // println!("idx: {idx}");
                             op.kind = OpKind::PushIdent {
                                 index: *idx,
                                 inner: fields.clone(),

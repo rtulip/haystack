@@ -927,7 +927,6 @@ fn parse_global_var(
     if let Some((tok, ident, typ, array_n)) = parse_tagged_type(&tok, tokens, type_map) {
         let global_ident = format!("global_{}", globals.len());
         let typ = if let Some(n) = array_n {
-            // println!("Typ: {:?}, dimension: {n}", typ);
             let data_ptr = format!("data_{}", uninit_data.len());
             uninit_data.insert(data_ptr.clone(), UninitData::Region(typ.size() as u64 * n));
             let typ = Type::resolve_struct(

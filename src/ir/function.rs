@@ -97,14 +97,10 @@ impl Function {
             .zip(stack[stack.len() - self.sig.inputs.len()..].iter())
             .collect();
         let mut map: HashMap<String, Type> = HashMap::new();
-        // println!("Resolving inputs for {}", self.name);
         let resolved_inputs = pairs
             .iter()
             .map(|(t1, t2)| Type::resolve_type(token, t1, t2, &mut map, &HashMap::new()))
             .collect::<Vec<Type>>();
-
-        // println!("Resolved Types: {:?}", resolved_inputs);
-        // println!("Map: {:?}", map);
 
         if !self
             .gen

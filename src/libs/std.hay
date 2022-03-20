@@ -17,7 +17,8 @@ fn exit(u64) {
 fn Arr.set<T>(T: value u64: idx Arr<T>: arr) {
 
     idx arr::size >= if {
-        "Out of bounds!!!!" write
+        "Index out of bounds: " write
+        idx print
         1 exit
     }
     value arr::data sizeOf(T) idx * ptr+  !
@@ -25,7 +26,8 @@ fn Arr.set<T>(T: value u64: idx Arr<T>: arr) {
 
 fn Arr.get<T>(u64: idx Arr<T>: arr) -> [T] {
     idx arr::size >= if {
-        "Out of bounds!!!!" write
+        "Index out of bounds: " write
+        idx print
         1 exit
     }
     arr::data sizeOf(T) idx * ptr+ @

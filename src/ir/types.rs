@@ -152,7 +152,6 @@ impl Type {
         generic_map: &mut HashMap<String, Type>,
         alias_map: &HashMap<String, String>,
     ) -> Type {
-        // println!("Trying to resolve {:?} from {:?}", maybe_generic_t, concrete_t);
         let t = match (maybe_generic_t, concrete_t) {
             (Type::U64, Type::U64) => Type::U64,
             (Type::U64, _) => compiler_error(
@@ -252,7 +251,6 @@ impl Type {
                 );
 
                 members.iter().zip(resolved_members.iter()).for_each(|(m, r)| {
-                    // println!("  Member: {:?}, Resolved Member: {:?}", m, r);
                     Type::resolve_type(token, m, r, generic_map, &alias_map);
                 });
 

@@ -22,9 +22,15 @@ The tests run each of the `.hay` files under `src/tests` to make sure they produ
 
 ## Compile and Run examples
 
-You can try any of the examples under `src/examples`.
-* You can compile the program with: `cargo r -- src/examples/name_of_file.hay`
-* Add the `-r` or `--run` flag to also run the program:  ` cargo r -- src/examples/name_of_file.hay -r`
+You can try any of the examples under `./examples`.
+* You can compile the program with: `cargo r -- examples/name_of_file.hay`
+* Add the `-r` or `--run` flag to also run the program:  ` cargo r -- examples/name_of_file.hay -r`
+
+### Inspect the Intermediate Representation
+You can easily see how the program gets compiled into linear operations by output as a text file or a json file.
+* To see the simplified representation of the IR add the `--simple` flag when compiling and open the file under `examples/name_of_file.simple`
+* To see the json representation add the `--json` flag when compiling and open the file under `examples/name_of_file.json`
+
 
 # Tutorial:
 

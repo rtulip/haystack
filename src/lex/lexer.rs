@@ -101,7 +101,9 @@ fn parse_tokens_until_tokenkind(
                 });
             }
             TokenKind::Literal(_) => ops.push(Op::from(token.clone())),
-            TokenKind::Marker(_) => panic!("Markers shouldn't be converted into ops..."),
+            TokenKind::Marker(_) => {
+                panic!("Markers shouldn't be converted into ops... {:?}", token)
+            }
             TokenKind::Word(ref s) => {
                 if peek_token_kind(tokens, TokenKind::Marker(Marker::DoubleColon)) {
                     let mut tok = token.clone();

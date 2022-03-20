@@ -64,7 +64,7 @@ impl Program {
         loop {
             self.functions.iter_mut().for_each(|f| {
                 if !checked.contains(&f.name) {
-                    if let Some(mut fns) = f.type_check(&fn_table, &self.types) {
+                    if let Some(mut fns) = f.type_check(&fn_table, &self.types, &self.globals) {
                         new_fns.append(&mut fns);
                     }
                     checked.insert(f.name.clone());
@@ -81,6 +81,33 @@ impl Program {
                 });
             }
         }
+    }
+
+    pub fn normalize_global_names(&mut self) {
+        let global_names: HashMap<String, String> = HashMap::from_iter(
+            self.globals
+                .iter()
+                .enumerate()
+                .map(|(i, (k, _v))| (k.clone(), format!("global_{i}"))),
+        );
+
+        self.functions.iter_mut().for_each(|f| {
+            f.ops
+                .iter_mut()
+                .filter(|op| matches!(op.kind, OpKind::Global(_)))
+                .for_each(|op| match &op.kind {
+                    OpKind::Global(s) => {
+                        op.kind = OpKind::Global(global_names.get(s).unwrap().clone())
+                    }
+                    _ => unreachable!(),
+                });
+        });
+
+        self.globals = HashMap::from_iter(
+            self.globals
+                .drain()
+                .map(|(k, v)| (global_names.get(&k).unwrap().clone(), v)),
+        );
     }
 
     pub fn normalize_function_names(&mut self) {
@@ -205,6 +232,8 @@ impl Program {
                             };
                         } else if fn_names.get(s).is_some() {
                             op.kind = OpKind::Call(s.clone());
+                        } else if self.globals.get(s).is_some() {
+                            op.kind = OpKind::Global(s.clone());
                         } else {
                             compiler_error(
                                 &op.token,

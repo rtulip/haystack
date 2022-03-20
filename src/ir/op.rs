@@ -31,6 +31,7 @@ pub enum OpKind {
     Write(Option<(usize, usize)>),
     Cast(Type),
     Split,
+    Global(String),
     Word(String),
     Ident(String, Vec<String>),
     MakeIdent { ident: String, size: Option<usize> },
@@ -70,6 +71,7 @@ impl std::fmt::Debug for OpKind {
             OpKind::Print => write!(f, "print"),
             OpKind::Cast(typ) => write!(f, "Cast({:?})", typ),
             OpKind::Split => write!(f, "Split"),
+            OpKind::Global(s) => write!(f, "Global({s})"),
             OpKind::Word(s) => write!(f, "Word({s})"),
             OpKind::Ident(s, fs) => write!(f, "Ident({s}::{:?}", fs),
             OpKind::MakeIdent { ident: s, .. } => write!(f, "MakeIdent({s})"),
@@ -167,6 +169,7 @@ impl Op {
         fn_table: &FnTable,
         type_map: &HashMap<String, Type>,
         gen_map: &HashMap<String, Type>,
+        globals: &HashMap<String, Type>,
     ) -> Option<Function> {
         let op: Option<(OpKind, Function)> = match &self.kind {
             OpKind::Add => {
@@ -651,6 +654,17 @@ impl Op {
                 }
             }
             OpKind::Nop(_) => None,
+            OpKind::Global(s) => {
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![],
+                        outputs: vec![globals.get(s).unwrap().clone()],
+                    },
+                    stack,
+                );
+                None
+            }
             OpKind::Word(_) => unreachable!("Shouldn't have any words left to type check"),
             OpKind::Ident(_, _) => unreachable!("Shouldn't have any idents left to type check"),
             OpKind::PrepareFunc => None,

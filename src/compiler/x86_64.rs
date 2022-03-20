@@ -2,7 +2,9 @@ use crate::ir::{
     function::Function,
     op::{Op, OpKind},
     program::Program,
+    types::Type,
 };
+use std::collections::HashMap;
 use std::io::prelude::*;
 
 fn frame_push_rax(file: &mut std::fs::File) {
@@ -156,6 +158,7 @@ fn compile_op(op: &Op, func: Option<&Function>, string_list: &[String], file: &m
         }
         OpKind::Cast(_) => (),
         OpKind::Split => (),
+        OpKind::Global(s) => write!(file, "  push {s}").unwrap(),
         OpKind::Word(_) => unreachable!("Words shouldn't be compiled."),
         OpKind::Ident(_, _) => unreachable!("Idents shouldn't be compiled."),
         OpKind::MakeIdent {
@@ -272,7 +275,7 @@ print:
     .unwrap();
 }
 
-fn nasm_close(file: &mut std::fs::File, strings: &[String]) {
+fn nasm_close(file: &mut std::fs::File, strings: &[String], globals: &HashMap<String, Type>) {
     writeln!(file, "global _start").unwrap();
     writeln!(file, "_start: ").unwrap();
     writeln!(file, "  mov  qword [frame_start_ptr], frame_stack_end").unwrap();
@@ -303,6 +306,10 @@ fn nasm_close(file: &mut std::fs::File, strings: &[String]) {
     writeln!(file, "  frame_end_ptr: resq 1").unwrap();
     writeln!(file, "  frame_stack: resq 2048").unwrap();
     writeln!(file, "  frame_stack_end:").unwrap();
+    globals.iter().for_each(|(k, v)| match v {
+        Type::Pointer { typ } => writeln!(file, "  {k}: resq {}", typ.size()).unwrap(),
+        _ => unreachable!(),
+    });
 }
 
 pub fn compile_program<P: AsRef<std::path::Path>>(program: &Program, out_path: P) {
@@ -316,5 +323,5 @@ pub fn compile_program<P: AsRef<std::path::Path>>(program: &Program, out_path: P
             .iter()
             .for_each(|op| compile_op(op, Some(f), &program.strings, &mut file));
     });
-    nasm_close(&mut file, &program.strings);
+    nasm_close(&mut file, &program.strings, &program.globals);
 }

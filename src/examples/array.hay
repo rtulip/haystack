@@ -3,4 +3,6 @@ var Str[1024]: strings
 
 fn main() {
 
+    strings drop
+
 }

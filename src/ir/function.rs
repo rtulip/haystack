@@ -28,6 +28,7 @@ impl Function {
         &mut self,
         fn_table: &FnTable,
         type_map: &HashMap<String, Type>,
+        globals: &HashMap<String, Type>,
     ) -> Option<Vec<Function>> {
         if self.is_generic() {
             return None;
@@ -43,6 +44,7 @@ impl Function {
             fn_table,
             type_map,
             &self.gen_map,
+            globals,
             vec![],
         );
         self.check_output(&stack);

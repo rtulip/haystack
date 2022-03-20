@@ -240,7 +240,7 @@ fn parse_annotation_list(
         let mut tok = expect_token_kind(start_tok, tokens, TokenKind::Operator(Operator::LessThan));
         let mut annotations = vec![];
         while let Some((typ_tok, typ, array_n)) = parse_untagged_type(&tok, tokens, type_map) {
-            if let Some(_) = array_n {
+            if array_n.is_some() {
                 compiler_error(
                     &typ_tok,
                     "Cannot have array values in annotation list.",
@@ -424,7 +424,7 @@ fn parse_tagged_type_list(
     let mut inputs = vec![];
     let mut idents = vec![];
     while let Some((typ_tok, ident, typ, array_n)) = parse_tagged_type(&tok, tokens, type_map) {
-        if let Some(_) = array_n {
+        if array_n.is_some() {
             compiler_error(&typ_tok, "Cannot have array types in type list", vec![]);
         }
         inputs.push(typ);
@@ -444,7 +444,7 @@ fn parse_maybe_tagged_type_list(
     let mut idents = vec![];
     while let Some((typ_tok, ident, typ, array_n)) = parse_maybe_tagged_type(&tok, tokens, type_map)
     {
-        if let Some(_) = array_n {
+        if array_n.is_some() {
             compiler_error(&typ_tok, "Cannot have array types in type list", vec![]);
         }
         inputs.push(typ);
@@ -479,7 +479,7 @@ fn parse_function_outputs(
 
     let mut outputs = vec![];
     while let Some((typ_tok, typ, array_n)) = parse_untagged_type(&tok, tokens, type_map) {
-        if let Some(_) = array_n {
+        if array_n.is_some() {
             compiler_error(
                 &typ_tok,
                 "Cannot have array types in function outputs",
@@ -535,7 +535,7 @@ fn parse_size_of(
 ) -> Op {
     let tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenParen));
     let (tok, typ, array_n) = parse_type(&tok, tokens, type_map);
-    if let Some(_) = array_n {
+    if array_n.is_some() {
         compiler_error(&tok, "Cannot have array values in sizeOf", vec![]);
     }
     let _tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::CloseParen));
@@ -932,22 +932,20 @@ fn parse_global_var(
             let typ = Type::resolve_struct(
                 &tok,
                 type_map.get("Arr").unwrap(),
-                &vec![
-                    Type::U64,
-                    Type::Pointer {
-                        typ: Box::new(typ.clone()),
-                    },
-                ],
+                &vec![Type::U64, Type::Pointer { typ: Box::new(typ) }],
             );
             let typ = Type::Pointer { typ: Box::new(typ) };
 
-            if let Some(_) = init_data.insert(
-                global_ident.clone(),
-                InitData::Arr {
-                    size: n,
-                    pointer: data_ptr,
-                },
-            ) {
+            if init_data
+                .insert(
+                    global_ident.clone(),
+                    InitData::Arr {
+                        size: n,
+                        pointer: data_ptr,
+                    },
+                )
+                .is_some()
+            {
                 compiler_error(
                     &tok,
                     format!("Identifier `{ident}` has already been taken").as_str(),

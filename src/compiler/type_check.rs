@@ -56,6 +56,7 @@ fn check_stacks_similar(stack1: &Stack, stack2: &Stack) -> bool {
     stack1.len() == stack2.len() && stack1.iter().zip(stack2.iter()).all(|(t, f)| t == f)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn type_check_if_block(
     ops: &mut Vec<Op>,
     start_ip: usize,
@@ -142,6 +143,7 @@ fn type_check_if_block(
     (true_end_ip, new_fns)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn type_check_while_block(
     ops: &mut Vec<Op>,
     start_ip: usize,

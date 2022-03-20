@@ -7,7 +7,7 @@ use crate::ir::{
 use std::collections::HashMap;
 use std::io::prelude::*;
 
-fn init_data_to_x86_64(file: &mut std::fs::File, ident: &String, data: &InitData) {
+fn init_data_to_x86_64(file: &mut std::fs::File, ident: &str, data: &InitData) {
     write!(file, "  {ident}: ").unwrap();
     match data {
         InitData::String(s) => {
@@ -24,7 +24,7 @@ fn init_data_to_x86_64(file: &mut std::fs::File, ident: &String, data: &InitData
     writeln!(file).unwrap();
 }
 
-fn uninit_data_to_x86_64(file: &mut std::fs::File, ident: &String, data: &UninitData) {
+fn uninit_data_to_x86_64(file: &mut std::fs::File, ident: &str, data: &UninitData) {
     write!(file, "  {ident}: ").unwrap();
     match data {
         UninitData::Marker => (),

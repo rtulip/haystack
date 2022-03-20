@@ -401,6 +401,7 @@ impl Op {
                             Some(Type::Bool) => Type::Bool,
                             Some(Type::Pointer { typ }) => Type::Pointer { typ: typ.clone() },
                             None
+                            | Some(Type::Array { .. })
                             | Some(Type::Struct { .. })
                             | Some(Type::GenericStructBase { .. })
                             | Some(Type::GenericStructInstance { .. })
@@ -423,6 +424,7 @@ impl Op {
                             Some(Type::U8) => Type::U8,
                             Some(Type::Bool) => Type::Bool,
                             None
+                            | Some(Type::Array { .. })
                             | Some(Type::Pointer { .. })
                             | Some(Type::Struct { .. })
                             | Some(Type::GenericStructBase { .. })

@@ -9,6 +9,7 @@ pub struct Program {
     pub types: HashMap<String, Type>,
     pub functions: Vec<Function>,
     pub strings: Vec<String>,
+    pub globals: HashMap<String, Type>,
 }
 
 impl Program {
@@ -34,6 +35,7 @@ impl Program {
             ]),
             functions: vec![],
             strings: vec![],
+            globals: HashMap::new(),
         }
     }
 

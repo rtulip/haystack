@@ -16,6 +16,10 @@ pub enum Type {
         members: Vec<Type>,
         idents: Vec<String>,
     },
+    Array {
+        size: u64,
+        typ: Box<Type>,
+    },
     Pointer {typ: Box<Type>},
     GenericStructBase {
         name: String,
@@ -49,15 +53,17 @@ impl Type {
     pub fn size(&self) -> usize {
         match self {
             Type::U64 | Type::U8 | Type::Bool | Type::Pointer { .. } => 1,
-            Type::Placeholder { .. } => panic!("Size of Placeholder types are unknown: {:?}", self),
-            Type::GenericStructBase { .. } => panic!("Size of a generic struct is unknown"),
-            Type::GenericStructInstance { .. } => panic!("Size of a generic struct is unknown"),
+            Type::Array {typ, size} => typ.size() * (*size as usize),
             Type::Struct {
                 name: _, members, ..
             }
             | Type::ResolvedStruct {
                 name: _, members, ..
             } => members.iter().map(|t| t.size()).sum(),
+            Type::Placeholder { .. } => panic!("Size of Placeholder types are unknown: {:?}", self),
+            Type::GenericStructBase { .. } => panic!("Size of a generic struct is unknown"),
+            Type::GenericStructInstance { .. } => panic!("Size of a generic struct is unknown"),
+            
         }
     }
 
@@ -263,6 +269,7 @@ impl Type {
                 ).as_str(),
                 vec![],
             ),
+            (Type::Array {..}, _) => unimplemented!(),
             (Type::Struct { .. }, Type::Struct { .. }) => {
                 if maybe_generic_t != concrete_t {
                     compiler_error(
@@ -390,6 +397,7 @@ impl std::fmt::Debug for Type {
             Type::Bool => write!(f, "bool"),
             Type::Pointer {typ, ..} => write!(f, "*{:?}", *typ),
             Type::Placeholder { name } => write!(f, "{name}"),
+            Type::Array{typ, size} => write!(f, "{:?}[{size}]", typ),
             Type::Struct { name, .. } | Type::ResolvedStruct { name, .. } => write!(f, "{name}"),
             Type::GenericStructBase {
                 name,

@@ -204,7 +204,7 @@ fn expect_u64(prev_tok: &Token, tokens: &mut Vec<Token>) -> (Token, u64) {
             TokenKind::Literal(Literal::Int(x)) => *x,
             _ => compiler_error(
                 &token,
-                format!("Expected a word, but found {:?} instead", token.kind).as_str(),
+                format!("Expected a u64, but found {:?} instead", token.kind).as_str(),
                 vec![],
             ),
         };
@@ -212,7 +212,7 @@ fn expect_u64(prev_tok: &Token, tokens: &mut Vec<Token>) -> (Token, u64) {
     } else {
         compiler_error(
             prev_tok,
-            "Expected a word, but found end of file instead",
+            "Expected a u64, but found end of file instead",
             vec![],
         );
     }
@@ -324,6 +324,19 @@ fn parse_type(
         None => Type::Placeholder { name },
     };
 
+    let (tok, typ) = if peek_token_kind(tokens, TokenKind::Marker(Marker::OpenBracket)) {
+        expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBracket));
+        let (tok, size) = expect_u64(&tok, tokens);
+        let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::CloseBracket));
+        let typ = Type::Array {
+            size,
+            typ: Box::new(typ),
+        };
+        (tok, typ)
+    } else {
+        (tok, typ)
+    };
+
     (tok, typ)
 }
 
@@ -357,7 +370,6 @@ fn parse_tagged_type(
         let (tok, typ) = parse_type(start_tok, tokens, type_map);
         let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::Colon));
         let (tok, ident) = expect_word(&tok, tokens);
-
         Some((tok, typ, ident))
     } else {
         None
@@ -865,6 +877,19 @@ fn parse_struct(
     }
 }
 
+fn parse_global_var(
+    token: &Token,
+    tokens: &mut Vec<Token>,
+    type_map: &HashMap<String, Type>,
+) -> (Token, Type, String) {
+    let tok = expect_token_kind(token, tokens, TokenKind::Keyword(Keyword::Var));
+    if let Some((tok, typ, ident)) = parse_tagged_type(&tok, tokens, type_map) {
+        (tok, Type::Pointer { typ: Box::new(typ) }, ident)
+    } else {
+        todo!("Compiler error")
+    }
+}
+
 pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
     input_path: P,
     program: &mut Program,
@@ -945,6 +970,16 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
                 let (name, typ) =
                     parse_struct(&maybe_tok.unwrap().clone(), &mut tokens, &program.types);
                 program.types.insert(name, typ);
+            }
+            Some(Token {
+                kind: TokenKind::Keyword(Keyword::Var),
+                ..
+            }) => {
+                let (tok, typ, ident) =
+                    parse_global_var(&maybe_tok.unwrap().clone(), &mut tokens, &program.types);
+                if let Some(_) = program.globals.insert(ident, typ) {
+                    compiler_error(&tok, "Identifier {ident} has already been used.", vec![]);
+                }
             }
             Some(tok) => compiler_error(tok, format!("Unexpected token {}", tok).as_str(), vec![]),
             None => break,

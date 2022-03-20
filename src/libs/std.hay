@@ -2,6 +2,33 @@ fn sys_write(u64 *u8 u64) -> [u64] {
     1 syscall(3)
 }
 
+fn sys_exit(u64) {
+    60 syscall(1) drop
+}
+
 fn write(Str) {
     split 1 sys_write drop
+}
+
+fn exit(u64) {
+    sys_exit 
+}
+
+fn Arr.set<T>(T: value u64: idx Arr<T>: arr) {
+
+    idx arr::size >= if {
+        "Index out of bounds: " write
+        idx print
+        1 exit
+    }
+    value arr::data sizeOf(T) idx * ptr+  !
+}
+
+fn Arr.get<T>(u64: idx Arr<T>: arr) -> [T] {
+    idx arr::size >= if {
+        "Index out of bounds: " write
+        idx print
+        1 exit
+    }
+    arr::data sizeOf(T) idx * ptr+ @
 }

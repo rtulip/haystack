@@ -63,6 +63,7 @@ impl From<(LogosToken, &str)> for TokenKind {
             (LogosToken::SplitKeyword, _) => TokenKind::Keyword(Keyword::Split),
             (LogosToken::SyscallKeyword, _) => TokenKind::Keyword(Keyword::Syscall),
             (LogosToken::IncludeKeyword, _) => TokenKind::Keyword(Keyword::Include),
+            (LogosToken::SizeOfKeyword, _) => TokenKind::Keyword(Keyword::SizeOf),
             // Markers
             (LogosToken::OpenBrace, _) => TokenKind::Marker(Marker::OpenBrace),
             (LogosToken::CloseBrace, _) => TokenKind::Marker(Marker::CloseBrace),

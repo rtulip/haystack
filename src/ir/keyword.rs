@@ -12,4 +12,5 @@ pub enum Keyword {
     Split,
     Syscall,
     Include,
+    SizeOf,
 }

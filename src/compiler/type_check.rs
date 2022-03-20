@@ -56,6 +56,7 @@ fn check_stacks_similar(stack1: &Stack, stack2: &Stack) -> bool {
     stack1.len() == stack2.len() && stack1.iter().zip(stack2.iter()).all(|(t, f)| t == f)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn type_check_if_block(
     ops: &mut Vec<Op>,
     start_ip: usize,
@@ -64,6 +65,7 @@ fn type_check_if_block(
     fn_table: &FnTable,
     type_map: &HashMap<String, Type>,
     gen_map: &HashMap<String, Type>,
+    globals: &HashMap<String, (Type, String)>,
 ) -> (usize, Vec<Function>) {
     assert!(matches!(ops[start_ip].kind, OpKind::Nop(Keyword::If)));
     assert!(
@@ -72,7 +74,7 @@ fn type_check_if_block(
         ops[start_ip + 1].kind
     );
 
-    ops[start_ip + 1].type_check(stack, frame, fn_table, type_map, gen_map);
+    ops[start_ip + 1].type_check(stack, frame, fn_table, type_map, gen_map, globals);
 
     let jump_dest = match ops[start_ip + 1].kind {
         OpKind::JumpCond(Some(n)) => n,
@@ -90,6 +92,7 @@ fn type_check_if_block(
         fn_table,
         type_map,
         gen_map,
+        globals,
         vec![Box::new(move |op| match op.kind {
             OpKind::JumpDest(n) => n >= jump_dest,
             _ => false,
@@ -112,6 +115,7 @@ fn type_check_if_block(
         fn_table,
         type_map,
         gen_map,
+        globals,
         vec![Box::new(move |op| match op.kind {
             OpKind::JumpDest(n) => n >= jump_dest,
             _ => false,
@@ -139,6 +143,7 @@ fn type_check_if_block(
     (true_end_ip, new_fns)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn type_check_while_block(
     ops: &mut Vec<Op>,
     start_ip: usize,
@@ -147,6 +152,7 @@ pub fn type_check_while_block(
     fn_table: &FnTable,
     type_map: &HashMap<String, Type>,
     gen_map: &HashMap<String, Type>,
+    globals: &HashMap<String, (Type, String)>,
 ) -> (usize, Vec<Function>) {
     let initial_stack = stack.clone();
     let initial_frame = frame.clone();
@@ -158,10 +164,11 @@ pub fn type_check_while_block(
         fn_table,
         type_map,
         gen_map,
+        globals,
         vec![Box::new(|op| matches!(op.kind, OpKind::JumpCond(Some(_))))],
     );
 
-    ops[jump_cond_ip].type_check(stack, frame, fn_table, type_map, gen_map);
+    ops[jump_cond_ip].type_check(stack, frame, fn_table, type_map, gen_map, globals);
     assert!(matches!(ops[jump_cond_ip].kind, OpKind::JumpCond(Some(_))));
     let jump_cond_dest = match ops[jump_cond_ip].kind {
         OpKind::JumpCond(Some(n)) => n,
@@ -178,6 +185,7 @@ pub fn type_check_while_block(
         fn_table,
         type_map,
         gen_map,
+        globals,
         vec![Box::new(move |op| matches!(op.kind, OpKind::Jump(Some(_))))],
     );
     assert!(matches!(ops[jump_ip].kind, OpKind::Jump(Some(_))));
@@ -212,6 +220,7 @@ pub fn type_check_ops_list(
     fn_table: &FnTable,
     type_map: &HashMap<String, Type>,
     gen_map: &HashMap<String, Type>,
+    globals: &HashMap<String, (Type, String)>,
     break_on: Vec<Box<dyn Fn(&Op) -> bool>>,
 ) -> (usize, Vec<Function>) {
     let mut ip = start_ip;
@@ -222,14 +231,16 @@ pub fn type_check_ops_list(
         }
         match ops[ip].kind {
             OpKind::Nop(Keyword::If) => {
-                let (end_ip, mut if_new_fns) =
-                    type_check_if_block(ops, ip, stack, frame, fn_table, type_map, gen_map);
+                let (end_ip, mut if_new_fns) = type_check_if_block(
+                    ops, ip, stack, frame, fn_table, type_map, gen_map, globals,
+                );
                 ip = end_ip;
                 new_fns.append(&mut if_new_fns);
             }
             OpKind::Nop(Keyword::While) => {
-                let (end_ip, mut whlie_new_fns) =
-                    type_check_while_block(ops, ip, stack, frame, fn_table, type_map, gen_map);
+                let (end_ip, mut whlie_new_fns) = type_check_while_block(
+                    ops, ip, stack, frame, fn_table, type_map, gen_map, globals,
+                );
                 ip = end_ip;
                 new_fns.append(&mut whlie_new_fns);
             }
@@ -237,7 +248,9 @@ pub fn type_check_ops_list(
                 ip = n;
             }
             _ => {
-                if let Some(f) = ops[ip].type_check(stack, frame, fn_table, type_map, gen_map) {
+                if let Some(f) =
+                    ops[ip].type_check(stack, frame, fn_table, type_map, gen_map, globals)
+                {
                     new_fns.push(f);
                 }
                 ip += 1;

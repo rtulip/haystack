@@ -1,3 +1,4 @@
+pub mod data;
 pub mod function;
 pub mod keyword;
 pub mod literal;

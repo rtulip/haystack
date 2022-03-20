@@ -16,7 +16,9 @@ pub enum Type {
         members: Vec<Type>,
         idents: Vec<String>,
     },
-    Pointer {typ: Box<Type>},
+    Pointer {
+        typ: Box<Type>,
+    },
     GenericStructBase {
         name: String,
         members: Vec<Type>,
@@ -41,31 +43,54 @@ pub enum Type {
 impl Type {
     pub fn name(&self) -> String {
         match self {
-            Type::GenericStructBase {name, ..} => name.clone(),
-            _ => format!("{:?}", self)
+            Type::GenericStructBase { name, .. } => name.clone(),
+            _ => format!("{:?}", self),
         }
     }
 
     pub fn size(&self) -> usize {
         match self {
             Type::U64 | Type::U8 | Type::Bool | Type::Pointer { .. } => 1,
-            Type::Placeholder { .. } => panic!("Size of Placeholder types are unknown: {:?}", self),
-            Type::GenericStructBase { .. } => panic!("Size of a generic struct is unknown"),
-            Type::GenericStructInstance { .. } => panic!("Size of a generic struct is unknown"),
             Type::Struct {
                 name: _, members, ..
             }
             | Type::ResolvedStruct {
                 name: _, members, ..
             } => members.iter().map(|t| t.size()).sum(),
+            Type::Placeholder { .. } => panic!("Size of Placeholder types are unknown: {:?}", self),
+            Type::GenericStructBase { .. } => panic!("Size of a generic struct is unknown"),
+            Type::GenericStructInstance { .. } => panic!("Size of a generic struct is unknown"),
         }
     }
 
     pub fn str() -> Self {
         Type::Struct {
             name: String::from("Str"),
-            members: vec![Type::U64, Type::Pointer {typ: Box::new(Type::U8)}],
+            members: vec![
+                Type::U64,
+                Type::Pointer {
+                    typ: Box::new(Type::U8),
+                },
+            ],
             idents: vec![String::from("size"), String::from("data")],
+        }
+    }
+
+    pub fn arr_base() -> Self {
+        Type::GenericStructBase {
+            name: String::from("Arr"),
+            members: vec![
+                Type::U64,
+                Type::Pointer {
+                    typ: Box::new(Type::Placeholder {
+                        name: String::from("T"),
+                    }),
+                },
+            ],
+            idents: vec![String::from("size"), String::from("data")],
+            generics: vec![Type::Placeholder {
+                name: String::from("T"),
+            }],
         }
     }
 
@@ -89,7 +114,7 @@ impl Type {
         let mut map: HashMap<String, Type> = HashMap::new();
         let resolved_members = pairs
             .iter()
-            .map(|(t1, t2)| Type::resolve_type(token, t1, t2, &mut map))
+            .map(|(t1, t2)| Type::resolve_type(token, t1, t2, &mut map, &HashMap::new()))
             .collect::<Vec<Type>>();
 
         if !generics
@@ -130,6 +155,7 @@ impl Type {
         maybe_generic_t: &Type,
         concrete_t: &Type,
         generic_map: &mut HashMap<String, Type>,
+        alias_map: &HashMap<String, String>,
     ) -> Type {
         let t = match (maybe_generic_t, concrete_t) {
             (Type::U64, Type::U64) => Type::U64,
@@ -138,7 +164,8 @@ impl Type {
                 format!(
                     "Cannot resolve type {:?} into {:?}",
                     maybe_generic_t, concrete_t
-                ).as_str(),
+                )
+                .as_str(),
                 vec![],
             ),
             (Type::U8, Type::U8) => Type::U8,
@@ -147,7 +174,8 @@ impl Type {
                 format!(
                     "Cannot resolve type {:?} into {:?}",
                     maybe_generic_t, concrete_t
-                ).as_str(),
+                )
+                .as_str(),
                 vec![],
             ),
             (Type::Bool, Type::Bool) => Type::Bool,
@@ -156,34 +184,41 @@ impl Type {
                 format!(
                     "Cannot resolve type {:?} into {:?}",
                     maybe_generic_t, concrete_t
-                ).as_str(),
+                )
+                .as_str(),
                 vec![],
             ),
-            (Type::Pointer{typ, ..}, Type::Pointer {typ: typ2, ..}) => {
-                Type::Pointer {
-                    typ: Box::new(Type::resolve_type(token, &*typ, &*typ2, generic_map))
-                }
-            }
-            (Type::Pointer {..}, _) => compiler_error(
+            (Type::Pointer { typ, .. }, Type::Pointer { typ: typ2, .. }) => Type::Pointer {
+                typ: Box::new(Type::resolve_type(
+                    token,
+                    &*typ,
+                    &*typ2,
+                    generic_map,
+                    alias_map,
+                )),
+            },
+            (Type::Pointer { .. }, _) => compiler_error(
                 token,
                 format!(
                     "Cannot resolve type {:?} into {:?}",
                     maybe_generic_t, concrete_t
-                ).as_str(),
+                )
+                .as_str(),
                 vec![],
             ),
             (Type::Placeholder { .. }, Type::GenericStructBase { .. }) => unreachable!(),
             (Type::Placeholder { .. }, Type::GenericStructInstance { .. }) => unreachable!(),
             (Type::Placeholder { name }, t) => {
+                let name = alias_map.get(name).unwrap_or(name);
                 if let Some(prev_assignment) = generic_map.insert(name.clone(), t.clone()) {
                     if prev_assignment != *t {
                         compiler_error(
-                            token, 
+                            token,
                             "Type Error - Failed Type Resolution", 
                             vec![
                                 format!("Type `{:?}` cannot be assigned to {:?} as it was previously assigned to {:?}", 
-                                    maybe_generic_t, 
-                                    concrete_t, 
+                                    maybe_generic_t,
+                                    concrete_t,
                                     prev_assignment
                                 )
                                 .as_str()
@@ -228,30 +263,12 @@ impl Type {
                         .zip(alias_list.iter().map(|t| format!("{:?}", t))),
                 );
 
-                members.iter().zip(resolved_members.iter()).for_each(|(m, r)| {
-                    if let Type::Placeholder {name} = m {
-                            
-                        let alias = alias_map.get(name).unwrap();
-                        if let Some(prev_assignment) = generic_map.insert(alias.clone(), r.clone()) {
-                            if prev_assignment != *r {
-                                compiler_error(
-                                    token, 
-                                    "Type Error - Failed Type Resolution", 
-                                    vec![
-                                        format!("Type `{:?}` cannot be assigned to {:?} as it was previously assigned to {:?}", 
-                                            m, 
-                                            r, 
-                                            prev_assignment
-                                        )
-                                        .as_str()
-                                    ]
-                                );
-                            }
-                            
-                        }
-                    }
-                    
-                });
+                members
+                    .iter()
+                    .zip(resolved_members.iter())
+                    .for_each(|(m, r)| {
+                        Type::resolve_type(token, m, r, generic_map, &alias_map);
+                    });
 
                 concrete_t.clone()
             }
@@ -260,7 +277,8 @@ impl Type {
                 format!(
                     "Cannot resolve type {:?} into {:?}",
                     maybe_generic_t, concrete_t
-                ).as_str(),
+                )
+                .as_str(),
                 vec![],
             ),
             (Type::Struct { .. }, Type::Struct { .. }) => {
@@ -270,7 +288,8 @@ impl Type {
                         format!(
                             "Cannot resolve type {:?} into {:?}",
                             maybe_generic_t, concrete_t
-                        ).as_str(),
+                        )
+                        .as_str(),
                         vec![],
                     );
                 }
@@ -282,7 +301,8 @@ impl Type {
                 format!(
                     "Cannot resolve type {:?} into {:?}",
                     maybe_generic_t, concrete_t
-                ).as_str(),
+                )
+                .as_str(),
                 vec![],
             ),
             (Type::ResolvedStruct { .. }, Type::ResolvedStruct { .. }) => {
@@ -292,7 +312,8 @@ impl Type {
                         format!(
                             "Cannot resolve type {:?} into {:?}",
                             maybe_generic_t, concrete_t
-                        ).as_str(),
+                        )
+                        .as_str(),
                         vec![],
                     )
                 }
@@ -304,7 +325,8 @@ impl Type {
                 format!(
                     "Cannot resolve type {:?} into {:?}",
                     maybe_generic_t, concrete_t
-                ).as_str(),
+                )
+                .as_str(),
                 vec![],
             ),
         };
@@ -371,12 +393,9 @@ impl Type {
                 }
             }
             Type::GenericStructBase { .. } => unreachable!(),
-            Type::Pointer { typ } => {
-
-                Type::Pointer {
-                    typ: Box::new(Type::assign_generics(token, &*typ, generic_map))
-                }
-            }
+            Type::Pointer { typ } => Type::Pointer {
+                typ: Box::new(Type::assign_generics(token, &*typ, generic_map)),
+            },
             t => t.clone(),
         }
     }
@@ -388,7 +407,7 @@ impl std::fmt::Debug for Type {
             Type::U64 => write!(f, "u64"),
             Type::U8 => write!(f, "u8"),
             Type::Bool => write!(f, "bool"),
-            Type::Pointer {typ, ..} => write!(f, "*{:?}", *typ),
+            Type::Pointer { typ, .. } => write!(f, "*{:?}", *typ),
             Type::Placeholder { name } => write!(f, "{name}"),
             Type::Struct { name, .. } | Type::ResolvedStruct { name, .. } => write!(f, "{name}"),
             Type::GenericStructBase {

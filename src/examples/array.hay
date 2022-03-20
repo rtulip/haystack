@@ -1,0 +1,19 @@
+include "std.hay"
+
+var Str[1024]: strings
+
+fn main() {
+
+    strings @ var [x]
+
+    "Hello World1\n" 0 x Arr.set
+    "Hello World2\n" 1 x Arr.set
+    "Hello World3\n" 2 x Arr.set
+
+    0 while dup 3 < {
+        var [i]
+        i x Arr.get write
+        i 1 + 
+    } drop
+
+}

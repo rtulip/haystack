@@ -1,5 +1,11 @@
 use crate::compiler::compiler_error;
-use crate::ir::{function::Function, op::OpKind, token::Token, types::Type};
+use crate::ir::{
+    data::{InitData, UninitData},
+    function::Function,
+    op::OpKind,
+    token::Token,
+    types::Type,
+};
 
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -8,7 +14,9 @@ use std::collections::{HashMap, HashSet};
 pub struct Program {
     pub types: HashMap<String, Type>,
     pub functions: Vec<Function>,
-    pub strings: Vec<String>,
+    pub global_vars: HashMap<String, (Type, String)>,
+    pub init_data: HashMap<String, InitData>,
+    pub uninit_data: HashMap<String, UninitData>,
 }
 
 impl Program {
@@ -31,9 +39,12 @@ impl Program {
                     },
                 ),
                 (String::from("Str"), Type::str()),
+                (String::from("Arr"), Type::arr_base()),
             ]),
             functions: vec![],
-            strings: vec![],
+            global_vars: HashMap::new(),
+            init_data: HashMap::new(),
+            uninit_data: HashMap::new(),
         }
     }
 
@@ -62,7 +73,7 @@ impl Program {
         loop {
             self.functions.iter_mut().for_each(|f| {
                 if !checked.contains(&f.name) {
-                    if let Some(mut fns) = f.type_check(&fn_table, &self.types) {
+                    if let Some(mut fns) = f.type_check(&fn_table, &self.types, &self.global_vars) {
                         new_fns.append(&mut fns);
                     }
                     checked.insert(f.name.clone());
@@ -79,6 +90,33 @@ impl Program {
                 });
             }
         }
+    }
+
+    pub fn normalize_global_names(&mut self) {
+        let global_names: HashMap<String, String> = HashMap::from_iter(
+            self.global_vars
+                .iter()
+                .enumerate()
+                .map(|(i, (k, _v))| (k.clone(), format!("global_{i}"))),
+        );
+
+        self.functions.iter_mut().for_each(|f| {
+            f.ops
+                .iter_mut()
+                .filter(|op| matches!(op.kind, OpKind::Global(_)))
+                .for_each(|op| match &op.kind {
+                    OpKind::Global(s) => {
+                        op.kind = OpKind::Global(global_names.get(s).unwrap().clone())
+                    }
+                    _ => unreachable!(),
+                });
+        });
+
+        self.global_vars = HashMap::from_iter(
+            self.global_vars
+                .drain()
+                .map(|(k, v)| (global_names.get(&k).unwrap().clone(), v)),
+        );
     }
 
     pub fn normalize_function_names(&mut self) {
@@ -154,23 +192,6 @@ impl Program {
         let fn_names = self.meta();
         self.functions.iter_mut().for_each(|func| {
             let mut scope: Vec<String> = vec![];
-            if func
-                .sig_idents
-                .iter()
-                .all(|maybe_ident| maybe_ident.is_some())
-            {
-                func.sig_idents.iter().rev().for_each(|input| {
-                    if let Some(ident) = input {
-                        scope.push(ident.clone())
-                    }
-                })
-            } else if !func
-                .sig_idents
-                .iter()
-                .all(|maybe_ident| maybe_ident.is_none())
-            {
-                compiler_error(&func.token, "All inputs must be named if any are.", vec![]);
-            }
             for op in &mut func.ops {
                 match &mut op.kind {
                     OpKind::MakeIdent { ident: s, .. } => {
@@ -203,6 +224,8 @@ impl Program {
                             };
                         } else if fn_names.get(s).is_some() {
                             op.kind = OpKind::Call(s.clone());
+                        } else if self.global_vars.get(s).is_some() {
+                            op.kind = OpKind::Global(s.clone());
                         } else {
                             compiler_error(
                                 &op.token,

@@ -49,6 +49,8 @@ pub enum LogosToken {
     SyscallKeyword,
     #[token("include")]
     IncludeKeyword,
+    #[token("sizeOf")]
+    SizeOfKeyword,
 
     // Markers
     #[token("{")]

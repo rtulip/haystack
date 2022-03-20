@@ -1,9 +1,39 @@
 use crate::ir::{
+    data::{InitData, UninitData},
     function::Function,
     op::{Op, OpKind},
     program::Program,
 };
+use std::collections::HashMap;
 use std::io::prelude::*;
+
+fn init_data_to_x86_64(file: &mut std::fs::File, ident: &str, data: &InitData) {
+    write!(file, "  {ident}: ").unwrap();
+    match data {
+        InitData::String(s) => {
+            write!(file, "db ").unwrap();
+            s.as_bytes()
+                .iter()
+                .for_each(|b| write!(file, "{:#x}, ", b).unwrap());
+        }
+        InitData::Arr { size, pointer } => {
+            write!(file, "dq {size}, {pointer}").unwrap();
+        }
+    }
+
+    writeln!(file).unwrap();
+}
+
+fn uninit_data_to_x86_64(file: &mut std::fs::File, ident: &str, data: &UninitData) {
+    write!(file, "  {ident}: ").unwrap();
+    match data {
+        UninitData::Marker => (),
+        UninitData::Region(size) => {
+            write!(file, "resq {size}").unwrap();
+        }
+    }
+    writeln!(file).unwrap();
+}
 
 fn frame_push_rax(file: &mut std::fs::File) {
     writeln!(file, "  sub  qword [frame_end_ptr], 8").unwrap();
@@ -15,7 +45,12 @@ fn frame_pop_n(file: &mut std::fs::File, n: &usize) {
     writeln!(file, "  add qword [frame_end_ptr], {}", 8 * n).unwrap();
 }
 
-fn compile_op(op: &Op, func: Option<&Function>, string_list: &[String], file: &mut std::fs::File) {
+fn compile_op(
+    op: &Op,
+    func: Option<&Function>,
+    init_data: &HashMap<String, InitData>,
+    file: &mut std::fs::File,
+) {
     writeln!(file, "  ; -- {:?}", op).unwrap();
     match &op.kind {
         OpKind::PushInt(x) => writeln!(file, "  push {x}").unwrap(),
@@ -26,9 +61,14 @@ fn compile_op(op: &Op, func: Option<&Function>, string_list: &[String], file: &m
                 writeln!(file, "  push 0").unwrap()
             }
         }
-        OpKind::PushString(i) => {
-            writeln!(file, "  push {}", string_list[*i].len()).unwrap();
-            writeln!(file, "  push str_{i}").unwrap();
+        OpKind::PushString(str_ident) => {
+            let str_len = if let InitData::String(s) = init_data.get(str_ident).unwrap() {
+                s.len()
+            } else {
+                panic!("{str_ident} doesn't map to an InitData::String.");
+            };
+            writeln!(file, "  push {str_len}").unwrap();
+            writeln!(file, "  push {str_ident}").unwrap();
         }
         OpKind::Add => {
             writeln!(file, "  pop  rbx").unwrap();
@@ -111,11 +151,11 @@ fn compile_op(op: &Op, func: Option<&Function>, string_list: &[String], file: &m
         }
         OpKind::Read(Some((n, width))) => {
             let register = match width {
-                8 => "bl",
-                16 => "bx",
-                32 => "ebx",
-                64 => "rbx",
-                _ => unreachable!(),
+                1 => "bl",
+                2 => "bx",
+                3 => "ebx",
+                8 => "rbx",
+                w => unreachable!("n: {w}"),
             };
             writeln!(file, "  pop  rax").unwrap();
             writeln!(file, "  mov  rbx, 0").unwrap();
@@ -124,18 +164,17 @@ fn compile_op(op: &Op, func: Option<&Function>, string_list: &[String], file: &m
             for _ in 1..*n {
                 writeln!(file, "  add  rax, {width}").unwrap();
                 writeln!(file, "  mov  rbx, 0").unwrap();
-                writeln!(file, "  mov,  {register}, [rax]").unwrap();
+                writeln!(file, "  mov  {register}, [rax]").unwrap();
                 writeln!(file, "  push rbx").unwrap();
-                todo!("check that this makes sense...")
             }
         }
         OpKind::Read(None) => panic!("Read size should have been resolved at this point..."),
         OpKind::Write(Some((n, width))) => {
             let register = match width {
-                8 => "bl",
-                16 => "bx",
-                32 => "ebx",
-                64 => "rbx",
+                1 => "bl",
+                2 => "bx",
+                4 => "ebx",
+                8 => "rbx",
                 _ => unreachable!(),
             };
             writeln!(file, "  pop  rax").unwrap();
@@ -146,7 +185,6 @@ fn compile_op(op: &Op, func: Option<&Function>, string_list: &[String], file: &m
                 writeln!(file, "  sub  rax, {width}").unwrap();
                 writeln!(file, "  pop  rbx").unwrap();
                 writeln!(file, "  mov  [rax], {register}").unwrap();
-                todo!("check that this makes sense...")
             }
         }
         OpKind::Write(None) => panic!("Write size should have been resolved at this point..."),
@@ -154,8 +192,12 @@ fn compile_op(op: &Op, func: Option<&Function>, string_list: &[String], file: &m
             writeln!(file, "  pop  rdi").unwrap();
             writeln!(file, "  call print").unwrap();
         }
+        OpKind::SizeOf(_) => {
+            unreachable!("SizeOf should have been converted into PushInt by code generation.")
+        }
         OpKind::Cast(_) => (),
         OpKind::Split => (),
+        OpKind::Global(s) => write!(file, "  push {s}").unwrap(),
         OpKind::Word(_) => unreachable!("Words shouldn't be compiled."),
         OpKind::Ident(_, _) => unreachable!("Idents shouldn't be compiled."),
         OpKind::MakeIdent {
@@ -272,7 +314,11 @@ print:
     .unwrap();
 }
 
-fn nasm_close(file: &mut std::fs::File, strings: &[String]) {
+fn nasm_close(
+    file: &mut std::fs::File,
+    init_data: &HashMap<String, InitData>,
+    uninit_data: &HashMap<String, UninitData>,
+) {
     writeln!(file, "global _start").unwrap();
     writeln!(file, "_start: ").unwrap();
     writeln!(file, "  mov  qword [frame_start_ptr], frame_stack_end").unwrap();
@@ -283,7 +329,7 @@ fn nasm_close(file: &mut std::fs::File, strings: &[String]) {
             ..Default::default()
         },
         None,
-        strings,
+        init_data,
         file,
     );
     writeln!(file, "exit:").unwrap();
@@ -291,18 +337,17 @@ fn nasm_close(file: &mut std::fs::File, strings: &[String]) {
     writeln!(file, "  mov  rdi, 0").unwrap();
     writeln!(file, "  syscall").unwrap();
     writeln!(file, "segment .data").unwrap();
-    strings.iter().enumerate().for_each(|(i, s)| {
-        write!(file, "  str_{i}: db ").unwrap();
-        s.as_bytes()
-            .iter()
-            .for_each(|b| write!(file, "{:#x}, ", b).unwrap());
-        writeln!(file).unwrap();
-    });
+    init_data
+        .iter()
+        .for_each(|(k, v)| init_data_to_x86_64(file, k, v));
     writeln!(file, "segment .bss").unwrap();
     writeln!(file, "  frame_start_ptr: resq 1").unwrap();
     writeln!(file, "  frame_end_ptr: resq 1").unwrap();
     writeln!(file, "  frame_stack: resq 2048").unwrap();
     writeln!(file, "  frame_stack_end:").unwrap();
+    uninit_data
+        .iter()
+        .for_each(|(k, v)| uninit_data_to_x86_64(file, k, v));
 }
 
 pub fn compile_program<P: AsRef<std::path::Path>>(program: &Program, out_path: P) {
@@ -314,7 +359,7 @@ pub fn compile_program<P: AsRef<std::path::Path>>(program: &Program, out_path: P
         }
         f.ops
             .iter()
-            .for_each(|op| compile_op(op, Some(f), &program.strings, &mut file));
+            .for_each(|op| compile_op(op, Some(f), &program.init_data, &mut file));
     });
-    nasm_close(&mut file, &program.strings);
+    nasm_close(&mut file, &program.init_data, &program.uninit_data);
 }

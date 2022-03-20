@@ -1,6 +1,8 @@
 fn main() {
-    0 while dup 10 < {
-        dup print
-        1 + 
+    100 var [n]
+    0 while dup n < {
+        var [i]
+        i print
+        i 1 + 
     } drop
 }

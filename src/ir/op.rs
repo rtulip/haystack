@@ -15,7 +15,7 @@ use std::collections::HashMap;
 pub enum OpKind {
     PushInt(u64),
     PushBool(bool),
-    PushString(usize),
+    PushString(String),
     Add,
     Sub,
     Mul,
@@ -30,7 +30,9 @@ pub enum OpKind {
     Read(Option<(usize, usize)>),
     Write(Option<(usize, usize)>),
     Cast(Type),
+    SizeOf(Type),
     Split,
+    Global(String),
     Word(String),
     Ident(String, Vec<String>),
     MakeIdent { ident: String, size: Option<usize> },
@@ -69,7 +71,9 @@ impl std::fmt::Debug for OpKind {
             OpKind::Write(_) => write!(f, "!"),
             OpKind::Print => write!(f, "print"),
             OpKind::Cast(typ) => write!(f, "Cast({:?})", typ),
+            OpKind::SizeOf(typ) => write!(f, "SizeOf({:?})", typ),
             OpKind::Split => write!(f, "Split"),
+            OpKind::Global(s) => write!(f, "Global({s})"),
             OpKind::Word(s) => write!(f, "Word({s})"),
             OpKind::Ident(s, fs) => write!(f, "Ident({s}::{:?}", fs),
             OpKind::MakeIdent { ident: s, .. } => write!(f, "MakeIdent({s})"),
@@ -167,6 +171,7 @@ impl Op {
         fn_table: &FnTable,
         type_map: &HashMap<String, Type>,
         gen_map: &HashMap<String, Type>,
+        globals: &HashMap<String, (Type, String)>,
     ) -> Option<Function> {
         let op: Option<(OpKind, Function)> = match &self.kind {
             OpKind::Add => {
@@ -301,8 +306,8 @@ impl Op {
 
                 let n = typ.size();
                 let width = match *typ {
-                    Type::U8 => 8,
-                    _ => typ.size() * 64,
+                    Type::U8 => 1,
+                    _ => 8,
                 };
 
                 self.kind = OpKind::Read(Some((n, width)));
@@ -334,8 +339,8 @@ impl Op {
 
                 let n = typ.size();
                 let width = match *typ {
-                    Type::U8 => 8,
-                    _ => typ.size() * 64,
+                    Type::U8 => 1,
+                    _ => 8,
                 };
 
                 self.kind = OpKind::Write(Some((n, width)));
@@ -343,6 +348,29 @@ impl Op {
             }
             OpKind::Write(Some(_width)) => {
                 panic!("Read width should have been resolved at this point...")
+            }
+            OpKind::SizeOf(typ) => {
+                let typ_after = if let Some(cast_type) = type_map.get(&typ.name()) {
+                    cast_type.clone()
+                } else {
+                    Type::assign_generics(&self.token, typ, gen_map)
+                };
+
+                let size = match typ_after {
+                    Type::U8 => 1,
+                    _ => typ_after.size() * 8,
+                };
+
+                self.kind = OpKind::PushInt(size as u64);
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![],
+                        outputs: vec![Type::U64],
+                    },
+                    stack,
+                );
+                None
             }
             OpKind::Cast(typ) => {
                 let cast_type = if let Some(cast_type) = type_map.get(&typ.name()) {
@@ -649,6 +677,17 @@ impl Op {
                 }
             }
             OpKind::Nop(_) => None,
+            OpKind::Global(s) => {
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![],
+                        outputs: vec![globals.get(s).unwrap().0.clone()],
+                    },
+                    stack,
+                );
+                None
+            }
             OpKind::Word(_) => unreachable!("Shouldn't have any words left to type check"),
             OpKind::Ident(_, _) => unreachable!("Shouldn't have any idents left to type check"),
             OpKind::PrepareFunc => None,

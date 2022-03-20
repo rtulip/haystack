@@ -15,5 +15,14 @@ fn main() {
         i x Arr.get write
         i 1 + 
     } drop
+    
+    "aaaaabbbbbccccc" split cast(Arr)
+    var [str_arr]
+
+    0 while dup str_arr::size < {
+        var [i]
+        i str_arr Arr.get print
+        i 1 +
+    } drop
 
 }

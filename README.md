@@ -206,6 +206,27 @@ fn main() {
 }
 ```
 
+## Including other files
+
+You can include files with the `include "path/to/file.hay"` syntax. `Haystack` will search from `src/libs/` as well as the current directory for the file.
+
+```
+// defines 'write' function
+include "std.hay" 
+
+fn main() { "Hello World!\n" write }
+```
+
+## The Prelude 
+
+There are some functions which are automatically compiled with any `Haystack` program. You can find these under `src/libs/prelude.hay`. These functions are there to provide common stack operations, so that you don't need to redefine the most common functions, or always have them included. 
+
+```
+fn drop<T>(T: t) {}                         // removes the top element from the stack
+fn dup<T>(T: t) -> [T T] { t t }            // duplicates the top element of the stack 
+fn swap<A B>(A: a B: b) -> [B A] { b a }    // swaps the order of the top two elements of the stack.
+fn ptr+<T>(*T: ptr u64: n) -> [*T] { ... }  // offsets a pointer by n
+```
 
 # Examples
 

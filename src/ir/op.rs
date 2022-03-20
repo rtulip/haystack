@@ -56,7 +56,7 @@ impl std::fmt::Debug for OpKind {
         match self {
             OpKind::PushInt(i) => write!(f, "Push({i})"),
             OpKind::PushBool(b) => write!(f, "Push({b})"),
-            OpKind::PushString(i) => write!(f, "Push(str_{i})"),
+            OpKind::PushString(s) => write!(f, "Push({s})"),
             OpKind::Add => write!(f, "+"),
             OpKind::Sub => write!(f, "-"),
             OpKind::Mul => write!(f, "*"),

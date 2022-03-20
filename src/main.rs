@@ -10,12 +10,12 @@ struct Cli {
     #[clap(short, long)]
     run: bool,
     #[clap(long)]
-    ir: bool,
+    json: bool,
     #[clap(long)]
     simple: bool,
 }
 
 fn main() {
     let cli = Cli::parse();
-    compile_haystack(cli.file, cli.run, cli.ir, cli.simple);
+    compile_haystack(cli.file, cli.run, cli.json, cli.simple);
 }

@@ -1,11 +1,12 @@
-struct pair {
-    u64 u64
+struct Pair<T> {
+    T: first 
+    T: second
 }
 
 fn main() {
    
-    1 2 cast(pair)
-    3 4 cast(pair)
+    1 2 cast(Pair)
+    3 4 cast(Pair)
 
     swap
 

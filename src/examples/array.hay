@@ -2,35 +2,32 @@ include "std.hay"
 
 var Str[1024]: strings
 
-fn Arr.set<T>(T: value u64: size u64: idx Arr<T>: arr) {
+fn Arr.set<T>(T: value u64: idx Arr<T>: arr) {
 
     idx arr::size >= if {
         "Out of bounds!!!!" write
     }
-
-    value arr::data size idx * ptr+  !
-
+    value arr::data sizeOf(T) idx * ptr+  !
 }
 
-fn Arr.get<T>(u64: size u64: idx Arr<T>: arr) -> [T] {
+fn Arr.get<T>(u64: idx Arr<T>: arr) -> [T] {
     idx arr::size >= if {
         "Out of bounds!!!!" write
     }
-
-    arr::data size idx * ptr+ @
+    arr::data sizeOf(T) idx * ptr+ @
 }
 
 fn main() {
 
     strings @ var [x]
 
-    "Hello World1\n" 16 0 x Arr.set
-    "Hello World2\n" 16 1 x Arr.set
-    "Hello World3\n" 16 2 x Arr.set
+    "Hello World1\n" 0 x Arr.set
+    "Hello World2\n" 1 x Arr.set
+    "Hello World3\n" 2 x Arr.set
 
     0 while dup 3 < {
         var [i]
-        16 i x Arr.get write
+        i x Arr.get write
         i 1 + 
     } drop
     

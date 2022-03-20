@@ -192,6 +192,9 @@ fn compile_op(
             writeln!(file, "  pop  rdi").unwrap();
             writeln!(file, "  call print").unwrap();
         }
+        OpKind::SizeOf(_) => {
+            unreachable!("SizeOf should have been converted into PushInt by code generation.")
+        }
         OpKind::Cast(_) => (),
         OpKind::Split => (),
         OpKind::Global(s) => write!(file, "  push {s}").unwrap(),

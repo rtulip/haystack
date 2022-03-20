@@ -30,6 +30,7 @@ pub enum OpKind {
     Read(Option<(usize, usize)>),
     Write(Option<(usize, usize)>),
     Cast(Type),
+    SizeOf(Type),
     Split,
     Global(String),
     Word(String),
@@ -70,6 +71,7 @@ impl std::fmt::Debug for OpKind {
             OpKind::Write(_) => write!(f, "!"),
             OpKind::Print => write!(f, "print"),
             OpKind::Cast(typ) => write!(f, "Cast({:?})", typ),
+            OpKind::SizeOf(typ) => write!(f, "SizeOf({:?})", typ),
             OpKind::Split => write!(f, "Split"),
             OpKind::Global(s) => write!(f, "Global({s})"),
             OpKind::Word(s) => write!(f, "Word({s})"),
@@ -346,6 +348,30 @@ impl Op {
             }
             OpKind::Write(Some(_width)) => {
                 panic!("Read width should have been resolved at this point...")
+            }
+            OpKind::SizeOf(typ) => {
+                let typ_after = if let Some(cast_type) = type_map.get(&typ.name()) {
+                    cast_type.clone()
+                } else {
+                    Type::assign_generics(&self.token, typ, gen_map)
+                };
+
+                println!("Typ: {:?} After: {:?}", typ, typ_after);
+                let size = match typ_after {
+                    Type::U8 => 1,
+                    _ => typ_after.size() * 8,
+                };
+
+                self.kind = OpKind::PushInt(size as u64);
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![],
+                        outputs: vec![Type::U64],
+                    },
+                    stack,
+                );
+                None
             }
             OpKind::Cast(typ) => {
                 let cast_type = if let Some(cast_type) = type_map.get(&typ.name()) {

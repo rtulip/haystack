@@ -152,12 +152,13 @@ impl Function {
         }
         new_name.push('>');
 
+        let new_ops = self.ops.clone();
         Function {
             name: new_name,
             token: self.token.clone(),
             gen: vec![],
             sig,
-            ops: self.ops.clone(),
+            ops: new_ops,
             gen_map: map,
         }
     }

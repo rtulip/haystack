@@ -65,6 +65,9 @@ fn parse_tokens_until_tokenkind(
             TokenKind::Keyword(Keyword::Syscall) => {
                 ops.push(parse_syscall(&token, tokens));
             }
+            TokenKind::Keyword(Keyword::SizeOf) => {
+                ops.push(parse_size_of(&token, tokens, type_map));
+            }
             TokenKind::Keyword(Keyword::Split) => ops.push(Op {
                 kind: OpKind::Split,
                 token: token.clone(),
@@ -523,6 +526,23 @@ fn parse_word_list(start_tok: &Token, tokens: &mut Vec<Token>) -> (Token, Vec<(T
     let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::CloseBracket));
 
     (tok, words)
+}
+
+fn parse_size_of(
+    start_tok: &Token,
+    tokens: &mut Vec<Token>,
+    type_map: &HashMap<String, Type>,
+) -> Op {
+    let tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenParen));
+    let (tok, typ, array_n) = parse_type(&tok, tokens, type_map);
+    if let Some(_) = array_n {
+        compiler_error(&tok, "Cannot have array values in sizeOf", vec![]);
+    }
+    let _tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::CloseParen));
+    Op {
+        kind: OpKind::SizeOf(typ),
+        token: start_tok.clone(),
+    }
 }
 
 fn parse_syscall(start_tok: &Token, tokens: &mut Vec<Token>) -> Op {

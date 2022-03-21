@@ -1,0 +1,23 @@
+include "std.hay"
+
+
+fn copy_local(Str: s) {
+    var u8[100]: nums
+    nums @ as [local]
+
+    0 while dup s::size < {
+        as [i]
+        s::data i ptr+ @
+        i local Arr.set
+        1 i +
+    } drop
+
+    nums @ as [updated]
+    updated::size updated::data cast(Str) write
+    s write
+}
+
+fn main() {
+    "Hello Local!\n"              copy_local
+    "Foo123456789012345678890!\n" copy_local
+}

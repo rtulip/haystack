@@ -9,7 +9,7 @@ fn fib(u64: x) -> [u64] {
 
 fn main() {
     0 while dup 20 < {
-        var [i]
+        as [i]
         i fib print
         i 1 +
     } drop

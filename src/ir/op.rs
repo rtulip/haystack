@@ -1,6 +1,6 @@
 use crate::compiler::{compiler_error, evaluate_signature};
 use crate::ir::{
-    function::Function,
+    function::{Function, LocalVar},
     keyword::Keyword,
     literal::Literal,
     operator::Operator,
@@ -9,7 +9,7 @@ use crate::ir::{
     FnTable, Frame, Stack,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub enum OpKind {
@@ -38,6 +38,8 @@ pub enum OpKind {
     MakeIdent { ident: String, size: Option<usize> },
     PushFramed { offset: usize, size: usize },
     PushIdent { index: usize, inner: Vec<String> },
+    PushLocal(String),
+    PushLocalPtr(usize),
     Syscall(u64),
     Call(String),
     PrepareFunc,
@@ -79,6 +81,8 @@ impl std::fmt::Debug for OpKind {
             OpKind::MakeIdent { ident: s, .. } => write!(f, "MakeIdent({s})"),
             OpKind::PushIdent { index: i, .. } => write!(f, "PushIdent({i})"),
             OpKind::PushFramed { offset, size } => write!(f, "PushFrame({offset}:{size})"),
+            OpKind::PushLocal(ident) => write!(f, "PushLocal({ident})"),
+            OpKind::PushLocalPtr(offset) => write!(f, "PushLocalPtr({offset})"),
             OpKind::Syscall(n) => write!(f, "Syscall({n})"),
             OpKind::Call(func) => write!(f, "Call({func})"),
             OpKind::PrepareFunc => write!(f, "PrepareFunc"),
@@ -111,7 +115,7 @@ pub struct Op {
 impl Op {
     fn get_type_from_frame(&self, frame: &Frame, index: usize, inner: &[String]) -> (Type, usize) {
         let mut t = frame[index].clone();
-        let mut t_offset: usize = frame[0..index].iter().map(|t| t.size()).sum();
+        let mut t_offset: usize = frame[0..index].iter().map(|t| t.size() * t.width()).sum();
 
         for field in inner {
             let (new_t, new_offset) = match t {
@@ -130,7 +134,10 @@ impl Op {
                         let idx = idents.iter().position(|s| s == &field.clone()).unwrap();
                         (
                             members[idx].clone(),
-                            members[idx + 1..].iter().map(|t| t.size()).sum::<usize>(),
+                            members[idx + 1..]
+                                .iter()
+                                .map(|t| t.size() * t.width())
+                                .sum::<usize>(),
                         )
                     } else {
                         compiler_error(
@@ -171,6 +178,7 @@ impl Op {
         fn_table: &FnTable,
         type_map: &HashMap<String, Type>,
         gen_map: &HashMap<String, Type>,
+        locals: &BTreeMap<String, LocalVar>,
         globals: &HashMap<String, (Type, String)>,
     ) -> Option<Function> {
         let op: Option<(OpKind, Function)> = match &self.kind {
@@ -305,10 +313,7 @@ impl Op {
                 );
 
                 let n = typ.size();
-                let width = match *typ {
-                    Type::U8 => 1,
-                    _ => 8,
-                };
+                let width = typ.width();
 
                 self.kind = OpKind::Read(Some((n, width)));
 
@@ -338,10 +343,7 @@ impl Op {
                 );
 
                 let n = typ.size();
-                let width = match *typ {
-                    Type::U8 => 1,
-                    _ => 8,
-                };
+                let width = typ.width();
 
                 self.kind = OpKind::Write(Some((n, width)));
                 None
@@ -356,10 +358,7 @@ impl Op {
                     Type::assign_generics(&self.token, typ, gen_map)
                 };
 
-                let size = match typ_after {
-                    Type::U8 => 1,
-                    _ => typ_after.size() * 8,
-                };
+                let size = typ_after.size() * typ_after.width();
 
                 self.kind = OpKind::PushInt(size as u64);
                 evaluate_signature(
@@ -577,6 +576,24 @@ impl Op {
             OpKind::PushFramed { .. } => {
                 panic!("OpKind::PushFramed shouldn't be generated before type checking...");
             }
+            OpKind::PushLocal(ident) => {
+                let (typ, offset) = Function::locals_get_offset(ident, locals);
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![],
+                        outputs: vec![typ],
+                    },
+                    stack,
+                );
+
+                self.kind = OpKind::PushLocalPtr(offset);
+
+                None
+            }
+            OpKind::PushLocalPtr(_) => {
+                panic!("{:?} shouldn't be generated before type checking...", self)
+            }
             OpKind::Print => {
                 let typ = if let Some(&Type::U8) = stack.last() {
                     Type::U8
@@ -688,7 +705,9 @@ impl Op {
                 );
                 None
             }
-            OpKind::Word(_) => unreachable!("Shouldn't have any words left to type check"),
+            OpKind::Word(_) => {
+                unreachable!("Shouldn't have any words left to type check: {:?}", self)
+            }
             OpKind::Ident(_, _) => unreachable!("Shouldn't have any idents left to type check"),
             OpKind::PrepareFunc => None,
             OpKind::Default => unreachable!("Default op shouldn't be compiled"),

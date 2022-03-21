@@ -1,7 +1,7 @@
 use crate::compiler::compiler_error;
 use crate::ir::{
     data::{InitData, UninitData},
-    function::Function,
+    function::{Function, LocalVar},
     keyword::Keyword,
     literal::Literal,
     marker::Marker,
@@ -13,7 +13,7 @@ use crate::ir::{
 };
 use crate::lex::logos_lex::{into_token, LogosToken};
 use logos::Logos;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 
 fn escape_string(unescaped: &str) -> String {
@@ -46,6 +46,7 @@ fn parse_tokens_until_tokenkind(
     ops: &mut Vec<Op>,
     type_map: &HashMap<String, Type>,
     init_data: &mut HashMap<String, InitData>,
+    mut maybe_locals: Option<&mut BTreeMap<String, LocalVar>>,
     break_on: Vec<TokenKind>,
 ) -> Token {
     while let Some(token) = tokens.pop() {
@@ -54,9 +55,20 @@ fn parse_tokens_until_tokenkind(
         }
 
         match token.kind {
-            TokenKind::Keyword(Keyword::Var) => {
-                let (_tok, mut idents) = parse_var(&token, tokens);
+            TokenKind::Keyword(Keyword::As) => {
+                let (_tok, mut idents) = parse_let(&token, tokens);
                 ops.append(&mut idents);
+            }
+            TokenKind::Keyword(Keyword::Var) => {
+                if let Some(ref mut locals) = maybe_locals {
+                    parse_local_var(start_tok, tokens, type_map, *locals);
+                } else {
+                    compiler_error(
+                        start_tok,
+                        "Local variables arent supported within this context!",
+                        vec![],
+                    );
+                }
             }
             TokenKind::Keyword(Keyword::Cast) => {
                 let op = parse_cast(&token, tokens, type_map);
@@ -573,7 +585,7 @@ fn parse_cast(start_tok: &Token, tokens: &mut Vec<Token>, type_map: &HashMap<Str
     }
 }
 
-fn parse_var(start_tok: &Token, tokens: &mut Vec<Token>) -> (Token, Vec<Op>) {
+fn parse_let(start_tok: &Token, tokens: &mut Vec<Token>) -> (Token, Vec<Op>) {
     let (tok, idents) = parse_word_list(start_tok, tokens);
     if idents.is_empty() {
         compiler_error(
@@ -638,12 +650,14 @@ fn parse_function(
         }
     });
 
+    let mut locals: BTreeMap<String, LocalVar> = BTreeMap::new();
     let tok = parse_tokens_until_tokenkind(
         &tok,
         tokens,
         &mut ops,
         type_map,
         init_data,
+        Some(&mut locals),
         vec![TokenKind::Marker(Marker::CloseBrace)],
     );
 
@@ -659,6 +673,7 @@ fn parse_function(
         sig,
         ops,
         gen_map: HashMap::new(),
+        locals,
     }
 }
 
@@ -739,6 +754,7 @@ fn if_block_to_ops(
         ops,
         type_map,
         init_data,
+        None,
         vec![TokenKind::Marker(Marker::CloseBrace)],
     );
     // Count how many times we push a variable onto the frame stack.
@@ -773,6 +789,7 @@ pub fn parse_if_block(
                 ops,
                 type_map,
                 init_data,
+                None,
                 vec![TokenKind::Marker(Marker::CloseBrace)],
             );
             let var_count = make_ident_count(ops, block_idx);
@@ -796,6 +813,7 @@ pub fn parse_if_block(
                 ops,
                 type_map,
                 init_data,
+                None,
                 vec![TokenKind::Keyword(Keyword::If)],
             );
 
@@ -807,6 +825,7 @@ pub fn parse_if_block(
                 ops,
                 type_map,
                 init_data,
+                None,
                 vec![TokenKind::Marker(Marker::CloseBrace)],
             );
             // Count how many times we push a variable onto the frame stack.
@@ -843,6 +862,7 @@ pub fn parse_while_block(
         ops,
         type_map,
         init_data,
+        None,
         vec![TokenKind::Marker(Marker::OpenBrace)],
     );
     let cond_jump_loc = ops.len();
@@ -861,6 +881,7 @@ pub fn parse_while_block(
         ops,
         type_map,
         init_data,
+        None,
         vec![TokenKind::Marker(Marker::CloseBrace)],
     );
 
@@ -914,6 +935,80 @@ fn parse_struct(
                 idents,
             },
         )
+    }
+}
+
+fn parse_local_var(
+    token: &Token,
+    tokens: &mut Vec<Token>,
+    type_map: &HashMap<String, Type>,
+    locals: &mut BTreeMap<String, LocalVar>,
+) {
+    if let Some((tok, ident, typ, array_n)) = parse_tagged_type(token, tokens, type_map) {
+        if let Some(n) = array_n {
+            let data_typ = Type::Pointer {
+                typ: Box::new(typ.clone()),
+            };
+
+            let data_local = LocalVar {
+                typ: data_typ.clone(),
+                size: (typ.size() * typ.width()) as u64 * n,
+                value: None,
+            };
+
+            let arr_typ = Type::resolve_struct(
+                &tok,
+                type_map.get("Arr").unwrap(),
+                &vec![Type::U64, data_typ.clone()],
+            );
+
+            let arr_ptr_typ = Type::Pointer {
+                typ: Box::new(arr_typ.clone()),
+            };
+
+            let arr_local = LocalVar {
+                typ: arr_ptr_typ.clone(),
+                size: (arr_typ.size() * arr_typ.width()) as u64,
+                value: Some(InitData::Arr {
+                    size: n,
+                    pointer: format!("{ident}_data"),
+                }),
+            };
+
+            if locals.insert(format!("{ident}_data"), data_local).is_some() {
+                compiler_error(
+                    &tok,
+                    format!("Local var {ident}_data has already been defined").as_str(),
+                    vec![
+                        format!("This is automatically generated with the array {ident}").as_str(),
+                    ],
+                )
+            };
+
+            if locals.insert(format!("{ident}"), arr_local).is_some() {
+                compiler_error(
+                    &tok,
+                    format!("Local var {ident} has already been defined").as_str(),
+                    vec![],
+                )
+            };
+        } else {
+            let local = LocalVar {
+                typ: Type::Pointer {
+                    typ: Box::new(typ.clone()),
+                },
+                size: (typ.size() * typ.width()) as u64,
+                value: None,
+            };
+
+            if locals.insert(format!("{ident}"), local).is_some() {
+                compiler_error(
+                    &tok,
+                    format!("Local var {ident} has already been defined").as_str(),
+                    vec![],
+                )
+            };
+        }
     }
 }
 

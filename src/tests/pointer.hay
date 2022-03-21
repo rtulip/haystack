@@ -1,9 +1,9 @@
 include "std.hay"
 fn main() {
 
-    "hello World!\n" var [word]
+    "hello World!\n" as [word]
     0 while dup word::size < {
-        var [i]
+        as [i]
         word::data i ptr+ @ print
         88 cast(u8) word::data i ptr+ !
         i 1 + 

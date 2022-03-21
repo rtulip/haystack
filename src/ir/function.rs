@@ -1,12 +1,20 @@
 use crate::compiler::{compiler_error, type_check_ops_list};
 use crate::ir::{
+    data::InitData,
     op::Op,
     token::Token,
     types::{Signature, Type},
     FnTable, Stack,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct LocalVar {
+    pub typ: Type,
+    pub size: u64,
+    pub value: Option<InitData>,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Function {
@@ -16,11 +24,27 @@ pub struct Function {
     pub sig: Signature,
     pub ops: Vec<Op>,
     pub gen_map: HashMap<String, Type>,
+    pub locals: BTreeMap<String, LocalVar>,
 }
 
 impl Function {
     pub fn is_generic(&self) -> bool {
         !self.gen.is_empty()
+    }
+
+    pub fn locals_offset(locals: &BTreeMap<String, LocalVar>) -> usize {
+        locals.iter().map(|(_, local)| local.size as usize).sum()
+    }
+
+    pub fn locals_get_offset(ident: &String, locals: &BTreeMap<String, LocalVar>) -> (Type, usize) {
+        let mut size = 0;
+        for (loc_name, local) in locals {
+            size += local.size;
+            if ident == loc_name {
+                return (local.typ.clone(), size as usize);
+            }
+        }
+        panic!("didn't find {ident} in locals");
     }
 
     pub fn type_check(
@@ -43,6 +67,7 @@ impl Function {
             fn_table,
             type_map,
             &self.gen_map,
+            &self.locals,
             globals,
             vec![],
         );
@@ -90,6 +115,17 @@ impl Function {
     }
 
     pub fn resolve_generic_function(&self, token: &Token, stack: &Stack) -> Self {
+        if stack.len() < self.sig.inputs.len() {
+            compiler_error(
+                token,
+                format!("Insufficient arguments for {}", self.name).as_str(),
+                vec![
+                    format!("Expected: {:?}", self.sig.inputs).as_str(),
+                    format!("Found:    {:?}", stack).as_str(),
+                ],
+            )
+        }
+
         let pairs: Vec<(&Type, &Type)> = self
             .sig
             .inputs
@@ -156,6 +192,7 @@ impl Function {
             sig,
             ops: new_ops,
             gen_map: map,
+            locals: self.locals.clone(),
         }
     }
 }

@@ -1,12 +1,12 @@
 use crate::compiler::compiler_error;
 use crate::ir::{
-    function::Function,
+    function::{Function, LocalVar},
     keyword::Keyword,
     op::{Op, OpKind},
     types::{Signature, Type},
     FnTable, Frame, Stack,
 };
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 pub fn evaluate_signature(op: &Op, signature: &Signature, stack: &mut Vec<Type>) {
     if stack.len() < signature.inputs.len() {
@@ -65,6 +65,7 @@ fn type_check_if_block(
     fn_table: &FnTable,
     type_map: &HashMap<String, Type>,
     gen_map: &HashMap<String, Type>,
+    locals: &BTreeMap<String, LocalVar>,
     globals: &HashMap<String, (Type, String)>,
 ) -> (usize, Vec<Function>) {
     assert!(matches!(ops[start_ip].kind, OpKind::Nop(Keyword::If)));
@@ -74,7 +75,7 @@ fn type_check_if_block(
         ops[start_ip + 1].kind
     );
 
-    ops[start_ip + 1].type_check(stack, frame, fn_table, type_map, gen_map, globals);
+    ops[start_ip + 1].type_check(stack, frame, fn_table, type_map, gen_map, locals, globals);
 
     let jump_dest = match ops[start_ip + 1].kind {
         OpKind::JumpCond(Some(n)) => n,
@@ -92,6 +93,7 @@ fn type_check_if_block(
         fn_table,
         type_map,
         gen_map,
+        locals,
         globals,
         vec![Box::new(move |op| match op.kind {
             OpKind::JumpDest(n) => n >= jump_dest,
@@ -115,6 +117,7 @@ fn type_check_if_block(
         fn_table,
         type_map,
         gen_map,
+        locals,
         globals,
         vec![Box::new(move |op| match op.kind {
             OpKind::JumpDest(n) => n >= jump_dest,
@@ -152,6 +155,7 @@ pub fn type_check_while_block(
     fn_table: &FnTable,
     type_map: &HashMap<String, Type>,
     gen_map: &HashMap<String, Type>,
+    locals: &BTreeMap<String, LocalVar>,
     globals: &HashMap<String, (Type, String)>,
 ) -> (usize, Vec<Function>) {
     let initial_stack = stack.clone();
@@ -164,11 +168,12 @@ pub fn type_check_while_block(
         fn_table,
         type_map,
         gen_map,
+        locals,
         globals,
         vec![Box::new(|op| matches!(op.kind, OpKind::JumpCond(Some(_))))],
     );
 
-    ops[jump_cond_ip].type_check(stack, frame, fn_table, type_map, gen_map, globals);
+    ops[jump_cond_ip].type_check(stack, frame, fn_table, type_map, gen_map, locals, globals);
     assert!(matches!(ops[jump_cond_ip].kind, OpKind::JumpCond(Some(_))));
     let jump_cond_dest = match ops[jump_cond_ip].kind {
         OpKind::JumpCond(Some(n)) => n,
@@ -185,6 +190,7 @@ pub fn type_check_while_block(
         fn_table,
         type_map,
         gen_map,
+        locals,
         globals,
         vec![Box::new(move |op| matches!(op.kind, OpKind::Jump(Some(_))))],
     );
@@ -220,6 +226,7 @@ pub fn type_check_ops_list(
     fn_table: &FnTable,
     type_map: &HashMap<String, Type>,
     gen_map: &HashMap<String, Type>,
+    locals: &BTreeMap<String, LocalVar>,
     globals: &HashMap<String, (Type, String)>,
     break_on: Vec<Box<dyn Fn(&Op) -> bool>>,
 ) -> (usize, Vec<Function>) {
@@ -232,14 +239,14 @@ pub fn type_check_ops_list(
         match ops[ip].kind {
             OpKind::Nop(Keyword::If) => {
                 let (end_ip, mut if_new_fns) = type_check_if_block(
-                    ops, ip, stack, frame, fn_table, type_map, gen_map, globals,
+                    ops, ip, stack, frame, fn_table, type_map, gen_map, locals, globals,
                 );
                 ip = end_ip;
                 new_fns.append(&mut if_new_fns);
             }
             OpKind::Nop(Keyword::While) => {
                 let (end_ip, mut whlie_new_fns) = type_check_while_block(
-                    ops, ip, stack, frame, fn_table, type_map, gen_map, globals,
+                    ops, ip, stack, frame, fn_table, type_map, gen_map, locals, globals,
                 );
                 ip = end_ip;
                 new_fns.append(&mut whlie_new_fns);
@@ -249,7 +256,7 @@ pub fn type_check_ops_list(
             }
             _ => {
                 if let Some(f) =
-                    ops[ip].type_check(stack, frame, fn_table, type_map, gen_map, globals)
+                    ops[ip].type_check(stack, frame, fn_table, type_map, gen_map, locals, globals)
                 {
                     new_fns.push(f);
                 }

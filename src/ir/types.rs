@@ -63,6 +63,13 @@ impl Type {
         }
     }
 
+    pub fn width(&self) -> usize {
+        match self {
+            Type::U8 => 1,
+            _ => 8,
+        }
+    }
+
     pub fn str() -> Self {
         Type::Struct {
             name: String::from("Str"),

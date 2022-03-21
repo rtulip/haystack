@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub enum Keyword {
     Function,
     Var,
+    As,
     If,
     Else,
     While,

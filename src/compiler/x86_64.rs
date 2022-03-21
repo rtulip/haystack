@@ -216,11 +216,20 @@ fn compile_op(
         OpKind::PushIdent { .. } => {
             panic!("Push ident should have been transformed into PushFramed")
         }
+        OpKind::PushLocal(_) => {
+            panic!("Push ident should have been transformed into PushFramed")
+        }
+        OpKind::PushLocalPtr(offset) => {
+            writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
+            writeln!(file, "  sub  rax,  {}", offset + 8).unwrap();
+            writeln!(file, "  push rax").unwrap();
+        }
         OpKind::PushFramed { offset, size } => {
+            let locals_offset = Function::locals_offset(&func.unwrap().locals);
             for delta in 0..*size {
-                let x = offset + size - delta;
+                let x = offset + (size - delta) * 8;
                 writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
-                writeln!(file, "  mov  rax, [rax - {}]", (1 + x) * 8).unwrap();
+                writeln!(file, "  mov  rax, [rax - {x} - {locals_offset} - 8]",).unwrap();
                 writeln!(file, "  push rax").unwrap();
             }
         }
@@ -258,6 +267,27 @@ fn compile_op(
             writeln!(file, "{}:", func.unwrap().name).unwrap();
             writeln!(file, "  pop  rax").unwrap();
             frame_push_rax(file);
+            let locals = &func.unwrap().locals;
+
+            for (_, local) in locals {
+                writeln!(file, "  ; -- Local {:?}", local).unwrap();
+                if let Some(data) = &local.value {
+                    match data {
+                        InitData::Arr { size, pointer } => {
+                            let (_, ptr_offset) =
+                                Function::locals_get_offset(pointer, &func.unwrap().locals);
+                            writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
+                            writeln!(file, "  sub  rax, {}", ptr_offset + 8).unwrap();
+                            frame_push_rax(file);
+                            writeln!(file, "  mov  rax, {size}").unwrap();
+                            frame_push_rax(file);
+                        }
+                        InitData::String { .. } => unreachable!("Strings shouldn't be local data"),
+                    }
+                } else {
+                    writeln!(file, "  sub  qword [frame_end_ptr], {}", local.size).unwrap();
+                }
+            }
         }
         OpKind::Return => {
             writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
@@ -343,7 +373,7 @@ fn nasm_close(
     writeln!(file, "segment .bss").unwrap();
     writeln!(file, "  frame_start_ptr: resq 1").unwrap();
     writeln!(file, "  frame_end_ptr: resq 1").unwrap();
-    writeln!(file, "  frame_stack: resq 2048").unwrap();
+    writeln!(file, "  frame_stack: resq 65536").unwrap();
     writeln!(file, "  frame_stack_end:").unwrap();
     uninit_data
         .iter()

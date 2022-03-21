@@ -220,7 +220,6 @@ fn compile_op(
             panic!("Push ident should have been transformed into PushFramed")
         }
         OpKind::PushLocalPtr(offset) => {
-            println!("Local Ptr Offset: {offset}");
             writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
             writeln!(file, "  sub  rax,  {}", offset + 8).unwrap();
             writeln!(file, "  push rax").unwrap();
@@ -269,15 +268,16 @@ fn compile_op(
             writeln!(file, "  pop  rax").unwrap();
             frame_push_rax(file);
             let locals = &func.unwrap().locals;
+
             for (_, local) in locals {
                 writeln!(file, "  ; -- Local {:?}", local).unwrap();
                 if let Some(data) = &local.value {
                     match data {
                         InitData::Arr { size, pointer } => {
-                            let (_, pointer) =
+                            let (_, ptr_offset) =
                                 Function::locals_get_offset(pointer, &func.unwrap().locals);
-                            writeln!(file, "  mov  rax, [frame_end_ptr]").unwrap();
-                            writeln!(file, "  sub  rax, {}", pointer + 8).unwrap();
+                            writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
+                            writeln!(file, "  sub  rax, {}", ptr_offset + 8).unwrap();
                             frame_push_rax(file);
                             writeln!(file, "  mov  rax, {size}").unwrap();
                             frame_push_rax(file);

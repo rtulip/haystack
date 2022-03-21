@@ -1,0 +1,21 @@
+
+
+fn foo(Str: s) {
+
+    var Str[100]: data
+    var u64: size
+
+    s::size size ! 
+    0 while dup s::size < {
+        as [i]
+        s::data i ptr+ @
+           data i ptr+ ! 
+    } drop
+
+    size data cast(Str) write
+}
+
+fn main() {
+    "Hello Local!\n" foo
+    "1234567890\n" foo
+}

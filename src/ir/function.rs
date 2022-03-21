@@ -1,5 +1,6 @@
 use crate::compiler::{compiler_error, type_check_ops_list};
 use crate::ir::{
+    data::InitData,
     op::Op,
     token::Token,
     types::{Signature, Type},
@@ -9,6 +10,13 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct LocalVar {
+    pub typ: Type,
+    pub size: u64,
+    pub value: Option<InitData>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Function {
     pub name: String,
     pub token: Token,
@@ -16,6 +24,7 @@ pub struct Function {
     pub sig: Signature,
     pub ops: Vec<Op>,
     pub gen_map: HashMap<String, Type>,
+    pub locals: HashMap<String, LocalVar>,
 }
 
 impl Function {
@@ -156,6 +165,7 @@ impl Function {
             sig,
             ops: new_ops,
             gen_map: map,
+            locals: HashMap::new(),
         }
     }
 }

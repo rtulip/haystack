@@ -305,10 +305,7 @@ impl Op {
                 );
 
                 let n = typ.size();
-                let width = match *typ {
-                    Type::U8 => 1,
-                    _ => 8,
-                };
+                let width = typ.width();
 
                 self.kind = OpKind::Read(Some((n, width)));
 
@@ -338,10 +335,7 @@ impl Op {
                 );
 
                 let n = typ.size();
-                let width = match *typ {
-                    Type::U8 => 1,
-                    _ => 8,
-                };
+                let width = typ.width();
 
                 self.kind = OpKind::Write(Some((n, width)));
                 None
@@ -356,10 +350,7 @@ impl Op {
                     Type::assign_generics(&self.token, typ, gen_map)
                 };
 
-                let size = match typ_after {
-                    Type::U8 => 1,
-                    _ => typ_after.size() * 8,
-                };
+                let size = typ_after.size() * typ_after.width();
 
                 self.kind = OpKind::PushInt(size as u64);
                 evaluate_signature(

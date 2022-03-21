@@ -4,7 +4,7 @@ include "std.hay"
 fn copy_local(Str: s) {
     var u8[100]: nums
     nums @ as [local]
-    
+
     0 while dup s::size < {
         as [i]
         s::data i ptr+ @

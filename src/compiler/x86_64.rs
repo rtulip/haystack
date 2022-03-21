@@ -373,7 +373,7 @@ fn nasm_close(
     writeln!(file, "segment .bss").unwrap();
     writeln!(file, "  frame_start_ptr: resq 1").unwrap();
     writeln!(file, "  frame_end_ptr: resq 1").unwrap();
-    writeln!(file, "  frame_stack: resq 2048").unwrap();
+    writeln!(file, "  frame_stack: resq 65536").unwrap();
     writeln!(file, "  frame_stack_end:").unwrap();
     uninit_data
         .iter()

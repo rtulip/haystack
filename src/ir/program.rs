@@ -224,6 +224,8 @@ impl Program {
                             };
                         } else if fn_names.get(s).is_some() {
                             op.kind = OpKind::Call(s.clone());
+                        } else if func.locals.get(s).is_some() {
+                            op.kind = OpKind::PushLocal(s.clone());
                         } else if self.global_vars.get(s).is_some() {
                             op.kind = OpKind::Global(s.clone());
                         } else {

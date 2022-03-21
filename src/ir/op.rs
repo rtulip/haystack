@@ -1,6 +1,6 @@
 use crate::compiler::{compiler_error, evaluate_signature};
 use crate::ir::{
-    function::Function,
+    function::{Function, LocalVar},
     keyword::Keyword,
     literal::Literal,
     operator::Operator,
@@ -9,7 +9,7 @@ use crate::ir::{
     FnTable, Frame, Stack,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub enum OpKind {
@@ -38,6 +38,8 @@ pub enum OpKind {
     MakeIdent { ident: String, size: Option<usize> },
     PushFramed { offset: usize, size: usize },
     PushIdent { index: usize, inner: Vec<String> },
+    PushLocal(String),
+    PushLocalPtr(usize),
     Syscall(u64),
     Call(String),
     PrepareFunc,
@@ -79,6 +81,8 @@ impl std::fmt::Debug for OpKind {
             OpKind::MakeIdent { ident: s, .. } => write!(f, "MakeIdent({s})"),
             OpKind::PushIdent { index: i, .. } => write!(f, "PushIdent({i})"),
             OpKind::PushFramed { offset, size } => write!(f, "PushFrame({offset}:{size})"),
+            OpKind::PushLocal(ident) => write!(f, "PushLocal({ident})"),
+            OpKind::PushLocalPtr(offset) => write!(f, "PushLocalPtr({offset})"),
             OpKind::Syscall(n) => write!(f, "Syscall({n})"),
             OpKind::Call(func) => write!(f, "Call({func})"),
             OpKind::PrepareFunc => write!(f, "PrepareFunc"),
@@ -109,7 +113,13 @@ pub struct Op {
 }
 
 impl Op {
-    fn get_type_from_frame(&self, frame: &Frame, index: usize, inner: &[String]) -> (Type, usize) {
+    fn get_type_from_frame(
+        &self,
+        frame: &Frame,
+        index: usize,
+        inner: &[String],
+        locals_offset: usize,
+    ) -> (Type, usize) {
         let mut t = frame[index].clone();
         let mut t_offset: usize = frame[0..index].iter().map(|t| t.size()).sum();
 
@@ -161,7 +171,7 @@ impl Op {
             t_offset += new_offset;
         }
 
-        (t, t_offset)
+        (t, t_offset + locals_offset)
     }
 
     pub fn type_check(
@@ -171,6 +181,7 @@ impl Op {
         fn_table: &FnTable,
         type_map: &HashMap<String, Type>,
         gen_map: &HashMap<String, Type>,
+        locals: &BTreeMap<String, LocalVar>,
         globals: &HashMap<String, (Type, String)>,
     ) -> Option<Function> {
         let op: Option<(OpKind, Function)> = match &self.kind {
@@ -550,7 +561,8 @@ impl Op {
                 None
             }
             OpKind::PushIdent { index, inner } => {
-                let (t, offset) = self.get_type_from_frame(frame, *index, inner);
+                let (t, offset) =
+                    self.get_type_from_frame(frame, *index, inner, Function::locals_offset(locals));
                 let size = t.size();
                 evaluate_signature(
                     self,
@@ -567,6 +579,24 @@ impl Op {
             }
             OpKind::PushFramed { .. } => {
                 panic!("OpKind::PushFramed shouldn't be generated before type checking...");
+            }
+            OpKind::PushLocal(ident) => {
+                let (typ, offset) = Function::locals_get_offset(ident, locals);
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![],
+                        outputs: vec![typ],
+                    },
+                    stack,
+                );
+
+                self.kind = OpKind::PushLocalPtr(offset);
+
+                None
+            }
+            OpKind::PushLocalPtr(_) => {
+                panic!("{:?} shouldn't be generated before type checking...", self)
             }
             OpKind::Print => {
                 let typ = if let Some(&Type::U8) = stack.last() {
@@ -679,7 +709,9 @@ impl Op {
                 );
                 None
             }
-            OpKind::Word(_) => unreachable!("Shouldn't have any words left to type check"),
+            OpKind::Word(_) => {
+                unreachable!("Shouldn't have any words left to type check: {:?}", self)
+            }
             OpKind::Ident(_, _) => unreachable!("Shouldn't have any idents left to type check"),
             OpKind::PrepareFunc => None,
             OpKind::Default => unreachable!("Default op shouldn't be compiled"),

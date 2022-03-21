@@ -13,7 +13,7 @@ use crate::ir::{
 };
 use crate::lex::logos_lex::{into_token, LogosToken};
 use logos::Logos;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 
 fn escape_string(unescaped: &str) -> String {
@@ -46,7 +46,7 @@ fn parse_tokens_until_tokenkind(
     ops: &mut Vec<Op>,
     type_map: &HashMap<String, Type>,
     init_data: &mut HashMap<String, InitData>,
-    mut maybe_locals: Option<&mut HashMap<String, LocalVar>>,
+    mut maybe_locals: Option<&mut BTreeMap<String, LocalVar>>,
     break_on: Vec<TokenKind>,
 ) -> Token {
     while let Some(token) = tokens.pop() {
@@ -650,7 +650,7 @@ fn parse_function(
         }
     });
 
-    let mut locals: HashMap<String, LocalVar> = HashMap::new();
+    let mut locals: BTreeMap<String, LocalVar> = BTreeMap::new();
     let tok = parse_tokens_until_tokenkind(
         &tok,
         tokens,
@@ -942,7 +942,7 @@ fn parse_local_var(
     token: &Token,
     tokens: &mut Vec<Token>,
     type_map: &HashMap<String, Type>,
-    locals: &mut HashMap<String, LocalVar>,
+    locals: &mut BTreeMap<String, LocalVar>,
 ) {
     if let Some((tok, ident, typ, array_n)) = parse_tagged_type(token, tokens, type_map) {
         if let Some(n) = array_n {

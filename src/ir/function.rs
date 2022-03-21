@@ -7,7 +7,7 @@ use crate::ir::{
     FnTable, Stack,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct LocalVar {
@@ -24,12 +24,31 @@ pub struct Function {
     pub sig: Signature,
     pub ops: Vec<Op>,
     pub gen_map: HashMap<String, Type>,
-    pub locals: HashMap<String, LocalVar>,
+    pub locals: BTreeMap<String, LocalVar>,
 }
 
 impl Function {
     pub fn is_generic(&self) -> bool {
         !self.gen.is_empty()
+    }
+
+    pub fn locals_offset(locals: &BTreeMap<String, LocalVar>) -> usize {
+        locals
+            .iter()
+            .map(|(_, local)| local.typ.size() * local.typ.width())
+            .sum()
+    }
+
+    pub fn locals_get_offset(ident: &String, locals: &BTreeMap<String, LocalVar>) -> (Type, usize) {
+        let mut size = 0;
+        for (loc_name, local) in locals {
+            if ident == loc_name {
+                return (local.typ.clone(), size);
+            } else {
+                size += local.typ.size() * local.typ.width()
+            }
+        }
+        panic!("didn't find {ident} in locals");
     }
 
     pub fn type_check(
@@ -52,6 +71,7 @@ impl Function {
             fn_table,
             type_map,
             &self.gen_map,
+            &self.locals,
             globals,
             vec![],
         );
@@ -99,6 +119,17 @@ impl Function {
     }
 
     pub fn resolve_generic_function(&self, token: &Token, stack: &Stack) -> Self {
+        if stack.len() < self.sig.inputs.len() {
+            compiler_error(
+                token,
+                format!("Insufficient arguments for {}", self.name).as_str(),
+                vec![
+                    format!("Expected: {:?}", self.sig.inputs).as_str(),
+                    format!("Found:    {:?}", stack).as_str(),
+                ],
+            )
+        }
+
         let pairs: Vec<(&Type, &Type)> = self
             .sig
             .inputs
@@ -165,7 +196,7 @@ impl Function {
             sig,
             ops: new_ops,
             gen_map: map,
-            locals: HashMap::new(),
+            locals: self.locals.clone(),
         }
     }
 }

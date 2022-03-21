@@ -216,10 +216,19 @@ fn compile_op(
         OpKind::PushIdent { .. } => {
             panic!("Push ident should have been transformed into PushFramed")
         }
+        OpKind::PushLocal(_) => {
+            panic!("Push ident should have been transformed into PushFramed")
+        }
+        OpKind::PushLocalPtr(offset) => {
+            writeln!(file, "  mov  rax, [frame_start_ptr - {offset}]").unwrap();
+            writeln!(file, "  push rax").unwrap();
+        }
         OpKind::PushFramed { offset, size } => {
+            let locals_offset = Function::locals_offset(&func.unwrap().locals);
+
             for delta in 0..*size {
                 let x = offset + size - delta;
-                writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
+                writeln!(file, "  mov  rax, [frame_start_ptr - {locals_offset}]").unwrap();
                 writeln!(file, "  mov  rax, [rax - {}]", (1 + x) * 8).unwrap();
                 writeln!(file, "  push rax").unwrap();
             }

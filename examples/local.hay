@@ -1,18 +1,20 @@
-
+include "std.hay"
 
 fn foo(Str: s) {
 
-    var Str[100]: data
+    var u8[100]: bytes
     var u64: size
+
+    bytes @ as [arr]
 
     s::size size ! 
     0 while dup s::size < {
         as [i]
-        s::data i ptr+ @
-           data i ptr+ ! 
+        s::data i ptr+ @ i arr Arr.set
+        i 1 +
     } drop
 
-    size data cast(Str) write
+    size @ arr::data cast(Str) write
 }
 
 fn main() {

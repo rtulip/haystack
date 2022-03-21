@@ -33,19 +33,15 @@ impl Function {
     }
 
     pub fn locals_offset(locals: &BTreeMap<String, LocalVar>) -> usize {
-        locals
-            .iter()
-            .map(|(_, local)| local.typ.size() * local.typ.width())
-            .sum()
+        locals.iter().map(|(_, local)| local.size as usize).sum()
     }
 
     pub fn locals_get_offset(ident: &String, locals: &BTreeMap<String, LocalVar>) -> (Type, usize) {
         let mut size = 0;
         for (loc_name, local) in locals {
+            size += local.size;
             if ident == loc_name {
-                return (local.typ.clone(), size);
-            } else {
-                size += local.typ.size() * local.typ.width()
+                return (local.typ.clone(), size as usize);
             }
         }
         panic!("didn't find {ident} in locals");

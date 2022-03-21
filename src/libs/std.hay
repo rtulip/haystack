@@ -21,7 +21,7 @@ fn Arr.set<T>(T: value u64: idx Arr<T>: arr) {
         idx print
         1 exit
     }
-    value arr::data sizeOf(T) idx * ptr+  !
+    value arr::data idx ptr+ !
 }
 
 fn Arr.get<T>(u64: idx Arr<T>: arr) -> [T] {
@@ -30,5 +30,5 @@ fn Arr.get<T>(u64: idx Arr<T>: arr) -> [T] {
         idx print
         1 exit
     }
-    arr::data sizeOf(T) idx * ptr+ @
+    arr::data idx ptr+ @
 }

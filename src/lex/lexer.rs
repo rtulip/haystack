@@ -968,7 +968,7 @@ fn parse_local_var(
 
             let arr_local = LocalVar {
                 typ: arr_ptr_typ.clone(),
-                size: arr_typ.size() as u64,
+                size: (arr_typ.size() * arr_typ.width()) as u64,
                 value: Some(InitData::Arr {
                     size: n,
                     pointer: format!("{ident}_data"),
@@ -993,13 +993,11 @@ fn parse_local_var(
                 )
             };
         } else {
-            let typ = Type::Pointer {
-                typ: Box::new(typ.clone()),
-            };
-
             let local = LocalVar {
-                typ: typ.clone(),
-                size: typ.size() as u64,
+                typ: Type::Pointer {
+                    typ: Box::new(typ.clone()),
+                },
+                size: (typ.size() * typ.width()) as u64,
                 value: None,
             };
 

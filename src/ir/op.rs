@@ -113,15 +113,9 @@ pub struct Op {
 }
 
 impl Op {
-    fn get_type_from_frame(
-        &self,
-        frame: &Frame,
-        index: usize,
-        inner: &[String],
-        locals_offset: usize,
-    ) -> (Type, usize) {
+    fn get_type_from_frame(&self, frame: &Frame, index: usize, inner: &[String]) -> (Type, usize) {
         let mut t = frame[index].clone();
-        let mut t_offset: usize = frame[0..index].iter().map(|t| t.size()).sum();
+        let mut t_offset: usize = frame[0..index].iter().map(|t| t.size() * t.width()).sum();
 
         for field in inner {
             let (new_t, new_offset) = match t {
@@ -140,7 +134,10 @@ impl Op {
                         let idx = idents.iter().position(|s| s == &field.clone()).unwrap();
                         (
                             members[idx].clone(),
-                            members[idx + 1..].iter().map(|t| t.size()).sum::<usize>(),
+                            members[idx + 1..]
+                                .iter()
+                                .map(|t| t.size() * t.width())
+                                .sum::<usize>(),
                         )
                     } else {
                         compiler_error(
@@ -171,7 +168,7 @@ impl Op {
             t_offset += new_offset;
         }
 
-        (t, t_offset + locals_offset)
+        (t, t_offset)
     }
 
     pub fn type_check(
@@ -561,8 +558,7 @@ impl Op {
                 None
             }
             OpKind::PushIdent { index, inner } => {
-                let (t, offset) =
-                    self.get_type_from_frame(frame, *index, inner, Function::locals_offset(locals));
+                let (t, offset) = self.get_type_from_frame(frame, *index, inner);
                 let size = t.size();
                 evaluate_signature(
                     self,

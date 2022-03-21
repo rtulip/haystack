@@ -1,23 +1,29 @@
 include "std.hay"
 
+
 fn foo(Str: s) {
+    var u8[100]: nums
+    
+    nums @ as [arr]
+    arr::data arr::size ptr- as [front]
+    arr::size print
+    arr::data cast(u64) print
+    front cast(u64) print
 
-    var u8[100]: bytes
-    var u64: size
-
-    bytes @ as [arr]
-
-    s::size size ! 
     0 while dup s::size < {
         as [i]
-        s::data i ptr+ @ i arr Arr.set
-        i 1 +
+        s::data i ptr+ @ as [char]
+        
+        char front i ptr+ ! 
+        
+        i 1 + 
     } drop
 
-    size @ arr::data cast(Str) write
+    s::size front cast(Str) write
+    
+    s write
 }
 
 fn main() {
     "Hello Local!\n" foo
-    "1234567890\n" foo
 }

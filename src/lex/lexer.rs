@@ -54,9 +54,13 @@ fn parse_tokens_until_tokenkind(
         }
 
         match token.kind {
-            TokenKind::Keyword(Keyword::Var) => {
-                let (_tok, mut idents) = parse_var(&token, tokens);
+            TokenKind::Keyword(Keyword::As) => {
+                let (_tok, mut idents) = parse_let(&token, tokens);
                 ops.append(&mut idents);
+            }
+            TokenKind::Keyword(Keyword::Var) => {
+                todo!();
+                //parse_local_var(token, tokens, type_map, globals, init_data)
             }
             TokenKind::Keyword(Keyword::Cast) => {
                 let op = parse_cast(&token, tokens, type_map);
@@ -573,7 +577,7 @@ fn parse_cast(start_tok: &Token, tokens: &mut Vec<Token>, type_map: &HashMap<Str
     }
 }
 
-fn parse_var(start_tok: &Token, tokens: &mut Vec<Token>) -> (Token, Vec<Op>) {
+fn parse_let(start_tok: &Token, tokens: &mut Vec<Token>) -> (Token, Vec<Op>) {
     let (tok, idents) = parse_word_list(start_tok, tokens);
     if idents.is_empty() {
         compiler_error(

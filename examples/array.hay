@@ -4,14 +4,14 @@ var Str[1024]: strings
 
 fn main() {
 
-    strings @ var [strs]
+    strings @ as [strs]
 
     "Hello World1\n" 0 strs Arr.set
     "Hello World2\n" 1 strs Arr.set
     "Hello World3\n" 2 strs Arr.set
 
     0 while dup 3 < {
-        var [i]
+        as [i]
         i strs Arr.get write
         i 1 + 
     } drop

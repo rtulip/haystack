@@ -1,8 +1,8 @@
 fn main() {
 
-    "hello World!\n" var [word]
+    "hello World!\n" as [word]
     0 while dup word::size < {
-        var [i]
+        as [i]
         word::data i ptr+ @ print
         i 1 + 
         

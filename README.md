@@ -54,12 +54,12 @@ fn main() {
 }
 ```
 
-Because manipulating items solely on the stack can become very tedious (not to mention adds a significant mental burden), you are able to create scoped variables using the `var [ident ..]` syntax. Variables will last for the duration of their scope, and are cosumed from the top of the stack. 
+Because manipulating items solely on the stack can become very tedious (not to mention adds a significant mental burden), you are able to create scoped variables using the `as [ident ..]` syntax. Variables will last for the duration of their scope, and are cosumed from the top of the stack. 
 
 ```
 fn main() {
     1 2
-    var [one two]
+    as [one two]
     one print
     two print
     two print
@@ -77,7 +77,7 @@ The syntax is: `<cond> if { ... } else ... <cond> if { ... } else { ... }`
 // This compiles fine
 fn main() {
 
-    1 2 var [a b]
+    1 2 as [a b]
     a b < if {
         a
     } else a b > if {
@@ -110,7 +110,7 @@ Only `while` loops are supported at this time.
 // prints number up to 10
 fn main() {
     0 while dup 10 < {
-        var [i]
+        as [i]
         i print
         i 1 +
     } drop
@@ -191,7 +191,7 @@ fn main() {
 }
 ```
 
-You can access struct members directly if the struct is bound to a `var`:
+You can access struct members directly if the struct has been bound with an `as` block:
 
 ```
 include "std.hay"
@@ -203,7 +203,7 @@ struct Pair<T> {
 fn main() {
 
     "Hello\n" "World\n" cast(Pair)
-    var [pair]
+    as [pair]
 
     pair::first::size print
 
@@ -251,9 +251,9 @@ fn main() {
 ```
 fn main() {
     
-    100 var [n]
+    100 as [n]
     0 while dup n < {
-        var [i]
+        as [i]
         i print
         i 1 +
     }

@@ -1,7 +1,7 @@
 fn main() {
-    100 var [n]
+    100 as [n]
     0 while dup n < {
-        var [i]
+        as [i]
         i print
         i 1 + 
     } drop

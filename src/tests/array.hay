@@ -4,23 +4,23 @@ var Str[1024]: strings
 
 fn main() {
 
-    strings @ var [x]
+    strings @ as [x]
 
     "Hello World1\n" 0 x Arr.set
     "Hello World2\n" 1 x Arr.set
     "Hello World3\n" 2 x Arr.set
 
     0 while dup 3 < {
-        var [i]
+        as [i]
         i x Arr.get write
         i 1 + 
     } drop
     
     "aaaaabbbbbccccc" split cast(Arr)
-    var [str_arr]
+    as [str_arr]
 
     0 while dup str_arr::size < {
-        var [i]
+        as [i]
         i str_arr Arr.get print
         i 1 +
     } drop

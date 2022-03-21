@@ -33,6 +33,8 @@ pub enum LogosToken {
     FunctionKeyword,
     #[token("var")]
     VarKeyword,
+    #[token("as")]
+    AsKeyword,
     #[token("if")]
     IfKeyword,
     #[token("else")]

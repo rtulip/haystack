@@ -1,5 +1,0 @@
-include "std.hay"
-
-fn main() { 
-    100 putd
-}

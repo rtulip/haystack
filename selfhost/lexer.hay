@@ -1,0 +1,27 @@
+include "std.hay"
+include "file.hay"
+
+struct Loc {
+    Str: file
+    u64: row
+    u64: col
+}
+
+fn Loc.puts(Loc: loc) {
+    loc::file puts ":" puts loc::row putu ":" puts loc::col putu
+}
+
+var u8[65536]: filebuff_p
+
+fn main()
+{
+
+    filebuff_p @ as [filebuff]
+    "./selfhost/lexer.hay" as [path]
+
+    path 1 1 cast(Loc) Loc.puts "\n" puts
+
+    path filebuff File.read_path_to_buff
+    split cast(Str) putlns
+
+}

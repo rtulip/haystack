@@ -30,6 +30,7 @@ pub enum OpKind {
     Read(Option<(usize, usize)>),
     Write(Option<(usize, usize)>),
     Cast(Type),
+    Pad(usize),
     SizeOf(Type),
     Split,
     Global(String),
@@ -73,6 +74,7 @@ impl std::fmt::Debug for OpKind {
             OpKind::Read(_) => write!(f, "@"),
             OpKind::Write(_) => write!(f, "!"),
             OpKind::Cast(typ) => write!(f, "Cast({:?})", typ),
+            OpKind::Pad(n) => write!(f, "Pad({n})"),
             OpKind::SizeOf(typ) => write!(f, "SizeOf({:?})", typ),
             OpKind::Split => write!(f, "Split"),
             OpKind::Global(s) => write!(f, "Global({s})"),
@@ -116,9 +118,9 @@ impl Op {
     fn get_type_from_frame(&self, frame: &Frame, index: usize, inner: &[String]) -> (Type, usize) {
         let mut t = frame[index].clone();
         let mut t_offset: usize = frame[0..index].iter().map(|t| t.size() * t.width()).sum();
-
+        println!("Frame: {:?}", frame);
         for field in inner {
-            let (new_t, new_offset) = match t {
+            let (new_t, new_offset) = match &t {
                 Type::Struct {
                     name,
                     ref members,
@@ -161,7 +163,9 @@ impl Op {
                 } => {
                     if idents.contains(&field.clone()) {
                         let idx = idents.iter().position(|s| s == &field.clone()).unwrap();
-                        (members[idx].clone(), 0)
+                        let delta =
+                            t.size() * t.width() - members[idx].size() * members[idx].width();
+                        (members[idx].clone(), delta)
                     } else {
                         compiler_error(
                             &self.token,
@@ -190,7 +194,7 @@ impl Op {
             t = new_t;
             t_offset += new_offset;
         }
-
+        println!("    {:?}::{:?} total offset: {t_offset}", t, inner);
         (t, t_offset)
     }
 
@@ -524,6 +528,10 @@ impl Op {
                                     },
                                     stack,
                                 );
+
+                                let size_delta = cast_type.size() - typ.size();
+                                self.kind = OpKind::Pad(size_delta);
+                                println!("Size delta: {size_delta}");
                             } else {
                                 compiler_error(
                                     &self.token,
@@ -563,6 +571,10 @@ impl Op {
 
                 None
             }
+            OpKind::Pad(_) => unreachable!(
+                "{}: {:?} shouldn't be type checked.",
+                self.token.loc, self.kind
+            ),
             OpKind::Split => {
                 let (struct_t, members) = match stack.last() {
                     Some(Type::Struct {

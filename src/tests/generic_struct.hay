@@ -25,12 +25,12 @@ fn main() {
     // stack: [u64 u64] => Pair<u64>
     1 2 cast(Pair)
 
-    "World\n" "Hello\n" cast(Pair)
+    "World" "Hello" cast(Pair)
 
     into_quad
 
     split 
-    split write write 
-    split print print
+    split putlns putlns 
+    split putlnu putlnu
 
 }

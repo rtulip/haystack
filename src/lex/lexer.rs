@@ -45,7 +45,7 @@ fn parse_tokens_until_tokenkind(
     tokens: &mut Vec<Token>,
     ops: &mut Vec<Op>,
     type_map: &HashMap<String, Type>,
-    init_data: &mut HashMap<String, InitData>,
+    init_data: &mut BTreeMap<String, InitData>,
     mut maybe_locals: Option<&mut BTreeMap<String, LocalVar>>,
     break_on: Vec<TokenKind>,
 ) -> Token {
@@ -614,7 +614,7 @@ fn parse_function(
     start_tok: &Token,
     tokens: &mut Vec<Token>,
     type_map: &HashMap<String, Type>,
-    init_data: &mut HashMap<String, InitData>,
+    init_data: &mut BTreeMap<String, InitData>,
 ) -> Function {
     let t = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Function));
     let (name_tok, name) = expect_word(&t, tokens);
@@ -744,7 +744,7 @@ fn if_block_to_ops(
     tokens: &mut Vec<Token>,
     ops: &mut Vec<Op>,
     type_map: &HashMap<String, Type>,
-    init_data: &mut HashMap<String, InitData>,
+    init_data: &mut BTreeMap<String, InitData>,
 ) -> (Token, usize) {
     let if_idx = start_if_ops(start_tok, ops);
     let tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenBrace));
@@ -766,7 +766,7 @@ pub fn parse_if_block(
     tokens: &mut Vec<Token>,
     ops: &mut Vec<Op>,
     type_map: &HashMap<String, Type>,
-    init_data: &mut HashMap<String, InitData>,
+    init_data: &mut BTreeMap<String, InitData>,
 ) -> Token {
     let (tok, mut jump_dest) = if_block_to_ops(token, tokens, ops, type_map, init_data);
 
@@ -845,7 +845,7 @@ pub fn parse_while_block(
     tokens: &mut Vec<Token>,
     ops: &mut Vec<Op>,
     type_map: &HashMap<String, Type>,
-    init_data: &mut HashMap<String, InitData>,
+    init_data: &mut BTreeMap<String, InitData>,
 ) {
     ops.push(Op {
         kind: OpKind::Nop(Keyword::While),
@@ -1017,7 +1017,7 @@ fn parse_global_var(
     tokens: &mut Vec<Token>,
     type_map: &HashMap<String, Type>,
     globals: &mut HashMap<String, (Type, String)>,
-    init_data: &mut HashMap<String, InitData>,
+    init_data: &mut BTreeMap<String, InitData>,
     uninit_data: &mut HashMap<String, UninitData>,
 ) {
     let tok = expect_token_kind(token, tokens, TokenKind::Keyword(Keyword::Var));
@@ -1123,7 +1123,8 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
                 include_program.functions.drain(..).for_each(|mut func| {
                     func.ops.iter_mut().for_each(|op| match &op.kind {
                         OpKind::PushString(old) => {
-                            let new_name = format!("str_{}", program.init_data.len());
+                            let new_name =
+                                format!("str_{}", program.init_data.len() + new_names.len());
                             op.kind = if !new_names.contains_key(old) {
                                 new_names.insert(old.clone(), new_name.clone());
                                 OpKind::PushString(new_name)
@@ -1140,10 +1141,10 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
                 include_program.types.drain().for_each(|(id, t)| {
                     program.types.entry(id).or_insert(t);
                 });
-                include_program.init_data.drain().for_each(|(k, v)| {
+                include_program.init_data.iter().for_each(|(k, v)| {
                     program
                         .init_data
-                        .insert(new_names.get(&k).unwrap().clone(), v);
+                        .insert(new_names.get(k).unwrap().clone(), v.clone());
                 });
             }
             Some(Token {

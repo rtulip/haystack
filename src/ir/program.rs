@@ -8,14 +8,14 @@ use crate::ir::{
 };
 
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Program {
     pub types: HashMap<String, Type>,
     pub functions: Vec<Function>,
     pub global_vars: HashMap<String, (Type, String)>,
-    pub init_data: HashMap<String, InitData>,
+    pub init_data: BTreeMap<String, InitData>,
     pub uninit_data: HashMap<String, UninitData>,
 }
 
@@ -43,7 +43,7 @@ impl Program {
             ]),
             functions: vec![],
             global_vars: HashMap::new(),
-            init_data: HashMap::new(),
+            init_data: BTreeMap::new(),
             uninit_data: HashMap::new(),
         }
     }

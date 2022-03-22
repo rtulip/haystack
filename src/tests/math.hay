@@ -1,30 +1,25 @@
-fn print_bool(bool) {
-    if {
-        1 print
-    } else {
-        0 print
-    }
-}
+include "std.hay"
+
 
 fn main() {
-    1 1 + print
-    2 1 - print
-    2 3 * print
-    10 2 / print
+    1 1 +  putlnu
+    2 1 -  putlnu
+    2 3 *  putlnu
+    10 2 / putlnu
 
-    1 1 == print_bool
-    1 2 == print_bool
-    1 1 != print_bool
-    1 2 != print_bool
-    1 1 <  print_bool
-    1 2 <  print_bool
-    0 1 <= print_bool
-    1 1 <= print_bool
-    2 1 <= print_bool
-    1 1 >  print_bool
-    2 1 >  print_bool
-    1 0 >= print_bool
-    1 1 >= print_bool
-    1 2 >= print_bool
+    1 1 == putlnb
+    1 2 == putlnb
+    1 1 != putlnb
+    1 2 != putlnb
+    1 1 <  putlnb
+    1 2 <  putlnb
+    0 1 <= putlnb
+    1 1 <= putlnb
+    2 1 <= putlnb
+    1 1 >  putlnb
+    2 1 >  putlnb
+    1 0 >= putlnb
+    1 1 >= putlnb
+    1 2 >= putlnb
 
 }

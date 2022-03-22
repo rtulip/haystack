@@ -4,7 +4,7 @@ use crate::ir::{
     op::{Op, OpKind},
     program::Program,
 };
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::io::prelude::*;
 
 fn init_data_to_x86_64(file: &mut std::fs::File, ident: &str, data: &InitData) {
@@ -48,7 +48,7 @@ fn frame_pop_n(file: &mut std::fs::File, n: &usize) {
 fn compile_op(
     op: &Op,
     func: Option<&Function>,
-    init_data: &HashMap<String, InitData>,
+    init_data: &BTreeMap<String, InitData>,
     file: &mut std::fs::File,
 ) {
     writeln!(file, "  ; -- {:?}", op).unwrap();
@@ -353,7 +353,7 @@ print:
 
 fn nasm_close(
     file: &mut std::fs::File,
-    init_data: &HashMap<String, InitData>,
+    init_data: &BTreeMap<String, InitData>,
     uninit_data: &HashMap<String, UninitData>,
 ) {
     writeln!(file, "global _start").unwrap();

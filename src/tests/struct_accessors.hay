@@ -10,9 +10,9 @@ fn main() {
     "Hello\n" "World!\n" cast(Words)
     as [words]
 
-    words::hello write
-    words::world write
-    words::hello::size print
-    words::world::size print
+    words::hello puts
+    words::world puts
+    words::hello::size putlnu
+    words::world::size putlnu
 
 }

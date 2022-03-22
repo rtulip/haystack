@@ -1,6 +1,5 @@
 include "std.hay"
 
-
 fn copy_local(Str: s) {
     var u8[100]: nums
     
@@ -13,12 +12,12 @@ fn copy_local(Str: s) {
         1 i +
     } drop
 
-    s::size arr::data cast(Str) write
+    s::size arr::data cast(Str) puts
     s::size arr::data cast(Arr) nums !
-    s::size arr::data cast(Str) write
+    s::size arr::data cast(Str) puts
 
     nums @ as [updated]
-    updated::size updated::data cast(Str) write
+    updated::size updated::data cast(Str) puts
     //s::size arr::data cast(Arr) nums !
 }
 

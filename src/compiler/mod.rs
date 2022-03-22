@@ -21,12 +21,12 @@ pub fn compile_haystack(input_path: String, run: bool, ir: bool, simple: bool) -
     if ir {
         program_to_json(&ir_path, &program);
     }
-    if simple {
-        simplify_ir(&program, &path.with_extension("simple"));
-    }
     program.type_check();
     program.normalize_function_names();
     program.normalize_global_names();
+    if simple {
+        simplify_ir(&program, &path.with_extension("simple"));
+    }
     x86_64::compile_program(&program, &path.with_extension("asm").to_str().unwrap());
 
     assert!(run_command(

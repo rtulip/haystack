@@ -12,7 +12,7 @@ fn main() {
 
     0 while dup 3 < {
         as [i]
-        i x Arr.get write
+        i x Arr.get puts
         i 1 + 
     } drop
     
@@ -21,7 +21,7 @@ fn main() {
 
     0 while dup str_arr::size < {
         as [i]
-        i str_arr Arr.get print
+        i str_arr Arr.get cast(u64) putlnu
         i 1 +
     } drop
 

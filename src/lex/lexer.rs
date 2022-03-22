@@ -13,7 +13,7 @@ use crate::ir::{
 };
 use crate::lex::logos_lex::{into_token, LogosToken};
 use logos::Logos;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 
 fn escape_string(unescaped: &str) -> String {
@@ -263,17 +263,6 @@ fn parse_annotation_list(
                 );
             }
             tok = typ_tok;
-            if !matches!(typ, Type::Placeholder { .. }) {
-                compiler_error(
-                    &tok,
-                    "Type annotations cannot include known types",
-                    vec![format!(
-                        "Type {:?} is a known type, and not a valid generic parameter.",
-                        typ
-                    )
-                    .as_str()],
-                )
-            }
             annotations.push(typ);
         }
 
@@ -327,7 +316,7 @@ fn parse_type(
                 );
             }
 
-            let annotations = annotations.unwrap();
+            let mut annotations = annotations.unwrap();
 
             if generics.len() != annotations.len() {
                 compiler_error(
@@ -339,12 +328,23 @@ fn parse_type(
                     ],
                 );
             }
-            Type::GenericStructInstance {
-                base: name.clone(),
-                members: members.clone(),
-                idents: idents.clone(),
-                alias_list: annotations,
-                base_generics: generics.clone(),
+            if annotations
+                .iter()
+                .any(|t| matches!(t, Type::Placeholder { .. }))
+            {
+                Type::GenericStructInstance {
+                    base: name.clone(),
+                    members: members.clone(),
+                    idents: idents.clone(),
+                    alias_list: annotations,
+                    base_generics: generics.clone(),
+                }
+            } else {
+                let generic_map: HashMap<String, Type> = HashMap::from_iter(
+                    generics.iter().map(|t| t.name()).zip(annotations.drain(..)),
+                );
+                Type::assign_generics(start_tok, type_map.get(&name).unwrap(), &generic_map)
+                // Type::resolve_struct(start_tok, type_map.get(&name).unwrap(), &annotations)
             }
         }
         Some(t) => t.clone(),
@@ -1066,6 +1066,7 @@ fn parse_global_var(
 pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
     input_path: P,
     program: &mut Program,
+    included_files: &mut HashSet<String>,
 ) {
     let file = fs::read_to_string(input_path.clone()).unwrap();
 
@@ -1111,7 +1112,7 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
                     TokenKind::Keyword(Keyword::Include),
                 );
                 let (tok, path) = expect_string_literal(&token, &mut tokens);
-                let mut include_program = Program::new();
+                // let mut include_program = Program::new();
                 let path = if std::path::Path::new(&path).exists() {
                     path
                 } else if std::path::Path::new(&format!("src/libs/{path}")).exists() {
@@ -1119,34 +1120,17 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
                 } else {
                     compiler_error(&tok, "Cannot find file: {path}", vec![]);
                 };
-                hay_into_ir(path, &mut include_program);
-                let mut new_names: HashMap<String, String> = HashMap::new();
-                include_program.functions.drain(..).for_each(|mut func| {
-                    func.ops.iter_mut().for_each(|op| match &op.kind {
-                        OpKind::PushString(old) => {
-                            let new_name =
-                                format!("str_{}", program.init_data.len() + new_names.len());
-                            op.kind = if !new_names.contains_key(old) {
-                                new_names.insert(old.clone(), new_name.clone());
-                                OpKind::PushString(new_name)
-                            } else {
-                                OpKind::PushString(new_names.get(old).unwrap().clone())
-                            }
-                        }
-                        OpKind::Global(_) => todo!(),
-                        _ => (),
-                    });
-
-                    program.functions.push(func);
-                });
-                include_program.types.drain().for_each(|(id, t)| {
-                    program.types.entry(id).or_insert(t);
-                });
-                include_program.init_data.iter().for_each(|(k, v)| {
-                    program
-                        .init_data
-                        .insert(new_names.get(k).unwrap().clone(), v.clone());
-                });
+                let path = String::from(
+                    std::path::Path::new(&path)
+                        .canonicalize()
+                        .unwrap()
+                        .to_str()
+                        .unwrap(),
+                );
+                if !included_files.contains(&path) {
+                    hay_into_ir(&path, program, included_files);
+                    included_files.insert(path);
+                }
             }
             Some(Token {
                 kind: TokenKind::Keyword(Keyword::Struct),

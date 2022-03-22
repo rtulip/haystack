@@ -1,0 +1,43 @@
+include "str.hay"
+
+fn File.read_path_to_buff(Str: path Arr<u8>: buffer) -> [Arr<u8>] {
+    var u8[1024]: str_buff str_buff @ as [ctr]
+    path cstr Str.to_cStr as [filepath success]
+
+    success lnot if {
+        "Failed to null terminate the path. Exiting" putlns
+        1 exit
+    }
+
+    filepath File.size as [size] 
+    size buffer::size >= if {
+        "Insufficient capacity to read file into buffer" putlns
+        "    File Size:   " puts size putlnu
+        "    Buffer Size: " puts buffer::size putlnu
+        1 exit 
+    }
+
+    0 0 filepath::data sys_open as [fd]
+
+    size buffer::data fd sys_read drop
+    size buffer::data cast(Arr)
+
+    fd sys_close drop
+}
+
+fn File.size(cStr: filename) -> [u64] {
+    var u64[18]: statbuf_p
+    statbuf_p @ as [statbuf]
+
+    statbuf::data filename::data sys_stat if {
+        
+        statbuf::data 6 ptr+ cast(u64) cast(*u64) @ 
+        
+    } else {
+        "Syscall `stat` failed on file `" puts
+        filename cStr.to_Str puts
+        "`." putlns
+        1 exit
+        0
+    }
+}

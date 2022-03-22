@@ -1,0 +1,77 @@
+include "sys_x86_64.hay"
+struct cStr {
+    u64: size
+    *u8: data
+}
+
+fn cStr.to_Str(cStr: cs) -> [Str] {
+    cs::size 1 - cs::data cast(Str)
+}
+
+fn Str.to_cStr(Str: s Arr<u8>: buffer) -> [cStr bool] {
+    s::size 1 + buffer::size >= if {
+        "Buffer is too small to null terminate string" putlns
+        s split cast(cStr) false
+    } else {
+        // null terminate the string.
+        s split buffer::data memcpy
+        0 cast(u8) s::size buffer Arr.set
+        s::size 1 + buffer::data cast(cStr) true
+    }
+}
+
+fn fputs(Str: s u64: fd) {
+    s split fd sys_write drop
+}
+
+// TODO: replace `1` with a constant for stdout
+fn puts(Str) {
+    1 fputs
+}
+
+fn putlns(Str) {
+    puts "\n" puts
+}
+
+fn exit(u64) {
+    sys_exit 
+}
+
+fn fputu(u64: u u64: fd) {
+    var u8[20]: buffer
+    buffer @ as [chars]
+
+    0 u == if {
+        "0" fd fputs
+    }
+
+
+    19 u while dup 0 != {
+        as [i x]
+        x 10 % 48 + cast(u8) i chars Arr.set
+        
+        i 1 -
+        x 10 /
+    } drop
+    
+    as [i]
+    19 i - chars::data i 1 + ptr+ cast(Str) fd fputs
+}
+
+fn putu(u64) {
+    1 fputu
+}
+
+fn putlnu(u64) {
+    putu "\n" puts
+}
+
+fn fputb(bool: b u64: fd) {
+    b if { "true" fd fputs } else { "false" fd fputs }
+}
+
+fn putb(bool) {1 fputb}
+
+fn putlnb(bool) {
+    putb "\n" puts
+}

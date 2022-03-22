@@ -1,0 +1,8 @@
+fn sys_ok?(u64) -> [bool] { 0 1 - != }
+fn sys_read(u64 *u8 u64)  -> [bool] { 0  syscall(3) sys_ok? }
+fn sys_write(u64 *u8 u64) -> [bool] { 1  syscall(3) sys_ok? }
+fn sys_open(u64 u64 *u8)  -> [u64]  { 2  syscall(3)         }
+fn sys_close(u64)         -> [bool] { 3  syscall(1) sys_ok? }
+fn sys_stat(*u64 *u8)     -> [bool] { 4  syscall(2) sys_ok? }
+fn sys_fstat(*u64 u64)    -> [bool] { 4  syscall(2) sys_ok? }
+fn sys_exit(u64)                    { 60 syscall(1) drop    }

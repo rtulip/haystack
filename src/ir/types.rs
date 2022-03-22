@@ -59,7 +59,9 @@ impl Type {
             } => members.iter().map(|t| t.size()).sum(),
             Type::Placeholder { .. } => panic!("Size of Placeholder types are unknown: {:?}", self),
             Type::GenericStructBase { .. } => panic!("Size of a generic struct is unknown"),
-            Type::GenericStructInstance { .. } => panic!("Size of a generic struct is unknown"),
+            Type::GenericStructInstance { .. } => {
+                panic!("Size of a generic struct is unknown: {:?}", self)
+            }
         }
     }
 
@@ -368,6 +370,9 @@ impl Type {
                         Type::GenericStructInstance { .. } => {
                             Type::assign_generics(token, t, generic_map)
                         }
+                        Type::Pointer { typ } => Type::Pointer {
+                            typ: Box::new(Type::assign_generics(token, typ, generic_map)),
+                        },
                         t => t.clone(),
                     })
                     .collect::<Vec<Type>>();
@@ -399,7 +404,49 @@ impl Type {
                     base: base.clone(),
                 }
             }
-            Type::GenericStructBase { .. } => unreachable!(),
+            Type::GenericStructBase {
+                name: base,
+                members,
+                idents,
+                generics,
+            } => {
+                let resolved_members = members
+                    .iter()
+                    .map(|t| match t {
+                        Type::Placeholder { name } => generic_map.get(name).unwrap().clone(),
+                        Type::GenericStructInstance { .. } => {
+                            Type::assign_generics(token, t, generic_map)
+                        }
+                        Type::Pointer { typ } => Type::Pointer {
+                            typ: Box::new(Type::assign_generics(token, typ, generic_map)),
+                        },
+                        t => t.clone(),
+                    })
+                    .collect::<Vec<Type>>();
+                let mut name = base.clone();
+                name.push('<');
+
+                for (i, typ) in generics
+                    .iter()
+                    .map(|t| generic_map.get(&t.name()).unwrap())
+                    .enumerate()
+                {
+                    if i == 0 {
+                        name.push_str(format!("{:?}", typ).as_str());
+                    } else {
+                        name.push(' ');
+                        name.push_str(format!("{:?}", typ).as_str());
+                    }
+                }
+                name.push('>');
+
+                Type::ResolvedStruct {
+                    name,
+                    members: resolved_members,
+                    idents: idents.clone(),
+                    base: base.clone(),
+                }
+            }
             Type::Pointer { typ } => Type::Pointer {
                 typ: Box::new(Type::assign_generics(token, &*typ, generic_map)),
             },

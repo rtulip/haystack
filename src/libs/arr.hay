@@ -1,0 +1,19 @@
+include "str.hay"
+fn Arr.set<T>(T: value u64: idx Arr<T>: arr) {
+
+    idx arr::size >= if {
+        "Index out of bounds: " puts
+        idx putlnu
+        1 exit
+    }
+    value arr::data idx ptr+ !
+}
+
+fn Arr.get<T>(u64: idx Arr<T>: arr) -> [T] {
+    idx arr::size >= if {
+        "Index out of bounds: " puts
+        idx putlnu
+        1 exit
+    }
+    arr::data idx ptr+ @
+}

@@ -7,3 +7,26 @@ fn ptr+<T>(*T: ptr u64: n) -> [*T] {
 fn ptr-<T>(*T: ptr u64: n) -> [*T] {
     ptr cast(u64) sizeOf(T) n * - cast(*T) 
 }
+fn memset<T>(T: value Arr<T>: range) {
+    0 while dup range::size < {
+        as [i]
+        value i range Arr.set
+        i 1 +
+    } drop
+}
+fn memcpy<T>(u64: n *T: strt *T: dest) {
+    0 while dup n < {
+        as [i]
+        strt i ptr+ @
+        dest i ptr+ !
+        i 1 + 
+    } drop
+}
+fn lnot(bool) -> [bool] { if { false } else { true } }
+fn land(bool: a bool: b) -> [bool] {
+    a if {
+        b if { true } else { false }
+    } else {
+        false
+    }
+}

@@ -1,0 +1,15 @@
+include "std.hay"
+union Foo {
+    u64: x
+    Str: s
+}
+
+fn main() {
+    69 cast(Foo) as [foo_u64]
+    "Hello World" cast(Foo) as [foo_str]
+    "Foo as u64: " puts foo_u64::x putlnu
+    "Bad::data: "  puts foo_u64::s::data cast(u64) putlnu
+    "Bad::size: "  puts foo_u64::s::size putlnu
+    "Foo as str: " puts foo_str::s putlns
+
+}

@@ -38,6 +38,11 @@ pub enum Type {
         idents: Vec<String>,
         base: String,
     },
+    Union {
+        name: String,
+        members: Vec<Type>,
+        idents: Vec<String>,
+    },
 }
 
 impl Type {
@@ -57,6 +62,7 @@ impl Type {
             | Type::ResolvedStruct {
                 name: _, members, ..
             } => members.iter().map(|t| t.size()).sum(),
+            Type::Union { members, .. } => members.iter().map(|t| t.size()).max().unwrap(),
             Type::Placeholder { .. } => panic!("Size of Placeholder types are unknown: {:?}", self),
             Type::GenericStructBase { .. } => panic!("Size of a generic struct is unknown"),
             Type::GenericStructInstance { .. } => {
@@ -338,6 +344,9 @@ impl Type {
                 .as_str(),
                 vec![],
             ),
+            (Type::Union { .. }, _) => {
+                unimplemented!("{}: Resolving unions isn't implemented yet.", token.loc)
+            }
         };
 
         t
@@ -463,7 +472,9 @@ impl std::fmt::Debug for Type {
             Type::Bool => write!(f, "bool"),
             Type::Pointer { typ, .. } => write!(f, "*{:?}", *typ),
             Type::Placeholder { name } => write!(f, "{name}"),
-            Type::Struct { name, .. } | Type::ResolvedStruct { name, .. } => write!(f, "{name}"),
+            Type::Struct { name, .. }
+            | Type::ResolvedStruct { name, .. }
+            | Type::Union { name, .. } => write!(f, "{name}"),
             Type::GenericStructBase {
                 name,
                 members: _,

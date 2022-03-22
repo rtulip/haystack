@@ -199,6 +199,11 @@ fn compile_op(
             unreachable!("SizeOf should have been converted into PushInt by code generation.")
         }
         OpKind::Cast(_) => (),
+        OpKind::Pad(n) => {
+            for _ in 0..*n {
+                writeln!(file, "  push 0").unwrap();
+            }
+        }
         OpKind::Split => (),
         OpKind::Global(s) => write!(file, "  push {s}").unwrap(),
         OpKind::Word(_) => unreachable!("Words shouldn't be compiled."),

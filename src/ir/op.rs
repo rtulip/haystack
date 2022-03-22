@@ -30,6 +30,7 @@ pub enum OpKind {
     Read(Option<(usize, usize)>),
     Write(Option<(usize, usize)>),
     Cast(Type),
+    Pad(usize),
     SizeOf(Type),
     Split,
     Global(String),
@@ -73,6 +74,7 @@ impl std::fmt::Debug for OpKind {
             OpKind::Read(_) => write!(f, "@"),
             OpKind::Write(_) => write!(f, "!"),
             OpKind::Cast(typ) => write!(f, "Cast({:?})", typ),
+            OpKind::Pad(n) => write!(f, "Pad({n})"),
             OpKind::SizeOf(typ) => write!(f, "SizeOf({:?})", typ),
             OpKind::Split => write!(f, "Split"),
             OpKind::Global(s) => write!(f, "Global({s})"),
@@ -116,9 +118,8 @@ impl Op {
     fn get_type_from_frame(&self, frame: &Frame, index: usize, inner: &[String]) -> (Type, usize) {
         let mut t = frame[index].clone();
         let mut t_offset: usize = frame[0..index].iter().map(|t| t.size() * t.width()).sum();
-
         for field in inner {
-            let (new_t, new_offset) = match t {
+            let (new_t, new_offset) = match &t {
                 Type::Struct {
                     name,
                     ref members,
@@ -154,6 +155,31 @@ impl Op {
                         );
                     }
                 }
+                Type::Union {
+                    name,
+                    ref members,
+                    ref idents,
+                } => {
+                    if idents.contains(&field.clone()) {
+                        let idx = idents.iter().position(|s| s == &field.clone()).unwrap();
+                        let delta =
+                            t.size() * t.width() - members[idx].size() * members[idx].width();
+                        (members[idx].clone(), delta)
+                    } else {
+                        compiler_error(
+                            &self.token,
+                            format!("Struct `{name}` doesn't have a field: `{field}`").as_str(),
+                            vec![format!(
+                                "Struct `{name}` has these fields: {:?}",
+                                members
+                                    .iter()
+                                    .zip(idents.iter())
+                                    .collect::<Vec<(&Type, &String)>>()
+                            )
+                            .as_str()],
+                        );
+                    }
+                }
                 other_t => compiler_error(
                     &self.token,
                     format!(
@@ -167,7 +193,6 @@ impl Op {
             t = new_t;
             t_offset += new_offset;
         }
-
         (t, t_offset)
     }
 
@@ -439,6 +464,7 @@ impl Op {
                             Some(Type::Bool) => Type::Bool,
                             Some(Type::Pointer { typ }) => Type::Pointer { typ: typ.clone() },
                             None
+                            | Some(Type::Union { .. })
                             | Some(Type::Struct { .. })
                             | Some(Type::GenericStructBase { .. })
                             | Some(Type::GenericStructInstance { .. })
@@ -461,6 +487,7 @@ impl Op {
                             Some(Type::U8) => Type::U8,
                             Some(Type::Bool) => Type::Bool,
                             None
+                            | Some(Type::Union { .. })
                             | Some(Type::Pointer { .. })
                             | Some(Type::Struct { .. })
                             | Some(Type::GenericStructBase { .. })
@@ -488,11 +515,63 @@ impl Op {
                             stack,
                         );
                     }
-                    _ => unreachable!(),
+                    Type::Union { members, .. } => {
+                        if let Some(typ) = stack.pop() {
+                            if members.contains(&typ) {
+                                evaluate_signature(
+                                    self,
+                                    &Signature {
+                                        inputs: vec![], // We've already popped the type
+                                        outputs: vec![cast_type.clone()],
+                                    },
+                                    stack,
+                                );
+
+                                let size_delta = cast_type.size() - typ.size();
+                                self.kind = OpKind::Pad(size_delta);
+                            } else {
+                                compiler_error(
+                                    &self.token,
+                                    format!("Type {:?} cannot be cast to {:?}", typ, cast_type)
+                                        .as_str(),
+                                    vec![format!(
+                                        "Union {:?} expects one of these: {:?}",
+                                        cast_type, members
+                                    )
+                                    .as_str()],
+                                )
+                            }
+                        } else {
+                            compiler_error(
+                                &self.token,
+                                "Casting requires at least one element on the stack.",
+                                vec![],
+                            )
+                        }
+                    }
+                    Type::Bool => {
+                        unimplemented!("{}: Casting to Bool isn't implemented yet.", self.token.loc)
+                    }
+                    Type::Placeholder { .. } => unreachable!(
+                        "{}: Casting to placeholder type should be unreachable",
+                        self.token.loc
+                    ),
+                    Type::GenericStructInstance { .. } => unreachable!(
+                        "{}: Casting to instance of generic struct should be unreachable",
+                        self.token.loc
+                    ),
+                    Type::ResolvedStruct { .. } => unreachable!(
+                        "{}: Casting to resolved struct type should be unreachable",
+                        self.token.loc
+                    ),
                 }
 
                 None
             }
+            OpKind::Pad(_) => unreachable!(
+                "{}: {:?} shouldn't be type checked.",
+                self.token.loc, self.kind
+            ),
             OpKind::Split => {
                 let (struct_t, members) = match stack.last() {
                     Some(Type::Struct {

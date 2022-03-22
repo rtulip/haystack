@@ -27,7 +27,6 @@ pub enum OpKind {
     Equals,
     NotEquals,
     Mod,
-    Print,
     Read(Option<(usize, usize)>),
     Write(Option<(usize, usize)>),
     Cast(Type),
@@ -73,7 +72,6 @@ impl std::fmt::Debug for OpKind {
             OpKind::Mod => write!(f, "%"),
             OpKind::Read(_) => write!(f, "@"),
             OpKind::Write(_) => write!(f, "!"),
-            OpKind::Print => write!(f, "print"),
             OpKind::Cast(typ) => write!(f, "Cast({:?})", typ),
             OpKind::SizeOf(typ) => write!(f, "SizeOf({:?})", typ),
             OpKind::Split => write!(f, "Split"),
@@ -607,22 +605,6 @@ impl Op {
             OpKind::PushLocalPtr(_) => {
                 panic!("{:?} shouldn't be generated before type checking...", self)
             }
-            OpKind::Print => {
-                let typ = if let Some(&Type::U8) = stack.last() {
-                    Type::U8
-                } else {
-                    Type::U64
-                };
-                evaluate_signature(
-                    self,
-                    &Signature {
-                        inputs: vec![typ],
-                        outputs: vec![],
-                    },
-                    stack,
-                );
-                None
-            }
             OpKind::JumpCond(_) => {
                 evaluate_signature(
                     self,
@@ -808,15 +790,9 @@ impl From<Token> for Op {
                 format!("Unexpected Marker: {:?}", m).as_str(),
                 vec![],
             ),
-            TokenKind::Word(word) => match word.as_str() {
-                "print" => Op {
-                    kind: OpKind::Print,
-                    token,
-                },
-                _ => Op {
-                    kind: OpKind::Word(word.clone()),
-                    token,
-                },
+            TokenKind::Word(word) => Op {
+                kind: OpKind::Word(word.clone()),
+                token,
             },
             TokenKind::EndOfFile => panic!("Cannot convert end of file into an op!"),
         }

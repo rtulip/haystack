@@ -6,13 +6,13 @@ fn main() {
 
     strings @ as [strs]
 
-    "Hello World1\n" 0 strs Arr.set
-    "Hello World2\n" 1 strs Arr.set
-    "Hello World3\n" 2 strs Arr.set
+    "Hello World1" 0 strs Arr.set
+    "Hello World2" 1 strs Arr.set
+    "Hello World3" 2 strs Arr.set
 
     0 while dup 3 < {
         as [i]
-        i strs Arr.get write
+        i strs Arr.get putlns
         i 1 + 
     } drop
 

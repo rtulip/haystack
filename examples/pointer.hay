@@ -1,11 +1,11 @@
+include "std.hay"
 fn main() {
 
     "hello World!\n" as [word]
     0 while dup word::size < {
         as [i]
-        word::data i ptr+ @ print
+        word::data i ptr+ @ cast(u64) putlnu
         i 1 + 
-        
     } drop
 
 }

@@ -39,10 +39,11 @@ You can easily see how the program gets compiled into linear operations by outpu
 `Haystack` is a stack based language. This means that operations either consume from or produce onto a data stack. As such, `Haystack` uses reverse polish notation for most operations. For example, here's a simple program which adds two numbers together and prints the result to stdout.
 
 ```
+include "std.hay"
 fn main() {
     1 2   // literals get pushed onto the stack.
     +     // `+` consumes two `u64` from the top of the stack, and pushes the resuling sum back onto the stack.
-    print // The `print` intrinsic consumes a `u64` from the top of the stack and prints it to stdout.
+    putlnu // The `putlnu` function consumes a `u64` from the top of the stack and prints it to stdout.
 }
 ```
 
@@ -57,13 +58,14 @@ fn main() {
 Because manipulating items solely on the stack can become very tedious (not to mention adds a significant mental burden), you are able to create scoped variables using the `as [ident ..]` syntax. Variables will last for the duration of their scope, and are cosumed from the top of the stack. 
 
 ```
+include "std.hay"
 fn main() {
     1 2
     as [one two]
-    one print
-    two print
-    two print
-    one print
+    one putlnu
+    two putlnu
+    two putlnu
+    one putlnu
 }
 // outputs 1 2 2 1 to stdout
 ```
@@ -74,6 +76,7 @@ The `if` keyword will consume a `bool` from the top of the stack and will fallth
 The syntax is: `<cond> if { ... } else ... <cond> if { ... } else { ... }`
 
 ```
+include "std.hay"
 // This compiles fine
 fn main() {
 
@@ -86,7 +89,7 @@ fn main() {
         a b +
     }
 
-    print
+    putlnu
 
 }
 ```
@@ -107,11 +110,12 @@ fn main() {
 Only `while` loops are supported at this time.
 
 ```
+include "std.hay"
 // prints number up to 10
 fn main() {
     0 while dup 10 < {
         as [i]
-        i print
+        i putlnu
         i 1 +
     } drop
 }
@@ -145,10 +149,11 @@ fn shuffle<A B C>(A: a B: b C: c) -> [B C A] { b c a }
 
 Here's how you call a function:
 ```
+include "std.hay"
 fn add_wrapper(u64 u64) -> [u64] { + }
 
 fn main() {
-    1 2 add_wrapper print // prints 3
+    1 2 add_wrapper putlnu // prints 3
 }
 ```
 
@@ -205,7 +210,7 @@ fn main() {
     "Hello\n" "World\n" cast(Pair)
     as [pair]
 
-    pair::first::size print
+    pair::first::size putlnu
 
     // the Write function is defined in "std.hay" and prints a Str to stdout.
     pair::second      write 
@@ -249,12 +254,13 @@ fn main() {
 ## Print all numbers up to N
 
 ```
+include "std.hay"
 fn main() {
     
     100 as [n]
     0 while dup n < {
         as [i]
-        i print
+        i putlnu
         i 1 +
     }
 }

@@ -1,4 +1,4 @@
-
+include "std.hay"
 fn main() {
 
     3 2 as [a b]
@@ -11,6 +11,6 @@ fn main() {
         3
     }
 
-    print
+    putlnu
 
 }

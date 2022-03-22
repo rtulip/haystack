@@ -1,6 +1,6 @@
 
-include "src/libs/std.hay"
+include "std.hay"
 
 fn main() {
-    "Hello World\n" write
+    "Hello World" putlns
 }

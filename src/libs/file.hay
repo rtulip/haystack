@@ -1,15 +1,35 @@
 include "str.hay"
 
-fn File.read_path_to_buff(Str: path Arr<u8>: buffer) -> [Arr<u8>] {
-    var u8[1024]: str_buff str_buff @ as [ctr]
-    path cstr Str.to_cStr as [filepath success]
+struct File {
+    u64: fd
+}
 
+fn File.open(u64: mode u64: flags Str: path) -> [File] {
+    var u8[1024]: str_buff str_buff @ as [cstr]
+    path cstr Str.to_cStr as [filepath success]
     success lnot if {
         "Failed to null terminate the path. Exiting" putlns
         1 exit
     }
 
-    filepath File.size as [size] 
+    mode flags filepath::data sys_open as [fd]
+    "Fd: " puts fd putlnu
+
+    fd cast(File)
+}
+
+fn File.close(File: file) {
+    file::fd sys_close drop
+}
+
+fn File.read_path_to_buff(Str: path Arr<u8>: buffer) -> [Arr<u8>] {
+    0 0 path File.open as [file]
+    file buffer File.read_to_buff
+    file File.close
+}
+
+fn File.read_to_buff(File: file Arr<u8>: buffer) -> [Arr<u8>] {
+    file File.size as [size] 
     size buffer::size >= if {
         "Insufficient capacity to read file into buffer" putlns
         "    File Size:   " puts size putlnu
@@ -17,26 +37,18 @@ fn File.read_path_to_buff(Str: path Arr<u8>: buffer) -> [Arr<u8>] {
         1 exit 
     }
 
-    0 0 filepath::data sys_open as [fd]
-
-    size buffer::data fd sys_read drop
+    size buffer::data file::fd sys_read drop
     size buffer::data cast(Arr)
-
-    fd sys_close drop
 }
 
-fn File.size(cStr: filename) -> [u64] {
+fn File.size(File: file) -> [u64] {
     var u64[18]: statbuf_p
     statbuf_p @ as [statbuf]
-
-    statbuf::data filename::data sys_stat if {
-        
+    0 statbuf memset
+    statbuf::data file::fd sys_fstat if {
         statbuf::data 6 ptr+ cast(u64) cast(*u64) @ 
-        
     } else {
-        "Syscall `stat` failed on file `" puts
-        filename cStr.to_Str puts
-        "`." putlns
+        "Syscall `fstat` failed " putlns
         1 exit
         0
     }

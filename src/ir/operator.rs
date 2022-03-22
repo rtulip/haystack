@@ -12,6 +12,7 @@ pub enum Operator {
     GreaterEqual,
     Equals,
     NotEquals,
+    Mod,
     Read,
     Write,
 }

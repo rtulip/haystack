@@ -105,6 +105,8 @@ pub enum LogosToken {
     Equals,
     #[token("!=")]
     NotEquals,
+    #[token("%")]
+    Mod,
 
     #[token("@")]
     Read,

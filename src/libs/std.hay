@@ -6,12 +6,29 @@ fn sys_exit(u64) {
     60 syscall(1) drop
 }
 
-fn write(Str) {
+fn puts(Str) {
     split 1 sys_write drop
 }
 
 fn exit(u64) {
     sys_exit 
+}
+
+fn putd(u64) {
+    var u8[20]: buffer
+    buffer @ as [chars]
+
+    19 swap 
+    while dup 0 > {
+        as [i x]
+        x 10 % 48 + cast(u8) i chars Arr.set
+        
+        i 1 -
+        x 10 /
+    } drop
+    
+    as [i]
+    19 i - chars::data i 1 + ptr+ cast(Str) puts
 }
 
 fn Arr.set<T>(T: value u64: idx Arr<T>: arr) {

@@ -26,6 +26,7 @@ pub enum OpKind {
     GreaterEqual,
     Equals,
     NotEquals,
+    Mod,
     Print,
     Read(Option<(usize, usize)>),
     Write(Option<(usize, usize)>),
@@ -69,6 +70,7 @@ impl std::fmt::Debug for OpKind {
             OpKind::GreaterEqual => write!(f, ">="),
             OpKind::Equals => write!(f, "=="),
             OpKind::NotEquals => write!(f, "!="),
+            OpKind::Mod => write!(f, "%"),
             OpKind::Read(_) => write!(f, "@"),
             OpKind::Write(_) => write!(f, "!"),
             OpKind::Print => write!(f, "print"),
@@ -287,6 +289,17 @@ impl Op {
                     &Signature {
                         inputs: vec![Type::U64, Type::U64],
                         outputs: vec![Type::Bool],
+                    },
+                    stack,
+                );
+                None
+            }
+            OpKind::Mod => {
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![Type::U64, Type::U64],
+                        outputs: vec![Type::U64],
                     },
                     stack,
                 );
@@ -774,6 +787,10 @@ impl From<Token> for Op {
             },
             TokenKind::Operator(Operator::NotEquals) => Op {
                 kind: OpKind::NotEquals,
+                token,
+            },
+            TokenKind::Operator(Operator::Mod) => Op {
+                kind: OpKind::Mod,
                 token,
             },
             TokenKind::Operator(Operator::Read) => Op {

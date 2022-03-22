@@ -149,6 +149,13 @@ fn compile_op(
             writeln!(file, "  cmovne rcx, rdx").unwrap();
             writeln!(file, "  push rcx").unwrap();
         }
+        OpKind::Mod => {
+            writeln!(file, "  mov  rdx, 0").unwrap();
+            writeln!(file, "  pop  rcx").unwrap();
+            writeln!(file, "  pop  rax").unwrap();
+            writeln!(file, "  div  rcx").unwrap();
+            writeln!(file, "  push rdx").unwrap();
+        }
         OpKind::Read(Some((n, width))) => {
             let register = match width {
                 1 => "bl",

@@ -9,6 +9,7 @@ pub enum Keyword {
     Else,
     While,
     Struct,
+    Union,
     Cast,
     Split,
     Syscall,

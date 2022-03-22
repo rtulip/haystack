@@ -154,6 +154,29 @@ impl Op {
                         );
                     }
                 }
+                Type::Union {
+                    name,
+                    ref members,
+                    ref idents,
+                } => {
+                    if idents.contains(&field.clone()) {
+                        let idx = idents.iter().position(|s| s == &field.clone()).unwrap();
+                        (members[idx].clone(), 0)
+                    } else {
+                        compiler_error(
+                            &self.token,
+                            format!("Struct `{name}` doesn't have a field: `{field}`").as_str(),
+                            vec![format!(
+                                "Struct `{name}` has these fields: {:?}",
+                                members
+                                    .iter()
+                                    .zip(idents.iter())
+                                    .collect::<Vec<(&Type, &String)>>()
+                            )
+                            .as_str()],
+                        );
+                    }
+                }
                 other_t => compiler_error(
                     &self.token,
                     format!(
@@ -439,6 +462,7 @@ impl Op {
                             Some(Type::Bool) => Type::Bool,
                             Some(Type::Pointer { typ }) => Type::Pointer { typ: typ.clone() },
                             None
+                            | Some(Type::Union { .. })
                             | Some(Type::Struct { .. })
                             | Some(Type::GenericStructBase { .. })
                             | Some(Type::GenericStructInstance { .. })
@@ -461,6 +485,7 @@ impl Op {
                             Some(Type::U8) => Type::U8,
                             Some(Type::Bool) => Type::Bool,
                             None
+                            | Some(Type::Union { .. })
                             | Some(Type::Pointer { .. })
                             | Some(Type::Struct { .. })
                             | Some(Type::GenericStructBase { .. })
@@ -488,7 +513,52 @@ impl Op {
                             stack,
                         );
                     }
-                    _ => unreachable!(),
+                    Type::Union { members, .. } => {
+                        if let Some(typ) = stack.pop() {
+                            if members.contains(&typ) {
+                                evaluate_signature(
+                                    self,
+                                    &Signature {
+                                        inputs: vec![], // We've already popped the type
+                                        outputs: vec![cast_type.clone()],
+                                    },
+                                    stack,
+                                );
+                            } else {
+                                compiler_error(
+                                    &self.token,
+                                    format!("Type {:?} cannot be cast to {:?}", typ, cast_type)
+                                        .as_str(),
+                                    vec![format!(
+                                        "Union {:?} expects one of these: {:?}",
+                                        cast_type, members
+                                    )
+                                    .as_str()],
+                                )
+                            }
+                        } else {
+                            compiler_error(
+                                &self.token,
+                                "Casting requires at least one element on the stack.",
+                                vec![],
+                            )
+                        }
+                    }
+                    Type::Bool => {
+                        unimplemented!("{}: Casting to Bool isn't implemented yet.", self.token.loc)
+                    }
+                    Type::Placeholder { .. } => unreachable!(
+                        "{}: Casting to placeholder type should be unreachable",
+                        self.token.loc
+                    ),
+                    Type::GenericStructInstance { .. } => unreachable!(
+                        "{}: Casting to instance of generic struct should be unreachable",
+                        self.token.loc
+                    ),
+                    Type::ResolvedStruct { .. } => unreachable!(
+                        "{}: Casting to resolved struct type should be unreachable",
+                        self.token.loc
+                    ),
                 }
 
                 None

@@ -5,11 +5,14 @@ union Foo {
 }
 
 fn main() {
-
+    17
     69 cast(Foo) as [foo_u64]
     "Hello World" cast(Foo) as [foo_str]
 
-    foo_u64::x putlnu
-    foo_str::x putlns
+    foo_u64::s as [bad]
+    bad::data cast(u64) putlnu
+    bad::size cast(u64) putlnu
+    foo_str::s putlns
+    drop
 
 }

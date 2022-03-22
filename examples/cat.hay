@@ -1,0 +1,102 @@
+include "std.hay"
+
+struct cStr {
+    u64: size
+    *u8: data
+}
+
+fn cputs(cStr) {
+    split cast(Str) puts
+}
+
+fn memcpy<T>(u64: n *T: strt *T: dest) {
+    0 while dup n < {
+        as [i]
+        strt i ptr+ @
+        dest i ptr+ !
+        i 1 + 
+    } drop
+}
+
+fn lnot(bool) -> [bool] { if { false } else { true } }
+
+fn sys_ok?(u64) -> [bool] {
+    0 == 
+}
+
+fn sys_stat(*u64: c_statbuf *u8: chars) -> [bool] {
+     c_statbuf chars 4 syscall(2) sys_ok?
+}
+
+fn sys_open(u64 u64 *u8) -> [u64] {
+    2 syscall(3)
+}
+
+fn sys_read(u64 *u8 u64) {
+    0 syscall(3) drop
+}
+
+fn load_file_to_buff(Str: path u64: buff_size *u8: buff_data) -> [u64 *u8] {
+    var u8[1024]: str_buff str_buff @ as [nullstr]
+    buff_size buff_data cast(Arr) as [buffer]
+    path nullstr Str.null_term as [filepath success]
+
+    success lnot if {
+        "Failed to null terminate the path. Exiting" putlns
+        1 exit
+    }
+
+    filepath file.size as [size] 
+    size buffer::size >= if {
+        "Insufficient capacity to read file into buffer" putlns
+        "    File Size:   " puts size putlnu
+        "    Buffer Size: " puts buffer::size putlnu
+        1 exit 
+    }
+
+    0 0 filepath::data sys_open as [fd]
+
+    size buffer::data fd sys_read
+    size buffer::data 
+}
+
+fn Str.null_term<T>(Str: s Arr<T>: buffer) -> [cStr bool] {
+    s::size 1 + buffer::size >= if {
+        "Buffer is too small to null terminate string" putlns
+        s split cast(cStr) false
+    } else {
+        // null terminate the string.
+        s split buffer::data memcpy
+        0 cast(u8) s::size buffer Arr.set
+        s::size 1 + buffer::data cast(cStr) true
+    }
+}
+
+fn file.size(cStr: filename) -> [u64] {
+    var u64[18]: statbuf_p
+    statbuf_p @ as [statbuf]
+
+    statbuf::data filename::data sys_stat if {
+        
+        statbuf::data 6 ptr+ cast(u64) cast(*u64) @ 
+        
+    } else {
+        "Syscall `stat` failed on file `" puts
+        filename cputs
+        "`." putlns
+        1 exit
+        0
+    }
+}
+
+fn cat(Str: path) {
+    var u8[8192]: file_buf file_buf @ as [buff]
+    
+    path buff split load_file_to_buff
+    cast(Str) putlns
+
+}
+
+fn main() {
+    "./examples/cat.hay" cat
+}

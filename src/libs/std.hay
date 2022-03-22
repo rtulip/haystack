@@ -10,6 +10,7 @@ fn fputs(Str: s u64: fd) {
     s split fd sys_write drop
 }
 
+// TODO: replace `1` with a constant for stdout
 fn puts(Str) {
     1 fputs
 }
@@ -22,11 +23,16 @@ fn exit(u64) {
     sys_exit 
 }
 
-fn fputd(u64: u u64: fd) {
+fn fputu(u64: u u64: fd) {
     var u8[20]: buffer
     buffer @ as [chars]
 
-    19 u while dup 0 > {
+    0 u == if {
+        "0" fd fputs
+    }
+
+
+    19 u while dup 0 != {
         as [i x]
         x 10 % 48 + cast(u8) i chars Arr.set
         
@@ -38,12 +44,12 @@ fn fputd(u64: u u64: fd) {
     19 i - chars::data i 1 + ptr+ cast(Str) fd fputs
 }
 
-fn putd(u64) {
-    1 fputd
+fn putu(u64) {
+    1 fputu
 }
 
 fn putlnu(u64) {
-    putd "\n" puts
+    putu "\n" puts
 }
 
 fn fputb(bool: b u64: fd) {

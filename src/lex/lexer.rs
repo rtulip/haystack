@@ -27,6 +27,7 @@ fn escape_string(unescaped: &str) -> String {
                     idx += 1;
                     match char::from(bytes[idx]) {
                         'n' => escaped.push('\n'),
+                        '0' => escaped.push('\0'),
                         _ => unimplemented!("Only `\\n` is implemented yet"),
                     }
                 } else {

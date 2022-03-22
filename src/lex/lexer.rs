@@ -97,6 +97,9 @@ fn parse_tokens_until_tokenkind(
             TokenKind::Keyword(Keyword::Struct) => {
                 panic!("Struct keyword can't be converted into ops")
             }
+            TokenKind::Keyword(Keyword::Union) => {
+                panic!("Union keyword can't be converted into ops")
+            }
             TokenKind::Keyword(Keyword::While) => {
                 let _tok = parse_while_block(&token, tokens, ops, type_map, init_data);
             }
@@ -905,6 +908,27 @@ pub fn parse_while_block(
     ops[cond_jump_loc].kind = OpKind::JumpCond(Some(end_loc));
 }
 
+fn parse_union(
+    start_tok: &Token,
+    tokens: &mut Vec<Token>,
+    type_map: &HashMap<String, Type>,
+) -> (String, Type) {
+    let tok = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Union));
+    let (name_tok, name) = expect_word(&tok, tokens);
+    let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
+    let (members, idents) = parse_tagged_type_list(&tok, tokens, type_map);
+    let _tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
+
+    (
+        name.clone(),
+        Type::Union {
+            name,
+            members,
+            idents,
+        },
+    )
+}
+
 fn parse_struct(
     start_tok: &Token,
     tokens: &mut Vec<Token>,
@@ -1138,6 +1162,14 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
             }) => {
                 let (name, typ) =
                     parse_struct(&maybe_tok.unwrap().clone(), &mut tokens, &program.types);
+                program.types.insert(name, typ);
+            }
+            Some(Token {
+                kind: TokenKind::Keyword(Keyword::Union),
+                ..
+            }) => {
+                let (name, typ) =
+                    parse_union(&maybe_tok.unwrap().clone(), &mut tokens, &program.types);
                 program.types.insert(name, typ);
             }
             Some(Token {

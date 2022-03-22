@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "Foo as u64: 69\nBad::data: 0\nBad::size: 69\nFoo as str: Hello World\n",
+  "stderr": ""
+}

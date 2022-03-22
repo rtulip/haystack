@@ -118,7 +118,6 @@ impl Op {
     fn get_type_from_frame(&self, frame: &Frame, index: usize, inner: &[String]) -> (Type, usize) {
         let mut t = frame[index].clone();
         let mut t_offset: usize = frame[0..index].iter().map(|t| t.size() * t.width()).sum();
-        println!("Frame: {:?}", frame);
         for field in inner {
             let (new_t, new_offset) = match &t {
                 Type::Struct {
@@ -194,7 +193,6 @@ impl Op {
             t = new_t;
             t_offset += new_offset;
         }
-        println!("    {:?}::{:?} total offset: {t_offset}", t, inner);
         (t, t_offset)
     }
 
@@ -531,7 +529,6 @@ impl Op {
 
                                 let size_delta = cast_type.size() - typ.size();
                                 self.kind = OpKind::Pad(size_delta);
-                                println!("Size delta: {size_delta}");
                             } else {
                                 compiler_error(
                                     &self.token,

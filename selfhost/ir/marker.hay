@@ -1,0 +1,44 @@
+include "std.hay"
+enum Marker {
+    OpenBrace
+    CloseBrace
+    OpenBracket
+    CloseBracket
+    OpenParen
+    CloseParen
+    Colon
+    DoubleColon
+    Arrow    
+}
+
+fn Marker.fputs(Marker: marker u64: fd) {
+
+    "Marker::" fd fputs
+    marker Marker::OpenBrace == if {
+        "OpenBrace" fd fputs
+    } else marker Marker::CloseBrace == if {
+        "CloseBrace" fd fputs
+    } else marker Marker::OpenBracket == if {
+        "OpenBracket" fd fputs
+    } else marker Marker::CloseBracket == if {
+        "CloseBracket" fd fputs
+    } else marker Marker::OpenParen == if {
+        "OpenParen" fd fputs
+    } else marker Marker::CloseParen == if {
+        "CloseParen" fd fputs
+    } else marker Marker::Colon == if {
+        "Colon" fd fputs
+    } else marker Marker::DoubleColon == if {
+        "DoubleColon" fd fputs
+    } else marker Marker::Arrow == if {
+        "Arrow" fd fputs
+    } else {
+        "Unhandled Marker" putlns
+        1 exit
+    }
+
+}
+
+fn Marker.puts(Marker) {
+    1 Marker.fputs
+}

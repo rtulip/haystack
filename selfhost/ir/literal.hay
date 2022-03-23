@@ -1,0 +1,62 @@
+include "str.hay"
+
+enum LiteralTag {
+    u64
+    Str
+    bool
+}
+
+union LiteralValue {
+    u64: u64
+    Str: Str
+    bool: bool
+}
+
+struct Literal {
+    LiteralTag: tag
+    LiteralValue: value
+}
+
+fn Literal.from_u64(u64: value) -> [Literal] {
+    LiteralTag::u64 
+    value cast(LiteralValue)
+    cast(Literal)
+}
+
+fn Literal.from_str(Str: value) -> [Literal] {
+    LiteralTag::Str 
+    value cast(LiteralValue)
+    cast(Literal)
+}
+
+fn Literal.from_bool(bool: value) -> [Literal] {
+    LiteralTag::bool 
+    value cast(LiteralValue)
+    cast(Literal)
+}
+
+fn Literal.fputs(Literal: literal u64: fd) {
+
+    "Literal::" fd fputs
+    literal::tag LiteralTag::u64 == if {
+        "u64(" fd fputs
+        literal::value::u64 fd fputu
+        ")" fd fputs  
+    } else literal::tag LiteralTag::Str == if {
+        "Str(" fd fputs
+        literal::value::Str fd fputs
+        ")" fd fputs  
+    } else literal::tag LiteralTag::bool == if {
+        "bool(" fd fputs
+        literal::value::bool fd fputb
+        ")" fd fputs  
+    } else {
+        "Unhandled LiteralTag" putlns
+        1 exit
+    }
+
+}
+
+fn Literal.puts(Literal) {
+    1 Literal.fputs
+}

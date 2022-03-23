@@ -1,27 +1,30 @@
 include "std.hay"
 include "file.hay"
 
-struct Loc {
-    Str: file
-    u64: row
-    u64: col
-}
-
-fn Loc.puts(Loc: loc) {
-    loc::file puts ":" puts loc::row putu ":" puts loc::col putu
-}
+include "selfhost/ir/token.hay"
 
 var u8[65536]: filebuff_p
 
 fn main()
 {
 
-    filebuff_p @ as [filebuff]
-    "./selfhost/lexer.hay" as [path]
+    //filebuff_p @ as [filebuff]
+    //"./selfhost/lexer.hay" as [path]
 
-    path 1 1 cast(Loc) Loc.puts "\n" puts
+    //path 1 1 cast(Loc) Loc.puts "\n" puts
 
-    path filebuff File.read_path_to_buff
-    split cast(Str) putlns
+    //path filebuff File.read_path_to_buff
+    //split cast(Str) putlns
+
+    "path/to/file" 1 1 cast(Loc) as [loc]
+
+    Keyword::Function TokenKind.from_keyword loc cast(Token)
+    Token.puts "\n" puts
+    69 Literal.from_u64 TokenKind.from_literal loc cast(Token)
+    Token.puts "\n" puts 
+    "Hello World" Literal.from_str TokenKind.from_literal loc cast(Token)
+    Token.puts "\n" puts
+    true Literal.from_bool TokenKind.from_literal loc cast(Token)
+    Token.puts "\n" puts 
 
 }

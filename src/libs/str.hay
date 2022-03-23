@@ -15,7 +15,7 @@ fn Str.to_cStr(Str: s Arr<u8>: buffer) -> [cStr bool] {
     } else {
         // null terminate the string.
         s split buffer::data memcpy
-        0 cast(u8) s::size buffer Arr.set
+        0 cast(u8) buffer::data s::size ptr+ !
         s::size 1 + buffer::data cast(cStr) true
     }
 }
@@ -48,7 +48,7 @@ fn fputu(u64: u u64: fd) {
 
     19 u while dup 0 != {
         as [i x]
-        x 10 % 48 + cast(u8) i chars Arr.set
+        x 10 % 48 + cast(u8) chars::data i ptr+ !
         
         i 1 -
         x 10 /

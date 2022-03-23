@@ -127,18 +127,36 @@ fn parse_tokens_until_tokenkind(
                 if peek_token_kind(tokens, TokenKind::Marker(Marker::DoubleColon)) {
                     let mut tok = token.clone();
                     let mut inner = vec![];
+                    let mut annotations: Option<Vec<Type>> = None;
                     while peek_token_kind(tokens, TokenKind::Marker(Marker::DoubleColon)) {
                         let marker_tok =
                             expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::DoubleColon));
-                        let (word_tok, field) = expect_word(&marker_tok, tokens);
-                        tok = word_tok;
-                        inner.push(field);
+                        if peek_token_kind(tokens, TokenKind::Operator(Operator::LessThan)) {
+                            let (_tok, ann) = parse_annotation_list(&token, tokens, type_map);
+                            annotations = ann;
+
+                            if !inner.is_empty() {
+                                compiler_error(&token, "This syntax isnt supported", vec![]);
+                            }
+                            break;
+                        } else {
+                            let (word_tok, field) = expect_word(&marker_tok, tokens);
+                            tok = word_tok;
+                            inner.push(field);
+                        }
                     }
 
-                    ops.push(Op {
-                        kind: OpKind::Ident(s.clone(), inner),
-                        token: token.clone(),
-                    })
+                    if let Some(annotations) = annotations {
+                        ops.push(Op {
+                            kind: OpKind::Call(s.clone(), annotations),
+                            token: token.clone(),
+                        })
+                    } else {
+                        ops.push(Op {
+                            kind: OpKind::Ident(s.clone(), inner),
+                            token: token.clone(),
+                        })
+                    }
                 } else {
                     ops.push(Op::from(token.clone()))
                 }
@@ -350,10 +368,66 @@ fn parse_type(
                     generics.iter().map(|t| t.name()).zip(annotations.drain(..)),
                 );
                 Type::assign_generics(start_tok, type_map.get(&name).unwrap(), &generic_map)
-                // Type::resolve_struct(start_tok, type_map.get(&name).unwrap(), &annotations)
             }
         }
-        Some(t) => t.clone(),
+        Some(Type::GenericUnionBase {
+            name: base,
+            members,
+            idents,
+            generics,
+        }) => {
+            if annotations.is_none() {
+                compiler_error(
+                    &tok,
+                    format!("No type annotations provided for generic union {base}").as_str(),
+                    vec![format!("Expected annotations for {:?}", generics).as_str()],
+                );
+            }
+
+            let mut annotations = annotations.unwrap();
+
+            if generics.len() != annotations.len() {
+                compiler_error(
+                    &tok,
+                    "Incorrect number of generic parameters provided",
+                    vec![
+                        format!("{base} is generic over {:?}", generics).as_str(),
+                        format!("These annotations were provided: {:?}", annotations).as_str(),
+                    ],
+                );
+            }
+            if annotations
+                .iter()
+                .any(|t| matches!(t, Type::Placeholder { .. }))
+            {
+                Type::GenericUnionInstance {
+                    base: name.clone(),
+                    members: members.clone(),
+                    idents: idents.clone(),
+                    alias_list: annotations,
+                    base_generics: generics.clone(),
+                }
+            } else {
+                let generic_map: HashMap<String, Type> = HashMap::from_iter(
+                    generics.iter().map(|t| t.name()).zip(annotations.drain(..)),
+                );
+                Type::assign_generics(start_tok, type_map.get(&name).unwrap(), &generic_map)
+            }
+        }
+        Some(
+            Type::U64
+            | Type::U8
+            | Type::Bool
+            | Type::Enum { .. }
+            | Type::Pointer { .. }
+            | Type::Struct { .. }
+            | Type::GenericStructInstance { .. }
+            | Type::ResolvedStruct { .. }
+            | Type::Union { .. }
+            | Type::GenericUnionInstance { .. }
+            | Type::ResolvedUnion { .. }
+            | Type::Placeholder { .. },
+        ) => type_map.get(&name).unwrap().clone(),
         None => Type::Placeholder { name },
     };
 
@@ -587,9 +661,56 @@ fn parse_syscall(start_tok: &Token, tokens: &mut Vec<Token>) -> Op {
 
 fn parse_cast(start_tok: &Token, tokens: &mut Vec<Token>, type_map: &HashMap<String, Type>) -> Op {
     let tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenParen));
-    let (tok, typ) = parse_partial_type(&tok, tokens, type_map);
-
+    let (typ_tok, typ) = parse_partial_type(&tok, tokens, type_map);
+    let (tok, annotations) = parse_annotation_list(&typ_tok, tokens, type_map);
     let _tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::CloseParen));
+
+    let typ = if let Type::GenericUnionBase {
+        name,
+        members,
+        idents,
+        generics,
+    } = typ
+    {
+        if let Some(mut annotations) = annotations {
+            if annotations.len() != generics.len() {
+                compiler_error(
+                    &typ_tok,
+                    "Incorrect number of generic annotations provided",
+                    vec![
+                        format!("Generic Union {name} is geneic over {:?}", generics).as_str(),
+                        format!("Found annotations: {:?}", annotations).as_str(),
+                    ],
+                )
+            }
+
+            if annotations
+                .iter()
+                .any(|t| matches!(t, Type::Placeholder { .. }))
+            {
+                Type::GenericUnionInstance {
+                    base: name.clone(),
+                    members: members.clone(),
+                    idents: idents.clone(),
+                    alias_list: annotations,
+                    base_generics: generics.clone(),
+                }
+            } else {
+                let generic_map: HashMap<String, Type> = HashMap::from_iter(
+                    generics.iter().map(|t| t.name()).zip(annotations.drain(..)),
+                );
+                Type::assign_generics(start_tok, type_map.get(&name).unwrap(), &generic_map)
+            }
+        } else {
+            compiler_error(
+                &typ_tok,
+                format!("Casting to generic union `{name}` requires type annotations.").as_str(),
+                vec![format!("Annotations are required for: {:?}", generics).as_str()],
+            )
+        }
+    } else {
+        typ
+    };
 
     Op {
         kind: OpKind::Cast(typ),
@@ -635,12 +756,12 @@ fn parse_function(
 ) -> Function {
     let t = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Function));
     let (name_tok, name) = expect_word(&t, tokens);
-    let (tok, gen) = parse_annotation_list(&name_tok, tokens, type_map);
-    let gen = gen.unwrap_or_default();
+    let (tok, generics) = parse_annotation_list(&name_tok, tokens, type_map);
+    let generics = generics.unwrap_or_default();
     let (tok, sig, sig_idents) = parse_signature(&tok, tokens, type_map);
 
     sig.inputs.iter().for_each(|i| {
-        if matches!(i, Type::Placeholder { name: _ }) && !gen.contains(i) {
+        if matches!(i, Type::Placeholder { name: _ }) && !generics.contains(i) {
             compiler_error(
                 &tok,
                 format!("Unrecognized type: `{:?}`", i).as_str(),
@@ -686,10 +807,10 @@ fn parse_function(
     Function {
         name,
         token: name_tok,
-        gen,
+        generics,
         sig,
         ops,
-        gen_map: HashMap::new(),
+        generics_map: HashMap::new(),
         locals,
     }
 }
@@ -946,18 +1067,31 @@ fn parse_union(
 ) -> (String, Type) {
     let tok = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Union));
     let (name_tok, name) = expect_word(&tok, tokens);
+    let (tok, generics) = parse_annotation_list(&name_tok, tokens, type_map);
     let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
     let (members, idents) = parse_tagged_type_list(&tok, tokens, type_map);
     let _tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
 
-    (
-        name.clone(),
-        Type::Union {
-            name,
-            members,
-            idents,
-        },
-    )
+    if let Some(generics) = generics {
+        (
+            name.clone(),
+            Type::GenericUnionBase {
+                name,
+                members,
+                idents,
+                generics,
+            },
+        )
+    } else {
+        (
+            name.clone(),
+            Type::Union {
+                name,
+                members,
+                idents,
+            },
+        )
+    }
 }
 
 fn parse_struct(

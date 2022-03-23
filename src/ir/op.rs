@@ -43,7 +43,7 @@ pub enum OpKind {
     PushLocal(String),
     PushLocalPtr(usize),
     Syscall(u64),
-    Call(String),
+    Call(String, Vec<Type>),
     PrepareFunc,
     JumpCond(Option<usize>),
     Jump(Option<usize>),
@@ -94,7 +94,7 @@ impl std::fmt::Debug for OpKind {
             OpKind::PushLocal(ident) => write!(f, "PushLocal({ident})"),
             OpKind::PushLocalPtr(offset) => write!(f, "PushLocalPtr({offset})"),
             OpKind::Syscall(n) => write!(f, "Syscall({n})"),
-            OpKind::Call(func) => write!(f, "Call({func})"),
+            OpKind::Call(func, _s) => write!(f, "Call({func})"),
             OpKind::PrepareFunc => write!(f, "PrepareFunc"),
             OpKind::JumpCond(Some(dest)) => write!(f, "JumpCond({dest})"),
             OpKind::JumpCond(None) => unreachable!(),
@@ -167,6 +167,12 @@ impl Op {
                     name,
                     ref members,
                     ref idents,
+                }
+                | Type::ResolvedUnion {
+                    name,
+                    ref members,
+                    ref idents,
+                    ..
                 } => {
                     if idents.contains(&field.clone()) {
                         let idx = idents.iter().position(|s| s == &field.clone()).unwrap();
@@ -188,15 +194,22 @@ impl Op {
                         );
                     }
                 }
-                other_t => compiler_error(
+                Type::U64
+                | Type::U8
+                | Type::Bool
+                | Type::Enum { .. }
+                | Type::Pointer { .. }
+                | Type::Placeholder { .. } => compiler_error(
                     &self.token,
-                    format!(
-                        "Non-struct type {:?} doesn't have a member {field}",
-                        other_t
-                    )
-                    .as_str(),
+                    format!("Non-struct type {:?} doesn't have a member {field}", t).as_str(),
                     vec![],
                 ),
+                Type::GenericStructInstance { .. }
+                | Type::GenericStructBase { .. }
+                | Type::GenericUnionInstance { .. }
+                | Type::GenericUnionBase { .. } => {
+                    unreachable!()
+                }
             };
             t = new_t;
             t_offset += new_offset;
@@ -464,6 +477,7 @@ impl Op {
                 } else {
                     Type::assign_generics(&self.token, typ, gen_map)
                 };
+
                 match &cast_type {
                     Type::Struct {
                         name: _, members, ..
@@ -477,6 +491,14 @@ impl Op {
                             stack,
                         );
                     }
+                    Type::GenericUnionBase { .. } => unimplemented!(
+                        "{}: Casting to generic union base isn't implemented yet",
+                        self.token.loc
+                    ),
+                    Type::GenericUnionInstance { .. } => unimplemented!(
+                        "{}: Casting to generic union instance isn't implemented yet",
+                        self.token.loc
+                    ),
                     Type::GenericStructBase { name, members, .. } => {
                         if members.len() > stack.len() {
                             compiler_error(
@@ -517,6 +539,9 @@ impl Op {
                             None
                             | Some(Type::Enum { .. })
                             | Some(Type::Union { .. })
+                            | Some(Type::GenericUnionBase { .. })
+                            | Some(Type::GenericUnionInstance { .. })
+                            | Some(Type::ResolvedUnion { .. })
                             | Some(Type::Struct { .. })
                             | Some(Type::GenericStructBase { .. })
                             | Some(Type::GenericStructInstance { .. })
@@ -541,6 +566,9 @@ impl Op {
                             None
                             | Some(Type::Enum { .. })
                             | Some(Type::Union { .. })
+                            | Some(Type::GenericUnionBase { .. })
+                            | Some(Type::GenericUnionInstance { .. })
+                            | Some(Type::ResolvedUnion { .. })
                             | Some(Type::Pointer { .. })
                             | Some(Type::Struct { .. })
                             | Some(Type::GenericStructBase { .. })
@@ -568,7 +596,7 @@ impl Op {
                             stack,
                         );
                     }
-                    Type::Union { members, .. } => {
+                    Type::Union { members, .. } | Type::ResolvedUnion { members, .. } => {
                         if let Some(typ) = stack.pop() {
                             if members.contains(&typ) {
                                 evaluate_signature(
@@ -822,15 +850,32 @@ impl Op {
 
                 None
             }
-            OpKind::Call(func_name) => {
+            OpKind::Call(func_name, annotations) => {
                 let f = fn_table.get(func_name).unwrap_or_else(|| {
                     panic!("Function names should be recognizable at this point... {func_name}")
                 });
 
                 if f.is_generic() {
-                    let new_fn = f.resolve_generic_function(&self.token, stack);
+                    let new_fn = if annotations.is_empty() {
+                        f.resolve_generic_function(&self.token, stack)
+                    } else {
+                        println!("Calling {} with anootations: {:?}", func_name, annotations);
+                        println!("Generic Map: {:?}", gen_map);
+                        let mut resolved_annotations: Vec<Type> = annotations
+                            .iter()
+                            .map(|t| {
+                                if gen_map.contains_key(&t.name()) {
+                                    gen_map.get(&t.name()).unwrap().clone()
+                                } else {
+                                    t.clone()
+                                }
+                            })
+                            .collect();
+                        println!("resolved annotations: {:?}", resolved_annotations);
+                        f.assign_generics(&self.token, &mut resolved_annotations)
+                    };
                     evaluate_signature(self, &new_fn.sig, stack);
-                    Some((OpKind::Call(new_fn.name.clone()), new_fn))
+                    Some((OpKind::Call(new_fn.name.clone(), vec![]), new_fn))
                 } else {
                     evaluate_signature(self, &f.sig, stack);
                     None

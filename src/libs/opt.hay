@@ -1,0 +1,46 @@
+include "str.hay"
+enum OptTag {
+    Some
+    None
+}
+
+union OptVal<T> {
+    T: Some
+    u64: None
+}
+
+struct Opt<T> {
+    OptVal<T>: value
+    OptTag: tag
+}
+
+fn Opt.Some<T>(T) -> [Opt<T>] {
+    cast(OptVal<T>)
+    OptTag::Some
+    cast(Opt)
+}
+
+fn Opt.None<T>() -> [Opt<T>] {
+    0 cast(OptVal<T>)
+    OptTag::None
+    cast(Opt)
+}
+
+fn Opt.is_some<T>(Opt<T>: opt) -> [bool] {
+    opt::tag OptTag::Some ==
+}
+
+fn Opt.is_none<T>(Opt<T>: opt) -> [bool] {
+    opt::tag OptTag::None ==
+}
+
+fn Opt.unwrap<T>(Opt<T>: opt) -> [T] {
+
+    opt Opt.is_none if {
+        "Unwrapped a None variant" putlns
+        1 exit 
+    }
+
+    opt::value::Some
+
+}

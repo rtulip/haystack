@@ -8,6 +8,10 @@ pub enum Type {
     U64,
     U8,
     Bool,
+    Enum {
+        name: String,
+        variants: Vec<String>,
+    },
     Placeholder {
         name: String,
     },
@@ -55,13 +59,10 @@ impl Type {
 
     pub fn size(&self) -> usize {
         match self {
-            Type::U64 | Type::U8 | Type::Bool | Type::Pointer { .. } => 1,
-            Type::Struct {
-                name: _, members, ..
+            Type::U64 | Type::U8 | Type::Bool | Type::Pointer { .. } | Type::Enum { .. } => 1,
+            Type::Struct { members, .. } | Type::ResolvedStruct { members, .. } => {
+                members.iter().map(|t| t.size()).sum()
             }
-            | Type::ResolvedStruct {
-                name: _, members, ..
-            } => members.iter().map(|t| t.size()).sum(),
             Type::Union { members, .. } => members.iter().map(|t| t.size()).max().unwrap(),
             Type::Placeholder { .. } => panic!("Size of Placeholder types are unknown: {:?}", self),
             Type::GenericStructBase { .. } => panic!("Size of a generic struct is unknown"),
@@ -347,6 +348,9 @@ impl Type {
             (Type::Union { .. }, _) => {
                 unimplemented!("{}: Resolving unions isn't implemented yet.", token.loc)
             }
+            (Type::Enum { .. }, _) => {
+                unimplemented!("{}: Resolving enums isn't implemented yet.", token.loc)
+            }
         };
 
         t
@@ -471,8 +475,9 @@ impl std::fmt::Debug for Type {
             Type::U8 => write!(f, "u8"),
             Type::Bool => write!(f, "bool"),
             Type::Pointer { typ, .. } => write!(f, "*{:?}", *typ),
-            Type::Placeholder { name } => write!(f, "{name}"),
-            Type::Struct { name, .. }
+            Type::Placeholder { name }
+            | Type::Enum { name, .. }
+            | Type::Struct { name, .. }
             | Type::ResolvedStruct { name, .. }
             | Type::Union { name, .. } => write!(f, "{name}"),
             Type::GenericStructBase {

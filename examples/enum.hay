@@ -6,7 +6,7 @@ enum Foo {
 }
 
 fn main() {
-    Foo::x Foo::y == if {
+    Foo::x Foo::z == if {
         "Enums match!" putlns
     } else {
         "Enums don't match" putlns

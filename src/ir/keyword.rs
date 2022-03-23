@@ -10,6 +10,7 @@ pub enum Keyword {
     While,
     Struct,
     Union,
+    Enum,
     Cast,
     Split,
     Syscall,

@@ -180,8 +180,8 @@ pub fn type_check_while_block(
         _ => unreachable!(),
     };
 
-    let mut while_body_stack = initial_stack.clone();
-    let mut while_body_frame = initial_frame.clone();
+    let mut while_body_stack = stack.clone();
+    let mut while_body_frame = frame.clone();
     let (jump_ip, mut while_body_fns) = type_check_ops_list(
         ops,
         jump_cond_ip + 1,

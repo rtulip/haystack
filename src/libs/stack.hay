@@ -1,31 +1,37 @@
 include "std.hay"
+include "opt.hay"
 struct Stack<T> {
     u64: size
     Arr<T>: arr
 }
 
-fn Stack.push<T>(T: value Stack<T>: stk) -> [Stack<T>] {
-    stk::size >= stk::arr::size if {
-        "Stack is full. Cannot push new item" putlns
-        1 exit
-    }
-    value stk::size stk::arr Arr.set
-    stk::size 1 + stk::arr cast(Stack)
+fn Stack.init<T>(Arr<T>: arr) -> [Stack<T>] {
+    0 arr memset
+    0 arr cast(Stack)
 }
 
-fn Stack.pop<T>(Stack<T>: stk) -> [Stack<T> T] {
-    stk::size 0 == if {
-        "Stack is empty. Cannot pop item." putlns
-        1 exit
+fn Stack.push<T>(T: value Stack<T>: stk) -> [Stack<T> Opt<T>] {
+    stk::size stk::arr::size >= if {
+        stk value Opt.Some
+    } else {
+        value stk::size stk::arr Arr.set
+        stk::size 1 + stk::arr cast(Stack) Opt.None::<T>
     }
-    stk::size 1 - stk::arr Arr.get as [value]
-    stk::size 1 - stk::arr cast(Arr) value 
 }
 
-fn Stack.peek<T>(Stack<T>: stk) -> [T] {
+fn Stack.pop<T>(Stack<T>: stk) -> [Stack<T> Opt<T>] {
     stk::size 0 == if {
-        "Stack is empty. Nothing to peek at." putlns
-        1 exit
+        stk Opt.None::<T>
+    } else {
+        stk::size 1 - stk::arr Arr.get Opt.Some as [value]
+        stk::size 1 - stk::arr cast(Stack) value 
     }
-    stk::size 1 - stk::arr Arr.get 
+}
+
+fn Stack.peek<T>(Stack<T>: stk) -> [Opt<T>] {
+    stk::size 0 == if {
+        Opt.None::<T>
+    } else {
+        stk::size 1 - stk::arr Arr.get 
+    }
 }

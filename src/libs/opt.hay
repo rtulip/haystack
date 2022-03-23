@@ -45,6 +45,10 @@ fn Opt.unwrap<T>(Opt<T>: opt) -> [T] {
 
 }
 
+fn foo<T>(T: dropped) -> [Opt<T>] {
+    Opt.None::<T>
+}
+
 fn main() {
 
     "Hello World" Opt.Some as [someStr]
@@ -59,8 +63,7 @@ fn main() {
 
     noneStr Opt.unwrap putlns
 
-    Opt.None::<bool> as [noneT]
-    
+    true foo as [noneBool]
 
 
 }

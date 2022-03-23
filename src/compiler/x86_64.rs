@@ -53,7 +53,6 @@ fn compile_op(
 ) {
     writeln!(file, "  ; -- {:?}", op).unwrap();
     match &op.kind {
-        OpKind::AnnotatedWord(_, _) => todo!(),
         OpKind::PushInt(x) => writeln!(file, "  push {x}").unwrap(),
         OpKind::PushBool(b) => {
             if *b {
@@ -269,7 +268,7 @@ fn compile_op(
             writeln!(file, "  syscall").unwrap();
             writeln!(file, "  push rax").unwrap();
         }
-        OpKind::Call(name) => {
+        OpKind::Call(name, _) => {
             writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
             frame_push_rax(file);
             writeln!(file, "  mov  rax, [frame_end_ptr]").unwrap();
@@ -331,7 +330,7 @@ fn nasm_close(
     writeln!(file, "  mov  qword [frame_end_ptr], frame_stack_end").unwrap();
     compile_op(
         &Op {
-            kind: OpKind::Call("main".to_string()),
+            kind: OpKind::Call("main".to_string(), vec![]),
             ..Default::default()
         },
         None,

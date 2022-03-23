@@ -76,6 +76,25 @@ impl Type {
         }
     }
 
+    pub fn is_generic(&self) -> bool {
+        match self {
+            Type::Placeholder { .. }
+            | Type::GenericStructBase { .. }
+            | Type::GenericStructInstance { .. }
+            | Type::GenericUnionBase { .. }
+            | Type::GenericUnionInstance { .. } => true,
+            Type::Pointer { typ } => typ.is_generic(),
+            Type::U64
+            | Type::U8
+            | Type::Bool
+            | Type::Enum { .. }
+            | Type::Struct { .. }
+            | Type::ResolvedStruct { .. }
+            | Type::Union { .. }
+            | Type::ResolvedUnion { .. } => false,
+        }
+    }
+
     pub fn size(&self) -> usize {
         match self {
             Type::U64 | Type::U8 | Type::Bool | Type::Pointer { .. } | Type::Enum { .. } => 1,

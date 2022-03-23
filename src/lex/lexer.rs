@@ -148,7 +148,7 @@ fn parse_tokens_until_tokenkind(
 
                     if let Some(annotations) = annotations {
                         ops.push(Op {
-                            kind: OpKind::AnnotatedWord(s.clone(), annotations),
+                            kind: OpKind::Call(s.clone(), annotations),
                             token: token.clone(),
                         })
                     } else {

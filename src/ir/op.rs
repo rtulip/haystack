@@ -37,14 +37,13 @@ pub enum OpKind {
     Global(String),
     Word(String),
     Ident(String, Vec<String>),
-    AnnotatedWord(String, Vec<Type>),
     MakeIdent { ident: String, size: Option<usize> },
     PushFramed { offset: usize, size: usize },
     PushIdent { index: usize, inner: Vec<String> },
     PushLocal(String),
     PushLocalPtr(usize),
     Syscall(u64),
-    Call(String),
+    Call(String, Vec<Type>),
     PrepareFunc,
     JumpCond(Option<usize>),
     Jump(Option<usize>),
@@ -89,14 +88,13 @@ impl std::fmt::Debug for OpKind {
             OpKind::Global(s) => write!(f, "Global({s})"),
             OpKind::Word(s) => write!(f, "Word({s})"),
             OpKind::Ident(s, fs) => write!(f, "Ident({s}::{:?}", fs),
-            OpKind::AnnotatedWord(s, ts) => write!(f, "Word({s}<{:?}>", ts),
             OpKind::MakeIdent { ident: s, .. } => write!(f, "MakeIdent({s})"),
             OpKind::PushIdent { index: i, .. } => write!(f, "PushIdent({i})"),
             OpKind::PushFramed { offset, size } => write!(f, "PushFrame({offset}:{size})"),
             OpKind::PushLocal(ident) => write!(f, "PushLocal({ident})"),
             OpKind::PushLocalPtr(offset) => write!(f, "PushLocalPtr({offset})"),
             OpKind::Syscall(n) => write!(f, "Syscall({n})"),
-            OpKind::Call(func) => write!(f, "Call({func})"),
+            OpKind::Call(func, _s) => write!(f, "Call({func})"),
             OpKind::PrepareFunc => write!(f, "PrepareFunc"),
             OpKind::JumpCond(Some(dest)) => write!(f, "JumpCond({dest})"),
             OpKind::JumpCond(None) => unreachable!(),
@@ -852,15 +850,32 @@ impl Op {
 
                 None
             }
-            OpKind::Call(func_name) => {
+            OpKind::Call(func_name, annotations) => {
                 let f = fn_table.get(func_name).unwrap_or_else(|| {
                     panic!("Function names should be recognizable at this point... {func_name}")
                 });
 
                 if f.is_generic() {
-                    let new_fn = f.resolve_generic_function(&self.token, stack);
+                    let new_fn = if annotations.is_empty() {
+                        f.resolve_generic_function(&self.token, stack)
+                    } else {
+                        println!("Calling {} with anootations: {:?}", func_name, annotations);
+                        println!("Generic Map: {:?}", gen_map);
+                        let mut resolved_annotations: Vec<Type> = annotations
+                            .iter()
+                            .map(|t| {
+                                if gen_map.contains_key(&t.name()) {
+                                    gen_map.get(&t.name()).unwrap().clone()
+                                } else {
+                                    t.clone()
+                                }
+                            })
+                            .collect();
+                        println!("resolved annotations: {:?}", resolved_annotations);
+                        f.assign_generics(&self.token, &mut resolved_annotations)
+                    };
                     evaluate_signature(self, &new_fn.sig, stack);
-                    Some((OpKind::Call(new_fn.name.clone()), new_fn))
+                    Some((OpKind::Call(new_fn.name.clone(), vec![]), new_fn))
                 } else {
                     evaluate_signature(self, &f.sig, stack);
                     None
@@ -882,9 +897,6 @@ impl Op {
                 unreachable!("Shouldn't have any words left to type check: {:?}", self)
             }
             OpKind::Ident(_, _) => unreachable!("Shouldn't have any idents left to type check"),
-            OpKind::AnnotatedWord(_, _) => {
-                todo!()
-            }
             OpKind::PrepareFunc => None,
             OpKind::Default => unreachable!("Default op shouldn't be compiled"),
         };

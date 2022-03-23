@@ -20,7 +20,6 @@ pub fn compile_haystack(input_path: String, run: bool, ir: bool, simple: bool) -
     program.check_for_entry_point();
     program.check_for_name_conflicts();
     program.assign_words();
-    program.resolve_annoated_fn_calls();
     if ir {
         program_to_json(&ir_path, &program);
     }

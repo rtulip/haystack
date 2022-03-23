@@ -142,6 +142,13 @@ impl Function {
             )
         }
 
+        let generics: Vec<Type> = annotations
+            .iter()
+            .filter(|t| t.is_generic())
+            .map(|t| t.clone())
+            .collect();
+
+        println!("Generics: {:?}", generics);
         let generics_map: HashMap<String, Type> = HashMap::from_iter(
             self.generics
                 .iter()
@@ -186,7 +193,7 @@ impl Function {
         Function {
             name: new_name,
             token: self.token.clone(),
-            generics: vec![],
+            generics,
             sig,
             ops: new_ops,
             generics_map,

@@ -1206,9 +1206,9 @@ fn parse_global_var(
     token: &Token,
     tokens: &mut Vec<Token>,
     type_map: &HashMap<String, Type>,
-    globals: &mut HashMap<String, (Type, String)>,
+    globals: &mut BTreeMap<String, (Type, String)>,
     init_data: &mut BTreeMap<String, InitData>,
-    uninit_data: &mut HashMap<String, UninitData>,
+    uninit_data: &mut BTreeMap<String, UninitData>,
 ) {
     let tok = expect_token_kind(token, tokens, TokenKind::Keyword(Keyword::Var));
     if let Some((tok, ident, typ, array_n)) = parse_tagged_type(&tok, tokens, type_map) {

@@ -225,7 +225,7 @@ impl Op {
         type_map: &HashMap<String, Type>,
         gen_map: &HashMap<String, Type>,
         locals: &BTreeMap<String, LocalVar>,
-        globals: &HashMap<String, (Type, String)>,
+        globals: &BTreeMap<String, (Type, String)>,
     ) -> Option<Function> {
         let op: Option<(OpKind, Function)> = match &self.kind {
             OpKind::Add => {

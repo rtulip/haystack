@@ -14,9 +14,9 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 pub struct Program {
     pub types: HashMap<String, Type>,
     pub functions: Vec<Function>,
-    pub global_vars: HashMap<String, (Type, String)>,
+    pub global_vars: BTreeMap<String, (Type, String)>,
     pub init_data: BTreeMap<String, InitData>,
-    pub uninit_data: HashMap<String, UninitData>,
+    pub uninit_data: BTreeMap<String, UninitData>,
 }
 
 impl Program {
@@ -42,9 +42,9 @@ impl Program {
                 (String::from("Arr"), Type::arr_base()),
             ]),
             functions: vec![],
-            global_vars: HashMap::new(),
+            global_vars: BTreeMap::new(),
             init_data: BTreeMap::new(),
-            uninit_data: HashMap::new(),
+            uninit_data: BTreeMap::new(),
         }
     }
 
@@ -112,11 +112,13 @@ impl Program {
                 });
         });
 
-        self.global_vars = HashMap::from_iter(
-            self.global_vars
-                .drain()
-                .map(|(k, v)| (global_names.get(&k).unwrap().clone(), v)),
-        );
+        let mut tmp_map: HashMap<String, (Type, String)> = HashMap::new();
+
+        self.global_vars.iter().for_each(|(k, v)| {
+            tmp_map.insert(global_names.get(k).unwrap().clone(), v.clone());
+        });
+
+        self.global_vars = BTreeMap::from_iter(tmp_map.drain());
     }
 
     pub fn normalize_function_names(&mut self) {

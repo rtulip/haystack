@@ -13,7 +13,6 @@ fn File.open(u64: mode u64: flags Str: path) -> [File] {
     }
 
     mode flags filepath::data sys_open as [fd]
-    "Fd: " puts fd putlnu
 
     fd cast(File)
 }
@@ -26,6 +25,10 @@ fn File.read_path_to_buff(Str: path Arr<u8>: buffer) -> [Arr<u8>] {
     0 0 path File.open as [file]
     file buffer File.read_to_buff
     file File.close
+}
+
+fn File.read_path_to_str(Str Arr<u8>) -> [Str] {
+    File.read_path_to_buff split cast(Str)
 }
 
 fn File.read_to_buff(File: file Arr<u8>: buffer) -> [Arr<u8>] {

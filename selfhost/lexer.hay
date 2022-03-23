@@ -1,5 +1,6 @@
 include "std.hay"
 include "file.hay"
+include "stack.hay"
 
 include "selfhost/ir/token.hay"
 
@@ -15,16 +16,5 @@ fn main()
 
     //path filebuff File.read_path_to_buff
     //split cast(Str) putlns
-
-    "path/to/file" 1 1 cast(Loc) as [loc]
-
-    Keyword::Function TokenKind.from_keyword loc cast(Token)
-    Token.puts "\n" puts
-    69 Literal.from_u64 TokenKind.from_literal loc cast(Token)
-    Token.puts "\n" puts 
-    "Hello World" Literal.from_str TokenKind.from_literal loc cast(Token)
-    Token.puts "\n" puts
-    true Literal.from_bool TokenKind.from_literal loc cast(Token)
-    Token.puts "\n" puts 
 
 }

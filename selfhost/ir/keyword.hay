@@ -1,0 +1,58 @@
+include "std.hay"
+enum Keyword {
+    Function
+    Var
+    As
+    If
+    Else
+    While
+    Struct
+    Union
+    Enum
+    Cast
+    Split
+    Syscall
+    Include
+    SizeOf
+}
+
+fn Keyword.fputs(Keyword: kw u64: fd) {
+
+    "Keyword::" fd fputs
+    kw Keyword::Function == if {
+        "Function" fd fputs
+    } else kw Keyword::Var == if {
+        "Var" fd fputs
+    } else kw Keyword::As == if {
+        "As" fd fputs
+    } else kw Keyword::If == if {
+        "If" fd fputs
+    } else kw Keyword::Else == if {
+        "Else" fd fputs
+    } else kw Keyword::While == if {
+        "While" fd fputs
+    } else kw Keyword::Struct == if {
+        "Struct" fd fputs
+    } else kw Keyword::Union == if {
+        "Union" fd fputs
+    } else kw Keyword::Enum == if {
+        "Enum" fd fputs
+    } else kw Keyword::Cast == if {
+        "Cast" fd fputs
+    } else kw Keyword::Split == if {
+        "Split" fd fputs
+    } else kw Keyword::Syscall == if {
+        "Syscall" fd fputs
+    } else kw Keyword::Include == if {
+        "Include" fd fputs
+    } else kw Keyword::SizeOf == if {
+        "SizeOf" fd fputs
+    } else {
+        "Unrecognized Keyword" putlns
+        1 exit
+    }
+}
+
+fn Keyword.puts(Keyword) {
+    1 Keyword.fputs
+}

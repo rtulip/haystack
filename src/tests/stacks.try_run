@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "Popped: 9\nPopped: 8\nPopped: 7\nPopped: 6\nPopped: 5\nPopped: 4\nPopped: 3\nPopped: 2\nPopped: 1\nPopped: 0\n",
+  "stderr": ""
+}

@@ -1,0 +1,53 @@
+include "std.hay"
+enum Operator {
+    Add
+    Sub
+    Mul
+    Div
+    LessThan
+    LessEqual
+    GreaterThan
+    GreaterEqual
+    Equals
+    NotEquals
+    Mod
+    Read
+    Write
+}
+
+fn Operator.fputs(Operator: op u64: fd) {
+
+    "Operator::" fd fputs
+    op Operator::Add == if {
+        "Add" fd fputs
+    } else op Operator::Sub == if {
+        "Sub" fd fputs
+    } else op Operator::Mul == if {
+        "Mul" fd fputs
+    } else op Operator::Div == if {
+        "Div" fd fputs
+    } else op Operator::LessThan == if {
+        "LessThan" fd fputs
+    } else op Operator::LessEqual == if {
+        "LessEqual" fd fputs
+    } else op Operator::GreaterThan == if {
+        "GreaterThan" fd fputs
+    } else op Operator::GreaterEqual == if {
+        "GreaterEqual" fd fputs
+    } else op Operator::Equals == if {
+        "Equals" fd fputs
+    } else op Operator::NotEquals == if {
+        "NotEquals" fd fputs
+    } else op Operator::Mod == if {
+        "Mod" fd fputs
+    } else op Operator::Read == if {
+        "Read" fd fputs
+    } else op Operator::Write == if {
+        "Write" fd fputs
+    } else {
+        "Unhandled Operator" putlns
+        1 exit
+    }
+}
+
+fn Operator.puts(Operator) { 1 Operator.fputs }

@@ -148,7 +148,6 @@ impl Function {
             .map(|t| t.clone())
             .collect();
 
-        println!("Generics: {:?}", generics);
         let generics_map: HashMap<String, Type> = HashMap::from_iter(
             self.generics
                 .iter()

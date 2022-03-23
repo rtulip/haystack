@@ -1,0 +1,37 @@
+include "std.hay"
+include "opt.hay"
+struct Stack<T> {
+    u64: size
+    Arr<T>: arr
+}
+
+fn Stack.init<T>(Arr<T>: arr) -> [Stack<T>] {
+    0 arr memset
+    0 arr cast(Stack)
+}
+
+fn Stack.push<T>(T: value Stack<T>: stk) -> [Stack<T> Opt<T>] {
+    stk::size stk::arr::size >= if {
+        stk value Opt.Some
+    } else {
+        value stk::size stk::arr Arr.set
+        stk::size 1 + stk::arr cast(Stack) Opt.None::<T>
+    }
+}
+
+fn Stack.pop<T>(Stack<T>: stk) -> [Stack<T> Opt<T>] {
+    stk::size 0 == if {
+        stk Opt.None::<T>
+    } else {
+        stk::size 1 - stk::arr Arr.get Opt.Some as [value]
+        stk::size 1 - stk::arr cast(Stack) value 
+    }
+}
+
+fn Stack.peek<T>(Stack<T>: stk) -> [Opt<T>] {
+    stk::size 0 == if {
+        Opt.None::<T>
+    } else {
+        stk::size 1 - stk::arr Arr.get 
+    }
+}

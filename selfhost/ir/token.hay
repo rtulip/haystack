@@ -1,0 +1,133 @@
+include "std.hay"
+include "selfhost/ir/keyword.hay"
+include "selfhost/ir/literal.hay"
+include "selfhost/ir/operator.hay"
+include "selfhost/ir/marker.hay"
+
+enum TokenKindTag {
+    Keyword
+    Operator
+    Literal
+    Marker
+    Word
+    Comment
+    EndOfFile
+}
+
+union TokenKindValue {
+    Keyword: keyword
+    Operator: operator
+    Literal: literal
+    Marker: marker
+    Str: word
+    Str: comment
+    u64: eof
+}
+
+struct TokenKind {
+    TokenKindTag: tag
+    TokenKindValue: value
+}
+
+fn TokenKind.fputs(TokenKind: kind u64: fd) {
+    "TokenKind::" fd fputs
+    kind::tag TokenKindTag::Keyword == if {
+        kind::value::keyword fd Keyword.fputs
+    } else kind::tag TokenKindTag::Operator == if {
+        kind::value::operator fd Operator.fputs
+    } else kind::tag TokenKindTag::Literal == if {
+        kind::value::literal fd Literal.fputs
+    } else kind::tag TokenKindTag::Marker == if {
+        kind::value::marker fd Marker.fputs
+    } else kind::tag TokenKindTag::Word == if {
+        "Word(" fd fputs
+        kind::value::word fd fputs
+        ")" fd fputs
+    } else kind::tag TokenKindTag::Comment == if {
+        "Word(" fd fputs
+        kind::value::comment fd fputs
+        ")" fd fputs    
+    } else kind::tag TokenKindTag::EndOfFile == if {
+        "EndOfFile" fd fputs
+    } else {
+        "Unhandled TokenKind" putlns
+        1 exit
+    }
+
+}
+
+fn TokenKind.from_keyword(Keyword: value) -> [TokenKind] {
+    TokenKindTag::Keyword
+    value cast(TokenKindValue)
+    cast(TokenKind)
+}
+
+fn TokenKind.from_operator(Operator: value) -> [TokenKind] {
+    TokenKindTag::Operator
+    value cast(TokenKindValue)
+    cast(TokenKind)
+}
+
+fn TokenKind.from_literal(Literal: value) -> [TokenKind] {
+    TokenKindTag::Literal
+    value cast(TokenKindValue)
+    cast(TokenKind)
+}
+
+fn TokenKind.from_marker(Marker: value) -> [TokenKind] {
+    TokenKindTag::Marker
+    value cast(TokenKindValue)
+    cast(TokenKind)
+}
+
+fn TokenKind.from_word(Str: value) -> [TokenKind] {
+    TokenKindTag::Word
+    value cast(TokenKindValue)
+    cast(TokenKind)
+}
+
+fn TokenKind.from_comment(Str: value) -> [TokenKind] {
+    TokenKindTag::Comment
+    value cast(TokenKindValue)
+    cast(TokenKind)
+}
+
+fn TokenKind.from_eof() -> [TokenKind] {
+    TokenKindTag::EndOfFile
+    0 cast(TokenKindValue)
+    cast(TokenKind)
+}
+
+struct Loc {
+    Str: file
+    u64: row
+    u64: col
+}
+
+fn Loc.fputs(Loc: loc u64: fd) {
+    loc::file fd fputs 
+    ":" fd fputs 
+    loc::row fd fputu 
+    ":" fd fputs 
+    loc::col fd fputu
+}
+
+fn Loc.puts(Loc) {
+    1 Loc.fputs
+}
+
+struct Token {
+    TokenKind: kind
+    Loc: loc
+}
+
+fn Token.fputs(Token: tok u64: fd) {
+    tok::loc fd Loc.fputs
+    ": " fd fputs
+    tok::kind fd TokenKind.fputs 
+}
+
+fn Token.puts(Token) {
+    1 Token.fputs
+}
+

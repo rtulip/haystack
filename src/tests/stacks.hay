@@ -1,0 +1,25 @@
+include "std.hay"
+include "stack.hay"
+
+fn main()
+{
+    var u64[10]: data
+    var Stack<u64>: stk_p
+
+    // Initialize the Stack.
+    data @ Stack.init stk_p !
+
+    // Fill the stack with values 0..9
+    0 while dup stk_p @ Stack.push Opt.is_none
+    {
+        stk_p !
+        1 + 
+    } drop drop
+
+    // Empty the stack.
+    while stk_p @ Stack.pop dup Opt.is_some {
+        "Popped: " puts Opt.unwrap putlnu
+        stk_p !
+    } drop drop
+    
+}

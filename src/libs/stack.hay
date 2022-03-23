@@ -5,8 +5,11 @@ struct Stack<T> {
     Arr<T>: arr
 }
 
+fn Stack.arr<T>(Stack<T>: stk) -> [Arr<T>] {
+    stk::arr
+}
+
 fn Stack.init<T>(Arr<T>: arr) -> [Stack<T>] {
-    0 arr memset
     0 arr cast(Stack)
 }
 

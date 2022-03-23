@@ -66,7 +66,7 @@ fn type_check_if_block(
     type_map: &HashMap<String, Type>,
     gen_map: &HashMap<String, Type>,
     locals: &BTreeMap<String, LocalVar>,
-    globals: &HashMap<String, (Type, String)>,
+    globals: &BTreeMap<String, (Type, String)>,
 ) -> (usize, Vec<Function>) {
     assert!(matches!(ops[start_ip].kind, OpKind::Nop(Keyword::If)));
     assert!(
@@ -156,7 +156,7 @@ pub fn type_check_while_block(
     type_map: &HashMap<String, Type>,
     gen_map: &HashMap<String, Type>,
     locals: &BTreeMap<String, LocalVar>,
-    globals: &HashMap<String, (Type, String)>,
+    globals: &BTreeMap<String, (Type, String)>,
 ) -> (usize, Vec<Function>) {
     let initial_stack = stack.clone();
     let initial_frame = frame.clone();
@@ -227,7 +227,7 @@ pub fn type_check_ops_list(
     type_map: &HashMap<String, Type>,
     gen_map: &HashMap<String, Type>,
     locals: &BTreeMap<String, LocalVar>,
-    globals: &HashMap<String, (Type, String)>,
+    globals: &BTreeMap<String, (Type, String)>,
     break_on: Vec<Box<dyn Fn(&Op) -> bool>>,
 ) -> (usize, Vec<Function>) {
     let mut ip = start_ip;

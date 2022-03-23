@@ -4,7 +4,7 @@ use crate::ir::{
     op::{Op, OpKind},
     program::Program,
 };
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::io::prelude::*;
 
 fn init_data_to_x86_64(file: &mut std::fs::File, ident: &str, data: &InitData) {
@@ -322,7 +322,7 @@ fn nasm_prelude(file: &mut std::fs::File) {
 fn nasm_close(
     file: &mut std::fs::File,
     init_data: &BTreeMap<String, InitData>,
-    uninit_data: &HashMap<String, UninitData>,
+    uninit_data: &BTreeMap<String, UninitData>,
 ) {
     writeln!(file, "global _start").unwrap();
     writeln!(file, "_start: ").unwrap();

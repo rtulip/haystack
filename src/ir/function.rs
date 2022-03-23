@@ -51,7 +51,7 @@ impl Function {
         &mut self,
         fn_table: &FnTable,
         type_map: &HashMap<String, Type>,
-        globals: &HashMap<String, (Type, String)>,
+        globals: &BTreeMap<String, (Type, String)>,
     ) -> Option<Vec<Function>> {
         if self.is_generic() {
             return None;

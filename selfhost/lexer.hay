@@ -4,26 +4,28 @@ include "stack.hay"
 
 include "selfhost/ir/token.hay"
 
-//var u8[65536]: filebuff_p
+var u8[65536]: filebuff_p
+var Token[2048]: token_buff_p
+var Stack<Token>: tokens_p
+
+fn drop_leading_whitespace(Str) -> [Str] {
+    while as [s] {
+        s
+        s 0 1 Str.substr  " "  Str.equals
+        s 0 1 Str.substr  "\n" Str.equals land 
+    }
+    {
+        Str.drop_front
+    }
+}
 
 fn main()
 {
-
-    var u64[10]: data
-    var Stack<u64>: stk_p
-
-    data @ Stack.init stk_p !
-
-    0 while dup stk_p @ Stack.push Opt.is_none
-    {
-        stk_p !
-        1 + 
-    } drop drop
-
-    while stk_p @ Stack.pop dup Opt.is_some {
-        "Popped: " puts Opt.unwrap putlnu
-        stk_p !
-    } drop drop
+    token_buff_p @ Stack.init tokens_p !
     
+    //"./selfhost/lexer.hay" filebuff_p @ File.read_path_to_str
+
+    "     Hello World"  dup putlns 
+    drop_leading_whitespace putlns
 
 }

@@ -31,3 +31,10 @@ fn land(bool: a bool: b) -> [bool] {
         false
     }
 }
+fn lor(bool: a bool: b) -> [bool] {
+    a if {
+        true
+    } else {
+        b if { true } else { false }
+    }
+}

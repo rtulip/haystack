@@ -946,18 +946,31 @@ fn parse_union(
 ) -> (String, Type) {
     let tok = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Union));
     let (name_tok, name) = expect_word(&tok, tokens);
+    let (tok, generics) = parse_annotation_list(&name_tok, tokens, type_map);
     let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
     let (members, idents) = parse_tagged_type_list(&tok, tokens, type_map);
     let _tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
 
-    (
-        name.clone(),
-        Type::Union {
-            name,
-            members,
-            idents,
-        },
-    )
+    if let Some(generics) = generics {
+        (
+            name.clone(),
+            Type::GenericUnionBase {
+                name,
+                members,
+                idents,
+                generics,
+            },
+        )
+    } else {
+        (
+            name.clone(),
+            Type::Union {
+                name,
+                members,
+                idents,
+            },
+        )
+    }
 }
 
 fn parse_struct(

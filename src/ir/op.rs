@@ -477,6 +477,10 @@ impl Op {
                             stack,
                         );
                     }
+                    Type::GenericUnionBase { .. } => unimplemented!(
+                        "{}: Casting to instance of generic union isn't implemented yet",
+                        self.token.loc
+                    ),
                     Type::GenericStructBase { name, members, .. } => {
                         if members.len() > stack.len() {
                             compiler_error(
@@ -517,6 +521,7 @@ impl Op {
                             None
                             | Some(Type::Enum { .. })
                             | Some(Type::Union { .. })
+                            | Some(Type::GenericUnionBase { .. })
                             | Some(Type::Struct { .. })
                             | Some(Type::GenericStructBase { .. })
                             | Some(Type::GenericStructInstance { .. })
@@ -541,6 +546,7 @@ impl Op {
                             None
                             | Some(Type::Enum { .. })
                             | Some(Type::Union { .. })
+                            | Some(Type::GenericUnionBase { .. })
                             | Some(Type::Pointer { .. })
                             | Some(Type::Struct { .. })
                             | Some(Type::GenericStructBase { .. })

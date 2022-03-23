@@ -15,13 +15,13 @@ pub enum Type {
     Placeholder {
         name: String,
     },
+    Pointer {
+        typ: Box<Type>,
+    },
     Struct {
         name: String,
         members: Vec<Type>,
         idents: Vec<String>,
-    },
-    Pointer {
-        typ: Box<Type>,
     },
     GenericStructBase {
         name: String,
@@ -47,6 +47,12 @@ pub enum Type {
         members: Vec<Type>,
         idents: Vec<String>,
     },
+    GenericUnionBase {
+        name: String,
+        members: Vec<Type>,
+        idents: Vec<String>,
+        generics: Vec<Type>,
+    },
 }
 
 impl Type {
@@ -64,6 +70,9 @@ impl Type {
                 members.iter().map(|t| t.size()).sum()
             }
             Type::Union { members, .. } => members.iter().map(|t| t.size()).max().unwrap(),
+            Type::GenericUnionBase { .. } => {
+                panic!("Size of generic union base is unknown: {:?}", self)
+            }
             Type::Placeholder { .. } => panic!("Size of Placeholder types are unknown: {:?}", self),
             Type::GenericStructBase { .. } => panic!("Size of a generic struct is unknown"),
             Type::GenericStructInstance { .. } => {
@@ -348,6 +357,9 @@ impl Type {
             (Type::Union { .. }, _) => {
                 unimplemented!("{}: Resolving unions isn't implemented yet.", token.loc)
             }
+            (Type::GenericUnionBase { .. }, _) => {
+                panic!("GenericUnionBase should never be on the left hand side!")
+            }
             (Type::Enum { .. }, _) => {
                 unimplemented!("{}: Resolving enums isn't implemented yet.", token.loc)
             }
@@ -480,12 +492,8 @@ impl std::fmt::Debug for Type {
             | Type::Struct { name, .. }
             | Type::ResolvedStruct { name, .. }
             | Type::Union { name, .. } => write!(f, "{name}"),
-            Type::GenericStructBase {
-                name,
-                members: _,
-                idents: _,
-                generics,
-            } => {
+            Type::GenericStructBase { name, generics, .. }
+            | Type::GenericUnionBase { name, generics, .. } => {
                 write!(f, "{name}<{:?}", generics[0])?;
                 for t in generics[1..].iter() {
                     write!(f, " {:?}", t)?;

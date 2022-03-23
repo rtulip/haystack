@@ -119,6 +119,37 @@ impl Program {
         );
     }
 
+    pub fn resolve_annoated_fn_calls(&mut self) {
+        let fn_meta = self.meta();
+        let mut new_fns: Vec<Function> = vec![];
+        self.functions.iter_mut().for_each(|f| {
+            f.ops
+                .iter_mut()
+                .filter(|op| matches!(op.kind, OpKind::AnnotatedWord(_, _)))
+                .for_each(|op| match &mut op.kind {
+                    OpKind::AnnotatedWord(s, annotations) => {
+                        if let Some(func) = fn_meta.get(s) {
+                            let f = func.assign_generics(&op.token, annotations);
+                            op.kind = OpKind::Call(f.name.clone());
+                            new_fns.push(f);
+                        } else {
+                            compiler_error(
+                                &op.token,
+                                format!("Unrecognized function: {s}").as_str(),
+                                vec![],
+                            );
+                        }
+                    }
+                    _ => unreachable!(),
+                });
+        });
+        new_fns.drain(..).for_each(|f| {
+            if !self.functions.contains(&f) {
+                self.functions.push(f);
+            }
+        });
+    }
+
     pub fn normalize_function_names(&mut self) {
         let mut fn_name_map: HashMap<String, String> = HashMap::new();
         self.functions.iter().enumerate().for_each(|(i, f)| {

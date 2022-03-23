@@ -37,6 +37,7 @@ pub enum OpKind {
     Global(String),
     Word(String),
     Ident(String, Vec<String>),
+    AnnotatedWord(String, Vec<Type>),
     MakeIdent { ident: String, size: Option<usize> },
     PushFramed { offset: usize, size: usize },
     PushIdent { index: usize, inner: Vec<String> },
@@ -88,6 +89,7 @@ impl std::fmt::Debug for OpKind {
             OpKind::Global(s) => write!(f, "Global({s})"),
             OpKind::Word(s) => write!(f, "Word({s})"),
             OpKind::Ident(s, fs) => write!(f, "Ident({s}::{:?}", fs),
+            OpKind::AnnotatedWord(s, ts) => write!(f, "Word({s}<{:?}>", ts),
             OpKind::MakeIdent { ident: s, .. } => write!(f, "MakeIdent({s})"),
             OpKind::PushIdent { index: i, .. } => write!(f, "PushIdent({i})"),
             OpKind::PushFramed { offset, size } => write!(f, "PushFrame({offset}:{size})"),
@@ -167,6 +169,12 @@ impl Op {
                     name,
                     ref members,
                     ref idents,
+                }
+                | Type::ResolvedUnion {
+                    name,
+                    ref members,
+                    ref idents,
+                    ..
                 } => {
                     if idents.contains(&field.clone()) {
                         let idx = idents.iter().position(|s| s == &field.clone()).unwrap();
@@ -188,15 +196,22 @@ impl Op {
                         );
                     }
                 }
-                other_t => compiler_error(
+                Type::U64
+                | Type::U8
+                | Type::Bool
+                | Type::Enum { .. }
+                | Type::Pointer { .. }
+                | Type::Placeholder { .. } => compiler_error(
                     &self.token,
-                    format!(
-                        "Non-struct type {:?} doesn't have a member {field}",
-                        other_t
-                    )
-                    .as_str(),
+                    format!("Non-struct type {:?} doesn't have a member {field}", t).as_str(),
                     vec![],
                 ),
+                Type::GenericStructInstance { .. }
+                | Type::GenericStructBase { .. }
+                | Type::GenericUnionInstance { .. }
+                | Type::GenericUnionBase { .. } => {
+                    unreachable!()
+                }
             };
             t = new_t;
             t_offset += new_offset;
@@ -464,6 +479,7 @@ impl Op {
                 } else {
                     Type::assign_generics(&self.token, typ, gen_map)
                 };
+
                 match &cast_type {
                     Type::Struct {
                         name: _, members, ..
@@ -478,7 +494,11 @@ impl Op {
                         );
                     }
                     Type::GenericUnionBase { .. } => unimplemented!(
-                        "{}: Casting to instance of generic union isn't implemented yet",
+                        "{}: Casting to generic union base isn't implemented yet",
+                        self.token.loc
+                    ),
+                    Type::GenericUnionInstance { .. } => unimplemented!(
+                        "{}: Casting to generic union instance isn't implemented yet",
                         self.token.loc
                     ),
                     Type::GenericStructBase { name, members, .. } => {
@@ -522,6 +542,8 @@ impl Op {
                             | Some(Type::Enum { .. })
                             | Some(Type::Union { .. })
                             | Some(Type::GenericUnionBase { .. })
+                            | Some(Type::GenericUnionInstance { .. })
+                            | Some(Type::ResolvedUnion { .. })
                             | Some(Type::Struct { .. })
                             | Some(Type::GenericStructBase { .. })
                             | Some(Type::GenericStructInstance { .. })
@@ -547,6 +569,8 @@ impl Op {
                             | Some(Type::Enum { .. })
                             | Some(Type::Union { .. })
                             | Some(Type::GenericUnionBase { .. })
+                            | Some(Type::GenericUnionInstance { .. })
+                            | Some(Type::ResolvedUnion { .. })
                             | Some(Type::Pointer { .. })
                             | Some(Type::Struct { .. })
                             | Some(Type::GenericStructBase { .. })
@@ -574,7 +598,7 @@ impl Op {
                             stack,
                         );
                     }
-                    Type::Union { members, .. } => {
+                    Type::Union { members, .. } | Type::ResolvedUnion { members, .. } => {
                         if let Some(typ) = stack.pop() {
                             if members.contains(&typ) {
                                 evaluate_signature(
@@ -858,6 +882,9 @@ impl Op {
                 unreachable!("Shouldn't have any words left to type check: {:?}", self)
             }
             OpKind::Ident(_, _) => unreachable!("Shouldn't have any idents left to type check"),
+            OpKind::AnnotatedWord(_, _) => {
+                todo!()
+            }
             OpKind::PrepareFunc => None,
             OpKind::Default => unreachable!("Default op shouldn't be compiled"),
         };

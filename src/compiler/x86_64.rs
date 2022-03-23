@@ -53,6 +53,7 @@ fn compile_op(
 ) {
     writeln!(file, "  ; -- {:?}", op).unwrap();
     match &op.kind {
+        OpKind::AnnotatedWord(_, _) => todo!(),
         OpKind::PushInt(x) => writeln!(file, "  push {x}").unwrap(),
         OpKind::PushBool(b) => {
             if *b {

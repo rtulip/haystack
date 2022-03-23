@@ -15,22 +15,22 @@ struct Opt<T> {
 }
 
 fn Opt.Some<T>(T) -> [Opt<T>] {
-    cast(OptVal)
+    cast(OptVal<T>)
     OptTag::Some
     cast(Opt)
 }
 
 fn Opt.None<T>() -> [Opt<T>] {
-    0 cast(OptVal)
+    0 cast(OptVal<T>)
     OptTag::None
     cast(Opt)
 }
 
-fn Opt.is_some<T>(Opt<T>: opt) -> [Opt<T> bool] {
+fn Opt.is_some<T>(Opt<T>: opt) -> [bool] {
     opt::tag OptTag::Some ==
 }
 
-fn Opt.is_none<T>(Opt<T>: opt) -> [Opt<T> bool] {
+fn Opt.is_none<T>(Opt<T>: opt) -> [bool] {
     opt::tag OptTag::None ==
 }
 
@@ -51,7 +51,16 @@ fn main() {
 
     someStr Opt.is_some putlnb
     someStr Opt.is_none putlnb
-
     someStr Opt.unwrap putlns 
+
+    Opt.None::<Str> as [noneStr] 
+    noneStr Opt.is_some putlnb
+    noneStr Opt.is_some putlnb
+
+    noneStr Opt.unwrap putlns
+
+    Opt.None::<bool> as [noneT]
+    
+
 
 }

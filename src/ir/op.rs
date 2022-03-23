@@ -859,8 +859,6 @@ impl Op {
                     let new_fn = if annotations.is_empty() {
                         f.resolve_generic_function(&self.token, stack)
                     } else {
-                        println!("Calling {} with anootations: {:?}", func_name, annotations);
-                        println!("Generic Map: {:?}", gen_map);
                         let mut resolved_annotations: Vec<Type> = annotations
                             .iter()
                             .map(|t| {
@@ -871,7 +869,6 @@ impl Op {
                                 }
                             })
                             .collect();
-                        println!("resolved annotations: {:?}", resolved_annotations);
                         f.assign_generics(&self.token, &mut resolved_annotations)
                     };
                     evaluate_signature(self, &new_fn.sig, stack);

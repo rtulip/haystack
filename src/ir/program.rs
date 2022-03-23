@@ -132,11 +132,11 @@ impl Program {
         self.functions.iter_mut().for_each(|f| {
             f.name = fn_name_map.get(&f.name).unwrap().clone();
             f.ops.iter_mut().for_each(|op| {
-                if let Some(fn_name) = match &op.kind {
-                    OpKind::Call(fn_name) => Some(fn_name),
-                    _ => None,
-                } {
-                    op.kind = OpKind::Call(fn_name_map.get(fn_name).unwrap().clone());
+                if let OpKind::Call(fn_name, annotations) = &op.kind {
+                    op.kind = OpKind::Call(
+                        fn_name_map.get(fn_name).unwrap().clone(),
+                        annotations.clone(),
+                    );
                 }
             })
         });
@@ -261,7 +261,7 @@ impl Program {
                                 inner: vec![],
                             };
                         } else if fn_names.get(s).is_some() {
-                            op.kind = OpKind::Call(s.clone());
+                            op.kind = OpKind::Call(s.clone(), vec![]);
                         } else if func.locals.get(s).is_some() {
                             op.kind = OpKind::PushLocal(s.clone());
                         } else if self.global_vars.get(s).is_some() {

@@ -10,7 +10,7 @@ fn ptr-<T>(*T: ptr u64: n) -> [*T] {
 fn memset<T>(T: value Arr<T>: range) {
     0 while dup range::size < {
         as [i]
-        value i range Arr.set
+        value range::data i ptr+ !
         i 1 +
     } drop
 }

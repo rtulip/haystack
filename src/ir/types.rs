@@ -15,13 +15,13 @@ pub enum Type {
     Placeholder {
         name: String,
     },
+    Pointer {
+        typ: Box<Type>,
+    },
     Struct {
         name: String,
         members: Vec<Type>,
         idents: Vec<String>,
-    },
-    Pointer {
-        typ: Box<Type>,
     },
     GenericStructBase {
         name: String,
@@ -47,6 +47,25 @@ pub enum Type {
         members: Vec<Type>,
         idents: Vec<String>,
     },
+    GenericUnionBase {
+        name: String,
+        members: Vec<Type>,
+        idents: Vec<String>,
+        generics: Vec<Type>,
+    },
+    GenericUnionInstance {
+        base: String,
+        members: Vec<Type>,
+        idents: Vec<String>,
+        alias_list: Vec<Type>,
+        base_generics: Vec<Type>,
+    },
+    ResolvedUnion {
+        name: String,
+        members: Vec<Type>,
+        idents: Vec<String>,
+        base: String,
+    },
 }
 
 impl Type {
@@ -57,13 +76,40 @@ impl Type {
         }
     }
 
+    pub fn is_generic(&self) -> bool {
+        match self {
+            Type::Placeholder { .. }
+            | Type::GenericStructBase { .. }
+            | Type::GenericStructInstance { .. }
+            | Type::GenericUnionBase { .. }
+            | Type::GenericUnionInstance { .. } => true,
+            Type::Pointer { typ } => typ.is_generic(),
+            Type::U64
+            | Type::U8
+            | Type::Bool
+            | Type::Enum { .. }
+            | Type::Struct { .. }
+            | Type::ResolvedStruct { .. }
+            | Type::Union { .. }
+            | Type::ResolvedUnion { .. } => false,
+        }
+    }
+
     pub fn size(&self) -> usize {
         match self {
             Type::U64 | Type::U8 | Type::Bool | Type::Pointer { .. } | Type::Enum { .. } => 1,
             Type::Struct { members, .. } | Type::ResolvedStruct { members, .. } => {
                 members.iter().map(|t| t.size()).sum()
             }
-            Type::Union { members, .. } => members.iter().map(|t| t.size()).max().unwrap(),
+            Type::Union { members, .. } | Type::ResolvedUnion { members, .. } => {
+                members.iter().map(|t| t.size()).max().unwrap()
+            }
+            Type::GenericUnionBase { .. } => {
+                panic!("Size of generic union base is unknown: {:?}", self)
+            }
+            Type::GenericUnionInstance { .. } => {
+                panic!("Size of generic union instance is unknown: {:?}", self)
+            }
             Type::Placeholder { .. } => panic!("Size of Placeholder types are unknown: {:?}", self),
             Type::GenericStructBase { .. } => panic!("Size of a generic struct is unknown"),
             Type::GenericStructInstance { .. } => {
@@ -348,9 +394,87 @@ impl Type {
             (Type::Union { .. }, _) => {
                 unimplemented!("{}: Resolving unions isn't implemented yet.", token.loc)
             }
-            (Type::Enum { .. }, _) => {
-                unimplemented!("{}: Resolving enums isn't implemented yet.", token.loc)
+            (
+                Type::GenericUnionInstance {
+                    base: instance_base,
+                    members,
+                    alias_list,
+                    base_generics,
+                    ..
+                },
+                Type::ResolvedUnion {
+                    members: resolved_members,
+                    base: resolved_base,
+                    ..
+                },
+            ) => {
+                if instance_base != resolved_base {
+                    compiler_error(
+                        token,
+                        format!("Cannot derive {:?} from {:?}", maybe_generic_t, concrete_t)
+                            .as_str(),
+                        vec![],
+                    );
+                }
+
+                let alias_map: HashMap<String, String> = HashMap::from_iter(
+                    base_generics
+                        .iter()
+                        .map(|t| format!("{:?}", t))
+                        .zip(alias_list.iter().map(|t| format!("{:?}", t))),
+                );
+
+                members
+                    .iter()
+                    .zip(resolved_members.iter())
+                    .for_each(|(m, r)| {
+                        Type::resolve_type(token, m, r, generic_map, &alias_map);
+                    });
+
+                concrete_t.clone()
             }
+            (Type::GenericUnionInstance { .. }, _) => compiler_error(
+                token,
+                format!(
+                    "Cannot resolve type {:?} into {:?}",
+                    maybe_generic_t, concrete_t
+                )
+                .as_str(),
+                vec![],
+            ),
+            (Type::ResolvedUnion { .. }, _) => {
+                unimplemented!(
+                    "{}: Resolving Resolved Union Instance isn't implemented yet.",
+                    token.loc
+                )
+            }
+            (Type::GenericUnionBase { .. }, _) => {
+                panic!("GenericUnionBase should never be on the left hand side!")
+            }
+            (Type::Enum { .. }, Type::Enum { .. }) => {
+                if maybe_generic_t != concrete_t {
+                    compiler_error(
+                        token,
+                        format!(
+                            "Cannot resolve type {:?} into {:?}",
+                            maybe_generic_t, concrete_t
+                        )
+                        .as_str(),
+                        vec![],
+                    )
+                }
+
+                maybe_generic_t.clone()
+            }
+            (Type::Enum { .. }, _) => compiler_error(
+                token,
+                format!(
+                    "Cannot resolve type {:?} into {:?}",
+                    maybe_generic_t, concrete_t
+                )
+                .as_str(),
+                vec![],
+            ),
         };
 
         t
@@ -359,7 +483,15 @@ impl Type {
     pub fn assign_generics(token: &Token, typ: &Type, generic_map: &HashMap<String, Type>) -> Type {
         match typ {
             Type::Placeholder { name } => generic_map.get(name).unwrap().clone(),
-            Type::GenericStructInstance {
+            Type::GenericUnionBase { .. } => todo!("{}", token),
+            Type::GenericUnionInstance {
+                base,
+                members,
+                idents,
+                alias_list,
+                base_generics,
+            }
+            | Type::GenericStructInstance {
                 base,
                 members,
                 idents,
@@ -380,13 +512,23 @@ impl Type {
                             .get(alias_map.get(name).unwrap())
                             .unwrap()
                             .clone(),
-                        Type::GenericStructInstance { .. } => {
+                        Type::GenericStructInstance { .. } | Type::GenericUnionInstance { .. } => {
                             Type::assign_generics(token, t, generic_map)
                         }
                         Type::Pointer { typ } => Type::Pointer {
                             typ: Box::new(Type::assign_generics(token, typ, generic_map)),
                         },
-                        t => t.clone(),
+                        Type::U64
+                        | Type::U8
+                        | Type::Bool
+                        | Type::Enum { .. }
+                        | Type::Struct { .. }
+                        | Type::ResolvedStruct { .. }
+                        | Type::Union { .. }
+                        | Type::ResolvedUnion { .. } => t.clone(),
+                        Type::GenericStructBase { .. } | Type::GenericUnionBase { .. } => {
+                            unreachable!()
+                        }
                     })
                     .collect::<Vec<Type>>();
 
@@ -410,11 +552,22 @@ impl Type {
                 }
                 name.push('>');
 
-                Type::ResolvedStruct {
-                    name,
-                    members: resolved_members,
-                    idents: idents.clone(),
-                    base: base.clone(),
+                if matches!(typ, Type::GenericStructInstance { .. }) {
+                    Type::ResolvedStruct {
+                        name,
+                        members: resolved_members,
+                        idents: idents.clone(),
+                        base: base.clone(),
+                    }
+                } else if matches!(typ, Type::GenericUnionInstance { .. }) {
+                    Type::ResolvedUnion {
+                        name,
+                        members: resolved_members,
+                        idents: idents.clone(),
+                        base: base.clone(),
+                    }
+                } else {
+                    unreachable!()
                 }
             }
             Type::GenericStructBase {
@@ -463,7 +616,14 @@ impl Type {
             Type::Pointer { typ } => Type::Pointer {
                 typ: Box::new(Type::assign_generics(token, &*typ, generic_map)),
             },
-            t => t.clone(),
+            Type::U64
+            | Type::U8
+            | Type::Bool
+            | Type::Enum { .. }
+            | Type::Struct { .. }
+            | Type::ResolvedStruct { .. }
+            | Type::Union { .. }
+            | Type::ResolvedUnion { .. } => typ.clone(),
         }
     }
 }
@@ -479,13 +639,10 @@ impl std::fmt::Debug for Type {
             | Type::Enum { name, .. }
             | Type::Struct { name, .. }
             | Type::ResolvedStruct { name, .. }
+            | Type::ResolvedUnion { name, .. }
             | Type::Union { name, .. } => write!(f, "{name}"),
-            Type::GenericStructBase {
-                name,
-                members: _,
-                idents: _,
-                generics,
-            } => {
+            Type::GenericStructBase { name, generics, .. }
+            | Type::GenericUnionBase { name, generics, .. } => {
                 write!(f, "{name}<{:?}", generics[0])?;
                 for t in generics[1..].iter() {
                     write!(f, " {:?}", t)?;
@@ -493,6 +650,9 @@ impl std::fmt::Debug for Type {
                 write!(f, ">")
             }
             Type::GenericStructInstance {
+                base, alias_list, ..
+            }
+            | Type::GenericUnionInstance {
                 base, alias_list, ..
             } => {
                 write!(f, "{base}<{:?}", alias_list[0])?;

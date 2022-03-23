@@ -20,16 +20,16 @@ pub struct LocalVar {
 pub struct Function {
     pub name: String,
     pub token: Token,
-    pub gen: Vec<Type>,
+    pub generics: Vec<Type>,
     pub sig: Signature,
     pub ops: Vec<Op>,
-    pub gen_map: HashMap<String, Type>,
+    pub generics_map: HashMap<String, Type>,
     pub locals: BTreeMap<String, LocalVar>,
 }
 
 impl Function {
     pub fn is_generic(&self) -> bool {
-        !self.gen.is_empty()
+        !self.generics.is_empty()
     }
 
     pub fn locals_offset(locals: &BTreeMap<String, LocalVar>) -> usize {
@@ -66,7 +66,7 @@ impl Function {
             &mut frame,
             fn_table,
             type_map,
-            &self.gen_map,
+            &self.generics_map,
             &self.locals,
             globals,
             vec![],
@@ -114,6 +114,93 @@ impl Function {
         }
     }
 
+    pub fn assign_generics(&self, token: &Token, annotations: &mut Vec<Type>) -> Self {
+        if !self.is_generic() {
+            compiler_error(
+                token,
+                format!(
+                    "Non-generic function `{}` does not expect type annotations",
+                    self.name
+                )
+                .as_str(),
+                vec![format!("Found annotations: {:?}", annotations).as_str()],
+            )
+        }
+
+        if annotations.len() != self.generics.len() {
+            compiler_error(
+                token,
+                "Incorrect number of annotations provided",
+                vec![
+                    format!(
+                        "Function `{}` is generic over {:?}",
+                        self.name, self.generics
+                    )
+                    .as_str(),
+                    format!("Provided Annotations: {:?}", annotations).as_str(),
+                ],
+            )
+        }
+
+        let generics: Vec<Type> = annotations
+            .iter()
+            .filter(|t| t.is_generic())
+            .map(|t| t.clone())
+            .collect();
+
+        println!("Generics: {:?}", generics);
+        let generics_map: HashMap<String, Type> = HashMap::from_iter(
+            self.generics
+                .iter()
+                .map(|gen| gen.name())
+                .zip(annotations.drain(..)),
+        );
+
+        let resolved_inputs = self
+            .sig
+            .inputs
+            .iter()
+            .map(|typ| Type::assign_generics(token, typ, &generics_map))
+            .collect::<Vec<Type>>();
+
+        let resolved_outputs = self
+            .sig
+            .outputs
+            .iter()
+            .map(|typ| Type::assign_generics(token, typ, &generics_map))
+            .collect::<Vec<Type>>();
+
+        let sig = Signature {
+            inputs: resolved_inputs,
+            outputs: resolved_outputs,
+        };
+
+        let mut new_name = self.name.clone();
+        new_name.push('<');
+
+        let assignments_strs = generics_map
+            .iter()
+            .map(|(k, v)| format!("{}={:?}", k, v))
+            .collect::<Vec<String>>();
+
+        new_name.push_str(assignments_strs[0].as_str());
+        for s in assignments_strs[1..].iter() {
+            new_name.push(' ');
+            new_name.push_str(s.as_str());
+        }
+        new_name.push('>');
+        let new_ops = self.ops.clone();
+        Function {
+            name: new_name,
+            token: self.token.clone(),
+            generics,
+            sig,
+            ops: new_ops,
+            generics_map,
+            locals: self.locals.clone(),
+        }
+    }
+
     pub fn resolve_generic_function(&self, token: &Token, stack: &Stack) -> Self {
         if stack.len() < self.sig.inputs.len() {
             compiler_error(
@@ -139,21 +226,24 @@ impl Function {
             .collect::<Vec<Type>>();
 
         if !self
-            .gen
+            .generics
             .iter()
             .all(|t| map.contains_key(&format!("{:?}", t)))
         {
             compiler_error(
                 token,
                 "Some types were not resolved during cast",
-                vec![format!(
-                    "These types were not resolved: {:?}",
-                    self.gen
-                        .iter()
-                        .filter(|t| !map.contains_key(&format!("{:?}", t)))
-                        .collect::<Vec<&Type>>()
-                )
-                .as_str()],
+                vec![
+                    format!(
+                        "These types were not resolved: {:?}",
+                        self.generics
+                            .iter()
+                            .filter(|t| !map.contains_key(&format!("{:?}", t)))
+                            .collect::<Vec<&Type>>()
+                    )
+                    .as_str(),
+                    "Consider adding a annotations to the call",
+                ],
             )
         }
 
@@ -188,10 +278,10 @@ impl Function {
         Function {
             name: new_name,
             token: self.token.clone(),
-            gen: vec![],
+            generics: vec![],
             sig,
             ops: new_ops,
-            gen_map: map,
+            generics_map: map,
             locals: self.locals.clone(),
         }
     }

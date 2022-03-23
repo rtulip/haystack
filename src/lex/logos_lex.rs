@@ -45,6 +45,8 @@ pub enum LogosToken {
     StructKeyword,
     #[token("union")]
     UnionKeyword,
+    #[token("enum")]
+    EnumKeyword,
     #[token("cast")]
     CastKeyword,
     #[token("split")]

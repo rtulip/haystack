@@ -70,6 +70,10 @@ fn compile_op(
             writeln!(file, "  push {str_len}").unwrap();
             writeln!(file, "  push {str_ident}").unwrap();
         }
+        OpKind::PushEnum { .. } => unreachable!(
+            "{}: {:?} should have been converted into PushInt by now...",
+            op.token.loc, op.kind
+        ),
         OpKind::Add => {
             writeln!(file, "  pop  rbx").unwrap();
             writeln!(file, "  pop  rax").unwrap();

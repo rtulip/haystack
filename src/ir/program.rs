@@ -208,6 +208,44 @@ impl Program {
                                 index: *idx,
                                 inner: fields.clone(),
                             };
+                        } else if self.types.contains_key(s) {
+                            if let Type::Enum { name, variants } = self.types.get(s).unwrap() {
+                                if fields.is_empty() {
+                                    compiler_error(
+                                        &op.token,
+                                        "Expected enum variant, but found nothing.",
+                                        vec![format!("{name} variants: {:?}", variants).as_str()],
+                                    );
+                                } else if fields.len() != 1 {
+                                    compiler_error(
+                                        &op.token,
+                                        format!("Unexpected fields {:?}", &fields[1..]).as_str(),
+                                        vec![],
+                                    );
+                                }
+
+                                if let Some(idx) = variants.iter().position(|v| v == &fields[0]) {
+                                    op.kind = OpKind::PushEnum {
+                                        typ: self.types.get(s).unwrap().clone(),
+                                        idx,
+                                    };
+                                } else {
+                                    compiler_error(
+                                        &op.token,
+                                        format!("Unrecognized variant for enum {name}").as_str(),
+                                        vec![
+                                            format!("Expected one of: {:?}", variants).as_str(),
+                                            format!("Found: {}", fields[0]).as_str(),
+                                        ],
+                                    );
+                                }
+                            } else {
+                                compiler_error(
+                                    &op.token,
+                                    format!("Unrecognized Identifier: `{s}`").as_str(),
+                                    vec![],
+                                )
+                            }
                         } else {
                             compiler_error(
                                 &op.token,

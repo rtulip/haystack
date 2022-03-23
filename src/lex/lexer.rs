@@ -100,6 +100,9 @@ fn parse_tokens_until_tokenkind(
             TokenKind::Keyword(Keyword::Union) => {
                 panic!("Union keyword can't be converted into ops")
             }
+            TokenKind::Keyword(Keyword::Enum) => {
+                panic!("Union keyword can't be converted into ops")
+            }
             TokenKind::Keyword(Keyword::While) => {
                 let _tok = parse_while_block(&token, tokens, ops, type_map, init_data);
             }
@@ -532,8 +535,13 @@ fn parse_signature(
     }
 }
 
-fn parse_word_list(start_tok: &Token, tokens: &mut Vec<Token>) -> (Token, Vec<(Token, String)>) {
-    let mut tok = expect_token_kind(start_tok, tokens, TokenKind::Marker(Marker::OpenBracket));
+fn parse_word_list(
+    start_tok: &Token,
+    tokens: &mut Vec<Token>,
+    open: TokenKind,
+    close: TokenKind,
+) -> (Token, Vec<(Token, String)>) {
+    let mut tok = expect_token_kind(start_tok, tokens, open);
     let mut words = vec![];
 
     while peek_word(tokens) {
@@ -541,7 +549,7 @@ fn parse_word_list(start_tok: &Token, tokens: &mut Vec<Token>) -> (Token, Vec<(T
         tok = word_tok.clone();
         words.push((word_tok, word));
     }
-    let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::CloseBracket));
+    let tok = expect_token_kind(&tok, tokens, close);
 
     (tok, words)
 }
@@ -590,7 +598,12 @@ fn parse_cast(start_tok: &Token, tokens: &mut Vec<Token>, type_map: &HashMap<Str
 }
 
 fn parse_let(start_tok: &Token, tokens: &mut Vec<Token>) -> (Token, Vec<Op>) {
-    let (tok, idents) = parse_word_list(start_tok, tokens);
+    let (tok, idents) = parse_word_list(
+        start_tok,
+        tokens,
+        TokenKind::Marker(Marker::OpenBracket),
+        TokenKind::Marker(Marker::CloseBracket),
+    );
     if idents.is_empty() {
         compiler_error(
             &tok,
@@ -908,6 +921,24 @@ pub fn parse_while_block(
     ops[cond_jump_loc].kind = OpKind::JumpCond(Some(end_loc));
 }
 
+fn parse_enum(start_tok: &Token, tokens: &mut Vec<Token>) -> (String, Type) {
+    let tok = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Enum));
+    let (name_tok, name) = expect_word(&tok, tokens);
+    let (_tok, mut variants) = parse_word_list(
+        &name_tok,
+        tokens,
+        TokenKind::Marker(Marker::OpenBrace),
+        TokenKind::Marker(Marker::CloseBrace),
+    );
+    (
+        name.clone(),
+        Type::Enum {
+            name,
+            variants: variants.drain(..).map(|(_tok, s)| s).collect(),
+        },
+    )
+}
+
 fn parse_union(
     start_tok: &Token,
     tokens: &mut Vec<Token>,
@@ -1170,6 +1201,13 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
             }) => {
                 let (name, typ) =
                     parse_union(&maybe_tok.unwrap().clone(), &mut tokens, &program.types);
+                program.types.insert(name, typ);
+            }
+            Some(Token {
+                kind: TokenKind::Keyword(Keyword::Enum),
+                ..
+            }) => {
+                let (name, typ) = parse_enum(&maybe_tok.unwrap().clone(), &mut tokens);
                 program.types.insert(name, typ);
             }
             Some(Token {

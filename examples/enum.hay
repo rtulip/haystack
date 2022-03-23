@@ -1,0 +1,14 @@
+include "std.hay"
+enum Foo {
+    x
+    y
+    z
+}
+
+fn main() {
+    Foo::x Foo::z == if {
+        "Enums match!" putlns
+    } else {
+        "Enums don't match" putlns
+    }
+}

@@ -16,6 +16,7 @@ pub enum OpKind {
     PushInt(u64),
     PushBool(bool),
     PushString(String),
+    PushEnum { typ: Type, idx: usize },
     Add,
     Sub,
     Mul,
@@ -60,6 +61,13 @@ impl std::fmt::Debug for OpKind {
             OpKind::PushInt(i) => write!(f, "Push({i})"),
             OpKind::PushBool(b) => write!(f, "Push({b})"),
             OpKind::PushString(s) => write!(f, "Push({s})"),
+            OpKind::PushEnum { typ, idx } => {
+                if let Type::Enum { name, variants } = typ {
+                    write!(f, "Push({}::{:?})", name, variants[*idx])
+                } else {
+                    unreachable!()
+                }
+            }
             OpKind::Add => write!(f, "+"),
             OpKind::Sub => write!(f, "-"),
             OpKind::Mul => write!(f, "*"),
@@ -296,14 +304,57 @@ impl Op {
                 None
             }
             OpKind::Equals => {
-                evaluate_signature(
-                    self,
-                    &Signature {
-                        inputs: vec![Type::U64, Type::U64],
-                        outputs: vec![Type::Bool],
-                    },
-                    stack,
-                );
+                let (a, b) = (stack.pop(), stack.pop());
+                match (a, b) {
+                    (Some(Type::U64), Some(Type::U64)) => {
+                        evaluate_signature(
+                            self,
+                            &Signature {
+                                inputs: vec![],
+                                outputs: vec![Type::Bool],
+                            },
+                            stack,
+                        );
+                    }
+                    (
+                        Some(Type::Enum { name: enum1, .. }),
+                        Some(Type::Enum { name: enum2, .. }),
+                    ) => {
+                        if enum1 == enum2 {
+                            evaluate_signature(
+                                self,
+                                &Signature {
+                                    inputs: vec![],
+                                    outputs: vec![Type::Bool],
+                                },
+                                stack,
+                            );
+                        } else {
+                            compiler_error(
+                                &self.token,
+                                format!("Cannot compare enums `{enum1}` and `{enum2}").as_str(),
+                                vec![],
+                            );
+                        }
+                    }
+                    (Some(t1), Some(t2)) => {
+                        stack.push(t2);
+                        stack.push(t1);
+                        evaluate_signature(
+                            self,
+                            &Signature {
+                                inputs: vec![],
+                                outputs: vec![Type::Bool],
+                            },
+                            stack,
+                        );
+                    }
+                    _ => compiler_error(
+                        &self.token,
+                        "Insuffient arguments for equals comparison.",
+                        vec![format!("Expected: {:?}", [Type::U64, Type::U64]).as_str()],
+                    ),
+                }
                 None
             }
             OpKind::NotEquals => {
@@ -464,6 +515,7 @@ impl Op {
                             Some(Type::Bool) => Type::Bool,
                             Some(Type::Pointer { typ }) => Type::Pointer { typ: typ.clone() },
                             None
+                            | Some(Type::Enum { .. })
                             | Some(Type::Union { .. })
                             | Some(Type::Struct { .. })
                             | Some(Type::GenericStructBase { .. })
@@ -487,6 +539,7 @@ impl Op {
                             Some(Type::U8) => Type::U8,
                             Some(Type::Bool) => Type::Bool,
                             None
+                            | Some(Type::Enum { .. })
                             | Some(Type::Union { .. })
                             | Some(Type::Pointer { .. })
                             | Some(Type::Struct { .. })
@@ -564,6 +617,9 @@ impl Op {
                         "{}: Casting to resolved struct type should be unreachable",
                         self.token.loc
                     ),
+                    Type::Enum { .. } => {
+                        compiler_error(&self.token, "casting to Enums isn't supported.", vec![])
+                    }
                 }
 
                 None
@@ -629,6 +685,19 @@ impl Op {
                     },
                     stack,
                 );
+                None
+            }
+            OpKind::PushEnum { typ, idx } => {
+                evaluate_signature(
+                    self,
+                    &Signature {
+                        inputs: vec![],
+                        outputs: vec![typ.clone()],
+                    },
+                    stack,
+                );
+
+                self.kind = OpKind::PushInt(*idx as u64);
                 None
             }
             OpKind::MakeIdent { ident, .. } => {

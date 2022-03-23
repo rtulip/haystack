@@ -1,2 +1,32 @@
 include "arr.hay"
 include "str.hay"
+
+fn Str.equals(Str: s1 Str:s2) -> [bool] {
+
+    var bool: equal
+
+    s1 split cast(Arr)
+    s2 split cast(Arr)
+    as [arr1 arr2]
+
+    arr1::size arr2::size == if {
+        true equal !
+
+        0 while dup arr1::size < equal @ land {
+            as [i]
+
+            i arr1 Arr.get cast(u64)
+            i arr2 Arr.get cast(u64) != if {
+                false equal !
+            }
+
+            i 1 + 
+        } drop
+
+        equal @
+
+    } else {
+        false
+    }
+
+}

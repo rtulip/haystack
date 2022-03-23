@@ -1,0 +1,14 @@
+include "std.hay"
+
+fn main() {
+
+    0 while as [x] {
+        x
+        x 20 <
+    } {
+        as [i]
+        i putlnu
+        i 1 +
+    } drop
+
+}

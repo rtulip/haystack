@@ -1,0 +1,24 @@
+include "std.hay"
+
+fn main() {
+
+    10 as [x] {
+
+        x as [y]
+        y putlnu
+        x as [z] {
+            z putlnu
+        }
+        x putlnu
+    }
+
+    20 as [x] {
+        x as [y]
+        y putlnu
+        x as [z] {
+            z putlnu
+        }
+        x putlnu
+    }
+
+}

@@ -803,9 +803,13 @@ impl Op {
                         frame.len()
                     );
                 }
+                let mut frame_width = 0;
                 for _ in 0..*n {
-                    frame.pop();
+                    let t = frame.pop().unwrap();
+                    frame_width += t.size() * t.width()
                 }
+
+                self.kind = OpKind::EndBlock(frame_width);
 
                 None
             }

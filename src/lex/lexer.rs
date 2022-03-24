@@ -57,8 +57,7 @@ fn parse_tokens_until_tokenkind(
 
         match token.kind {
             TokenKind::Keyword(Keyword::As) => {
-                let (_tok, mut block_ops) = parse_as(&token, tokens, type_map, init_data);
-                ops.append(&mut block_ops);
+                parse_as(&token, tokens, ops, type_map, init_data);
             }
             TokenKind::Keyword(Keyword::Var) => {
                 if let Some(ref mut locals) = maybe_locals {
@@ -721,10 +720,11 @@ fn parse_cast(start_tok: &Token, tokens: &mut Vec<Token>, type_map: &HashMap<Str
 fn parse_as(
     start_tok: &Token,
     tokens: &mut Vec<Token>,
+    ops: &mut Vec<Op>,
     type_map: &HashMap<String, Type>,
     init_data: &mut BTreeMap<String, InitData>,
-) -> (Token, Vec<Op>) {
-    let (tok, idents) = parse_word_list(
+) {
+    let (tok, mut idents) = parse_word_list(
         start_tok,
         tokens,
         TokenKind::Marker(Marker::OpenBracket),
@@ -737,17 +737,16 @@ fn parse_as(
             vec![],
         )
     }
-    let mut ops: Vec<Op> = idents
-        .iter()
-        .rev()
-        .map(|(token, ident)| Op {
+    let start_idx = ops.len();
+    idents.drain(..).rev().for_each(|(token, ident)| {
+        ops.push(Op {
             kind: OpKind::MakeIdent {
                 ident: ident.clone(),
                 size: None,
             },
             token: token.clone(),
         })
-        .collect();
+    });
     if peek_token_kind(tokens, TokenKind::Marker(Marker::OpenBrace)) {
         let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
         ops.push(Op {
@@ -758,7 +757,7 @@ fn parse_as(
         let tok = parse_tokens_until_tokenkind(
             &tok,
             tokens,
-            &mut ops,
+            ops,
             type_map,
             init_data,
             None,
@@ -766,12 +765,9 @@ fn parse_as(
         );
 
         ops.push(Op {
-            kind: OpKind::EndBlock(make_ident_count(&ops, 0)),
+            kind: OpKind::EndBlock(make_ident_count(&ops, start_idx)),
             token: tok.clone(),
         });
-        (tok, ops)
-    } else {
-        (tok, ops)
     }
 }
 

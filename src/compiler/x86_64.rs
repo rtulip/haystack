@@ -41,8 +41,8 @@ fn frame_push_rax(file: &mut std::fs::File) {
     writeln!(file, "  mov  [rbx], rax").unwrap();
 }
 
-fn frame_pop_n(file: &mut std::fs::File, n: &usize) {
-    writeln!(file, "  add qword [frame_end_ptr], {}", 8 * n).unwrap();
+fn frame_pop_n(file: &mut std::fs::File, width: &usize) {
+    writeln!(file, "  add qword [frame_end_ptr], {width}").unwrap();
 }
 
 fn compile_op(
@@ -259,7 +259,7 @@ fn compile_op(
             writeln!(file, "{}_jmp_dest_{}:", func.unwrap().name, n).unwrap();
         }
         OpKind::StartBlock => (),
-        OpKind::EndBlock(n) => frame_pop_n(file, n),
+        OpKind::EndBlock(width) => frame_pop_n(file, width),
         OpKind::Syscall(n) => {
             let order = ["rax", "rdi", "rsi", "rdx", "r10", "r8", "r9"];
             for i in 0..=*n {

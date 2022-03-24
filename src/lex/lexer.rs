@@ -764,8 +764,9 @@ fn parse_as(
             None,
             vec![TokenKind::Marker(Marker::CloseBrace)],
         );
+
         ops.push(Op {
-            kind: OpKind::EndBlock(idents.len()),
+            kind: OpKind::EndBlock(make_ident_count(&ops, 0)),
             token: tok.clone(),
         });
         (tok, ops)
@@ -866,6 +867,10 @@ fn make_ident_count(ops: &[Op], start_ip: usize) -> usize {
         match ops[ip].kind {
             OpKind::MakeIdent { .. } => {
                 var_count += 1;
+                ip += 1
+            }
+            OpKind::EndBlock(n) => {
+                var_count -= n;
                 ip += 1
             }
             OpKind::JumpCond(Some(n)) => ip = n,

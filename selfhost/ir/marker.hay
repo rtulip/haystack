@@ -42,3 +42,55 @@ fn Marker.fputs(Marker: marker u64: fd) {
 fn Marker.puts(Marker) {
     1 Marker.fputs
 }
+
+fn Marker.try_from_str(Str: s) -> [Opt<Marker>] {
+    "{" s Str.starts_with if {
+        Marker::OpenBrace Opt.Some
+    } else "}" s Str.starts_with if {
+        Marker::CloseBrace Opt.Some
+    } else "[" s Str.starts_with if {
+        Marker::OpenBracket Opt.Some
+    } else "]" s Str.starts_with if {
+        Marker::CloseBracket Opt.Some
+    } else "(" s Str.starts_with if {
+        Marker::OpenParen Opt.Some
+    } else ")" s Str.starts_with if {
+        Marker::CloseParen Opt.Some
+    } else ":" s Str.starts_with if {
+        Marker::Colon Opt.Some 
+    } else "::" s Str.starts_with if {
+        Marker::DoubleColon Opt.Some
+    } else "->" s Str.starts_with if {
+        Marker::Arrow Opt.Some
+    } else {
+        Opt.None::<Marker>
+    }
+}
+
+fn Marker.to_str(Marker: m) -> [Str] {
+    
+    m Marker::OpenBrace == if {
+        "{"
+    } else m Marker::CloseBrace == if {
+        "}"
+    } else m Marker::OpenBracket == if {
+        "["
+    } else m Marker::CloseBracket == if {
+        "]"
+    } else m Marker::OpenParen == if {
+        "("
+    } else m Marker::CloseParen == if {
+        ")"
+    } else m Marker::Colon == if {
+        ":"
+    } else m Marker::DoubleColon == if {
+        "::"
+    } else m Marker::Arrow == if {
+        "->"
+    } else {
+        " "
+        "Unhandled Marker in Marker.to_str" putlns
+        1 exit
+    }
+
+}

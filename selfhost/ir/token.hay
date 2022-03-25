@@ -130,4 +130,3 @@ fn Token.fputs(Token: tok u64: fd) {
 fn Token.puts(Token) {
     1 Token.fputs
 }
-

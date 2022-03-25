@@ -56,7 +56,6 @@ impl Function {
         if self.is_generic() {
             return None;
         }
-
         let mut stack = self.sig.inputs.clone();
         let mut frame = vec![];
         let (_, new_fns) = type_check_ops_list(

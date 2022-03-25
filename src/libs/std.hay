@@ -30,3 +30,11 @@ fn Str.equals(Str: s1 Str:s2) -> [bool] {
     }
 
 }
+
+fn Str.starts_with(Str: s2 Str: s1) -> [bool] {
+
+    0 s2::size s1 Str.substr
+    s2 
+    Str.equals 
+
+}

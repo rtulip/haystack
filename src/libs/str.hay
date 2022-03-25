@@ -76,19 +76,31 @@ fn putlnb(bool) {
     putb "\n" puts
 }
 
-fn Str.drop_front(Str: s) -> [Str] {
+fn Str.drop_left(Str: s) -> [Str] {
     s::size 0 == if {
         s
     } else {
         s::size 1 - s::data 1 ptr+ cast(Str)
     }
-    
+}
+
+fn Str.drop_right(u64: n Str: s) -> [Str] {
+    s::size n >= if {
+        s::size n - s::data n ptr+ cast(Str)
+    } else {
+        0 s::data s::size ptr+ cast(Str)
+    }
 }
 
 fn Str.size(Str: s) -> [u64] {
     s::size
 }
 
-fn Str.substr(Str: s u64: start u64: len) -> [Str] {
+fn Str.substr(u64: start u64: len Str: s) -> [Str] {
     len s::data start ptr+ cast(Str)
+}
+
+fn Str.split_left(u64: n Str: s) -> [Str Str] {
+    n s::data cast(Str)
+    s::size n - s::data n ptr+ cast(Str)
 }

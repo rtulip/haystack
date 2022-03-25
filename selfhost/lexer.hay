@@ -53,14 +53,13 @@ fn Str.to_u64(Str: s) -> [u64] {
         1 exit
     }
 
-    0 s while as [str] { str
-        str::size 0 > 
-    } 
-    {
-        as [result str]
+    s::size s::data cast(Arr) as [arr]
+
+    0 0 while dup s::size < {
+        as [result idx]
         result 10 * 
-        str::data @ cast(u64) 48 - +
-        s::size 1 - s::data 1 ptr+ cast(Str)
+        idx arr Arr.get cast(u64) 48 - +
+        idx 1 +
     } drop
 
 }
@@ -80,17 +79,18 @@ fn parse_word(*Loc: loc Str: s) -> [Str] {
         str::size  1 - str::data 1 ptr+ cast(Str)
     }
     as [word str]
-    
     word Str.is_numeric if {
         word Str.to_u64 Literal.from_u64 TokenKind.from_literal loc @ cast(Token)
     } else word Keyword.try_from_str Opt.is_some if {
         word Keyword.try_from_str Opt.unwrap 
         TokenKind.from_keyword loc @ cast(Token)
+    } else word Operator.try_from_str Opt.is_some if {
+        word Operator.try_from_str Opt.unwrap
+        TokenKind.from_operator loc @ cast(Token)
     } else {
         word TokenKind.from_word loc @ cast(Token)
     }
 
-    
     push_token
     word::size loc loc_bump
     str
@@ -158,19 +158,11 @@ fn loc_newline(*Loc: loc_p) {
     loc_p !
 }
 
-fn parse_tokens(Str: path Str: input) {
-    var Loc: loc
-    var Str: token
-
-    path 1 1 cast(Loc) loc !
-    0 input::data cast(Str) token !
-
-    input while as [str] { str
-        str::size 0 >
-    }
-    {
-        as [str]
-
+fn parse_next(*Loc: loc Str: str) -> [Str] {
+    str::size 0 == if {
+        "No token to be found..." putlns
+        str
+    } else {
         " " str Str.starts_with if {
             1 loc loc_bump
             1 str::size 1 - str Str.substr
@@ -190,17 +182,44 @@ fn parse_tokens(Str: path Str: input) {
         } else {
             loc str parse_word
         }
+    }
+    
+    
+}
 
+fn parse_tokens(Str: path Str: input) {
+    var Loc: loc
+    var Str: token
+
+    "Starting to parse tokens..." putlns
+
+    path 1 1 cast(Loc) loc !
+    0 input::data cast(Str) token !
+
+    input while as [str] { str
+        str::size 0 >
+    }
+    {
+        as [str]
+        loc str parse_next
     } drop
+
+    TokenKind.from_eof loc @ cast(Token) push_token
 
 }
 
 fn main()
 {
+    var Loc: loc
+
     token_buff_p @ Stack.init tokens_p !
-    
-    "./examples/hello_world.hay" as [path] 
+
+    "./selfhost/lexer.hay" as [path] 
+
+    path 1 1 cast(Loc) loc !
+
     path filebuff_p @ File.read_path_to_str as [file_str]
+    file_str putlns
     path file_str parse_tokens
 
     while tokens_p @ Stack.pop dup Opt.is_some {

@@ -51,3 +51,35 @@ fn Operator.fputs(Operator: op u64: fd) {
 }
 
 fn Operator.puts(Operator) { 1 Operator.fputs }
+
+fn Operator.try_from_str(Str: maybe_op) -> [Opt<Operator>] {
+    "+" maybe_op Str.equals if {
+        Operator::Add Opt.Some
+    } else "-" maybe_op Str.equals if {
+        Operator::Sub Opt.Some
+    } else "*" maybe_op Str.equals if {
+        Operator::Mul Opt.Some
+    } else "/" maybe_op Str.equals if {
+        Operator::Div Opt.Some 
+    } else "<" maybe_op Str.equals if {
+        Operator::LessThan Opt.Some
+    } else "<=" maybe_op Str.equals if {
+        Operator::LessEqual Opt.Some
+    } else ">" maybe_op Str.equals if {
+        Operator::GreaterThan Opt.Some
+    } else ">=" maybe_op Str.equals if {
+        Operator::GreaterEqual Opt.Some 
+    } else "==" maybe_op Str.equals if {
+        Operator::Equals Opt.Some
+    } else "!=" maybe_op Str.equals if {
+        Operator::NotEquals Opt.Some 
+    } else "%" maybe_op Str.equals if {
+        Operator::Mod Opt.Some 
+    } else "@" maybe_op Str.equals if {
+        Operator::Read Opt.Some 
+    } else "!" maybe_op Str.equals if {
+        Operator::Write Opt.Some
+    } else {
+        Opt.None::<Operator>
+    }
+}

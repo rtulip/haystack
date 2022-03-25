@@ -95,6 +95,53 @@ impl Type {
         }
     }
 
+    pub fn deep_check_generics(&self) -> Vec<Type> {
+        match self {
+            Type::U64 | Type::U8 | Type::Bool | Type::Enum { .. } => vec![],
+            Type::Placeholder { .. } => vec![self.clone()],
+            Type::Pointer { typ } => typ.deep_check_generics(),
+            Type::Struct { members, .. }
+            | Type::Union { members, .. }
+            | Type::GenericStructBase { members, .. }
+            | Type::GenericStructInstance { members, .. }
+            | Type::ResolvedStruct { members, .. }
+            | Type::GenericUnionBase { members, .. }
+            | Type::GenericUnionInstance { members, .. }
+            | Type::ResolvedUnion { members, .. } => {
+                let mut generics = vec![];
+                members.iter().for_each(|t| {
+                    generics.append(&mut t.deep_check_generics());
+                });
+                generics
+            }
+        }
+    }
+
+    pub fn shallow_check_generics(&self) -> Vec<Type> {
+        match self {
+            Type::U64
+            | Type::U8
+            | Type::Bool
+            | Type::Enum { .. }
+            | Type::Struct { .. }
+            | Type::Union { .. }
+            | Type::ResolvedStruct { .. }
+            | Type::ResolvedUnion { .. } => vec![],
+            Type::Placeholder { .. } => vec![self.clone()],
+            Type::Pointer { typ } => typ.shallow_check_generics(),
+            Type::GenericStructBase { generics, .. }
+            | Type::GenericStructInstance {
+                alias_list: generics,
+                ..
+            }
+            | Type::GenericUnionBase { generics, .. }
+            | Type::GenericUnionInstance {
+                alias_list: generics,
+                ..
+            } => generics.clone(),
+        }
+    }
+
     pub fn size(&self) -> usize {
         match self {
             Type::U64 | Type::U8 | Type::Bool | Type::Pointer { .. } | Type::Enum { .. } => 1,

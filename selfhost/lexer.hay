@@ -9,13 +9,11 @@ var Token[2048]: token_buff_p
 var Stack<Token>: tokens_p
 
 fn push_token(Token) {
-
     tokens_p @ Stack.push Opt.is_some if {
         "Tokens Stack overflow!" putlns
         1 exit
     }
     tokens_p !
-
 }
 
 fn parse_comment(*Loc: loc Str: s) -> [Str] {
@@ -37,15 +35,15 @@ fn parse_comment(*Loc: loc Str: s) -> [Str] {
 
 fn parse_word(*Loc: loc Str: s) -> [Str] {
     0 s::data cast(Str)
-    s while as [str] { str
-        " "  str Str.starts_with       lnot
-        "\n" str Str.starts_with       lnot land 
-        str Marker.try_from_str Opt.is_none land 
-        str::size 0 >                       land
+    s while as [str] { str                       // Break on:
+        " "  str Str.starts_with       lnot      //  * space
+        "\n" str Str.starts_with       lnot land //  * newline
+        str Marker.try_from_str Opt.is_none land //  * marker
+        str::data @ cast(u64) 34 !=         land //  * quote
+        str::size 0 >                       land //  * empty string
     }
     {
         as [word str]
-        0 1 str Str.substr as [char]
         word::size 1 + word::data       cast(Str)
         str::size  1 - str::data 1 ptr+ cast(Str)
     }
@@ -54,6 +52,55 @@ fn parse_word(*Loc: loc Str: s) -> [Str] {
     word TokenKind.from_word loc @ cast(Token)
     push_token
     word::size loc loc_bump
+    str
+
+}
+
+fn parse_string_literal(*Loc: loc Str: s) -> [Str] {
+    
+    s::data @ cast(u64) 34 != if {
+        "Parsing string failed. Expected double quote, but found: `" puts 
+        0 1 s Str.substr puts
+        "` instead." putlns
+        1 exit
+    }
+
+    1 s::data cast(Str)
+    s::size 1 - s::data 1 ptr+ cast(Str)
+    while as [str] { str
+        str::data @ cast(u64) 34 !=
+        str::size 0 >               land
+    }
+    {
+        as [word str]
+        0 1 str Str.substr as [char]
+        word::size 1 + word::data       cast(Str)
+        str::size  1 - str::data 1 ptr+ cast(Str)
+    }
+
+    as [word str] {
+        str::data @ cast(u64) 34 != if {
+            "Didn't find end of string" putlns
+            1 exit
+        }
+        word::size 1 + word::data       cast(Str)
+        str::size  1 - str::data 1 ptr+ cast(Str)
+    }
+    
+    as [word str]
+    word Literal.from_str TokenKind.from_literal loc @ cast(Token)
+    push_token
+
+    0 while dup word::size < {
+        as [i]
+        i 1 word Str.substr "\n" Str.equals if {
+            loc loc_newline
+        } else {
+            1 loc loc_bump
+        }
+        i 1 +
+    } drop
+
     str
 
 }
@@ -97,6 +144,8 @@ fn parse_tokens(Str: path Str: input) {
             marker Marker.to_str as [marker_str] 
             marker_str::size loc loc_bump
             marker_str::size str::size marker_str::size - str Str.substr
+        } else str::data @ cast(u64) 34 == if {
+            loc str parse_string_literal
         } else {
             loc str parse_word
         }
@@ -114,7 +163,6 @@ fn main()
     path file_str parse_tokens
 
     while tokens_p @ Stack.pop dup Opt.is_some {
-
         Opt.unwrap Token.puts "\n" puts
         tokens_p !
     } drop

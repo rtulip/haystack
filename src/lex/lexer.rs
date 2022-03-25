@@ -419,7 +419,8 @@ fn parse_type(
             | Type::Union { .. }
             | Type::GenericUnionInstance { .. }
             | Type::ResolvedUnion { .. }
-            | Type::Placeholder { .. },
+            | Type::Placeholder { .. }
+            | Type::PreDefine { .. },
         ) => type_map.get(&name).unwrap().clone(),
         None => Type::Placeholder { name },
     };
@@ -1150,16 +1151,22 @@ fn parse_struct(
     start_tok: &Token,
     tokens: &mut Vec<Token>,
     type_map: &HashMap<String, Type>,
-) -> (String, Type) {
+) -> (Token, String, Type) {
     let tok = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Struct));
     let (name_tok, name) = expect_word(&tok, tokens);
     let (tok, generics) = parse_annotation_list(&name_tok, tokens, type_map);
+
+    if !peek_token_kind(tokens, TokenKind::Marker(Marker::OpenBrace)) {
+        return (name_tok, name.clone(), Type::PreDefine { name });
+    }
+
     let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
     let (members, idents) = parse_tagged_type_list(&tok, tokens, type_map, &generics);
     let _tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
 
     if let Some(gen) = generics {
         (
+            name_tok,
             name.clone(),
             Type::GenericStructBase {
                 name,
@@ -1170,6 +1177,7 @@ fn parse_struct(
         )
     } else {
         (
+            name_tok,
             name.clone(),
             Type::Struct {
                 name,
@@ -1377,9 +1385,17 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
                 kind: TokenKind::Keyword(Keyword::Struct),
                 ..
             }) => {
-                let (name, typ) =
+                let (tok, name, typ) =
                     parse_struct(&maybe_tok.unwrap().clone(), &mut tokens, &program.types);
-                program.types.insert(name, typ);
+                if let Some(t) = program.types.insert(name, typ) {
+                    if !matches!(t, Type::PreDefine { .. }) {
+                        compiler_error(
+                            &tok,
+                            format!("Redefinition of type: {:?}", t).as_str(),
+                            vec![],
+                        );
+                    }
+                }
             }
             Some(Token {
                 kind: TokenKind::Keyword(Keyword::Union),

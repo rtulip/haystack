@@ -12,6 +12,9 @@ pub enum Type {
         name: String,
         variants: Vec<String>,
     },
+    PreDefine {
+        name: String,
+    },
     Placeholder {
         name: String,
     },
@@ -87,6 +90,7 @@ impl Type {
             Type::U64
             | Type::U8
             | Type::Bool
+            | Type::PreDefine { .. }
             | Type::Enum { .. }
             | Type::Struct { .. }
             | Type::ResolvedStruct { .. }
@@ -97,7 +101,9 @@ impl Type {
 
     pub fn deep_check_generics(&self) -> Vec<Type> {
         match self {
-            Type::U64 | Type::U8 | Type::Bool | Type::Enum { .. } => vec![],
+            Type::U64 | Type::U8 | Type::Bool | Type::Enum { .. } | Type::PreDefine { .. } => {
+                vec![]
+            }
             Type::Placeholder { .. } => vec![self.clone()],
             Type::Pointer { typ } => typ.deep_check_generics(),
             Type::Struct { members, .. }
@@ -126,7 +132,8 @@ impl Type {
             | Type::Struct { .. }
             | Type::Union { .. }
             | Type::ResolvedStruct { .. }
-            | Type::ResolvedUnion { .. } => vec![],
+            | Type::ResolvedUnion { .. }
+            | Type::PreDefine { .. } => vec![],
             Type::Placeholder { .. } => vec![self.clone()],
             Type::Pointer { typ } => typ.shallow_check_generics(),
             Type::GenericStructBase { generics, .. }
@@ -162,6 +169,7 @@ impl Type {
             Type::GenericStructInstance { .. } => {
                 panic!("Size of a generic struct is unknown: {:?}", self)
             }
+            Type::PreDefine { .. } => panic!("Size of Pre-defined type is unknown. {:?}", self),
         }
     }
 
@@ -522,6 +530,15 @@ impl Type {
                 .as_str(),
                 vec![],
             ),
+            (Type::PreDefine { .. }, _) => compiler_error(
+                token,
+                format!(
+                    "Cannot resolve type {:?} into {:?}",
+                    maybe_generic_t, concrete_t
+                )
+                .as_str(),
+                vec![],
+            ),
         };
 
         t
@@ -646,6 +663,13 @@ impl Type {
             | Type::ResolvedStruct { .. }
             | Type::Union { .. }
             | Type::ResolvedUnion { .. } => typ.clone(),
+            Type::PreDefine { .. } => {
+                compiler_error(
+                    token,
+                    format!("Cannot assign generics to pre-defined type: {:?}", typ).as_str(),
+                    vec![],
+                );
+            }
         }
     }
 }
@@ -683,6 +707,7 @@ impl std::fmt::Debug for Type {
                 }
                 write!(f, ">")
             }
+            Type::PreDefine { name } => write!(f, "Pre-Declare({name})"),
         }
     }
 }

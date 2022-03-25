@@ -8,24 +8,116 @@ var u8[65536]: filebuff_p
 var Token[2048]: token_buff_p
 var Stack<Token>: tokens_p
 
-fn drop_leading_whitespace(Str) -> [Str] {
-    while as [s] {
-        s
-        s 0 1 Str.substr  " "  Str.equals
-        s 0 1 Str.substr  "\n" Str.equals land 
+fn push_token(Token) {
+
+    tokens_p @ Stack.push Opt.is_some if {
+        "Tokens Stack overflow!" putlns
+        1 exit
+    }
+    tokens_p !
+
+}
+
+fn parse_comment(*Loc: loc Str: s) -> [Str] {
+
+    s while as [str] { str
+        "\n" str Str.starts_with lnot 
+        str::size 0 >            land 
     }
     {
-        Str.drop_front
+        as [str] 
+        str::size 1 - 
+        str::data 1 ptr+
+        cast(Str)
+
+        1 loc loc_bump
     }
+
+}
+
+fn parse_word(*Loc: loc Str: s) -> [Str] {
+    0 s::data cast(Str)
+    s while as [str] { str
+        " "  str Str.starts_with       lnot
+        "\n" str Str.starts_with       lnot land 
+        str Marker.try_from_str Opt.is_none land 
+        str::size 0 >                       land
+    }
+    {
+        as [word str]
+        0 1 str Str.substr as [char]
+        word::size 1 + word::data       cast(Str)
+        str::size  1 - str::data 1 ptr+ cast(Str)
+    }
+    as [word str]
+    
+    word TokenKind.from_word loc @ cast(Token)
+    push_token
+    word::size loc loc_bump
+    str
+
+}
+
+fn loc_bump(u64: n *Loc: loc_p) {
+    loc_p @ as [loc]
+    loc::file loc::row loc::col n + cast(Loc)
+    loc_p !
+}
+
+fn loc_newline(*Loc: loc_p) {
+    loc_p @ as [loc]
+    loc::file loc::row 1 + 1 cast(Loc)
+    loc_p !
+}
+
+fn parse_tokens(Str: path Str: input) {
+    var Loc: loc
+    var Str: token
+
+    path 1 1 cast(Loc) loc !
+    0 input::data cast(Str) token !
+
+    input while as [str] { str
+        str::size 0 >
+    }
+    {
+        as [str]
+
+        " " str Str.starts_with if {
+            1 loc loc_bump
+            1 str::size 1 - str Str.substr
+        } else "\n" str Str.starts_with if {
+            loc loc_newline
+            1 str::size 1 - str Str.substr
+        } else "//" str Str.starts_with if {
+            loc str parse_comment
+        } else str Marker.try_from_str Opt.is_some if {
+            str Marker.try_from_str Opt.unwrap as [marker]
+            marker TokenKind.from_marker loc @ cast(Token) push_token
+            marker Marker.to_str as [marker_str] 
+            marker_str::size loc loc_bump
+            marker_str::size str::size marker_str::size - str Str.substr
+        } else {
+            loc str parse_word
+        }
+
+    } drop
+
 }
 
 fn main()
 {
     token_buff_p @ Stack.init tokens_p !
     
-    //"./selfhost/lexer.hay" filebuff_p @ File.read_path_to_str
+    "./examples/hello_world.hay" as [path] 
+    path filebuff_p @ File.read_path_to_str as [file_str]
+    path file_str parse_tokens
 
-    "     Hello World"  dup putlns 
-    drop_leading_whitespace putlns
+    while tokens_p @ Stack.pop dup Opt.is_some {
 
+        Opt.unwrap Token.puts "\n" puts
+        tokens_p !
+    } drop
+    tokens_p !
+    
 }

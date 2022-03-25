@@ -419,7 +419,8 @@ fn parse_type(
             | Type::Union { .. }
             | Type::GenericUnionInstance { .. }
             | Type::ResolvedUnion { .. }
-            | Type::Placeholder { .. },
+            | Type::Placeholder { .. }
+            | Type::PreDefine { .. },
         ) => type_map.get(&name).unwrap().clone(),
         None => Type::Placeholder { name },
     };
@@ -506,6 +507,7 @@ fn parse_tagged_type_list(
     token: &Token,
     tokens: &mut Vec<Token>,
     type_map: &HashMap<String, Type>,
+    maybe_generics: &Option<Vec<Type>>,
 ) -> (Vec<Type>, Vec<String>) {
     let mut tok = token.clone();
     let mut inputs = vec![];
@@ -514,6 +516,37 @@ fn parse_tagged_type_list(
         if array_n.is_some() {
             compiler_error(&typ_tok, "Cannot have array types in type list", vec![]);
         }
+        let generics = typ.deep_check_generics();
+        match (generics.is_empty(), maybe_generics) {
+            (true, _) => (),
+            (false, None) => compiler_error(
+                &typ_tok,
+                format!("Unrecognized generic types: {:?}", generics).as_str(),
+                vec![
+                    "No generics were expected in this context.",
+                    "Consider adding a type annotation list.",
+                ],
+            ),
+            (false, Some(known_generics)) => generics.iter().for_each(|t| {
+                let mut all_known_generics = known_generics.clone();
+                all_known_generics.append(&mut t.shallow_check_generics());
+                if !all_known_generics.contains(t) {
+                    compiler_error(
+                        &typ_tok,
+                        format!("Unrecognized generic types: {:?}", t).as_str(),
+                        vec![
+                            format!(
+                                "Only these generics are known in this context: {:?}",
+                                known_generics
+                            )
+                            .as_str(),
+                            "Consider adding a type annotation list.",
+                        ],
+                    )
+                }
+            }),
+        };
+
         inputs.push(typ);
         idents.push(ident);
         tok = typ_tok;
@@ -1089,7 +1122,7 @@ fn parse_union(
     let (name_tok, name) = expect_word(&tok, tokens);
     let (tok, generics) = parse_annotation_list(&name_tok, tokens, type_map);
     let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
-    let (members, idents) = parse_tagged_type_list(&tok, tokens, type_map);
+    let (members, idents) = parse_tagged_type_list(&tok, tokens, type_map, &generics);
     let _tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
 
     if let Some(generics) = generics {
@@ -1118,16 +1151,22 @@ fn parse_struct(
     start_tok: &Token,
     tokens: &mut Vec<Token>,
     type_map: &HashMap<String, Type>,
-) -> (String, Type) {
+) -> (Token, String, Type) {
     let tok = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Struct));
     let (name_tok, name) = expect_word(&tok, tokens);
     let (tok, generics) = parse_annotation_list(&name_tok, tokens, type_map);
+
+    if !peek_token_kind(tokens, TokenKind::Marker(Marker::OpenBrace)) {
+        return (name_tok, name.clone(), Type::PreDefine { name });
+    }
+
     let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
-    let (members, idents) = parse_tagged_type_list(&tok, tokens, type_map);
+    let (members, idents) = parse_tagged_type_list(&tok, tokens, type_map, &generics);
     let _tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
 
     if let Some(gen) = generics {
         (
+            name_tok,
             name.clone(),
             Type::GenericStructBase {
                 name,
@@ -1138,6 +1177,7 @@ fn parse_struct(
         )
     } else {
         (
+            name_tok,
             name.clone(),
             Type::Struct {
                 name,
@@ -1345,9 +1385,17 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
                 kind: TokenKind::Keyword(Keyword::Struct),
                 ..
             }) => {
-                let (name, typ) =
+                let (tok, name, typ) =
                     parse_struct(&maybe_tok.unwrap().clone(), &mut tokens, &program.types);
-                program.types.insert(name, typ);
+                if let Some(t) = program.types.insert(name, typ) {
+                    if !matches!(t, Type::PreDefine { .. }) {
+                        compiler_error(
+                            &tok,
+                            format!("Redefinition of type: {:?}", t).as_str(),
+                            vec![],
+                        );
+                    }
+                }
             }
             Some(Token {
                 kind: TokenKind::Keyword(Keyword::Union),

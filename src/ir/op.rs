@@ -207,7 +207,8 @@ impl Op {
                 Type::GenericStructInstance { .. }
                 | Type::GenericStructBase { .. }
                 | Type::GenericUnionInstance { .. }
-                | Type::GenericUnionBase { .. } => {
+                | Type::GenericUnionBase { .. }
+                | Type::PreDefine { .. } => {
                     unreachable!()
                 }
             };
@@ -491,6 +492,10 @@ impl Op {
                             stack,
                         );
                     }
+                    Type::PreDefine { .. } => unreachable!(
+                        "Casting to a pre-defined type should be unreachable: {:?}",
+                        self.token
+                    ),
                     Type::GenericUnionBase { .. } => unimplemented!(
                         "{}: Casting to generic union base isn't implemented yet",
                         self.token.loc
@@ -546,7 +551,8 @@ impl Op {
                             | Some(Type::GenericStructBase { .. })
                             | Some(Type::GenericStructInstance { .. })
                             | Some(Type::ResolvedStruct { .. })
-                            | Some(Type::Placeholder { .. }) => Type::U64,
+                            | Some(Type::Placeholder { .. })
+                            | Some(Type::PreDefine { .. }) => Type::U64,
                         };
 
                         evaluate_signature(
@@ -574,7 +580,8 @@ impl Op {
                             | Some(Type::GenericStructBase { .. })
                             | Some(Type::GenericStructInstance { .. })
                             | Some(Type::ResolvedStruct { .. })
-                            | Some(Type::Placeholder { .. }) => Type::U8,
+                            | Some(Type::Placeholder { .. })
+                            | Some(Type::PreDefine { .. }) => Type::U8,
                         };
 
                         evaluate_signature(

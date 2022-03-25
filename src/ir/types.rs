@@ -12,6 +12,9 @@ pub enum Type {
         name: String,
         variants: Vec<String>,
     },
+    PreDefine {
+        name: String,
+    },
     Placeholder {
         name: String,
     },
@@ -87,11 +90,186 @@ impl Type {
             Type::U64
             | Type::U8
             | Type::Bool
+            | Type::PreDefine { .. }
             | Type::Enum { .. }
             | Type::Struct { .. }
             | Type::ResolvedStruct { .. }
             | Type::Union { .. }
             | Type::ResolvedUnion { .. } => false,
+        }
+    }
+
+    pub fn deep_check_generics(&self) -> Vec<Type> {
+        match self {
+            Type::U64 | Type::U8 | Type::Bool | Type::Enum { .. } | Type::PreDefine { .. } => {
+                vec![]
+            }
+            Type::Placeholder { .. } => vec![self.clone()],
+            Type::Pointer { typ } => typ.deep_check_generics(),
+            Type::Struct { members, .. }
+            | Type::Union { members, .. }
+            | Type::GenericStructBase { members, .. }
+            | Type::GenericStructInstance { members, .. }
+            | Type::ResolvedStruct { members, .. }
+            | Type::GenericUnionBase { members, .. }
+            | Type::GenericUnionInstance { members, .. }
+            | Type::ResolvedUnion { members, .. } => {
+                let mut generics = vec![];
+                members.iter().for_each(|t| {
+                    generics.append(&mut t.deep_check_generics());
+                });
+                generics
+            }
+        }
+    }
+
+    pub fn shallow_check_generics(&self) -> Vec<Type> {
+        match self {
+            Type::U64
+            | Type::U8
+            | Type::Bool
+            | Type::Enum { .. }
+            | Type::Struct { .. }
+            | Type::Union { .. }
+            | Type::ResolvedStruct { .. }
+            | Type::ResolvedUnion { .. }
+            | Type::PreDefine { .. } => vec![],
+            Type::Placeholder { .. } => vec![self.clone()],
+            Type::Pointer { typ } => typ.shallow_check_generics(),
+            Type::GenericStructBase { generics, .. }
+            | Type::GenericStructInstance {
+                alias_list: generics,
+                ..
+            }
+            | Type::GenericUnionBase { generics, .. }
+            | Type::GenericUnionInstance {
+                alias_list: generics,
+                ..
+            } => generics.clone(),
+        }
+    }
+
+    pub fn deep_resolve_pre_delared_members(&self, type_map: &HashMap<String, Type>) -> Type {
+        match self {
+            Type::PreDefine { name } => type_map.get(name).unwrap().clone(),
+            Type::U64 | Type::U8 | Type::Bool | Type::Enum { .. } | Type::Placeholder { .. } => {
+                self.clone()
+            }
+            Type::Pointer { typ } => Type::Pointer {
+                typ: Box::new(typ.deep_resolve_pre_delared_members(type_map)),
+            },
+            Type::Struct {
+                name,
+                members,
+                idents,
+            } => Type::Struct {
+                name: name.clone(),
+                members: members
+                    .iter()
+                    .map(|t| t.deep_resolve_pre_delared_members(type_map))
+                    .collect(),
+                idents: idents.clone(),
+            },
+            Type::GenericStructBase {
+                name,
+                members,
+                idents,
+                generics,
+            } => Type::GenericStructBase {
+                name: name.clone(),
+                members: members
+                    .iter()
+                    .map(|t| t.deep_resolve_pre_delared_members(type_map))
+                    .collect(),
+                idents: idents.clone(),
+                generics: generics.clone(),
+            },
+            Type::GenericStructInstance {
+                base,
+                members,
+                idents,
+                alias_list,
+                base_generics,
+            } => Type::GenericStructInstance {
+                base: base.clone(),
+                members: members
+                    .iter()
+                    .map(|t| t.deep_resolve_pre_delared_members(type_map))
+                    .collect(),
+                idents: idents.clone(),
+                alias_list: alias_list.clone(),
+                base_generics: base_generics.clone(),
+            },
+            Type::ResolvedStruct {
+                name,
+                members,
+                idents,
+                base,
+            } => Type::ResolvedStruct {
+                name: name.clone(),
+                members: members
+                    .iter()
+                    .map(|t| t.deep_resolve_pre_delared_members(type_map))
+                    .collect(),
+                idents: idents.clone(),
+                base: base.clone(),
+            },
+            Type::Union {
+                name,
+                members,
+                idents,
+            } => Type::Union {
+                name: name.clone(),
+                members: members
+                    .iter()
+                    .map(|t| t.deep_resolve_pre_delared_members(type_map))
+                    .collect(),
+                idents: idents.clone(),
+            },
+            Type::GenericUnionBase {
+                name,
+                members,
+                idents,
+                generics,
+            } => Type::GenericUnionBase {
+                name: name.clone(),
+                members: members
+                    .iter()
+                    .map(|t| t.deep_resolve_pre_delared_members(type_map))
+                    .collect(),
+                idents: idents.clone(),
+                generics: generics.clone(),
+            },
+            Type::GenericUnionInstance {
+                base,
+                members,
+                idents,
+                alias_list,
+                base_generics,
+            } => Type::GenericUnionInstance {
+                base: base.clone(),
+                members: members
+                    .iter()
+                    .map(|t| t.deep_resolve_pre_delared_members(type_map))
+                    .collect(),
+                idents: idents.clone(),
+                alias_list: alias_list.clone(),
+                base_generics: base_generics.clone(),
+            },
+            Type::ResolvedUnion {
+                name,
+                members,
+                idents,
+                base,
+            } => Type::ResolvedUnion {
+                name: name.clone(),
+                members: members
+                    .iter()
+                    .map(|t| t.deep_resolve_pre_delared_members(type_map))
+                    .collect(),
+                idents: idents.clone(),
+                base: base.clone(),
+            },
         }
     }
 
@@ -115,6 +293,7 @@ impl Type {
             Type::GenericStructInstance { .. } => {
                 panic!("Size of a generic struct is unknown: {:?}", self)
             }
+            Type::PreDefine { .. } => panic!("Size of Pre-defined type is unknown. {:?}", self),
         }
     }
 
@@ -475,6 +654,15 @@ impl Type {
                 .as_str(),
                 vec![],
             ),
+            (Type::PreDefine { .. }, _) => compiler_error(
+                token,
+                format!(
+                    "Cannot resolve type {:?} into {:?}",
+                    maybe_generic_t, concrete_t
+                )
+                .as_str(),
+                vec![],
+            ),
         };
 
         t
@@ -599,6 +787,13 @@ impl Type {
             | Type::ResolvedStruct { .. }
             | Type::Union { .. }
             | Type::ResolvedUnion { .. } => typ.clone(),
+            Type::PreDefine { .. } => {
+                compiler_error(
+                    token,
+                    format!("Cannot assign generics to pre-defined type: {:?}", typ).as_str(),
+                    vec![],
+                );
+            }
         }
     }
 }
@@ -636,6 +831,7 @@ impl std::fmt::Debug for Type {
                 }
                 write!(f, ">")
             }
+            Type::PreDefine { name } => write!(f, "Pre-Declare({name})"),
         }
     }
 }

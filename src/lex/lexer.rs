@@ -351,10 +351,7 @@ fn parse_type(
                     ],
                 );
             }
-            if annotations
-                .iter()
-                .any(|t| matches!(t, Type::Placeholder { .. }))
-            {
+            if annotations.iter().any(|t| t.is_generic()) {
                 Type::GenericStructInstance {
                     base: name.clone(),
                     members: members.clone(),
@@ -395,10 +392,7 @@ fn parse_type(
                     ],
                 );
             }
-            if annotations
-                .iter()
-                .any(|t| matches!(t, Type::Placeholder { .. }))
-            {
+            if annotations.iter().any(|t| t.is_generic()) {
                 Type::GenericUnionInstance {
                     base: name.clone(),
                     members: members.clone(),
@@ -429,7 +423,6 @@ fn parse_type(
         ) => type_map.get(&name).unwrap().clone(),
         None => Type::Placeholder { name },
     };
-
     let (tok, typ, array_n) = if peek_token_kind(tokens, TokenKind::Marker(Marker::OpenBracket)) {
         expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBracket));
         let (tok, size) = expect_u64(&tok, tokens);

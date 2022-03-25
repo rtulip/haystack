@@ -512,23 +512,7 @@ impl Type {
                             .get(alias_map.get(name).unwrap())
                             .unwrap()
                             .clone(),
-                        Type::GenericStructInstance { .. } | Type::GenericUnionInstance { .. } => {
-                            Type::assign_generics(token, t, generic_map)
-                        }
-                        Type::Pointer { typ } => Type::Pointer {
-                            typ: Box::new(Type::assign_generics(token, typ, generic_map)),
-                        },
-                        Type::U64
-                        | Type::U8
-                        | Type::Bool
-                        | Type::Enum { .. }
-                        | Type::Struct { .. }
-                        | Type::ResolvedStruct { .. }
-                        | Type::Union { .. }
-                        | Type::ResolvedUnion { .. } => t.clone(),
-                        Type::GenericStructBase { .. } | Type::GenericUnionBase { .. } => {
-                            unreachable!()
-                        }
+                        _ => Type::assign_generics(token, t, generic_map),
                     })
                     .collect::<Vec<Type>>();
 
@@ -578,16 +562,7 @@ impl Type {
             } => {
                 let resolved_members = members
                     .iter()
-                    .map(|t| match t {
-                        Type::Placeholder { name } => generic_map.get(name).unwrap().clone(),
-                        Type::GenericStructInstance { .. } => {
-                            Type::assign_generics(token, t, generic_map)
-                        }
-                        Type::Pointer { typ } => Type::Pointer {
-                            typ: Box::new(Type::assign_generics(token, typ, generic_map)),
-                        },
-                        t => t.clone(),
-                    })
+                    .map(|t| Type::assign_generics(token, t, generic_map))
                     .collect::<Vec<Type>>();
                 let mut name = base.clone();
                 name.push('<');

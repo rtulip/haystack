@@ -33,6 +33,38 @@ fn parse_comment(*Loc: loc Str: s) -> [Str] {
 
 }
 
+fn Str.is_numeric(Str: s) -> [bool] {
+
+    true 0 while dup s::size < {
+        as [cond i]
+        s::data i ptr+ @ cast(u64) as [char]
+        48 char <= char 57 <= land
+        cond land
+        i 1 +  
+    } drop
+}
+
+fn Str.to_u64(Str: s) -> [u64] {
+
+    s Str.is_numeric lnot if {
+        "Cannot convert non numeric string `" puts
+        s puts
+        "` to a u64" putlns
+        1 exit
+    }
+
+    0 s while as [str] { str
+        str::size 0 > 
+    } 
+    {
+        as [result str]
+        result 10 * 
+        str::data @ cast(u64) 48 - +
+        s::size 1 - s::data 1 ptr+ cast(Str)
+    } drop
+
+}
+
 fn parse_word(*Loc: loc Str: s) -> [Str] {
     0 s::data cast(Str)
     s while as [str] { str                       // Break on:
@@ -49,7 +81,16 @@ fn parse_word(*Loc: loc Str: s) -> [Str] {
     }
     as [word str]
     
-    word TokenKind.from_word loc @ cast(Token)
+    word Str.is_numeric if {
+        word Str.to_u64 Literal.from_u64 TokenKind.from_literal loc @ cast(Token)
+    } else word Keyword.try_from_str Opt.is_some if {
+        word Keyword.try_from_str Opt.unwrap 
+        TokenKind.from_keyword loc @ cast(Token)
+    } else {
+        word TokenKind.from_word loc @ cast(Token)
+    }
+
+    
     push_token
     word::size loc loc_bump
     str

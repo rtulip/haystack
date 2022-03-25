@@ -10,7 +10,6 @@ enum TokenKindTag {
     Literal
     Marker
     Word
-    Comment
     EndOfFile
 }
 
@@ -20,7 +19,6 @@ union TokenKindValue {
     Literal: literal
     Marker: marker
     Str: word
-    Str: comment
     u64: eof
 }
 
@@ -43,10 +41,6 @@ fn TokenKind.fputs(TokenKind: kind u64: fd) {
         "Word(" fd fputs
         kind::value::word fd fputs
         ")" fd fputs
-    } else kind::tag TokenKindTag::Comment == if {
-        "Word(" fd fputs
-        kind::value::comment fd fputs
-        ")" fd fputs    
     } else kind::tag TokenKindTag::EndOfFile == if {
         "EndOfFile" fd fputs
     } else {
@@ -82,12 +76,6 @@ fn TokenKind.from_marker(Marker: value) -> [TokenKind] {
 
 fn TokenKind.from_word(Str: value) -> [TokenKind] {
     TokenKindTag::Word
-    value cast(TokenKindValue)
-    cast(TokenKind)
-}
-
-fn TokenKind.from_comment(Str: value) -> [TokenKind] {
-    TokenKindTag::Comment
     value cast(TokenKindValue)
     cast(TokenKind)
 }

@@ -56,3 +56,36 @@ fn Keyword.fputs(Keyword: kw u64: fd) {
 fn Keyword.puts(Keyword) {
     1 Keyword.fputs
 }
+
+fn Keyword.try_from_str(Str: maybe_keyword) -> [Opt<Keyword>] {
+
+    "fn" maybe_keyword Str.equals if {
+        Keyword::Function Opt.Some
+    } else "var" maybe_keyword Str.equals if {
+        Keyword::Var Opt.Some
+    } else "as" maybe_keyword Str.equals if {
+        Keyword::As Opt.Some
+    } else "if" maybe_keyword Str.equals if {
+        Keyword::If Opt.Some
+    } else "else" maybe_keyword Str.equals if {
+        Keyword::Else Opt.Some
+    } else "while" maybe_keyword Str.equals if {
+        Keyword::While Opt.Some
+    } else "struct" maybe_keyword Str.equals if {
+        Keyword::Struct Opt.Some
+    } else "union" maybe_keyword Str.equals if {
+        Keyword::Union Opt.Some
+    } else "enum" maybe_keyword Str.equals if {
+        Keyword::Enum Opt.Some
+    } else "split" maybe_keyword Str.equals if {
+        Keyword::Split Opt.Some
+    } else "syscall" maybe_keyword Str.equals if {
+        Keyword::Syscall Opt.Some
+    } else "include" maybe_keyword Str.equals if {
+        Keyword::Include Opt.Some
+    } else "sizeOf" maybe_keyword Str.equals if {
+        Keyword::SizeOf Opt.Some 
+    } else {
+        Opt.None::<Keyword>
+    }
+}

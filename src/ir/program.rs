@@ -62,6 +62,30 @@ impl Program {
             );
         }
     }
+
+    pub fn resolve_pre_delcared_types(&mut self) {
+        self.types
+            .iter()
+            .filter(|(_, t)| matches!(t, Type::PreDefine { .. }))
+            .for_each(|t| panic!("Pre-defined type {:?} hasn't been resolved.", t));
+
+        let temp_dup = self.types.clone();
+        self.types.iter_mut().for_each(|(_, t)| {
+            *t = t.deep_resolve_pre_delared_members(&temp_dup);
+        });
+
+        self.functions.iter_mut().for_each(|f| {
+            f.sig
+                .inputs
+                .iter_mut()
+                .for_each(|t| *t = t.deep_resolve_pre_delared_members(&temp_dup));
+            f.sig
+                .outputs
+                .iter_mut()
+                .for_each(|t| *t = t.deep_resolve_pre_delared_members(&temp_dup));
+        });
+    }
+
     pub fn type_check(&mut self) {
         let mut fn_table: HashMap<String, Function> = HashMap::new();
         let mut checked: HashSet<String> = HashSet::new();

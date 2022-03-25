@@ -149,6 +149,130 @@ impl Type {
         }
     }
 
+    pub fn deep_resolve_pre_delared_members(&self, type_map: &HashMap<String, Type>) -> Type {
+        match self {
+            Type::PreDefine { name } => type_map.get(name).unwrap().clone(),
+            Type::U64 | Type::U8 | Type::Bool | Type::Enum { .. } | Type::Placeholder { .. } => {
+                self.clone()
+            }
+            Type::Pointer { typ } => Type::Pointer {
+                typ: Box::new(typ.deep_resolve_pre_delared_members(type_map)),
+            },
+            Type::Struct {
+                name,
+                members,
+                idents,
+            } => Type::Struct {
+                name: name.clone(),
+                members: members
+                    .iter()
+                    .map(|t| t.deep_resolve_pre_delared_members(type_map))
+                    .collect(),
+                idents: idents.clone(),
+            },
+            Type::GenericStructBase {
+                name,
+                members,
+                idents,
+                generics,
+            } => Type::GenericStructBase {
+                name: name.clone(),
+                members: members
+                    .iter()
+                    .map(|t| t.deep_resolve_pre_delared_members(type_map))
+                    .collect(),
+                idents: idents.clone(),
+                generics: generics.clone(),
+            },
+            Type::GenericStructInstance {
+                base,
+                members,
+                idents,
+                alias_list,
+                base_generics,
+            } => Type::GenericStructInstance {
+                base: base.clone(),
+                members: members
+                    .iter()
+                    .map(|t| t.deep_resolve_pre_delared_members(type_map))
+                    .collect(),
+                idents: idents.clone(),
+                alias_list: alias_list.clone(),
+                base_generics: base_generics.clone(),
+            },
+            Type::ResolvedStruct {
+                name,
+                members,
+                idents,
+                base,
+            } => Type::ResolvedStruct {
+                name: name.clone(),
+                members: members
+                    .iter()
+                    .map(|t| t.deep_resolve_pre_delared_members(type_map))
+                    .collect(),
+                idents: idents.clone(),
+                base: base.clone(),
+            },
+            Type::Union {
+                name,
+                members,
+                idents,
+            } => Type::Union {
+                name: name.clone(),
+                members: members
+                    .iter()
+                    .map(|t| t.deep_resolve_pre_delared_members(type_map))
+                    .collect(),
+                idents: idents.clone(),
+            },
+            Type::GenericUnionBase {
+                name,
+                members,
+                idents,
+                generics,
+            } => Type::GenericUnionBase {
+                name: name.clone(),
+                members: members
+                    .iter()
+                    .map(|t| t.deep_resolve_pre_delared_members(type_map))
+                    .collect(),
+                idents: idents.clone(),
+                generics: generics.clone(),
+            },
+            Type::GenericUnionInstance {
+                base,
+                members,
+                idents,
+                alias_list,
+                base_generics,
+            } => Type::GenericUnionInstance {
+                base: base.clone(),
+                members: members
+                    .iter()
+                    .map(|t| t.deep_resolve_pre_delared_members(type_map))
+                    .collect(),
+                idents: idents.clone(),
+                alias_list: alias_list.clone(),
+                base_generics: base_generics.clone(),
+            },
+            Type::ResolvedUnion {
+                name,
+                members,
+                idents,
+                base,
+            } => Type::ResolvedUnion {
+                name: name.clone(),
+                members: members
+                    .iter()
+                    .map(|t| t.deep_resolve_pre_delared_members(type_map))
+                    .collect(),
+                idents: idents.clone(),
+                base: base.clone(),
+            },
+        }
+    }
+
     pub fn size(&self) -> usize {
         match self {
             Type::U64 | Type::U8 | Type::Bool | Type::Pointer { .. } | Type::Enum { .. } => 1,

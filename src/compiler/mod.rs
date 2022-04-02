@@ -18,7 +18,6 @@ pub fn compile_haystack(input_path: String, run: bool, ir: bool, simple: bool) -
     lex::hay_into_ir(&input_path, &mut program, &mut included_files);
 
     program.check_for_entry_point();
-    program.resolve_pre_delcared_types();
     program.check_for_name_conflicts();
     program.assign_words();
     if ir {

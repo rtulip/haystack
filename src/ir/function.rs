@@ -3,7 +3,7 @@ use crate::ir::{
     data::InitData,
     op::Op,
     token::Token,
-    types::{Signature, Type},
+    types::{Signature, Type, TypeName},
     FnTable, Stack,
 };
 use serde::{Deserialize, Serialize};
@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct LocalVar {
-    pub typ: Type,
+    pub typ: TypeName,
     pub size: u64,
     pub value: Option<InitData>,
 }
@@ -20,10 +20,10 @@ pub struct LocalVar {
 pub struct Function {
     pub name: String,
     pub token: Token,
-    pub generics: Vec<Type>,
+    pub generics: Vec<TypeName>,
     pub sig: Signature,
     pub ops: Vec<Op>,
-    pub generics_map: HashMap<String, Type>,
+    pub generics_map: HashMap<String, TypeName>,
     pub locals: BTreeMap<String, LocalVar>,
 }
 
@@ -36,7 +36,10 @@ impl Function {
         locals.iter().map(|(_, local)| local.size as usize).sum()
     }
 
-    pub fn locals_get_offset(ident: &String, locals: &BTreeMap<String, LocalVar>) -> (Type, usize) {
+    pub fn locals_get_offset(
+        ident: &String,
+        locals: &BTreeMap<String, LocalVar>,
+    ) -> (TypeName, usize) {
         let mut size = 0;
         for (loc_name, local) in locals {
             size += local.size;
@@ -50,8 +53,8 @@ impl Function {
     pub fn type_check(
         &mut self,
         fn_table: &FnTable,
-        type_map: &HashMap<String, Type>,
-        globals: &BTreeMap<String, (Type, String)>,
+        type_map: &mut HashMap<String, Type>,
+        globals: &BTreeMap<String, (TypeName, String)>,
     ) -> Option<Vec<Function>> {
         if self.is_generic() {
             return None;
@@ -113,7 +116,12 @@ impl Function {
         }
     }
 
-    pub fn assign_generics(&self, token: &Token, annotations: &mut Vec<Type>) -> Self {
+    pub fn assign_generics(
+        &self,
+        token: &Token,
+        annotations: &mut Vec<TypeName>,
+        type_map: &mut HashMap<TypeName, Type>,
+    ) -> Self {
         if !self.is_generic() {
             compiler_error(
                 token,
@@ -141,16 +149,16 @@ impl Function {
             )
         }
 
-        let generics: Vec<Type> = annotations
+        let generics: Vec<TypeName> = annotations
             .iter()
-            .filter(|t| t.is_generic())
+            .filter(|t| type_map.get(*t).unwrap().is_generic(type_map))
             .map(|t| t.clone())
             .collect();
 
-        let generics_map: HashMap<String, Type> = HashMap::from_iter(
+        let generics_map: HashMap<TypeName, TypeName> = HashMap::from_iter(
             self.generics
                 .iter()
-                .map(|gen| gen.name())
+                .map(|gen| gen.clone())
                 .zip(annotations.drain(..)),
         );
 
@@ -158,15 +166,15 @@ impl Function {
             .sig
             .inputs
             .iter()
-            .map(|typ| Type::assign_generics(token, typ, &generics_map))
-            .collect::<Vec<Type>>();
+            .map(|typ| Type::assign_generics(token, typ, &generics_map, type_map))
+            .collect::<Vec<TypeName>>();
 
         let resolved_outputs = self
             .sig
             .outputs
             .iter()
-            .map(|typ| Type::assign_generics(token, typ, &generics_map))
-            .collect::<Vec<Type>>();
+            .map(|typ| Type::assign_generics(token, typ, &generics_map, type_map))
+            .collect::<Vec<TypeName>>();
 
         let sig = Signature {
             inputs: resolved_inputs,
@@ -199,7 +207,12 @@ impl Function {
         }
     }
 
-    pub fn resolve_generic_function(&self, token: &Token, stack: &Stack) -> Self {
+    pub fn resolve_generic_function(
+        &self,
+        token: &Token,
+        stack: &Stack,
+        type_map: &mut HashMap<TypeName, Type>,
+    ) -> Self {
         if stack.len() < self.sig.inputs.len() {
             compiler_error(
                 token,
@@ -211,17 +224,17 @@ impl Function {
             )
         }
 
-        let pairs: Vec<(&Type, &Type)> = self
+        let pairs: Vec<(&TypeName, &TypeName)> = self
             .sig
             .inputs
             .iter()
             .zip(stack[stack.len() - self.sig.inputs.len()..].iter())
             .collect();
-        let mut map: HashMap<String, Type> = HashMap::new();
+        let mut map: HashMap<TypeName, TypeName> = HashMap::new();
         let resolved_inputs = pairs
             .iter()
-            .map(|(t1, t2)| Type::resolve_type(token, t1, t2, &mut map, &HashMap::new()))
-            .collect::<Vec<Type>>();
+            .map(|(t1, t2)| Type::resolve_type(token, t1, t2, &mut map, &HashMap::new(), type_map))
+            .collect::<Vec<TypeName>>();
 
         if !self
             .generics
@@ -237,7 +250,7 @@ impl Function {
                         self.generics
                             .iter()
                             .filter(|t| !map.contains_key(&format!("{:?}", t)))
-                            .collect::<Vec<&Type>>()
+                            .collect::<Vec<&TypeName>>()
                     )
                     .as_str(),
                     "Consider adding a annotations to the call",
@@ -249,8 +262,8 @@ impl Function {
             .sig
             .outputs
             .iter()
-            .map(|t| Type::assign_generics(token, t, &map))
-            .collect::<Vec<Type>>();
+            .map(|t| Type::assign_generics(token, t, &map, type_map))
+            .collect::<Vec<TypeName>>();
 
         let sig = Signature {
             inputs: resolved_inputs,

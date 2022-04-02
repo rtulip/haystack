@@ -4,7 +4,7 @@ use crate::ir::{
     function::Function,
     op::OpKind,
     token::Token,
-    types::Type,
+    types::{Type, TypeName},
 };
 
 use serde::{Deserialize, Serialize};
@@ -12,9 +12,9 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Program {
-    pub types: HashMap<String, Type>,
+    pub types: HashMap<TypeName, Type>,
     pub functions: Vec<Function>,
-    pub global_vars: BTreeMap<String, (Type, String)>,
+    pub global_vars: BTreeMap<String, (TypeName, String)>,
     pub init_data: BTreeMap<String, InitData>,
     pub uninit_data: BTreeMap<String, UninitData>,
 }
@@ -29,17 +29,23 @@ impl Program {
                 (
                     String::from("*64"),
                     Type::Pointer {
-                        typ: Box::new(Type::U64),
+                        typ: Type::U64.name(),
                     },
                 ),
                 (
                     String::from("*u8"),
                     Type::Pointer {
-                        typ: Box::new(Type::U8),
+                        typ: Type::U8.name(),
                     },
                 ),
                 (String::from("Str"), Type::str()),
                 (String::from("Arr"), Type::arr_base()),
+                (
+                    String::from("T"),
+                    Type::Placeholder {
+                        name: String::from("T"),
+                    },
+                ),
             ]),
             functions: vec![],
             global_vars: BTreeMap::new(),
@@ -63,29 +69,6 @@ impl Program {
         }
     }
 
-    pub fn resolve_pre_delcared_types(&mut self) {
-        self.types
-            .iter()
-            .filter(|(_, t)| matches!(t, Type::PreDefine { .. }))
-            .for_each(|t| panic!("Pre-defined type {:?} hasn't been resolved.", t));
-
-        let temp_dup = self.types.clone();
-        self.types.iter_mut().for_each(|(_, t)| {
-            *t = t.deep_resolve_pre_delared_members(&temp_dup);
-        });
-
-        self.functions.iter_mut().for_each(|f| {
-            f.sig
-                .inputs
-                .iter_mut()
-                .for_each(|t| *t = t.deep_resolve_pre_delared_members(&temp_dup));
-            f.sig
-                .outputs
-                .iter_mut()
-                .for_each(|t| *t = t.deep_resolve_pre_delared_members(&temp_dup));
-        });
-    }
-
     pub fn type_check(&mut self) {
         let mut fn_table: HashMap<String, Function> = HashMap::new();
         let mut checked: HashSet<String> = HashSet::new();
@@ -97,7 +80,9 @@ impl Program {
         loop {
             self.functions.iter_mut().for_each(|f| {
                 if !checked.contains(&f.name) {
-                    if let Some(mut fns) = f.type_check(&fn_table, &self.types, &self.global_vars) {
+                    if let Some(mut fns) =
+                        f.type_check(&fn_table, &mut self.types, &self.global_vars)
+                    {
                         new_fns.append(&mut fns);
                     }
                     checked.insert(f.name.clone());
@@ -136,7 +121,7 @@ impl Program {
                 });
         });
 
-        let mut tmp_map: HashMap<String, (Type, String)> = HashMap::new();
+        let mut tmp_map: HashMap<String, (TypeName, String)> = HashMap::new();
 
         self.global_vars.iter().for_each(|(k, v)| {
             tmp_map.insert(global_names.get(k).unwrap().clone(), v.clone());
@@ -252,7 +237,7 @@ impl Program {
 
                                 if let Some(idx) = variants.iter().position(|v| v == &fields[0]) {
                                     op.kind = OpKind::PushEnum {
-                                        typ: self.types.get(s).unwrap().clone(),
+                                        typ: self.types.get(s).unwrap().name(),
                                         idx,
                                     };
                                 } else {

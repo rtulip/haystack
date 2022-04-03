@@ -77,9 +77,9 @@ impl std::fmt::Debug for OpKind {
             OpKind::Mod => write!(f, "%"),
             OpKind::Read(_) => write!(f, "@"),
             OpKind::Write(_) => write!(f, "!"),
-            OpKind::Cast(typ) => write!(f, "Cast({:?})", typ),
+            OpKind::Cast(typ) => write!(f, "Cast({typ})"),
             OpKind::Pad(n) => write!(f, "Pad({n})"),
-            OpKind::SizeOf(typ) => write!(f, "SizeOf({:?})", typ),
+            OpKind::SizeOf(typ) => write!(f, "SizeOf({typ})"),
             OpKind::Split => write!(f, "Split"),
             OpKind::Global(s) => write!(f, "Global({s})"),
             OpKind::Word(s) => write!(f, "Word({s})"),
@@ -517,21 +517,9 @@ impl Op {
                         "{}: Casting to generic union base isn't implemented yet",
                         self.token.loc
                     ),
-                    Type::GenericUnionInstance {
-                        base,
-                        members,
-                        alias_list,
-                        ..
-                    } => {
-                        println!("Casting to generic union: {base}");
-                        println!("    members: {:?}", members);
-                        println!("    alias_list: {:?}", alias_list);
-                        println!("    generics: {:?}", gen_map);
-
+                    Type::GenericUnionInstance { members, .. } => {
                         let new_typ =
                             Type::assign_generics(&self.token, cast_type, gen_map, type_map);
-
-                        println!("Assigned Typ: {new_typ}");
 
                         if let Some(typ) = stack.pop() {
                             if members.contains(&typ) {
@@ -543,7 +531,6 @@ impl Op {
                                     },
                                     stack,
                                 );
-
                                 let size_delta = type_map.get(&new_typ).unwrap().size(type_map)
                                     - type_map.get(&typ).unwrap().size(type_map);
                                 self.kind = OpKind::Pad(size_delta);

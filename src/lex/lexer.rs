@@ -1278,11 +1278,12 @@ fn parse_local_var(
                 )
             };
         } else {
-            let typ = Type::Pointer { typ };
-            type_map.insert(typ.name(), typ.clone());
+            let pointer_typ = Type::Pointer { typ: typ.clone() };
+            type_map.insert(pointer_typ.name(), pointer_typ.clone());
             let local = LocalVar {
-                typ: typ.name(),
-                size: (typ.size(type_map) * typ.width()) as u64,
+                typ: pointer_typ.name(),
+                size: (type_map.get(&typ).unwrap().size(type_map)
+                    * type_map.get(&typ).unwrap().width()) as u64,
                 value: None,
             };
 

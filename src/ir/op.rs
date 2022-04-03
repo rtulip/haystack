@@ -372,7 +372,10 @@ impl Op {
                     compiler_error(
                         &self.token,
                         "Insuffient arguments for equals comparison.",
-                        vec![format!("Expected: {:?}", [Type::U64, Type::U64]).as_str()],
+                        vec![
+                            format!("Expected: {:#?}", [Type::U64.name(), Type::U64.name()])
+                                .as_str(),
+                        ],
                     )
                 }
                 None
@@ -475,10 +478,11 @@ impl Op {
                 panic!("Read width should have been resolved at this point...")
             }
             OpKind::SizeOf(typ) => {
-                let typ_after = if let Some(cast_type) = type_map.get(typ) {
-                    cast_type.name()
-                } else {
+                let t = type_map.get(typ).unwrap();
+                let typ_after = if t.is_generic(type_map) {
                     Type::assign_generics(&self.token, typ, gen_map, type_map)
+                } else {
+                    t.name()
                 };
 
                 let size = type_map.get(&typ_after).unwrap().size(type_map)
@@ -495,14 +499,8 @@ impl Op {
                 );
                 None
             }
-            OpKind::Cast(typ) => {
-                let cast_type = if let Some(cast_type) = type_map.get(typ) {
-                    cast_type.name()
-                } else {
-                    Type::assign_generics(&self.token, typ, gen_map, type_map)
-                };
-
-                match type_map.get(&cast_type).unwrap() {
+            OpKind::Cast(cast_type) => {
+                match type_map.get(cast_type).unwrap().clone() {
                     Type::Struct {
                         name: _, members, ..
                     } => {
@@ -519,10 +517,56 @@ impl Op {
                         "{}: Casting to generic union base isn't implemented yet",
                         self.token.loc
                     ),
-                    Type::GenericUnionInstance { .. } => unimplemented!(
-                        "{}: Casting to generic union instance isn't implemented yet",
-                        self.token.loc
-                    ),
+                    Type::GenericUnionInstance {
+                        base,
+                        members,
+                        alias_list,
+                        ..
+                    } => {
+                        println!("Casting to generic union: {base}");
+                        println!("    members: {:?}", members);
+                        println!("    alias_list: {:?}", alias_list);
+                        println!("    generics: {:?}", gen_map);
+
+                        let new_typ =
+                            Type::assign_generics(&self.token, cast_type, gen_map, type_map);
+
+                        println!("Assigned Typ: {new_typ}");
+
+                        if let Some(typ) = stack.pop() {
+                            if members.contains(&typ) {
+                                evaluate_signature(
+                                    self,
+                                    &Signature {
+                                        inputs: vec![], // We've already popped the type
+                                        outputs: vec![new_typ.clone()],
+                                    },
+                                    stack,
+                                );
+
+                                let size_delta = type_map.get(&new_typ).unwrap().size(type_map)
+                                    - type_map.get(&typ).unwrap().size(type_map);
+                                self.kind = OpKind::Pad(size_delta);
+                            } else {
+                                compiler_error(
+                                    &self.token,
+                                    format!("Type {:?} cannot be cast to {:?}", typ, new_typ)
+                                        .as_str(),
+                                    vec![format!(
+                                        "Union {:?} expects one of these: {:?}",
+                                        cast_type, members
+                                    )
+                                    .as_str()],
+                                )
+                            }
+                        } else {
+                            compiler_error(
+                                &self.token,
+                                "Casting requires at least one element on the stack.",
+                                vec![],
+                            )
+                        }
+                    }
                     Type::GenericStructBase { name, members, .. } => {
                         if members.len() > stack.len() {
                             compiler_error(
@@ -620,11 +664,16 @@ impl Op {
                         );
                     }
                     Type::Pointer { typ } => {
+                        let typ = if type_map.get(&typ).unwrap().clone().is_generic(type_map) {
+                            Type::assign_generics(&self.token, &typ, gen_map, type_map)
+                        } else {
+                            typ
+                        };
                         evaluate_signature(
                             self,
                             &Signature {
                                 inputs: vec![Type::U64.name()],
-                                outputs: vec![Type::Pointer { typ: typ.clone() }.name()],
+                                outputs: vec![Type::Pointer { typ }.name()],
                             },
                             stack,
                         );
@@ -641,7 +690,7 @@ impl Op {
                                     stack,
                                 );
 
-                                let size_delta = type_map.get(&cast_type).unwrap().size(type_map)
+                                let size_delta = type_map.get(cast_type).unwrap().size(type_map)
                                     - type_map.get(&typ).unwrap().size(type_map);
                                 self.kind = OpKind::Pad(size_delta);
                             } else {
@@ -901,7 +950,6 @@ impl Op {
                 let f = fn_table.get(func_name).unwrap_or_else(|| {
                     panic!("Function names should be recognizable at this point... {func_name}")
                 });
-
                 if f.is_generic() {
                     let new_fn = if annotations.is_empty() {
                         f.resolve_generic_function(&self.token, stack, type_map)

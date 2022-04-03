@@ -10,7 +10,7 @@ pub fn simplify_ir<P: AsRef<std::path::Path> + std::clone::Clone>(program: &Prog
     )
     .unwrap();
     program.types.iter().for_each(|(_, t)| {
-        writeln!(&mut file, "{:?}", t).unwrap();
+        writeln!(&mut file, "{t}").unwrap();
         match t {
             Type::GenericStructBase {
                 members, idents, ..

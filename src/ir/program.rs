@@ -10,7 +10,7 @@ use crate::ir::{
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Program {
     pub types: HashMap<TypeName, Type>,
     pub functions: Vec<Function>,

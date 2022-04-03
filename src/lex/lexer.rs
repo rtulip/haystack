@@ -1432,7 +1432,11 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
                 kind: TokenKind::Keyword(Keyword::Struct),
                 ..
             }) => {
-                parse_struct(&maybe_tok.unwrap().clone(), &mut tokens, &mut program.types);
+                let (tok, name, typ) =
+                    parse_struct(&maybe_tok.unwrap().clone(), &mut tokens, &mut program.types);
+                if let Some(t) = program.types.insert(name, typ) {
+                    compiler_error(&tok, format!("Redefiniton of type: {}", t).as_str(), vec![]);
+                }
             }
             Some(Token {
                 kind: TokenKind::Keyword(Keyword::Union),

@@ -73,7 +73,7 @@ impl Type {
     pub fn name(&self) -> String {
         match self {
             Type::GenericStructBase { name, .. } => name.clone(),
-            _ => format!("{:?}", self),
+            _ => format!("{}", self),
         }
     }
 
@@ -159,15 +159,15 @@ impl Type {
                 .max()
                 .unwrap(),
             Type::GenericUnionBase { .. } => {
-                panic!("Size of generic union base is unknown: {:?}", self)
+                panic!("Size of generic union base is unknown: {}", self)
             }
             Type::GenericUnionInstance { .. } => {
-                panic!("Size of generic union instance is unknown: {:?}", self)
+                panic!("Size of generic union instance is unknown: {}", self)
             }
-            Type::Placeholder { .. } => panic!("Size of Placeholder types are unknown: {:?}", self),
+            Type::Placeholder { .. } => panic!("Size of Placeholder types are unknown: {}", self),
             Type::GenericStructBase { .. } => panic!("Size of a generic struct is unknown"),
             Type::GenericStructInstance { .. } => {
-                panic!("Size of a generic struct is unknown: {:?}", self)
+                panic!("Size of a generic struct is unknown: {}", self)
             }
         }
     }
@@ -240,10 +240,7 @@ impl Type {
             .map(|(t1, t2)| Type::resolve_type(token, t1, t2, &mut map, &HashMap::new(), type_map))
             .collect::<Vec<TypeName>>();
 
-        if !generics
-            .iter()
-            .all(|t| map.contains_key(&format!("{:?}", t)))
-        {
+        if !generics.iter().all(|t| map.contains_key(t)) {
             compiler_error(
                 token,
                 "Some types were not resolved during cast",
@@ -251,7 +248,7 @@ impl Type {
                     "These types were not resolved: {:?}",
                     generics
                         .iter()
-                        .filter(|t| !map.contains_key(&format!("{:?}", t)))
+                        .filter(|t| !map.contains_key(&format!("{t}")))
                         .collect::<Vec<&TypeName>>()
                 )
                 .as_str()],
@@ -259,9 +256,9 @@ impl Type {
         }
 
         let mut name = base.clone();
-        name.push_str(format!("<{:?}", map.get(&format!("{:?}", generics[0])).unwrap()).as_str());
+        name.push_str(format!("<{}", map.get(&generics[0]).unwrap()).as_str());
         for t in generics[1..].iter() {
-            name.push_str(format!(" {:?}", map.get(&format!("{:?}", t)).unwrap()).as_str());
+            name.push_str(format!(" {}", map.get(t).unwrap()).as_str());
         }
         name.push('>');
 
@@ -345,17 +342,12 @@ impl Type {
                             token,
                             "Type Error - Failed Type Resolution", 
                             vec![
-                                format!("Type `{:?}` cannot be assigned to {:?} as it was previously assigned to {:?}", 
-                                    maybe_generic_t,
-                                    concrete_t,
-                                    prev_assignment
-                                )
+                                format!("Type `{maybe_generic_t}` cannot be assigned to {concrete_t} as it was previously assigned to {prev_assignment}")
                                 .as_str()
                             ]
                         );
                     }
                 }
-
                 t.name()
             }
             (Type::GenericStructBase { .. }, _) => {
@@ -388,8 +380,8 @@ impl Type {
                 let alias_map: HashMap<String, String> = HashMap::from_iter(
                     base_generics
                         .iter()
-                        .map(|t| format!("{:?}", t))
-                        .zip(alias_list.iter().map(|t| format!("{:?}", t))),
+                        .map(|t| t.clone())
+                        .zip(alias_list.iter().map(|t| t.clone())),
                 );
 
                 members
@@ -487,8 +479,8 @@ impl Type {
                 let alias_map: HashMap<String, String> = HashMap::from_iter(
                     base_generics
                         .iter()
-                        .map(|t| format!("{:?}", t))
-                        .zip(alias_list.iter().map(|t| format!("{:?}", t))),
+                        .map(|t| t.clone())
+                        .zip(alias_list.iter().map(|t| t.clone())),
                 );
 
                 members
@@ -571,8 +563,8 @@ impl Type {
                 let alias_map: HashMap<String, String> = HashMap::from_iter(
                     base_generics
                         .iter()
-                        .map(|t| format!("{:?}", t))
-                        .zip(alias_list.iter().map(|t| format!("{:?}", t))),
+                        .map(|t| t.clone())
+                        .zip(alias_list.iter().map(|t| t.clone())),
                 );
 
                 let resolved_members = members
@@ -585,23 +577,22 @@ impl Type {
                         _ => Type::assign_generics(token, t, generic_map, type_map),
                     })
                     .collect::<Vec<TypeName>>();
-
                 let mut name = base.clone();
                 name.push('<');
 
                 for (i, typ) in base_generics
                     .iter()
                     .map(|t| {
-                        let alias = alias_map.get(&format!("{:?}", t)).unwrap();
+                        let alias = alias_map.get(t).unwrap();
                         generic_map.get(alias).unwrap()
                     })
                     .enumerate()
                 {
                     if i == 0 {
-                        name.push_str(format!("{:?}", typ).as_str());
+                        name.push_str(typ.as_str());
                     } else {
                         name.push(' ');
-                        name.push_str(format!("{:?}", typ).as_str());
+                        name.push_str(typ.as_str());
                     }
                 }
                 name.push('>');
@@ -652,10 +643,10 @@ impl Type {
                     .enumerate()
                 {
                     if i == 0 {
-                        name.push_str(format!("{:?}", typ).as_str());
+                        name.push_str(typ.as_str());
                     } else {
                         name.push(' ');
-                        name.push_str(format!("{:?}", typ).as_str());
+                        name.push_str(typ.as_str());
                     }
                 }
                 name.push('>');
@@ -671,9 +662,8 @@ impl Type {
                 t.name()
             }
             Type::Pointer { typ } => {
-                let t = Type::Pointer {
-                    typ: Type::assign_generics(token, &typ, generic_map, type_map),
-                };
+                let inner = Type::assign_generics(token, &typ, generic_map, type_map);
+                let t = Type::Pointer { typ: inner };
                 type_map.insert(t.name(), t.clone());
                 t.name()
             }
@@ -689,13 +679,13 @@ impl Type {
     }
 }
 
-impl std::fmt::Debug for Type {
+impl std::fmt::Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Type::U64 => write!(f, "u64"),
             Type::U8 => write!(f, "u8"),
             Type::Bool => write!(f, "bool"),
-            Type::Pointer { typ, .. } => write!(f, "*{:?}", *typ),
+            Type::Pointer { typ, .. } => write!(f, "*{typ}"),
             Type::Placeholder { name }
             | Type::Enum { name, .. }
             | Type::Struct { name, .. }
@@ -704,9 +694,9 @@ impl std::fmt::Debug for Type {
             | Type::Union { name, .. } => write!(f, "{name}"),
             Type::GenericStructBase { name, generics, .. }
             | Type::GenericUnionBase { name, generics, .. } => {
-                write!(f, "{name}<{:?}", generics[0])?;
+                write!(f, "{name}<{}", generics[0])?;
                 for t in generics[1..].iter() {
-                    write!(f, " {:?}", t)?;
+                    write!(f, " {}", t)?;
                 }
                 write!(f, ">")
             }
@@ -716,9 +706,9 @@ impl std::fmt::Debug for Type {
             | Type::GenericUnionInstance {
                 base, alias_list, ..
             } => {
-                write!(f, "{base}<{:?}", alias_list[0])?;
+                write!(f, "{base}<{}", alias_list[0])?;
                 for t in alias_list[1..].iter() {
-                    write!(f, " {:?}", t)?;
+                    write!(f, " {}", t)?;
                 }
                 write!(f, ">")
             }

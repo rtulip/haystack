@@ -5,33 +5,38 @@ struct Stack<T> {
     Arr<T>: arr
 }
 
-fn Stack.arr<T>(Stack<T>: stk) -> [Arr<T>] {
+fn Stack.arr<T>(Stack<T>: stk_p) -> [*Arr<T>] {
+    stk_p @ as [stk]
     stk::arr
 }
 
-fn Stack.init<T>(Arr<T>: arr) -> [Stack<T>] {
-    0 arr cast(Stack)
+fn Stack.init<T>(Arr<T>: arr *Stack<T>: stk_p) {
+    0 arr cast(Stack) stk_p !
 }
 
-fn Stack.push<T>(T: value Stack<T>: stk) -> [Stack<T> Opt<T>] {
+fn Stack.push<T>(T: value *Stack<T>: stk_p) -> [Opt<T>] {
+    stk_p @ as [stk]
     stk::size stk::arr::size >= if {
-        stk value Opt.Some
+        value Opt.Some
     } else {
         value stk::size stk::arr Arr.set
-        stk::size 1 + stk::arr cast(Stack) Opt.None::<T>
+        stk::size 1 + stk::arr cast(Stack) stk_p !
+        Opt.None::<T>
     }
 }
 
-fn Stack.pop<T>(Stack<T>: stk) -> [Stack<T> Opt<T>] {
+fn Stack.pop<T>(*Stack<T>: stk_p) -> [Opt<T>] {
+    stk_p @ as [stk]
     stk::size 0 == if {
-        stk Opt.None::<T>
+        Opt.None::<T>
     } else {
-        stk::size 1 - stk::arr Arr.get Opt.Some as [value]
-        stk::size 1 - stk::arr cast(Stack) value 
+        stk::size 1 - stk::arr cast(Stack) stk_p !
+        stk::size 1 - stk::arr Arr.get Opt.Some
     }
 }
 
-fn Stack.peek<T>(Stack<T>: stk) -> [Opt<T>] {
+fn Stack.peek<T>(*Stack<T>: stk_p) -> [Opt<T>] {
+    stk_p @ as [stk]
     stk::size 0 == if {
         Opt.None::<T>
     } else {

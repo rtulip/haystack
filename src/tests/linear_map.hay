@@ -1,0 +1,40 @@
+include "linear_map.hay"
+
+fn main() {
+    var Str[10]: keys_data
+    var u64[10]: values_data
+    var Stack<Str>: keys 
+    var Stack<u64>: values
+    var Map<u64>: map_p
+
+    keys_data @ keys Stack.init
+    values_data @ values Stack.init
+
+    keys values map_p Map.init
+
+    "one" 0 map_p Map.insert drop
+    "two" 2 map_p Map.insert drop
+    "three" 3 map_p Map.insert drop
+
+    "one" 1 map_p Map.insert as [duplicate] {
+        duplicate Opt.is_some if {
+            "Replaced value at key `one`: " puts duplicate Opt.unwrap putlnu
+        } else {
+            "Didn't replace when I should have" putlns
+            1 exit 
+        }
+    }
+
+    "one" map_p Map.get Opt.unwrap putlnu
+    "two" map_p Map.get Opt.unwrap putlnu
+    "three" map_p Map.get Opt.unwrap putlnu
+    "four" map_p Map.get Opt.is_none if {
+        "Didn't find key `four`" putlns 
+    } else {
+        "Found an unexpected value for key `four`" putlns
+        1 exit 
+    }
+
+
+
+}

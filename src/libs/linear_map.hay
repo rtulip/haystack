@@ -1,0 +1,74 @@
+include "stack.hay"
+include "std.hay"
+include "opt.hay"
+
+struct Map<T> {
+    *Stack<Str>: keys
+    *Stack<T>: values
+}
+
+fn Map.init<T>(*Stack<Str>: keys_p *Stack<T>: values_p *Map<T>: map) {
+    
+    keys_p @ values_p @ as [keys values]
+    keys::arr::size values::arr::size != if {
+        "Maps must have the same amount of space for both keys and values" putlns
+        1 exit
+    }
+    keys_p values_p cast(Map) map !
+}
+
+fn Map.idx_of<T>(Str: key *Map<T>: map_p) -> [Opt<u64>] {
+
+    map_p @ as [map]
+    map::keys @ as [keys]
+    false 0 while as [result idx] { result idx
+        result lnot
+        idx keys::size < land
+    } {
+        as [result idx]
+        idx keys::arr Arr.get key Str.equals 
+        idx 1 + 
+    }
+
+    as [result idx] 
+
+    result if {
+        idx 1 - Opt.Some
+    } else {
+        Opt.None::<u64>
+    }
+
+}
+
+fn Map.contains<T>(Str: key Map<T>: map) -> [bool] {
+    key map Map.idx_of Opt.is_some
+}
+
+fn Map.get<T>(Str: key *Map<T>: map_p) -> [Opt<T>] {
+    map_p @ as [map]
+    map::values @ as [values]
+    key map_p Map.idx_of as [maybe_idx] 
+    maybe_idx Opt.is_some if {
+        maybe_idx Opt.unwrap values::arr Arr.get Opt.Some
+    } else {
+        Opt.None::<T>
+    }
+
+}
+
+fn Map.insert<T>(Str: key T: value *Map<T>: map_p) -> [Opt<T>] {
+    map_p @ as [map]
+    map::keys @ map::values @ as [keys values]
+
+    key map_p Map.idx_of as [maybe_idx]
+    maybe_idx Opt.is_some if {
+        maybe_idx Opt.unwrap as [idx]
+        idx values::arr Arr.get Opt.Some
+        value idx values::arr Arr.set
+    } else {
+        key map::keys Stack.push drop
+        value map::values Stack.push drop
+        Opt.None::<T>
+    }
+
+}

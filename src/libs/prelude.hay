@@ -15,10 +15,10 @@ fn memset<T>(T: value Arr<T>: range) {
         i 1 +
     } drop
 }
-fn memcpy<T>(u64: n *T: strt *T: dest) {
+fn memcpy<T>(u64: n *T: src *T: dest) {
     0 while dup n < {
         as [i]
-        strt i ptr+ @
+        src i ptr+ @
         dest i ptr+ !
         i 1 + 
     } drop

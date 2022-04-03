@@ -5,7 +5,7 @@ use crate::ir::{
     literal::Literal,
     operator::Operator,
     token::{Token, TokenKind},
-    types::{Signature, Type},
+    types::{Signature, Type, TypeName},
     FnTable, Frame, Stack,
 };
 use serde::{Deserialize, Serialize};
@@ -16,7 +16,7 @@ pub enum OpKind {
     PushInt(u64),
     PushBool(bool),
     PushString(String),
-    PushEnum { typ: Type, idx: usize },
+    PushEnum { typ: TypeName, idx: usize },
     Add,
     Sub,
     Mul,
@@ -30,9 +30,9 @@ pub enum OpKind {
     Mod,
     Read(Option<(usize, usize)>),
     Write(Option<(usize, usize)>),
-    Cast(Type),
+    Cast(TypeName),
     Pad(usize),
-    SizeOf(Type),
+    SizeOf(TypeName),
     Split,
     Global(String),
     Word(String),
@@ -43,7 +43,7 @@ pub enum OpKind {
     PushLocal(String),
     PushLocalPtr(usize),
     Syscall(u64),
-    Call(String, Vec<Type>),
+    Call(String, Vec<TypeName>),
     PrepareFunc,
     JumpCond(Option<usize>),
     Jump(Option<usize>),
@@ -62,11 +62,7 @@ impl std::fmt::Debug for OpKind {
             OpKind::PushBool(b) => write!(f, "Push({b})"),
             OpKind::PushString(s) => write!(f, "Push({s})"),
             OpKind::PushEnum { typ, idx } => {
-                if let Type::Enum { name, variants } = typ {
-                    write!(f, "Push({}::{:?})", name, variants[*idx])
-                } else {
-                    unreachable!()
-                }
+                write!(f, "Push({typ}::{idx})")
             }
             OpKind::Add => write!(f, "+"),
             OpKind::Sub => write!(f, "-"),
@@ -81,9 +77,9 @@ impl std::fmt::Debug for OpKind {
             OpKind::Mod => write!(f, "%"),
             OpKind::Read(_) => write!(f, "@"),
             OpKind::Write(_) => write!(f, "!"),
-            OpKind::Cast(typ) => write!(f, "Cast({:?})", typ),
+            OpKind::Cast(typ) => write!(f, "Cast({typ})"),
             OpKind::Pad(n) => write!(f, "Pad({n})"),
-            OpKind::SizeOf(typ) => write!(f, "SizeOf({:?})", typ),
+            OpKind::SizeOf(typ) => write!(f, "SizeOf({typ})"),
             OpKind::Split => write!(f, "Split"),
             OpKind::Global(s) => write!(f, "Global({s})"),
             OpKind::Word(s) => write!(f, "Word({s})"),
@@ -123,11 +119,20 @@ pub struct Op {
 }
 
 impl Op {
-    fn get_type_from_frame(&self, frame: &Frame, index: usize, inner: &[String]) -> (Type, usize) {
+    fn get_type_from_frame(
+        &self,
+        frame: &Frame,
+        index: usize,
+        inner: &[String],
+        type_map: &HashMap<TypeName, Type>,
+    ) -> (TypeName, usize) {
         let mut t = frame[index].clone();
-        let mut t_offset: usize = frame[0..index].iter().map(|t| t.size() * t.width()).sum();
+        let mut t_offset: usize = frame[0..index]
+            .iter()
+            .map(|t| type_map.get(t).unwrap().size(type_map) * type_map.get(t).unwrap().width())
+            .sum();
         for field in inner {
-            let (new_t, new_offset) = match &t {
+            let (new_t, new_offset) = match type_map.get(&t).unwrap() {
                 Type::Struct {
                     name,
                     ref members,
@@ -145,7 +150,10 @@ impl Op {
                             members[idx].clone(),
                             members[idx + 1..]
                                 .iter()
-                                .map(|t| t.size() * t.width())
+                                .map(|t| {
+                                    type_map.get(t).unwrap().size(type_map)
+                                        * type_map.get(t).unwrap().width()
+                                })
                                 .sum::<usize>(),
                         )
                     } else {
@@ -157,7 +165,7 @@ impl Op {
                                 members
                                     .iter()
                                     .zip(idents.iter())
-                                    .collect::<Vec<(&Type, &String)>>()
+                                    .collect::<Vec<(&TypeName, &String)>>()
                             )
                             .as_str()],
                         );
@@ -176,8 +184,10 @@ impl Op {
                 } => {
                     if idents.contains(&field.clone()) {
                         let idx = idents.iter().position(|s| s == &field.clone()).unwrap();
-                        let delta =
-                            t.size() * t.width() - members[idx].size() * members[idx].width();
+                        let delta = type_map.get(&t).unwrap().size(type_map)
+                            * type_map.get(&t).unwrap().width()
+                            - type_map.get(&members[idx]).unwrap().size(type_map)
+                                * type_map.get(&members[idx]).unwrap().width();
                         (members[idx].clone(), delta)
                     } else {
                         compiler_error(
@@ -188,7 +198,7 @@ impl Op {
                                 members
                                     .iter()
                                     .zip(idents.iter())
-                                    .collect::<Vec<(&Type, &String)>>()
+                                    .collect::<Vec<(&TypeName, &String)>>()
                             )
                             .as_str()],
                         );
@@ -207,10 +217,7 @@ impl Op {
                 Type::GenericStructInstance { .. }
                 | Type::GenericStructBase { .. }
                 | Type::GenericUnionInstance { .. }
-                | Type::GenericUnionBase { .. }
-                | Type::PreDefine { .. } => {
-                    unreachable!()
-                }
+                | Type::GenericUnionBase { .. } => unreachable!(),
             };
             t = new_t;
             t_offset += new_offset;
@@ -223,18 +230,18 @@ impl Op {
         stack: &mut Stack,
         frame: &mut Frame,
         fn_table: &FnTable,
-        type_map: &HashMap<String, Type>,
-        gen_map: &HashMap<String, Type>,
+        type_map: &mut HashMap<TypeName, Type>,
+        gen_map: &HashMap<TypeName, TypeName>,
         locals: &BTreeMap<String, LocalVar>,
-        globals: &BTreeMap<String, (Type, String)>,
+        globals: &BTreeMap<String, (TypeName, String)>,
     ) -> Option<Function> {
         let op: Option<(OpKind, Function)> = match &self.kind {
             OpKind::Add => {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::U64, Type::U64],
-                        outputs: vec![Type::U64],
+                        inputs: vec![Type::U64.name(), Type::U64.name()],
+                        outputs: vec![Type::U64.name()],
                     },
                     stack,
                 );
@@ -244,8 +251,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::U64, Type::U64],
-                        outputs: vec![Type::U64],
+                        inputs: vec![Type::U64.name(), Type::U64.name()],
+                        outputs: vec![Type::U64.name()],
                     },
                     stack,
                 );
@@ -255,8 +262,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::U64, Type::U64],
-                        outputs: vec![Type::U64],
+                        inputs: vec![Type::U64.name(), Type::U64.name()],
+                        outputs: vec![Type::U64.name()],
                     },
                     stack,
                 );
@@ -266,8 +273,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::U64, Type::U64],
-                        outputs: vec![Type::U64],
+                        inputs: vec![Type::U64.name(), Type::U64.name()],
+                        outputs: vec![Type::U64.name()],
                     },
                     stack,
                 );
@@ -277,8 +284,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::U64, Type::U64],
-                        outputs: vec![Type::Bool],
+                        inputs: vec![Type::U64.name(), Type::U64.name()],
+                        outputs: vec![Type::Bool.name()],
                     },
                     stack,
                 );
@@ -288,8 +295,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::U64, Type::U64],
-                        outputs: vec![Type::Bool],
+                        inputs: vec![Type::U64.name(), Type::U64.name()],
+                        outputs: vec![Type::Bool.name()],
                     },
                     stack,
                 );
@@ -299,8 +306,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::U64, Type::U64],
-                        outputs: vec![Type::Bool],
+                        inputs: vec![Type::U64.name(), Type::U64.name()],
+                        outputs: vec![Type::Bool.name()],
                     },
                     stack,
                 );
@@ -310,64 +317,66 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::U64, Type::U64],
-                        outputs: vec![Type::Bool],
+                        inputs: vec![Type::U64.name(), Type::U64.name()],
+                        outputs: vec![Type::Bool.name()],
                     },
                     stack,
                 );
                 None
             }
             OpKind::Equals => {
-                let (a, b) = (stack.pop(), stack.pop());
-                match (a, b) {
-                    (Some(Type::U64), Some(Type::U64)) => {
-                        evaluate_signature(
-                            self,
-                            &Signature {
-                                inputs: vec![],
-                                outputs: vec![Type::Bool],
-                            },
-                            stack,
-                        );
-                    }
-                    (
-                        Some(Type::Enum { name: enum1, .. }),
-                        Some(Type::Enum { name: enum2, .. }),
-                    ) => {
-                        if enum1 == enum2 {
+                if let (Some(a), Some(b)) = (stack.pop(), stack.pop()) {
+                    match (type_map.get(&a).unwrap(), type_map.get(&b).unwrap()) {
+                        (Type::U64, Type::U64) => {
                             evaluate_signature(
                                 self,
                                 &Signature {
                                     inputs: vec![],
-                                    outputs: vec![Type::Bool],
+                                    outputs: vec![Type::Bool.name()],
                                 },
                                 stack,
                             );
-                        } else {
-                            compiler_error(
-                                &self.token,
-                                format!("Cannot compare enums `{enum1}` and `{enum2}").as_str(),
-                                vec![],
+                        }
+                        (Type::Enum { name: enum1, .. }, Type::Enum { name: enum2, .. }) => {
+                            if enum1 == enum2 {
+                                evaluate_signature(
+                                    self,
+                                    &Signature {
+                                        inputs: vec![],
+                                        outputs: vec![Type::Bool.name()],
+                                    },
+                                    stack,
+                                );
+                            } else {
+                                compiler_error(
+                                    &self.token,
+                                    format!("Cannot compare enums `{enum1}` and `{enum2}").as_str(),
+                                    vec![],
+                                );
+                            }
+                        }
+                        (_, _) => {
+                            stack.push(b);
+                            stack.push(a);
+                            evaluate_signature(
+                                self,
+                                &Signature {
+                                    inputs: vec![],
+                                    outputs: vec![Type::Bool.name()],
+                                },
+                                stack,
                             );
                         }
                     }
-                    (Some(t1), Some(t2)) => {
-                        stack.push(t2);
-                        stack.push(t1);
-                        evaluate_signature(
-                            self,
-                            &Signature {
-                                inputs: vec![],
-                                outputs: vec![Type::Bool],
-                            },
-                            stack,
-                        );
-                    }
-                    _ => compiler_error(
+                } else {
+                    compiler_error(
                         &self.token,
                         "Insuffient arguments for equals comparison.",
-                        vec![format!("Expected: {:?}", [Type::U64, Type::U64]).as_str()],
-                    ),
+                        vec![
+                            format!("Expected: {:#?}", [Type::U64.name(), Type::U64.name()])
+                                .as_str(),
+                        ],
+                    )
                 }
                 None
             }
@@ -375,8 +384,8 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::U64, Type::U64],
-                        outputs: vec![Type::Bool],
+                        inputs: vec![Type::U64.name(), Type::U64.name()],
+                        outputs: vec![Type::Bool.name()],
                     },
                     stack,
                 );
@@ -386,16 +395,24 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::U64, Type::U64],
-                        outputs: vec![Type::U64],
+                        inputs: vec![Type::U64.name(), Type::U64.name()],
+                        outputs: vec![Type::U64.name()],
                     },
                     stack,
                 );
                 None
             }
             OpKind::Read(None) => {
-                let typ = if let Some(Type::Pointer { typ }) = stack.last() {
-                    typ.clone()
+                let typ = if let Some(t) = stack.last() {
+                    if let Type::Pointer { typ } = type_map.get(t).unwrap() {
+                        typ.clone()
+                    } else {
+                        compiler_error(
+                            &self.token,
+                            "Read expects a pointer on top of the stack",
+                            vec![format!("Found {:?} instead.", stack.last()).as_str()],
+                        );
+                    }
                 } else {
                     compiler_error(
                         &self.token,
@@ -407,14 +424,14 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::Pointer { typ: typ.clone() }],
-                        outputs: vec![*typ.clone()],
+                        inputs: vec![Type::Pointer { typ: typ.clone() }.name()],
+                        outputs: vec![typ.clone()],
                     },
                     stack,
                 );
 
-                let n = typ.size();
-                let width = typ.width();
+                let n = type_map.get(&typ).unwrap().size(type_map);
+                let width = type_map.get(&typ).unwrap().width();
 
                 self.kind = OpKind::Read(Some((n, width)));
 
@@ -424,8 +441,16 @@ impl Op {
                 panic!("Read width shouldn't have been resolved at this point...")
             }
             OpKind::Write(None) => {
-                let typ = if let Some(Type::Pointer { typ }) = stack.last() {
-                    typ.clone()
+                let typ = if let Some(t) = stack.last() {
+                    if let Type::Pointer { typ } = type_map.get(t).unwrap() {
+                        typ.clone()
+                    } else {
+                        compiler_error(
+                            &self.token,
+                            "Write expects a pointer on top of the stack",
+                            vec![format!("Found {:?} instead.", stack.last()).as_str()],
+                        );
+                    }
                 } else {
                     compiler_error(
                         &self.token,
@@ -437,14 +462,14 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![*typ.clone(), Type::Pointer { typ: typ.clone() }],
+                        inputs: vec![typ.clone(), Type::Pointer { typ: typ.clone() }.name()],
                         outputs: vec![],
                     },
                     stack,
                 );
 
-                let n = typ.size();
-                let width = typ.width();
+                let n = type_map.get(&typ).unwrap().size(type_map);
+                let width = type_map.get(&typ).unwrap().width();
 
                 self.kind = OpKind::Write(Some((n, width)));
                 None
@@ -453,33 +478,29 @@ impl Op {
                 panic!("Read width should have been resolved at this point...")
             }
             OpKind::SizeOf(typ) => {
-                let typ_after = if let Some(cast_type) = type_map.get(&typ.name()) {
-                    cast_type.clone()
+                let t = type_map.get(typ).unwrap();
+                let typ_after = if t.is_generic(type_map) {
+                    Type::assign_generics(&self.token, typ, gen_map, type_map)
                 } else {
-                    Type::assign_generics(&self.token, typ, gen_map)
+                    t.name()
                 };
 
-                let size = typ_after.size() * typ_after.width();
+                let size = type_map.get(&typ_after).unwrap().size(type_map)
+                    * type_map.get(&typ_after).unwrap().width();
 
                 self.kind = OpKind::PushInt(size as u64);
                 evaluate_signature(
                     self,
                     &Signature {
                         inputs: vec![],
-                        outputs: vec![Type::U64],
+                        outputs: vec![Type::U64.name()],
                     },
                     stack,
                 );
                 None
             }
-            OpKind::Cast(typ) => {
-                let cast_type = if let Some(cast_type) = type_map.get(&typ.name()) {
-                    cast_type.clone()
-                } else {
-                    Type::assign_generics(&self.token, typ, gen_map)
-                };
-
-                match &cast_type {
+            OpKind::Cast(cast_type) => {
+                match type_map.get(cast_type).unwrap().clone() {
                     Type::Struct {
                         name: _, members, ..
                     } => {
@@ -492,18 +513,54 @@ impl Op {
                             stack,
                         );
                     }
-                    Type::PreDefine { .. } => unreachable!(
-                        "Casting to a pre-defined type should be unreachable: {:?}",
-                        self.token
-                    ),
                     Type::GenericUnionBase { .. } => unimplemented!(
                         "{}: Casting to generic union base isn't implemented yet",
                         self.token.loc
                     ),
-                    Type::GenericUnionInstance { .. } => unimplemented!(
-                        "{}: Casting to generic union instance isn't implemented yet",
-                        self.token.loc
-                    ),
+                    Type::GenericUnionInstance { .. } => {
+                        let new_typ =
+                            Type::assign_generics(&self.token, cast_type, gen_map, type_map);
+
+                        if let Some(typ) = stack.pop() {
+                            if let Some(Type::ResolvedUnion { members, .. }) =
+                                type_map.get(&new_typ)
+                            {
+                                if members.contains(&typ) {
+                                    evaluate_signature(
+                                        self,
+                                        &Signature {
+                                            inputs: vec![], // We've already popped the type
+                                            outputs: vec![new_typ.clone()],
+                                        },
+                                        stack,
+                                    );
+                                    let size_delta = type_map.get(&new_typ).unwrap().size(type_map)
+                                        - type_map.get(&typ).unwrap().size(type_map);
+                                    self.kind = OpKind::Pad(size_delta);
+                                } else {
+                                    println!("Hello World");
+                                    compiler_error(
+                                        &self.token,
+                                        format!("Type {:?} cannot be cast to {:?}", typ, new_typ)
+                                            .as_str(),
+                                        vec![format!(
+                                            "Union {:?} expects one of these: {:?}",
+                                            cast_type, members
+                                        )
+                                        .as_str()],
+                                    )
+                                }
+                            } else {
+                                unreachable!();
+                            }
+                        } else {
+                            compiler_error(
+                                &self.token,
+                                "Casting requires at least one element on the stack.",
+                                vec![],
+                            )
+                        }
+                    }
                     Type::GenericStructBase { name, members, .. } => {
                         if members.len() > stack.len() {
                             compiler_error(
@@ -518,8 +575,9 @@ impl Op {
                                 ],
                             );
                         }
-                        let resolved_struct = Type::resolve_struct(&self.token, &cast_type, stack);
-                        match &resolved_struct {
+                        let resolved_struct =
+                            Type::resolve_struct(&self.token, &cast_type, stack, type_map);
+                        match type_map.get(&resolved_struct).unwrap() {
                             Type::ResolvedStruct {
                                 name: _, members, ..
                             } => {
@@ -536,69 +594,80 @@ impl Op {
                         }
                     }
                     Type::U64 => {
-                        let typ = match stack.last() {
-                            Some(Type::U64) => Type::U64,
-                            Some(Type::U8) => Type::U8,
-                            Some(Type::Bool) => Type::Bool,
-                            Some(Type::Pointer { typ }) => Type::Pointer { typ: typ.clone() },
-                            None
-                            | Some(Type::Enum { .. })
-                            | Some(Type::Union { .. })
-                            | Some(Type::GenericUnionBase { .. })
-                            | Some(Type::GenericUnionInstance { .. })
-                            | Some(Type::ResolvedUnion { .. })
-                            | Some(Type::Struct { .. })
-                            | Some(Type::GenericStructBase { .. })
-                            | Some(Type::GenericStructInstance { .. })
-                            | Some(Type::ResolvedStruct { .. })
-                            | Some(Type::Placeholder { .. })
-                            | Some(Type::PreDefine { .. }) => Type::U64,
+                        let typ = if let Some(t) = stack.last() {
+                            match type_map.get(t) {
+                                Some(Type::U64) => Type::U64,
+                                Some(Type::U8) => Type::U8,
+                                Some(Type::Bool) => Type::Bool,
+                                Some(Type::Pointer { typ }) => Type::Pointer { typ: typ.clone() },
+                                None
+                                | Some(Type::Enum { .. })
+                                | Some(Type::Union { .. })
+                                | Some(Type::GenericUnionBase { .. })
+                                | Some(Type::GenericUnionInstance { .. })
+                                | Some(Type::ResolvedUnion { .. })
+                                | Some(Type::Struct { .. })
+                                | Some(Type::GenericStructBase { .. })
+                                | Some(Type::GenericStructInstance { .. })
+                                | Some(Type::ResolvedStruct { .. })
+                                | Some(Type::Placeholder { .. }) => Type::U64,
+                            }
+                        } else {
+                            Type::U64
                         };
 
                         evaluate_signature(
                             self,
                             &Signature {
-                                inputs: vec![typ],
-                                outputs: vec![Type::U64],
+                                inputs: vec![typ.name()],
+                                outputs: vec![Type::U64.name()],
                             },
                             stack,
                         );
                     }
                     Type::U8 => {
-                        let typ = match stack.last() {
-                            Some(Type::U64) => Type::U64,
-                            Some(Type::U8) => Type::U8,
-                            Some(Type::Bool) => Type::Bool,
-                            None
-                            | Some(Type::Enum { .. })
-                            | Some(Type::Union { .. })
-                            | Some(Type::GenericUnionBase { .. })
-                            | Some(Type::GenericUnionInstance { .. })
-                            | Some(Type::ResolvedUnion { .. })
-                            | Some(Type::Pointer { .. })
-                            | Some(Type::Struct { .. })
-                            | Some(Type::GenericStructBase { .. })
-                            | Some(Type::GenericStructInstance { .. })
-                            | Some(Type::ResolvedStruct { .. })
-                            | Some(Type::Placeholder { .. })
-                            | Some(Type::PreDefine { .. }) => Type::U8,
+                        let typ = if let Some(t) = stack.last() {
+                            match type_map.get(t) {
+                                Some(Type::U64) => Type::U64,
+                                Some(Type::U8) => Type::U8,
+                                Some(Type::Bool) => Type::Bool,
+                                None
+                                | Some(Type::Pointer { .. })
+                                | Some(Type::Enum { .. })
+                                | Some(Type::Union { .. })
+                                | Some(Type::GenericUnionBase { .. })
+                                | Some(Type::GenericUnionInstance { .. })
+                                | Some(Type::ResolvedUnion { .. })
+                                | Some(Type::Struct { .. })
+                                | Some(Type::GenericStructBase { .. })
+                                | Some(Type::GenericStructInstance { .. })
+                                | Some(Type::ResolvedStruct { .. })
+                                | Some(Type::Placeholder { .. }) => Type::U8,
+                            }
+                        } else {
+                            Type::U8
                         };
 
                         evaluate_signature(
                             self,
                             &Signature {
-                                inputs: vec![typ],
-                                outputs: vec![Type::U8],
+                                inputs: vec![typ.name()],
+                                outputs: vec![Type::U8.name()],
                             },
                             stack,
                         );
                     }
                     Type::Pointer { typ } => {
+                        let typ = if type_map.get(&typ).unwrap().clone().is_generic(type_map) {
+                            Type::assign_generics(&self.token, &typ, gen_map, type_map)
+                        } else {
+                            typ
+                        };
                         evaluate_signature(
                             self,
                             &Signature {
-                                inputs: vec![Type::U64],
-                                outputs: vec![Type::Pointer { typ: typ.clone() }],
+                                inputs: vec![Type::U64.name()],
+                                outputs: vec![Type::Pointer { typ }.name()],
                             },
                             stack,
                         );
@@ -615,7 +684,8 @@ impl Op {
                                     stack,
                                 );
 
-                                let size_delta = cast_type.size() - typ.size();
+                                let size_delta = type_map.get(cast_type).unwrap().size(type_map)
+                                    - type_map.get(&typ).unwrap().size(type_map);
                                 self.kind = OpKind::Pad(size_delta);
                             } else {
                                 compiler_error(
@@ -664,18 +734,26 @@ impl Op {
                 self.token.loc, self.kind
             ),
             OpKind::Split => {
-                let (struct_t, members) = match stack.last() {
-                    Some(Type::Struct {
-                        name: _, members, ..
-                    }) => (stack.last().unwrap().clone(), members.clone()),
-                    Some(Type::ResolvedStruct {
-                        name: _, members, ..
-                    }) => (stack.last().unwrap().clone(), members.clone()),
-                    _ => compiler_error(
+                let (struct_t, members) = if let Some(t) = stack.last() {
+                    match type_map.get(t).unwrap() {
+                        Type::Struct {
+                            name: _, members, ..
+                        } => (stack.last().unwrap().clone(), members.clone()),
+                        Type::ResolvedStruct {
+                            name: _, members, ..
+                        } => (stack.last().unwrap().clone(), members.clone()),
+                        _ => compiler_error(
+                            &self.token,
+                            "Split requires a struct on top of the stack.",
+                            vec![format!("Stack: {:?}", stack).as_str()],
+                        ),
+                    }
+                } else {
+                    compiler_error(
                         &self.token,
                         "Split requires a struct on top of the stack.",
                         vec![format!("Stack: {:?}", stack).as_str()],
-                    ),
+                    )
                 };
 
                 evaluate_signature(
@@ -694,7 +772,7 @@ impl Op {
                     self,
                     &Signature {
                         inputs: vec![],
-                        outputs: vec![Type::str()],
+                        outputs: vec![Type::str().name()],
                     },
                     stack,
                 );
@@ -705,7 +783,7 @@ impl Op {
                     self,
                     &Signature {
                         inputs: vec![],
-                        outputs: vec![Type::U64],
+                        outputs: vec![Type::U64.name()],
                     },
                     stack,
                 );
@@ -716,7 +794,7 @@ impl Op {
                     self,
                     &Signature {
                         inputs: vec![],
-                        outputs: vec![Type::Bool],
+                        outputs: vec![Type::Bool.name()],
                     },
                     stack,
                 );
@@ -739,7 +817,7 @@ impl Op {
                 if let Some(typ) = stack.pop() {
                     self.kind = OpKind::MakeIdent {
                         ident: ident.clone(),
-                        size: Some(typ.size()),
+                        size: Some(type_map.get(&typ).unwrap().size(type_map)),
                     };
                     frame.push(typ);
                 } else {
@@ -752,8 +830,8 @@ impl Op {
                 None
             }
             OpKind::PushIdent { index, inner } => {
-                let (t, offset) = self.get_type_from_frame(frame, *index, inner);
-                let size = t.size();
+                let (t, offset) = self.get_type_from_frame(frame, *index, inner, type_map);
+                let size = type_map.get(&t).unwrap().size(type_map);
                 evaluate_signature(
                     self,
                     &Signature {
@@ -792,7 +870,7 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::Bool],
+                        inputs: vec![Type::Bool.name()],
                         outputs: vec![],
                     },
                     stack,
@@ -813,7 +891,8 @@ impl Op {
                 let mut frame_width = 0;
                 for _ in 0..*n {
                     let t = frame.pop().unwrap();
-                    frame_width += t.size() * t.width()
+                    frame_width +=
+                        type_map.get(&t).unwrap().size(type_map) * type_map.get(&t).unwrap().width()
                 }
 
                 self.kind = OpKind::EndBlock(frame_width);
@@ -821,7 +900,7 @@ impl Op {
                 None
             }
             OpKind::Return => {
-                *frame = Vec::<Type>::new();
+                *frame = Vec::<TypeName>::new();
                 None
             }
             OpKind::Syscall(n) => {
@@ -841,14 +920,14 @@ impl Op {
                 evaluate_signature(
                     self,
                     &Signature {
-                        inputs: vec![Type::U64],
+                        inputs: vec![Type::U64.name()],
                         outputs: vec![],
                     },
                     stack,
                 );
                 for _ in 0..*n {
                     let t = stack.pop().unwrap();
-                    if t.size() != 1 {
+                    if type_map.get(&t).unwrap().size(type_map) != 1 {
                         compiler_error(
                             &self.token,
                             "Only u64's can be used in a syscall",
@@ -857,7 +936,7 @@ impl Op {
                     }
                 }
 
-                stack.push(Type::U64);
+                stack.push(Type::U64.name());
 
                 None
             }
@@ -865,22 +944,21 @@ impl Op {
                 let f = fn_table.get(func_name).unwrap_or_else(|| {
                     panic!("Function names should be recognizable at this point... {func_name}")
                 });
-
                 if f.is_generic() {
                     let new_fn = if annotations.is_empty() {
-                        f.resolve_generic_function(&self.token, stack)
+                        f.resolve_generic_function(&self.token, stack, type_map)
                     } else {
-                        let mut resolved_annotations: Vec<Type> = annotations
+                        let mut resolved_annotations: Vec<TypeName> = annotations
                             .iter()
                             .map(|t| {
-                                if gen_map.contains_key(&t.name()) {
-                                    gen_map.get(&t.name()).unwrap().clone()
+                                if gen_map.contains_key(t) {
+                                    gen_map.get(t).unwrap().clone()
                                 } else {
                                     t.clone()
                                 }
                             })
                             .collect();
-                        f.assign_generics(&self.token, &mut resolved_annotations)
+                        f.assign_generics(&self.token, &mut resolved_annotations, type_map)
                     };
                     evaluate_signature(self, &new_fn.sig, stack);
                     Some((OpKind::Call(new_fn.name.clone(), vec![]), new_fn))

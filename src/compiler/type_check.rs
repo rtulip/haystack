@@ -3,12 +3,12 @@ use crate::ir::{
     function::{Function, LocalVar},
     keyword::Keyword,
     op::{Op, OpKind},
-    types::{Signature, Type},
+    types::{Signature, Type, TypeName},
     FnTable, Frame, Stack,
 };
 use std::collections::{BTreeMap, HashMap};
 
-pub fn evaluate_signature(op: &Op, signature: &Signature, stack: &mut Vec<Type>) {
+pub fn evaluate_signature(op: &Op, signature: &Signature, stack: &mut Stack) {
     if stack.len() < signature.inputs.len() {
         compiler_error(
             &op.token,
@@ -34,7 +34,7 @@ pub fn evaluate_signature(op: &Op, signature: &Signature, stack: &mut Vec<Type>)
                             .rev()
                             .take(signature.inputs.len())
                             .rev()
-                            .collect::<Vec<&Type>>()
+                            .collect::<Vec<&TypeName>>()
                     )
                     .as_str(),
                 ],
@@ -63,10 +63,10 @@ fn type_check_if_block(
     stack: &mut Stack,
     frame: &mut Frame,
     fn_table: &FnTable,
-    type_map: &HashMap<String, Type>,
-    gen_map: &HashMap<String, Type>,
+    type_map: &mut HashMap<TypeName, Type>,
+    gen_map: &HashMap<TypeName, TypeName>,
     locals: &BTreeMap<String, LocalVar>,
-    globals: &BTreeMap<String, (Type, String)>,
+    globals: &BTreeMap<String, (TypeName, String)>,
 ) -> (usize, Vec<Function>) {
     assert!(matches!(ops[start_ip].kind, OpKind::Nop(Keyword::If)));
     assert!(
@@ -153,10 +153,10 @@ pub fn type_check_while_block(
     stack: &mut Stack,
     frame: &mut Frame,
     fn_table: &FnTable,
-    type_map: &HashMap<String, Type>,
-    gen_map: &HashMap<String, Type>,
+    type_map: &mut HashMap<TypeName, Type>,
+    gen_map: &HashMap<TypeName, TypeName>,
     locals: &BTreeMap<String, LocalVar>,
-    globals: &BTreeMap<String, (Type, String)>,
+    globals: &BTreeMap<String, (TypeName, String)>,
 ) -> (usize, Vec<Function>) {
     let initial_stack = stack.clone();
     let initial_frame = frame.clone();
@@ -224,10 +224,10 @@ pub fn type_check_ops_list(
     stack: &mut Stack,
     frame: &mut Frame,
     fn_table: &FnTable,
-    type_map: &HashMap<String, Type>,
-    gen_map: &HashMap<String, Type>,
+    type_map: &mut HashMap<TypeName, Type>,
+    gen_map: &HashMap<TypeName, TypeName>,
     locals: &BTreeMap<String, LocalVar>,
-    globals: &BTreeMap<String, (Type, String)>,
+    globals: &BTreeMap<String, (TypeName, String)>,
     break_on: Vec<Box<dyn Fn(&Op) -> bool>>,
 ) -> (usize, Vec<Function>) {
     let mut ip = start_ip;
@@ -236,6 +236,7 @@ pub fn type_check_ops_list(
         if break_on.iter().any(|f| f(&ops[ip])) {
             return (ip, new_fns);
         }
+        // println!("{:?}: {:?}", ops[ip].kind, stack);
         match ops[ip].kind {
             OpKind::Nop(Keyword::If) => {
                 let (end_ip, mut if_new_fns) = type_check_if_block(

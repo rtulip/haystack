@@ -517,34 +517,41 @@ impl Op {
                         "{}: Casting to generic union base isn't implemented yet",
                         self.token.loc
                     ),
-                    Type::GenericUnionInstance { members, .. } => {
+                    Type::GenericUnionInstance { .. } => {
                         let new_typ =
                             Type::assign_generics(&self.token, cast_type, gen_map, type_map);
 
                         if let Some(typ) = stack.pop() {
-                            if members.contains(&typ) {
-                                evaluate_signature(
-                                    self,
-                                    &Signature {
-                                        inputs: vec![], // We've already popped the type
-                                        outputs: vec![new_typ.clone()],
-                                    },
-                                    stack,
-                                );
-                                let size_delta = type_map.get(&new_typ).unwrap().size(type_map)
-                                    - type_map.get(&typ).unwrap().size(type_map);
-                                self.kind = OpKind::Pad(size_delta);
-                            } else {
-                                compiler_error(
-                                    &self.token,
-                                    format!("Type {:?} cannot be cast to {:?}", typ, new_typ)
-                                        .as_str(),
-                                    vec![format!(
-                                        "Union {:?} expects one of these: {:?}",
-                                        cast_type, members
+                            if let Some(Type::ResolvedUnion { members, .. }) =
+                                type_map.get(&new_typ)
+                            {
+                                if members.contains(&typ) {
+                                    evaluate_signature(
+                                        self,
+                                        &Signature {
+                                            inputs: vec![], // We've already popped the type
+                                            outputs: vec![new_typ.clone()],
+                                        },
+                                        stack,
+                                    );
+                                    let size_delta = type_map.get(&new_typ).unwrap().size(type_map)
+                                        - type_map.get(&typ).unwrap().size(type_map);
+                                    self.kind = OpKind::Pad(size_delta);
+                                } else {
+                                    println!("Hello World");
+                                    compiler_error(
+                                        &self.token,
+                                        format!("Type {:?} cannot be cast to {:?}", typ, new_typ)
+                                            .as_str(),
+                                        vec![format!(
+                                            "Union {:?} expects one of these: {:?}",
+                                            cast_type, members
+                                        )
+                                        .as_str()],
                                     )
-                                    .as_str()],
-                                )
+                                }
+                            } else {
+                                unreachable!();
                             }
                         } else {
                             compiler_error(

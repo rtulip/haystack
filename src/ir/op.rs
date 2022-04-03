@@ -538,7 +538,6 @@ impl Op {
                                         - type_map.get(&typ).unwrap().size(type_map);
                                     self.kind = OpKind::Pad(size_delta);
                                 } else {
-                                    println!("Hello World");
                                     compiler_error(
                                         &self.token,
                                         format!("Type {:?} cannot be cast to {:?}", typ, new_typ)

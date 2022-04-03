@@ -1,7 +1,7 @@
 use crate::compiler::compiler_error;
 use crate::ir::{token::Token, Stack};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 pub type TypeName = String;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
@@ -72,7 +72,9 @@ pub enum Type {
 impl Type {
     pub fn name(&self) -> String {
         match self {
-            Type::GenericStructBase { name, .. } => name.clone(),
+            Type::GenericStructBase { name, .. } | Type::GenericUnionBase { name, .. } => {
+                name.clone()
+            }
             _ => format!("{}", self),
         }
     }
@@ -96,28 +98,40 @@ impl Type {
         }
     }
 
-    pub fn deep_check_generics(&self, type_map: &HashMap<TypeName, Type>) -> Vec<TypeName> {
-        match self {
-            Type::U64 | Type::U8 | Type::Bool | Type::Enum { .. } => {
-                vec![]
+    pub fn deep_check_generics(
+        &self,
+        type_map: &HashMap<TypeName, Type>,
+        visited: &mut HashSet<TypeName>,
+    ) -> Vec<TypeName> {
+        // println!("Deep check {self} for generics.");
+        if visited.insert(self.name()) {
+            match self {
+                Type::U64 | Type::U8 | Type::Bool | Type::Enum { .. } => {
+                    vec![]
+                }
+                Type::Placeholder { .. } => vec![self.name()],
+                Type::Pointer { typ } => type_map
+                    .get(typ)
+                    .unwrap()
+                    .deep_check_generics(type_map, visited),
+                Type::Struct { members, .. }
+                | Type::Union { members, .. }
+                | Type::GenericStructBase { members, .. }
+                | Type::GenericStructInstance { members, .. }
+                | Type::ResolvedStruct { members, .. }
+                | Type::GenericUnionBase { members, .. }
+                | Type::GenericUnionInstance { members, .. }
+                | Type::ResolvedUnion { members, .. } => {
+                    let mut generics = vec![];
+                    members.iter().for_each(|m| {
+                        let t = type_map.get(m).unwrap();
+                        generics.append(&mut t.deep_check_generics(type_map, visited));
+                    });
+                    generics
+                }
             }
-            Type::Placeholder { .. } => vec![self.name()],
-            Type::Pointer { typ } => type_map.get(typ).unwrap().deep_check_generics(type_map),
-            Type::Struct { members, .. }
-            | Type::Union { members, .. }
-            | Type::GenericStructBase { members, .. }
-            | Type::GenericStructInstance { members, .. }
-            | Type::ResolvedStruct { members, .. }
-            | Type::GenericUnionBase { members, .. }
-            | Type::GenericUnionInstance { members, .. }
-            | Type::ResolvedUnion { members, .. } => {
-                let mut generics = vec![];
-                members.iter().for_each(|m| {
-                    let t = type_map.get(m).unwrap();
-                    generics.append(&mut t.deep_check_generics(type_map));
-                });
-                generics
-            }
+        } else {
+            vec![]
         }
     }
 
@@ -545,7 +559,6 @@ impl Type {
     ) -> TypeName {
         match type_map.get(typ).unwrap().clone() {
             Type::Placeholder { name } => generic_map.get(&name).unwrap().clone(),
-            Type::GenericUnionBase { .. } => todo!("{}", token),
             Type::GenericUnionInstance {
                 base,
                 members,
@@ -566,7 +579,6 @@ impl Type {
                         .map(|t| t.clone())
                         .zip(alias_list.iter().map(|t| t.clone())),
                 );
-
                 let resolved_members = members
                     .iter()
                     .map(|t| match type_map.get(t).unwrap() {
@@ -584,7 +596,7 @@ impl Type {
                     .iter()
                     .map(|t| {
                         let alias = alias_map.get(t).unwrap();
-                        generic_map.get(alias).unwrap()
+                        Type::assign_generics(token, alias, generic_map, type_map)
                     })
                     .enumerate()
                 {
@@ -624,7 +636,13 @@ impl Type {
                 type_map.insert(t.name(), t.clone());
                 t.name()
             }
-            Type::GenericStructBase {
+            Type::GenericUnionBase {
+                name: base,
+                members,
+                idents,
+                generics,
+            }
+            | Type::GenericStructBase {
                 name: base,
                 members,
                 idents,
@@ -651,11 +669,20 @@ impl Type {
                 }
                 name.push('>');
 
-                let t = Type::ResolvedStruct {
-                    name,
-                    members: resolved_members,
-                    idents: idents.clone(),
-                    base: base.clone(),
+                let t = if matches!(type_map.get(typ).unwrap(), Type::GenericStructBase { .. }) {
+                    Type::ResolvedStruct {
+                        name,
+                        members: resolved_members,
+                        idents: idents.clone(),
+                        base: base.clone(),
+                    }
+                } else {
+                    Type::ResolvedUnion {
+                        name,
+                        members: resolved_members,
+                        idents: idents.clone(),
+                        base: base.clone(),
+                    }
                 };
 
                 type_map.insert(t.name(), t.clone());

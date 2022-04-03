@@ -540,7 +540,10 @@ fn parse_tagged_type_list(
         if array_n.is_some() {
             compiler_error(&typ_tok, "Cannot have array types in type list", vec![]);
         }
-        let generics = type_map.get(&typ).unwrap().deep_check_generics(type_map);
+        let generics = type_map
+            .get(&typ)
+            .unwrap()
+            .deep_check_generics(type_map, &mut HashSet::new());
         match (generics.is_empty(), maybe_generics) {
             (true, _) => (),
             (false, None) => compiler_error(
@@ -571,7 +574,6 @@ fn parse_tagged_type_list(
                 }
             }),
         };
-
         inputs.push(typ);
         idents.push(ident);
         tok = typ_tok;
@@ -724,7 +726,10 @@ fn parse_cast(
         members,
         idents,
         generics,
-    } = type_map.get(&typ).unwrap().clone()
+    } = type_map
+        .get(&typ)
+        .expect(format!("Type {typ} is unknown.").as_str())
+        .clone()
     {
         if let Some(mut annotations) = annotations {
             if annotations.len() != generics.len() {
@@ -1191,7 +1196,29 @@ fn parse_struct(
     let tok = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Struct));
     let (name_tok, name) = expect_word(&tok, tokens);
     let (tok, generics) = parse_annotation_list(&name_tok, tokens, type_map);
-
+    if let Some(t) = type_map.insert(
+        name.clone(),
+        if generics.is_some() {
+            Type::GenericStructBase {
+                name: name.clone(),
+                members: vec![],
+                idents: vec![],
+                generics: vec![],
+            }
+        } else {
+            Type::Struct {
+                name: name.clone(),
+                members: vec![],
+                idents: vec![],
+            }
+        },
+    ) {
+        compiler_error(
+            &name_tok,
+            format!("Redefinition of type: {}.", t.name()).as_str(),
+            vec![],
+        );
+    }
     let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
     let (members, idents) = parse_tagged_type_list(&tok, tokens, type_map, &generics);
     let _tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
@@ -1433,11 +1460,9 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
                 kind: TokenKind::Keyword(Keyword::Struct),
                 ..
             }) => {
-                let (tok, name, typ) =
+                let (_tok, name, typ) =
                     parse_struct(&maybe_tok.unwrap().clone(), &mut tokens, &mut program.types);
-                if let Some(t) = program.types.insert(name, typ) {
-                    compiler_error(&tok, format!("Redefiniton of type: {}", t).as_str(), vec![]);
-                }
+                program.types.insert(name, typ);
             }
             Some(Token {
                 kind: TokenKind::Keyword(Keyword::Union),

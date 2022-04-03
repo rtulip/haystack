@@ -236,7 +236,6 @@ pub fn type_check_ops_list(
         if break_on.iter().any(|f| f(&ops[ip])) {
             return (ip, new_fns);
         }
-        // println!("{:?}: {:?}", ops[ip].kind, stack);
         match ops[ip].kind {
             OpKind::Nop(Keyword::If) => {
                 let (end_ip, mut if_new_fns) = type_check_if_block(

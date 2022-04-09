@@ -43,4 +43,6 @@ fn main() {
     "u8"   types_map_p Map.get Opt.unwrap drop
     "bool" types_map_p Map.get Opt.unwrap drop
 
+    "u64" types_map_p Map.get_ref Opt.unwrap drop
+
 }

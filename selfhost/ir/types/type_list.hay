@@ -30,8 +30,12 @@ fn type_list.init() {
 
     "u64"  Type.u64  types_map_p Map.insert drop
     "u8"   Type.u8   types_map_p Map.insert drop 
-    "bool" Type.bool types_map_p Map.insert drop
-
+    "bool" Type.bool types_map_p Map.insert drop 
+    "*u64" 
+        "u64" types_map_p Map.get_ref Opt.unwrap 
+        Type.pointer 
+        types_map_p Map.insert drop
+    
 }
 
 
@@ -42,7 +46,6 @@ fn main() {
     "u64"  types_map_p Map.get Opt.unwrap drop
     "u8"   types_map_p Map.get Opt.unwrap drop
     "bool" types_map_p Map.get Opt.unwrap drop
-
-    "u64" types_map_p Map.get_ref Opt.unwrap drop
+    "*u64" types_map_p Map.get Opt.unwrap drop
 
 }

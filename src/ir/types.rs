@@ -579,14 +579,23 @@ impl Type {
                         .map(|t| t.clone())
                         .zip(alias_list.iter().map(|t| t.clone())),
                 );
+
+                // Apply the alias to the input generic map
+                let aliased_generics: HashMap<String, String> = alias_map
+                    .iter()
+                    .map(|(k, v)| {
+                        (
+                            k.clone(),
+                            Type::assign_generics(token, v, generic_map, type_map),
+                        )
+                    })
+                    .collect();
+                // Use the aliased generics to resolve inner types
                 let resolved_members = members
                     .iter()
-                    .map(|t| match type_map.get(t).unwrap() {
-                        Type::Placeholder { name } => generic_map
-                            .get(alias_map.get(name).unwrap())
-                            .unwrap()
-                            .clone(),
-                        _ => Type::assign_generics(token, t, generic_map, type_map),
+                    .map(|t| {
+                        let _ = 0;
+                        Type::assign_generics(token, t, &aliased_generics, type_map)
                     })
                     .collect::<Vec<TypeName>>();
                 let mut name = base.clone();
@@ -595,8 +604,12 @@ impl Type {
                 for (i, typ) in base_generics
                     .iter()
                     .map(|t| {
-                        let alias = alias_map.get(t).unwrap();
-                        Type::assign_generics(token, alias, generic_map, type_map)
+                        Type::assign_generics(
+                            token,
+                            alias_map.get(t).unwrap_or(t),
+                            generic_map,
+                            type_map,
+                        )
                     })
                     .enumerate()
                 {

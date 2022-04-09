@@ -953,6 +953,7 @@ impl Op {
                             .collect();
                         f.assign_generics(&self.token, &mut resolved_annotations, type_map)
                     };
+
                     evaluate_signature(self, &new_fn.sig, stack);
                     Some((OpKind::Call(new_fn.name.clone(), vec![]), new_fn))
                 } else {

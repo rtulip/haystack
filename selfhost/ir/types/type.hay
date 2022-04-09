@@ -113,7 +113,8 @@ fn Type.placeholder(Str) -> [Type] {
     cast(TypeValue<Type>) TypeKind::Placeholder cast(Type)
 }
 
-fn Type.pointer(PointerType<Type>) -> [Type] {
+fn Type.pointer(*Type) -> [Type] {
+    cast(PointerType<Type>) 
     cast(TypeValue<Type>) TypeKind::Pointer cast(Type)
 }
 

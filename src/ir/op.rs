@@ -949,13 +949,7 @@ impl Op {
                     } else {
                         let mut resolved_annotations: Vec<TypeName> = annotations
                             .iter()
-                            .map(|t| {
-                                if gen_map.contains_key(t) {
-                                    gen_map.get(t).unwrap().clone()
-                                } else {
-                                    t.clone()
-                                }
-                            })
+                            .map(|t| Type::assign_generics(&self.token, t, gen_map, type_map))
                             .collect();
                         f.assign_generics(&self.token, &mut resolved_annotations, type_map)
                     };

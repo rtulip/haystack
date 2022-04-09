@@ -1,16 +1,21 @@
 include "selfhost/ir/types/type.hay"
 include "stack.hay"
+include "linear_map.hay"
 
+var Str[1024]: type_names_p
+var Stack<Str>: type_names_stack_p
 var Type[1024]: types_p
-var *Type[4096]: type_members_p
-var Str[4096]: idents_p
-
 var Stack<Type>: types_stack_p
+var Map<Type>: types_map_p
+
+var *Type[4096]: type_members_p
 var Stack<*Type>: members_stack_p
+
+var Str[4096]: idents_p
 var Stack<Str>: idents_stack_p
 
 struct TypeList {
-    *Stack<Type>: types
+    *Map<Type>: types_map
     *Stack<*Type>: type_members
     *Stack<Str>: idents
 }
@@ -18,17 +23,24 @@ struct TypeList {
 var TypeList: type_list
 
 fn type_list.init() {
-    types_p @ Stack.init types_stack_p !
-    type_members_p @ Stack.init members_stack_p !
-    idents_p @ Stack.init idents_stack_p !
+    
+    type_names_p @ type_names_stack_p Stack.init
+    types_p @ types_stack_p Stack.init
+    type_names_stack_p types_stack_p types_map_p Map.init
 
-    types_stack_p members_stack_p idents_stack_p cast(TypeList)
-    type_list !
+    "u64"  Type.u64  types_map_p Map.insert drop
+    "u8"   Type.u8   types_map_p Map.insert drop 
+    "bool" Type.bool types_map_p Map.insert drop
+
 }
 
 
 fn main() {
 
     type_list.init
+
+    "u64"  types_map_p Map.get Opt.unwrap drop
+    "u8"   types_map_p Map.get Opt.unwrap drop
+    "bool" types_map_p Map.get Opt.unwrap drop
 
 }

@@ -12,6 +12,9 @@ fn Map.init<T>(*Stack<Str>: keys_p *Stack<T>: values_p *Map<T>: map) {
     keys_p @ values_p @ as [keys values]
     keys::arr::size values::arr::size != if {
         "Maps must have the same amount of space for both keys and values" putlns
+        "    Keys has capacity:   " puts keys::arr::size putlnu
+        "    Values has capacity: " puts values::arr::size putlnu
+
         1 exit
     }
     keys_p values_p cast(Map) map !

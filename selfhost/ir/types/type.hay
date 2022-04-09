@@ -73,8 +73,8 @@ enum TypeKind {
 
 union TypeValue<T> {
     u64:                          U64
-    u8:                           U8
-    bool:                         Bool
+    u64:                          U8
+    u64:                          Bool
     EnumType:                     Enum
     Str:                          Placeholder
     PointerType<T>:               Pointer
@@ -93,59 +93,59 @@ struct Type {
     TypeKind: tag
 }
 
-fn Type.from_u64(u64) -> [Type] {
-    cast(TypeValue<Type>) TypeKind::U64 cast(Type)  
+fn Type.u64() -> [Type] {
+    0 cast(TypeValue<Type>) TypeKind::U64 cast(Type)  
 }
 
-fn Type.from_u8(u8) -> [Type] {
-    cast(TypeValue<Type>) TypeKind::U8 cast(Type)
+fn Type.u8() -> [Type] {
+    0 cast(TypeValue<Type>) TypeKind::U8 cast(Type)
 }
 
-fn Type.from_bool(bool) -> [Type] {
-    cast(TypeValue<Type>) TypeKind::Bool cast(Type)
+fn Type.bool() -> [Type] {
+    0 cast(TypeValue<Type>) TypeKind::Bool cast(Type)
 }
 
-fn Type.from_enum(EnumType) -> [Type] {
+fn Type.enum(EnumType) -> [Type] {
     cast(TypeValue<Type>) TypeKind::Enum cast(Type)
 }
 
-fn Type.from_placeholder(Str) -> [Type] {
+fn Type.placeholder(Str) -> [Type] {
     cast(TypeValue<Type>) TypeKind::Placeholder cast(Type)
 }
 
-fn Type.from_pointer(PointerType<Type>) -> [Type] {
+fn Type.pointer(PointerType<Type>) -> [Type] {
     cast(TypeValue<Type>) TypeKind::Pointer cast(Type)
 }
 
-fn Type.from_struct(StructType<Type>) -> [Type] {
+fn Type.struct(StructType<Type>) -> [Type] {
     cast(TypeValue<Type>) TypeKind::Struct cast(Type)
 }
 
-fn Type.from_generic_stuct_base(GenericStructInstanceType<Type>) -> [Type] {
+fn Type.generic_stuct_base(GenericStructInstanceType<Type>) -> [Type] {
     cast(TypeValue<Type>) TypeKind::GenericStructBase cast(Type)
 }
 
-fn Type.from_generic_struct_instance(GenericStructInstanceType<Type>) -> [Type] {
+fn Type.generic_struct_instance(GenericStructInstanceType<Type>) -> [Type] {
     cast(TypeValue<Type>) TypeKind::GenericStructInstance cast(Type)
 }
 
-fn Type.from_resolved_struct(ResolvedStructType<Type>) -> [Type] {
+fn Type.resolved_struct(ResolvedStructType<Type>) -> [Type] {
     cast(TypeValue<Type>) TypeKind::ResolvedStruct cast(Type)
 }
 
-fn Type.from_union(UnionType<Type>) -> [Type] {
+fn Type.union(UnionType<Type>) -> [Type] {
     cast(TypeValue<Type>) TypeKind::Union cast(Type)
 }
 
-fn Type.from_generic_union_base(GenericUnionBaseType<Type>) -> [Type] {
+fn Type.generic_union_base(GenericUnionBaseType<Type>) -> [Type] {
     cast(TypeValue<Type>) TypeKind::GenericUnionBase cast(Type)
 }
 
-fn Type.from_generic_union_instance(GenericUnionInstanceType<Type>) -> [Type] {
+fn Type.generic_union_instance(GenericUnionInstanceType<Type>) -> [Type] {
     cast(TypeValue<Type>) TypeKind::GenericUnionInstance cast(Type)
 }
 
-fn Type.from_resolved_union(ResolvedUnionType<Type>) -> [Type] {
+fn Type.resolved_union(ResolvedUnionType<Type>) -> [Type] {
     cast(TypeValue<Type>) TypeKind::ResolvedUnion cast(Type)
 }
 

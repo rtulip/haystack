@@ -12,6 +12,9 @@ fn Map.init<T>(*Stack<Str>: keys_p *Stack<T>: values_p *Map<T>: map) {
     keys_p @ values_p @ as [keys values]
     keys::arr::size values::arr::size != if {
         "Maps must have the same amount of space for both keys and values" putlns
+        "    Keys has capacity:   " puts keys::arr::size putlnu
+        "    Values has capacity: " puts values::arr::size putlnu
+
         1 exit
     }
     keys_p values_p cast(Map) map !
@@ -42,6 +45,17 @@ fn Map.idx_of<T>(Str: key *Map<T>: map_p) -> [Opt<u64>] {
 
 fn Map.contains<T>(Str: key Map<T>: map) -> [bool] {
     key map Map.idx_of Opt.is_some
+}
+
+fn Map.get_ref<T>(Str: key *Map<T>: map_p) -> [Opt<*T>] {
+    map_p @ as [map]
+    map::values @ as [values]
+    key map_p Map.idx_of as [maybe_idx] 
+    maybe_idx Opt.is_some if {
+        maybe_idx Opt.unwrap values::arr Arr.get_ref Opt.Some
+    } else {
+        Opt.None::<*T>
+    }
 }
 
 fn Map.get<T>(Str: key *Map<T>: map_p) -> [Opt<T>] {

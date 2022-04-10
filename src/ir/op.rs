@@ -520,7 +520,6 @@ impl Op {
                     Type::GenericUnionInstance { .. } => {
                         let new_typ =
                             Type::assign_generics(&self.token, cast_type, gen_map, type_map);
-
                         if let Some(typ) = stack.pop() {
                             if let Some(Type::ResolvedUnion { members, .. }) =
                                 type_map.get(&new_typ)
@@ -949,16 +948,11 @@ impl Op {
                     } else {
                         let mut resolved_annotations: Vec<TypeName> = annotations
                             .iter()
-                            .map(|t| {
-                                if gen_map.contains_key(t) {
-                                    gen_map.get(t).unwrap().clone()
-                                } else {
-                                    t.clone()
-                                }
-                            })
+                            .map(|t| Type::assign_generics(&self.token, t, gen_map, type_map))
                             .collect();
                         f.assign_generics(&self.token, &mut resolved_annotations, type_map)
                     };
+
                     evaluate_signature(self, &new_fn.sig, stack);
                     Some((OpKind::Call(new_fn.name.clone(), vec![]), new_fn))
                 } else {

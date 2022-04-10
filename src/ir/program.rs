@@ -102,13 +102,11 @@ impl Program {
     }
 
     pub fn normalize_global_names(&mut self) {
-        let global_names: HashMap<String, String> = HashMap::from_iter(
+        let global_names: BTreeMap<String, String> = BTreeMap::from_iter(
             self.global_vars
                 .iter()
-                .enumerate()
-                .map(|(i, (k, _v))| (k.clone(), format!("global_{i}"))),
+                .map(|(k, (_, v))| (k.clone(), v.clone())),
         );
-
         self.functions.iter_mut().for_each(|f| {
             f.ops
                 .iter_mut()

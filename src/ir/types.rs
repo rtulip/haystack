@@ -103,7 +103,6 @@ impl Type {
         type_map: &HashMap<TypeName, Type>,
         visited: &mut HashSet<TypeName>,
     ) -> Vec<TypeName> {
-        // println!("Deep check {self} for generics.");
         if visited.insert(self.name()) {
             match self {
                 Type::U64 | Type::U8 | Type::Bool | Type::Enum { .. } => {
@@ -251,9 +250,24 @@ impl Type {
         let mut map: HashMap<TypeName, TypeName> = HashMap::new();
         let resolved_members = pairs
             .iter()
-            .map(|(t1, t2)| Type::resolve_type(token, t1, t2, &mut map, &HashMap::new(), type_map))
-            .collect::<Vec<TypeName>>();
+            .map(|(t1, t2)| {
+                let mut m: HashMap<TypeName, TypeName> = HashMap::new();
+                let t = Type::resolve_type(token, t1, t2, &mut m, type_map);
 
+                m.drain().for_each(|(k, v)| {
+                    if let Some(typ) = map.insert(k.clone(), v.clone()) {
+                        if typ != v {
+                            compiler_error(token, "Type Resolution Failure in generic struct resolution", vec![
+                                format!("Type `{k}` cannot be assigned to {v} as it was previously assigned to {typ}").as_str(),
+                            ]);
+                        }
+                    }
+                });
+
+
+                t
+            })
+            .collect::<Vec<TypeName>>();
         if !generics.iter().all(|t| map.contains_key(t)) {
             compiler_error(
                 token,
@@ -292,7 +306,6 @@ impl Type {
         maybe_generic_t: &TypeName,
         concrete_t: &TypeName,
         generic_map: &mut HashMap<TypeName, TypeName>,
-        alias_map: &HashMap<TypeName, TypeName>,
         type_map: &mut HashMap<TypeName, Type>,
     ) -> TypeName {
         match (
@@ -331,7 +344,7 @@ impl Type {
             ),
             (Type::Pointer { typ, .. }, Type::Pointer { typ: typ2, .. }) => {
                 let pointer_typ = Type::Pointer {
-                    typ: Type::resolve_type(token, &typ, &typ2, generic_map, alias_map, type_map),
+                    typ: Type::resolve_type(token, &typ, &typ2, generic_map, type_map),
                 };
                 // todo: Check that this is fine to just insert without checking if it failed.
                 type_map.insert(pointer_typ.name(), pointer_typ.clone());
@@ -349,7 +362,6 @@ impl Type {
             (Type::Placeholder { .. }, Type::GenericStructBase { .. }) => unreachable!(),
             (Type::Placeholder { .. }, Type::GenericStructInstance { .. }) => unreachable!(),
             (Type::Placeholder { name }, t) => {
-                let name = alias_map.get(&name).unwrap_or(&name);
                 if let Some(prev_assignment) = generic_map.insert(name.clone(), t.name()) {
                     if prev_assignment != t.name() {
                         compiler_error(
@@ -402,9 +414,13 @@ impl Type {
                     .iter()
                     .zip(resolved_members.iter())
                     .for_each(|(m, r)| {
-                        Type::resolve_type(token, m, r, generic_map, &alias_map, type_map);
+                        Type::resolve_type(token, m, r, generic_map, type_map);
                     });
-
+                alias_map.iter().for_each(|(k, alias)| {
+                    let t = generic_map.get(k).unwrap().clone();
+                    generic_map.remove(k);
+                    Type::resolve_type(token, alias, &t, generic_map, type_map);
+                });
                 concrete_t.clone()
             }
             (Type::GenericStructInstance { .. }, _) => compiler_error(
@@ -501,8 +517,14 @@ impl Type {
                     .iter()
                     .zip(resolved_members.iter())
                     .for_each(|(m, r)| {
-                        Type::resolve_type(token, m, r, generic_map, &alias_map, type_map);
+                        Type::resolve_type(token, m, r, generic_map, type_map);
                     });
+
+                alias_map.iter().for_each(|(k, alias)| {
+                    let t = generic_map.get(k).unwrap().clone();
+                    generic_map.remove(k);
+                    Type::resolve_type(token, alias, &t, generic_map, type_map);
+                });
 
                 concrete_t.clone()
             }
@@ -579,14 +601,23 @@ impl Type {
                         .map(|t| t.clone())
                         .zip(alias_list.iter().map(|t| t.clone())),
                 );
+
+                // Apply the alias to the input generic map
+                let aliased_generics: HashMap<String, String> = alias_map
+                    .iter()
+                    .map(|(k, v)| {
+                        (
+                            k.clone(),
+                            Type::assign_generics(token, v, generic_map, type_map),
+                        )
+                    })
+                    .collect();
+                // Use the aliased generics to resolve inner types
                 let resolved_members = members
                     .iter()
-                    .map(|t| match type_map.get(t).unwrap() {
-                        Type::Placeholder { name } => generic_map
-                            .get(alias_map.get(name).unwrap())
-                            .unwrap()
-                            .clone(),
-                        _ => Type::assign_generics(token, t, generic_map, type_map),
+                    .map(|t| {
+                        let _ = 0;
+                        Type::assign_generics(token, t, &aliased_generics, type_map)
                     })
                     .collect::<Vec<TypeName>>();
                 let mut name = base.clone();
@@ -595,8 +626,12 @@ impl Type {
                 for (i, typ) in base_generics
                     .iter()
                     .map(|t| {
-                        let alias = alias_map.get(t).unwrap();
-                        Type::assign_generics(token, alias, generic_map, type_map)
+                        Type::assign_generics(
+                            token,
+                            alias_map.get(t).unwrap_or(t),
+                            generic_map,
+                            type_map,
+                        )
                     })
                     .enumerate()
                 {

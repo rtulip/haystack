@@ -72,9 +72,17 @@ pub fn simplify_ir<P: AsRef<std::path::Path> + std::clone::Clone>(program: &Prog
     )
     .unwrap();
 
-    program.uninit_data.iter().for_each(|(ident, data)| {
-        writeln!(&mut file, "{ident}: {:?}", data).unwrap();
-    });
+    program
+        .uninit_data
+        .iter()
+        .zip(program.global_vars.iter())
+        .for_each(|((alias, data), (ident, _))| {
+            if alias.as_str().starts_with("data") {
+                writeln!(&mut file, "{alias}: {:?}", data).unwrap();
+            } else {
+                writeln!(&mut file, "{alias}::{ident}: {:?}", data).unwrap();
+            }
+        });
 }
 
 pub fn program_to_json<P: AsRef<std::path::Path>>(ir_path: P, program: &Program) {

@@ -1,16 +1,24 @@
 include "selfhost/ir/types/type.hay"
 include "stack.hay"
+include "linear_map.hay"
 
+var Str[1024]: type_names_p
+var Stack<Str>: type_names_stack_p
 var Type[1024]: types_p
-var *Type[4096]: type_members_p
-var Str[4096]: idents_p
-
 var Stack<Type>: types_stack_p
+var Map<Type>: types_map_p
+
+var *Type[4096]: type_members_p
 var Stack<*Type>: members_stack_p
+
+var Str[4096]: idents_p
 var Stack<Str>: idents_stack_p
 
+var *Type[1024]: generics_p
+var Stack<*Type>: generics_stack_p
+
 struct TypeList {
-    *Stack<Type>: types
+    *Map<Type>: types_map
     *Stack<*Type>: type_members
     *Stack<Str>: idents
 }
@@ -18,17 +26,88 @@ struct TypeList {
 var TypeList: type_list
 
 fn type_list.init() {
-    types_p @ Stack.init types_stack_p !
-    type_members_p @ Stack.init members_stack_p !
-    idents_p @ Stack.init idents_stack_p !
+    
+    type_names_p @ type_names_stack_p Stack.init
+    types_p @ types_stack_p Stack.init
+    type_names_stack_p types_stack_p types_map_p Map.init
 
-    types_stack_p members_stack_p idents_stack_p cast(TypeList)
-    type_list !
+    type_members_p @ members_stack_p Stack.init
+    idents_p @ idents_stack_p Stack.init
+
+    generics_p @ generics_stack_p Stack.init
+
+    "u64"  Type.u64  types_map_p Map.insert drop
+    "u8"   Type.u8   types_map_p Map.insert drop 
+    "bool" Type.bool types_map_p Map.insert drop 
+    "*u64" 
+        "u64" types_map_p Map.get_ref Opt.unwrap 
+        Type.pointer 
+        types_map_p Map.insert drop
+    "*u8" 
+        "u8" types_map_p Map.get_ref Opt.unwrap
+        Type.pointer
+        types_map_p Map.insert drop
+    "Str"
+        "Str"
+        idents_stack_p @ members_stack_p @ as [ident_stack member_stack] {
+            ident_stack::size ident_stack::arr Arr.get_ref
+            member_stack::size member_stack::arr Arr.get_ref
+            as [ident_start member_start]
+
+            "size" idents_stack_p Stack.push drop
+            "data" idents_stack_p Stack.push drop
+            "u64" types_map_p Map.get_ref Opt.unwrap members_stack_p Stack.push drop
+            "*u8" types_map_p Map.get_ref Opt.unwrap members_stack_p Stack.push drop
+
+            2 member_start cast(Arr)
+            2 ident_start cast(Arr)
+            
+        }
+        Type.struct
+        types_map_p Map.insert drop
+    "T" "T" Type.placeholder types_map_p Map.insert drop
+    "Arr" 
+        "Arr"
+        idents_stack_p @ members_stack_p @ as [ident_stack member_stack] {
+            ident_stack::size ident_stack::arr Arr.get_ref
+            member_stack::size member_stack::arr Arr.get_ref
+            as [ident_start member_start]
+
+            "size" idents_stack_p Stack.push drop
+            "data" idents_stack_p Stack.push drop
+            "u64" types_map_p Map.get_ref Opt.unwrap members_stack_p Stack.push drop
+            "*u8" types_map_p Map.get_ref Opt.unwrap members_stack_p Stack.push drop
+
+            2 member_start cast(Arr)
+            2 ident_start cast(Arr)
+            
+        }
+        cast(StructType)
+        generics_stack_p @ as [gen_stack] {
+            gen_stack::size gen_stack::arr Arr.get_ref
+            as [gen_start]
+
+            "T" types_map_p Map.get_ref Opt.unwrap generics_stack_p Stack.push drop
+
+            1 gen_start cast(Arr)
+        }
+        Type.generic_stuct_base
+        types_map_p Map.insert drop
+    
 }
 
 
 fn main() {
 
     type_list.init
+
+    "u64"  types_map_p Map.get Opt.unwrap drop
+    "u8"   types_map_p Map.get Opt.unwrap drop
+    "bool" types_map_p Map.get Opt.unwrap drop
+    "*u64" types_map_p Map.get Opt.unwrap drop
+    "*u8"  types_map_p Map.get Opt.unwrap drop
+    "Str"  types_map_p Map.get Opt.unwrap drop
+    "T"    types_map_p Map.get Opt.unwrap drop
+    "Arr"  types_map_p Map.get Opt.unwrap drop
 
 }

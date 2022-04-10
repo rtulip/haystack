@@ -114,11 +114,12 @@ fn Type.placeholder(Str) -> [Type] {
 }
 
 fn Type.pointer(*Type) -> [Type] {
-    cast(PointerType<Type>) 
+    cast(PointerType) 
     cast(TypeValue<Type>) TypeKind::Pointer cast(Type)
 }
 
-fn Type.struct(StructType<Type>) -> [Type] {
+fn Type.struct(Str Arr<*Type> Arr<Str>) -> [Type] {
+    cast(StructType)
     cast(TypeValue<Type>) TypeKind::Struct cast(Type)
 }
 

@@ -103,7 +103,6 @@ impl Type {
         type_map: &HashMap<TypeName, Type>,
         visited: &mut HashSet<TypeName>,
     ) -> Vec<TypeName> {
-        // println!("Deep check {self} for generics.");
         if visited.insert(self.name()) {
             match self {
                 Type::U64 | Type::U8 | Type::Bool | Type::Enum { .. } => {
@@ -251,9 +250,8 @@ impl Type {
         let mut map: HashMap<TypeName, TypeName> = HashMap::new();
         let resolved_members = pairs
             .iter()
-            .map(|(t1, t2)| Type::resolve_type(token, t1, t2, &mut map, &HashMap::new(), type_map))
+            .map(|(t1, t2)| Type::resolve_type(token, t1, t2, &mut map, type_map))
             .collect::<Vec<TypeName>>();
-
         if !generics.iter().all(|t| map.contains_key(t)) {
             compiler_error(
                 token,
@@ -292,7 +290,6 @@ impl Type {
         maybe_generic_t: &TypeName,
         concrete_t: &TypeName,
         generic_map: &mut HashMap<TypeName, TypeName>,
-        alias_map: &HashMap<TypeName, TypeName>,
         type_map: &mut HashMap<TypeName, Type>,
     ) -> TypeName {
         match (
@@ -331,7 +328,7 @@ impl Type {
             ),
             (Type::Pointer { typ, .. }, Type::Pointer { typ: typ2, .. }) => {
                 let pointer_typ = Type::Pointer {
-                    typ: Type::resolve_type(token, &typ, &typ2, generic_map, alias_map, type_map),
+                    typ: Type::resolve_type(token, &typ, &typ2, generic_map, type_map),
                 };
                 // todo: Check that this is fine to just insert without checking if it failed.
                 type_map.insert(pointer_typ.name(), pointer_typ.clone());
@@ -349,7 +346,6 @@ impl Type {
             (Type::Placeholder { .. }, Type::GenericStructBase { .. }) => unreachable!(),
             (Type::Placeholder { .. }, Type::GenericStructInstance { .. }) => unreachable!(),
             (Type::Placeholder { name }, t) => {
-                let name = alias_map.get(&name).unwrap_or(&name);
                 if let Some(prev_assignment) = generic_map.insert(name.clone(), t.name()) {
                     if prev_assignment != t.name() {
                         compiler_error(
@@ -402,9 +398,13 @@ impl Type {
                     .iter()
                     .zip(resolved_members.iter())
                     .for_each(|(m, r)| {
-                        Type::resolve_type(token, m, r, generic_map, &alias_map, type_map);
+                        Type::resolve_type(token, m, r, generic_map, type_map);
                     });
-
+                alias_map.iter().for_each(|(k, alias)| {
+                    let t = generic_map.get(k).unwrap().clone();
+                    generic_map.remove(k);
+                    Type::resolve_type(token, alias, &t, generic_map, type_map);
+                });
                 concrete_t.clone()
             }
             (Type::GenericStructInstance { .. }, _) => compiler_error(
@@ -501,8 +501,14 @@ impl Type {
                     .iter()
                     .zip(resolved_members.iter())
                     .for_each(|(m, r)| {
-                        Type::resolve_type(token, m, r, generic_map, &alias_map, type_map);
+                        Type::resolve_type(token, m, r, generic_map, type_map);
                     });
+
+                alias_map.iter().for_each(|(k, alias)| {
+                    let t = generic_map.get(k).unwrap().clone();
+                    generic_map.remove(k);
+                    Type::resolve_type(token, alias, &t, generic_map, type_map);
+                });
 
                 concrete_t.clone()
             }

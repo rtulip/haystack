@@ -233,7 +233,7 @@ impl Function {
         let mut map: HashMap<TypeName, TypeName> = HashMap::new();
         let resolved_inputs = pairs
             .iter()
-            .map(|(t1, t2)| Type::resolve_type(token, t1, t2, &mut map, &HashMap::new(), type_map))
+            .map(|(t1, t2)| Type::resolve_type(token, t1, t2, &mut map, type_map))
             .collect::<Vec<TypeName>>();
 
         if !self.generics.iter().all(|t| map.contains_key(t)) {

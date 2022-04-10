@@ -28,6 +28,9 @@ fn type_list.init() {
     types_p @ types_stack_p Stack.init
     type_names_stack_p types_stack_p types_map_p Map.init
 
+    type_members_p @ members_stack_p Stack.init
+    idents_p @ idents_stack_p Stack.init
+
     "u64"  Type.u64  types_map_p Map.insert drop
     "u8"   Type.u8   types_map_p Map.insert drop 
     "bool" Type.bool types_map_p Map.insert drop 
@@ -35,6 +38,30 @@ fn type_list.init() {
         "u64" types_map_p Map.get_ref Opt.unwrap 
         Type.pointer 
         types_map_p Map.insert drop
+    "*u8" 
+        "u8" types_map_p Map.get_ref Opt.unwrap
+        Type.pointer
+        types_map_p Map.insert drop
+    "Str"
+        "Str"
+        idents_stack_p @ members_stack_p @ as [ident_stack member_stack] {
+            ident_stack::size ident_stack::arr Arr.get_ref
+            member_stack::size member_stack::arr Arr.get_ref
+            as [ident_start member_start]
+
+            "size" idents_stack_p Stack.push drop
+            "data" idents_stack_p Stack.push drop
+            "u64" types_map_p Map.get_ref Opt.unwrap members_stack_p Stack.push drop
+            "*u8" types_map_p Map.get_ref Opt.unwrap members_stack_p Stack.push drop
+
+            2 member_start cast(Arr)
+            2 ident_start cast(Arr)
+            
+        }
+        Type.struct
+        types_map_p Map.insert drop
+
+
     
 }
 
@@ -47,5 +74,7 @@ fn main() {
     "u8"   types_map_p Map.get Opt.unwrap drop
     "bool" types_map_p Map.get Opt.unwrap drop
     "*u64" types_map_p Map.get Opt.unwrap drop
+    "*u8"  types_map_p Map.get Opt.unwrap drop
+    "Str"  types_map_p Map.get Opt.unwrap drop
 
 }

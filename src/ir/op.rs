@@ -520,7 +520,6 @@ impl Op {
                     Type::GenericUnionInstance { .. } => {
                         let new_typ =
                             Type::assign_generics(&self.token, cast_type, gen_map, type_map);
-
                         if let Some(typ) = stack.pop() {
                             if let Some(Type::ResolvedUnion { members, .. }) =
                                 type_map.get(&new_typ)

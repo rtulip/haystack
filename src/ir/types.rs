@@ -250,7 +250,23 @@ impl Type {
         let mut map: HashMap<TypeName, TypeName> = HashMap::new();
         let resolved_members = pairs
             .iter()
-            .map(|(t1, t2)| Type::resolve_type(token, t1, t2, &mut map, type_map))
+            .map(|(t1, t2)| {
+                let mut m: HashMap<TypeName, TypeName> = HashMap::new();
+                let t = Type::resolve_type(token, t1, t2, &mut m, type_map);
+
+                m.drain().for_each(|(k, v)| {
+                    if let Some(typ) = map.insert(k.clone(), v.clone()) {
+                        if typ != v {
+                            compiler_error(token, "Type Resolution Failure in generic struct resolution", vec![
+                                format!("Type `{k}` cannot be assigned to {v} as it was previously assigned to {typ}").as_str(),
+                            ]);
+                        }
+                    }
+                });
+
+
+                t
+            })
             .collect::<Vec<TypeName>>();
         if !generics.iter().all(|t| map.contains_key(t)) {
             compiler_error(

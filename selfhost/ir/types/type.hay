@@ -123,7 +123,11 @@ fn Type.struct(Str Arr<*Type> Arr<Str>) -> [Type] {
     cast(TypeValue<Type>) TypeKind::Struct cast(Type)
 }
 
-fn Type.generic_stuct_base(GenericStructInstanceType<Type>) -> [Type] {
+fn Type.generic_stuct_base(
+    StructType<Type>
+    Arr<*Type>
+) -> [Type] {
+    cast(GenericStructBaseType)
     cast(TypeValue<Type>) TypeKind::GenericStructBase cast(Type)
 }
 

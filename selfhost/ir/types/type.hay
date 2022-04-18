@@ -18,7 +18,7 @@ struct StructType<T> {
 
 struct GenericStructBaseType<T> {
     StructType<T>: base
-    Arr<*T>: generics 
+    Arr<*T>: generics
 }
 
 struct GenericStructInstanceType<T> {
@@ -93,6 +93,109 @@ struct Type {
     TypeKind: tag
 }
 
+
+fn TypeKind.fputs(TypeKind: kind u64: fd) {
+
+    kind TypeKind::U64 == if {
+        "TypeKind::u64" fd fputs
+    } else kind TypeKind::U8 == if {
+        "TypeKind::u8" fd fputs
+    } else kind TypeKind::Bool == if {
+        "TypeKind::bool" fd fputs
+    } else kind TypeKind::Enum == if {
+        "TypeKind::enum" fd fputs
+    } else kind TypeKind::Placeholder == if {
+        "TypeKind::placeholder" fd fputs
+    } else kind TypeKind::Pointer == if {
+        "TypeKind::pointer" fd fputs
+    } else kind TypeKind::Struct == if {
+        "TypeKind::Struct" fd fputs
+    } else kind TypeKind::GenericStructBase == if {
+        "TypeKind::GenericBaseStruct" fd fputs
+    } else kind TypeKind::GenericStructInstance == if {
+        "TypeKind::GenericStructInstance" fd fputs
+    } else kind TypeKind::ResolvedStruct == if {
+        "TypeKind::ResolvedStruct" fd fputs
+    } else kind TypeKind::Union == if {
+        "TypeKind::Union" fd fputs
+    } else kind TypeKind::GenericUnionBase == if {
+        "TypeKind::GenericUnionBase" fd fputs
+    } else kind TypeKind::GenericUnionInstance == if {
+        "TypeKind::GenericUnionInstance" fd fputs
+    }else kind TypeKind::ResolvedUnion == if {
+        "TypeKind::ResolvedUnion" fd fputs
+    } else {
+        "Unknown type kind variant!" putlns
+        1 exit
+    }
+
+}
+
+fn TypeKind.puts(TypeKind) {
+    1 TypeKind.fputs
+}
+
+fn Type.fputs(Type: type u64: fd) {
+
+    type::tag as [kind]
+
+    kind TypeKind::U64 == if {
+        "u64" fd fputs
+    } else kind TypeKind::U8 == if {
+        "u8" fd fputs
+    } else kind TypeKind::Bool == if {
+        "bool" fd fputs
+    } else kind TypeKind::Enum == if {
+        type::type::Enum::name fd fputs
+    } else kind TypeKind::Placeholder == if {
+        type::type::Placeholder fd fputs
+    } else kind TypeKind::Pointer == if {
+        "*" fd fputs
+        type::type::Pointer::inner @ fd Type.fputs
+    } else kind TypeKind::Struct == if {
+        type::type::Struct::name fd fputs
+    } else kind TypeKind::GenericStructBase == if {
+        type::type::GenericStructBase::base::name fd fputs
+        "<" fd fputs
+
+        type::type::GenericStructBase::generics as [gen]
+        0 while dup gen::size < {
+            as [i]
+            i 0 != if {
+                " " fd fputs 
+            }
+            i gen Arr.get @ fd Type.fputs
+            i 1 + 
+        } drop 
+
+        ">" fd fputs
+    } else kind TypeKind::GenericStructInstance == if {
+        "Type::GenericStructInstance" fd fputs
+    } else kind TypeKind::ResolvedStruct == if {
+        "Type::ResolvedStruct" fd fputs
+    } else kind TypeKind::Union == if {
+        "Type::Union" fd fputs
+    } else kind TypeKind::GenericUnionBase == if {
+        "Type::GenericUnionBase" fd fputs
+    } else kind TypeKind::GenericUnionInstance == if {
+        "Type::GenericUnionInstance" fd fputs
+    }else kind TypeKind::ResolvedUnion == if {
+        "Type::ResolvedUnion" fd fputs
+    } else {
+        "Unknown type kind variant!" putlns
+        1 exit
+    }
+
+}
+
+fn Type.puts(Type) {
+    1 Type.fputs
+}
+
+fn Type.new_empty(TypeKind: kind) -> [Type] {
+    0 cast(TypeValue<Type>) kind cast(Type)
+}
+
 fn Type.u64() -> [Type] {
     0 cast(TypeValue<Type>) TypeKind::U64 cast(Type)  
 }
@@ -105,56 +208,10 @@ fn Type.bool() -> [Type] {
     0 cast(TypeValue<Type>) TypeKind::Bool cast(Type)
 }
 
-fn Type.enum(EnumType) -> [Type] {
-    cast(TypeValue<Type>) TypeKind::Enum cast(Type)
-}
-
-fn Type.placeholder(Str) -> [Type] {
-    cast(TypeValue<Type>) TypeKind::Placeholder cast(Type)
-}
-
-fn Type.pointer(*Type) -> [Type] {
-    cast(PointerType) 
-    cast(TypeValue<Type>) TypeKind::Pointer cast(Type)
-}
-
 fn Type.struct(Str Arr<*Type> Arr<Str>) -> [Type] {
-    cast(StructType)
-    cast(TypeValue<Type>) TypeKind::Struct cast(Type)
+    cast(StructType) cast(TypeValue<Type>) TypeKind::Struct cast(Type)
 }
 
-fn Type.generic_stuct_base(
-    StructType<Type>
-    Arr<*Type>
-) -> [Type] {
-    cast(GenericStructBaseType)
-    cast(TypeValue<Type>) TypeKind::GenericStructBase cast(Type)
+fn Type.generic_struct_base(StructType<Type> Arr<*Type>) -> [Type] {
+    cast(GenericStructBaseType) cast(TypeValue<Type>) TypeKind::GenericStructBase cast(Type)
 }
-
-fn Type.generic_struct_instance(GenericStructInstanceType<Type>) -> [Type] {
-    cast(TypeValue<Type>) TypeKind::GenericStructInstance cast(Type)
-}
-
-fn Type.resolved_struct(ResolvedStructType<Type>) -> [Type] {
-    cast(TypeValue<Type>) TypeKind::ResolvedStruct cast(Type)
-}
-
-fn Type.union(UnionType<Type>) -> [Type] {
-    cast(TypeValue<Type>) TypeKind::Union cast(Type)
-}
-
-fn Type.generic_union_base(GenericUnionBaseType<Type>) -> [Type] {
-    cast(TypeValue<Type>) TypeKind::GenericUnionBase cast(Type)
-}
-
-fn Type.generic_union_instance(GenericUnionInstanceType<Type>) -> [Type] {
-    cast(TypeValue<Type>) TypeKind::GenericUnionInstance cast(Type)
-}
-
-fn Type.resolved_union(ResolvedUnionType<Type>) -> [Type] {
-    cast(TypeValue<Type>) TypeKind::ResolvedUnion cast(Type)
-}
-
-//fn main() {
-//
-//}

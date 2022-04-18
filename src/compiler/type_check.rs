@@ -120,7 +120,7 @@ fn type_check_if_block(
         locals,
         globals,
         vec![Box::new(move |op| match op.kind {
-            OpKind::JumpDest(n) => n >= jump_dest,
+            OpKind::JumpDest(n) => n == true_end_ip,
             _ => false,
         })],
     );
@@ -139,7 +139,7 @@ fn type_check_if_block(
     }
 
     assert_eq!(frame_if_true, frame_if_false);
-    assert_eq!(true_end_ip, false_end_ip);
+    assert_eq!(true_end_ip, false_end_ip, "{}", ops[start_ip].token.loc);
     *stack = stack_if_true;
     *frame = frame_if_true;
 

@@ -1000,6 +1000,7 @@ pub fn parse_if_block(
     type_map: &mut HashMap<String, Type>,
     init_data: &mut BTreeMap<String, InitData>,
 ) -> Token {
+    let start_ip = ops.len();
     let (tok, mut jump_dest) = if_block_to_ops(token, tokens, ops, type_map, init_data);
 
     while peek_token_kind(tokens, TokenKind::Keyword(Keyword::Else)) {
@@ -1065,7 +1066,8 @@ pub fn parse_if_block(
         }
     }
 
-    ops.iter_mut()
+    ops[start_ip..]
+        .iter_mut()
         .filter(|op| matches!(op.kind, OpKind::Jump(None)))
         .for_each(|op| op.kind = OpKind::Jump(Some(jump_dest)));
 

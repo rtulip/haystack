@@ -40,6 +40,6 @@ fn Stack.peek<T>(*Stack<T>: stk_p) -> [Opt<T>] {
     stk::size 0 == if {
         Opt.None::<T>
     } else {
-        stk::size 1 - stk::arr Arr.get 
+        stk::size 1 - stk::arr Arr.get Opt.Some
     }
 }

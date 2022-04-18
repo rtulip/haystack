@@ -12,9 +12,13 @@ fn init_data_to_x86_64(file: &mut std::fs::File, ident: &str, data: &InitData) {
     match data {
         InitData::String(s) => {
             write!(file, "db ").unwrap();
-            s.as_bytes()
-                .iter()
-                .for_each(|b| write!(file, "{:#x}, ", b).unwrap());
+            if s.len() > 0 {
+                s.as_bytes()
+                    .iter()
+                    .for_each(|b| write!(file, "{:#x}, ", b).unwrap());
+            } else {
+                write!(file, "0x00, ").unwrap();
+            }
         }
         InitData::Arr { size, pointer } => {
             write!(file, "dq {size}, {pointer}").unwrap();

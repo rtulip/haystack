@@ -253,10 +253,13 @@ fn parse_tokens(Str: path Str: input) {
 
 fn hay_into_ir(Str: input_path) {
 
+    var u64[128]: path_buff
+    0 path_buff @ memset
+
     input_path filebuff_p @ File.read_path_to_str as [file_str]
     input_path file_str parse_tokens
 
-    while tokens_p Stack.peek` Opt.unwrap as [tok] { tok
+    while tokens_p Stack.peek Opt.unwrap as [tok] { tok
         tok::kind::tag TokenKindTag::EndOfFile == lnot 
     } {
         as [tok]
@@ -271,9 +274,30 @@ fn hay_into_ir(Str: input_path) {
             } else kw Keyword::Include == if {
                 
                 tok Keyword::Include expect_token_keyword
-                expect_string_literal as [token path]
+                expect_string_literal as [path] {
+                    // trim the quotes
+                    path::size 2 -
+                    path::data 1 ptr+
+                    cast(Str)
+                }
+                as [path] {
+                    path File.exists if {
+                       path
+                    } else {
+                        0 path_buff @ memset
+                        "./src/libs/" path path_buff @ split cast(u64) cast(*u8) cast(Arr) Str.concat
+                        as [src_str]
+                        src_str File.exists if {
+                            src_str
+                        } else {
+                            path
+                            "Compiler Error: Could not import file `" puts path puts "`." putlns
+                            1 exit 
+                        }
+                    }
+                }
+                as [token path]
 
-                "Todo: convert `" puts path puts "` into a path" putlns
                 "Todo: Parse include statements: " puts
                 tok Token.puts "\n" puts
                 1 exit

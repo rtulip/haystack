@@ -4,6 +4,14 @@ struct File {
     u64: fd
 }
 
+fn File.exists(Str: file_name) -> [bool] {
+    var u64[18]: statbuf_p
+    statbuf_p @ as [statbuf]
+    0 statbuf memset
+    
+    statbuf::data file_name::data sys_stat
+}
+
 fn File.open(u64: mode u64: flags Str: path) -> [File] {
     var u8[1024]: str_buff str_buff @ as [cstr]
     path cstr Str.to_cStr as [filepath success]

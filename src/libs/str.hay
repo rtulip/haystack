@@ -20,6 +20,19 @@ fn Str.to_cStr(Str: s Arr<u8>: buffer) -> [cStr bool] {
     }
 }
 
+fn Str.concat(Str: s1 Str: s2 Arr<u8>: buffer) -> [Str] {
+    s1::size s2::size + buffer::size > if {
+        "Buffer is to small to concatinate strings" putlns
+        1 exit
+    }
+    "Copying s1..." putlns
+    s1 split buffer::data memcpy
+    "Copying s2..." putlns
+    s2 split buffer::data s1::size ptr+ memcpy
+    s1::size s2::size + buffer::data cast(Str)
+
+}
+
 fn fputs(Str: s u64: fd) {
     s split fd sys_write drop
 }

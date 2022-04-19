@@ -5,8 +5,30 @@ include "stack.hay"
 include "selfhost/ir/token.hay"
 
 var u8[65536]: filebuff_p
-var Token[2048]: token_buff_p
+var Token[65536]: token_buff_p
 var Stack<Token>: tokens_p
+
+var Str[512]: included_files_p
+var Stack<Str>: include_files_stack
+
+fn IncludeFiles.add(Str: file_name) {
+    file_name include_files_stack Stack.push drop
+}
+
+fn IncludeFiles.contains(Str: file_name) -> [bool] {
+    
+    include_files_stack @ as [stk]
+
+    false 0 while as [continue i] { continue i
+        continue lnot
+        i stk::size < land
+    }
+    {
+        as [_ i]
+        i stk::arr Arr.get file_name Str.equals
+        i 1 +
+    } drop
+} 
 
 fn expect_token_keyword(Token: prev_tok Keyword: kw) -> [Token] {
     tokens_p Stack.pop as [maybe_tok]
@@ -174,7 +196,9 @@ fn parse_string_literal(*Loc: loc Str: s) -> [Str] {
     }
     
     as [word str]
-    word Literal.from_str TokenKind.from_literal loc @ cast(Token)
+    
+    word::size 2 - word::data 1 ptr+ cast(Str)
+    Literal.from_str TokenKind.from_literal loc @ cast(Token)
     push_token
 
     0 while dup word::size < {
@@ -236,6 +260,10 @@ fn parse_tokens(Str: path Str: input) {
     var Loc: loc
     var Str: token
 
+    tokens_p @ as [stk] {
+        stk::size 
+    } as [token_start]
+
     path 1 1 cast(Loc) loc !
     0 input::data cast(Str) token !
 
@@ -248,13 +276,19 @@ fn parse_tokens(Str: path Str: input) {
     } drop
 
     TokenKind.from_eof loc @ cast(Token) push_token
-    tokens_p Stack.rev
+    tokens_p @ as [stk] {
+        stk::size token_start -
+        stk::arr::data token_start ptr+ 
+        cast(Arr)
+        Arr.rev
+    }
 }
 
 fn hay_into_ir(Str: input_path) {
 
     var u64[128]: path_buff
     0 path_buff @ memset
+
 
     input_path filebuff_p @ File.read_path_to_str as [file_str]
     input_path file_str parse_tokens
@@ -263,6 +297,8 @@ fn hay_into_ir(Str: input_path) {
         tok::kind::tag TokenKindTag::EndOfFile == lnot 
     } {
         as [tok]
+
+        "Parsing Token: " puts tok Token.puts "\n" puts
 
         tok::kind::tag TokenKindTag::Keyword == if {
             tok::kind::value::keyword as [kw]
@@ -275,32 +311,35 @@ fn hay_into_ir(Str: input_path) {
                 
                 tok Keyword::Include expect_token_keyword
                 expect_string_literal as [path] {
-                    // trim the quotes
-                    path::size 2 -
-                    path::data 1 ptr+
-                    cast(Str)
-                }
-                as [path] {
-                    path File.exists if {
-                       path
-                    } else {
-                        0 path_buff @ memset
-                        "./src/libs/" path path_buff @ split cast(u64) cast(*u8) cast(Arr) Str.concat
-                        as [src_str]
-                        src_str File.exists if {
-                            src_str
-                        } else {
+                    
+                    path IncludeFiles.contains lnot if {
+                        path IncludeFiles.add
+
+                        path File.exists if {
                             path
-                            "Compiler Error: Could not import file `" puts path puts "`." putlns
-                            1 exit 
+                        } else {
+                            0 path_buff @ memset
+                            "./src/libs/" path path_buff @ split cast(u64) cast(*u8) cast(Arr) Str.concat
+                            as [src_str]
+                            src_str File.exists if {
+                                src_str
+                            } else {
+                                path
+                                "Compiler Error: Could not import file `" puts path puts "`." putlns
+                                1 exit 
+                            }
                         }
+                        Opt.Some
+                    } else {
+                        Opt.None::<Str>
                     }
                 }
-                as [token path]
+                as [token maybe_path]
 
-                "Todo: Parse include statements: " puts
-                tok Token.puts "\n" puts
-                1 exit
+                maybe_path Opt.is_some if {
+                    maybe_path Opt.unwrap as [path]
+                    path hay_into_ir
+                } 
             } else kw Keyword::Struct == if {
                 "Todo: Parse struct types: " puts
                 tok Token.puts "\n" puts
@@ -334,6 +373,7 @@ fn hay_into_ir(Str: input_path) {
 fn main()
 {
 
+    included_files_p @ include_files_stack Stack.init
     token_buff_p @ tokens_p  Stack.init
 
     "./selfhost/lexer.hay" hay_into_ir

@@ -47,7 +47,10 @@ fn TokenKind.fputs(TokenKind: kind u64: fd) {
         "Unhandled TokenKind" putlns
         1 exit
     }
+}
 
+fn TokenKind.puts(TokenKind) {
+    1 TokenKind.fputs
 }
 
 fn TokenKind.from_keyword(Keyword: value) -> [TokenKind] {

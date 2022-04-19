@@ -43,3 +43,9 @@ fn Stack.peek<T>(*Stack<T>: stk_p) -> [Opt<T>] {
         stk::size 1 - stk::arr Arr.get Opt.Some
     }
 }
+
+fn Stack.rev<T>(*Stack<T>: stk_p) {
+
+    stk_p @ as [stk]
+    stk::size stk::arr::data cast(Arr) Arr.rev
+}

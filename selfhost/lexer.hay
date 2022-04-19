@@ -9,11 +9,10 @@ var Token[2048]: token_buff_p
 var Stack<Token>: tokens_p
 
 fn push_token(Token) {
-    tokens_p @ Stack.push Opt.is_some if {
+    tokens_p Stack.push Opt.is_some if {
         "Tokens Stack overflow!" putlns
         1 exit
     }
-    tokens_p !
 }
 
 fn parse_comment(*Loc: loc Str: s) -> [Str] {
@@ -212,7 +211,7 @@ fn main()
 {
     var Loc: loc
 
-    token_buff_p @ Stack.init tokens_p !
+    token_buff_p @ tokens_p  Stack.init
 
     "./selfhost/lexer.hay" as [path] 
 
@@ -222,10 +221,10 @@ fn main()
     file_str putlns
     path file_str parse_tokens
 
-    while tokens_p @ Stack.pop dup Opt.is_some {
+    tokens_p Stack.rev
+
+    while tokens_p Stack.pop dup Opt.is_some {
         Opt.unwrap Token.puts "\n" puts
-        tokens_p !
     } drop
-    tokens_p !
     
 }

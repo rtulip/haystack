@@ -1,0 +1,6 @@
+include "./selfhost/ir/types/type.hay"
+
+struct Signature {
+    Arr<*Type>: inputs
+    Arr<*Type>: outputs
+}

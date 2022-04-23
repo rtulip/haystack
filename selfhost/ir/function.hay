@@ -1,0 +1,13 @@
+include "stack.hay"
+include "./selfhost/ir/token.hay"
+include "./selfhost/ir/types/signature.hay"
+include "./selfhost/ir/op.hay"
+
+struct Function {
+    Str: name
+    Token: token
+    Signature: sig
+    Arr<Op>: ops
+    // TODO: Generics Map
+    // TODO: Locals
+}

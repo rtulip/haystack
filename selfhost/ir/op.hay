@@ -1,0 +1,114 @@
+include "opt.hay"
+include "./selfhost/ir/types/type.hay"
+include "./selfhost/ir/keyword.hay"
+include "./selfhost/ir/token.hay"
+
+enum OpKindTag {
+    PushInt
+    PushBool
+    PushString
+    PushEnum
+    Add
+    Sub
+    Mul
+    Div
+    LessThan
+    LessEqual
+    GreaterThan
+    GreaterEqual
+    Equals
+    NotEquals
+    Mod
+    Read
+    Write
+    Cast
+    Pad
+    SizeOf
+    Split,
+    Global
+    Word
+    Ident
+    MakeIdent
+    PushFramed
+    PushIdent
+    PushLocal
+    PushLocalPtr
+    Syscall
+    Call
+    PrepareFunc,
+    JumpCond
+    Jump
+    JumpDest
+    StartBlock,
+    EndBlock
+    Return,
+    Default,
+    Nop
+}
+
+struct EnumVariant {
+    *Type: type
+    u64: variant
+}
+
+struct IdentVariant {
+    Str: ident_name
+    Arr<Str>: inner
+}
+
+struct MakeIdentVariant {
+    Str: ident
+    u64: size
+}
+
+struct PushFramedVariant {
+    u64: offset
+    u64: size
+}
+
+struct PushIdentVariant {
+    u64: index
+    Arr<Str>: inner
+}
+
+struct CallVariant {
+    Str: fn_name
+    Arr<*Type>: annotations
+}
+
+union OpKindValue {
+    u64: PushInt
+    bool: PushBool
+    Str: PushString
+    EnumVariant: PushEnum
+    *Type: Read
+    *Type: Write
+    *Type: Cast
+    u64: Pad
+    *Type: SizeOf
+    Str: Global
+    Str: Word
+    IdentVariant: Ident
+    MakeIdentVariant: MakeIdent
+    PushFramedVariant: PushFramed 
+    PushIdentVariant: PushIdent
+    Str: PushLocal
+    u64: PushLocalPtr
+    u64: Syscall
+    CallVariant: Call
+    Opt<u64>: JumpCond
+    Opt<u64>: Jump
+    u64: JumpDest
+    u64: EndBlock
+    Keyword: NOP
+}
+
+struct OpKind {
+    OpKindTag: tag
+    OpKindValue: value
+}
+
+struct Op {
+    OpKind: kind
+    Token: token
+}

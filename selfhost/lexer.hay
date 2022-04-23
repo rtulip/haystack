@@ -1,8 +1,13 @@
 include "std.hay"
 include "file.hay"
 include "stack.hay"
+include "arr.hay"
 
 include "selfhost/ir/token.hay"
+include "selfhost/ir/function.hay"
+include "selfhost/ir/op.hay"
+include "selfhost/ir/types/type.hay"
+include "selfhost/ir/types/type_names.hay"
 
 var u8[65536]: filebuff_p
 var Token[65536]: token_buff_p
@@ -10,6 +15,9 @@ var Stack<Token>: tokens_p
 
 var Str[512]: included_files_p
 var Stack<Str>: include_files_stack
+
+var *Type[16384]: misc_types_buffer_p
+var Stack<*Type>: misc_types_stack_p
 
 fn IncludeFiles.add(Str: file_name) {
     file_name include_files_stack Stack.push drop
@@ -50,6 +58,56 @@ fn expect_token_keyword(Token: prev_tok Keyword: kw) -> [Token] {
         ": Expected " puts kw Keyword.puts ", but found no token instead" putlns
         1 exit
         TokenKind.from_eof "" 0 0 cast(Loc) cast(Token)
+    }
+}
+
+fn peek_token_kind(TokenKind: kind) -> [bool] {
+
+    tokens_p Stack.peek as [maybe_tok]
+
+    maybe_tok Opt.is_some if {
+        maybe_tok Opt.unwrap as [tok]
+        tok::kind kind TokenKind.equals 
+    } else {
+        false
+    }
+
+}
+
+fn expect_token_kind(Token: prev_tok TokenKind: kind) -> [Token] {
+    tokens_p Stack.pop as [maybe_tok]
+    maybe_tok Opt.is_some if {
+        maybe_tok Opt.unwrap as [next]
+        next::kind kind TokenKind.equals lnot if {
+            prev_tok Token.puts
+            ": Expected a " puts kind TokenKind.puts 
+            ", but found " puts next::kind TokenKind.puts
+            "instead" putlns
+            1 exit
+        }
+        next
+    } else {
+        "Expected a word, but found no token instead" putlns
+        1 exit
+        TokenKind.from_eof "" 0 0 cast(Loc) cast(Token)
+    }
+}
+
+fn expect_word(Token: prev_tok) -> [Token Str] {
+    tokens_p Stack.pop as [maybe_tok]
+    maybe_tok Opt.is_some if {
+        maybe_tok Opt.unwrap as [next]
+        next::kind::tag TokenKindTag::Word == lnot if {
+            prev_tok Token.puts
+            ": Expected a word, but found " puts next::kind TokenKind.puts
+            "instead" putlns
+            1 exit
+        }
+        next next::kind::value::word
+    } else {
+        "Expected a word, but found no token instead" putlns
+        1 exit
+        TokenKind.from_eof "" 0 0 cast(Loc) cast(Token) ""
     }
 }
 
@@ -284,11 +342,145 @@ fn parse_tokens(Str: path Str: input) {
     }
 }
 
+fn parse_type(Token: start_tok) -> [Token *Type Opt<u64>] {
+    Operator::Mul TokenKind.from_operator peek_token_kind if {
+
+        start_tok Operator::Mul TokenKind.from_operator expect_token_kind as [ptr_tok]
+        ptr_tok parse_type as [tok type arrany_n]
+        type_names.start
+            "*" type_names.push_str
+            type type_names.push_existing
+        type_names.finish
+        TypeKind::Pointer TypeBuilder.start
+            type TypeBulider.set.pointer.from_type
+            TypeBuilder.finish
+        type_map_p Map.get_ref Opt.unwrap as [ptr_type]
+
+        tok ptr_type arrany_n
+    } else {
+        
+        start_tok expect_word as [name_tok name]
+        name_tok parse_annotation_list as [tok maybe_annotations]
+
+        name type_map_p Map.get_ref as [maybe_type]
+
+        maybe_type Opt.is_some if {
+
+            tok maybe_type Opt.unwrap Opt.None::<u64>
+
+        } else {
+
+            name TypeKind::Placeholder TypeBuilder.start
+                TypeBuilder.finish
+            type_map_p Map.get_ref Opt.unwrap as [placeholder_type]
+            tok placeholder_type Opt.None::<u64>
+
+        }
+
+    }
+
+}
+
+fn parse_untagged_type(Token: start_tok) -> [Opt<Token> Opt<*Type> Opt<u64>] {
+
+    ""            TokenKind.from_word     peek_token_kind
+    Operator::Mul TokenKind.from_operator peek_token_kind lor if {
+
+        start_tok parse_type as [tok type arr_n]
+
+        tok Opt.Some type Opt.Some arr_n
+        
+    } else {
+        Opt.None::<Token> Opt.None::<*Type> Opt.None::<u64>
+    }
+
+}
+
+fn parse_annotation_list(Token: start_tok) -> [Token Opt<Arr<*Type>>] {
+
+    Operator::LessThan TokenKind.from_operator peek_token_kind if {
+
+        start_tok Operator::LessThan TokenKind.from_operator expect_token_kind as [open_tok]
+        misc_types_stack_p @ as [misc_types] {
+            misc_types::arr::data misc_types::size ptr+
+        } as [annotations_start]
+
+        0 open_tok while dup parse_untagged_type as [maybe_tok maybe_type arr_n] {
+            maybe_tok maybe_type arr_n
+            maybe_type Opt.is_some
+        }
+        {
+            as [n prev_tok maybe_tok maybe_type arr_n]
+            maybe_tok Opt.unwrap maybe_type Opt.unwrap as [tok type]
+            
+            arr_n Opt.is_some if {
+                tok::loc Loc.puts
+                ": Cannot have array values in annotation list." putlns
+                1 exit
+            }
+
+            type misc_types_stack_p Stack.push Opt.is_some if {
+                "Misc Type stack ran out of room. Consider adding more memory" putlns
+                1 exit
+            }
+
+            n 1 + tok
+        } drop drop drop as [n tok]
+
+        tok n annotations_start cast(Arr) Opt.Some
+
+
+
+    } else {
+        start_tok Opt.None::<Arr<*Type>>
+    }
+
+}
+
+fn parse_function(Token: start_tok) -> [Function] {
+
+    start_tok Keyword::Function expect_token_keyword as [fn_tok]
+    fn_tok expect_word as [name_tok name]
+    "Parsing Function: `" puts name puts "`" putlns
+    name_tok parse_annotation_list as [ann_token maybe_annotations]
+
+    maybe_annotations Opt.is_some if {
+        maybe_annotations Opt.unwrap as [annotations]
+        "  Found an annotation list:" putlns
+        "    * [" puts
+        0 while dup annotations::size < {
+            as [n]
+
+            n 0 != if {
+                " " puts
+            }
+
+            n annotations Arr.get type_map_p Map.reverse_lookup puts
+            n 1 +
+        } drop
+    } else {
+        "  No annotation list provided" putlns 
+    }
+
+    "Parsing Functions isn't completed yet." putlns
+    1 exit    
+
+    ""
+    start_tok
+    0 0 cast(**Type) cast(Arr)
+    0 0 cast(**Type) cast(Arr)
+    cast(Signature)
+    0 0 cast(*Op) cast(Arr)
+    cast(Function)
+
+}
+
 fn hay_into_ir(Str: input_path) {
 
     var u64[128]: path_buff
     0 path_buff @ memset
 
+    "Hay into IR: " puts input_path putlns
 
     input_path filebuff_p @ File.read_path_to_str as [file_str]
     input_path file_str parse_tokens
@@ -304,9 +496,9 @@ fn hay_into_ir(Str: input_path) {
             tok::kind::value::keyword as [kw]
             
             kw Keyword::Function == if {
-                "Todo: Parse functions: " puts
-                tok Token.puts "\n" puts
-                1 exit
+                
+                tok parse_function drop
+
             } else kw Keyword::Include == if {
                 
                 tok Keyword::Include expect_token_keyword
@@ -370,16 +562,12 @@ fn hay_into_ir(Str: input_path) {
 
 }
 
-fn main()
-{
-
+fn main() {
     included_files_p @ include_files_stack Stack.init
     token_buff_p @ tokens_p  Stack.init
 
-    "./selfhost/lexer.hay" hay_into_ir
+    type_list.init
+    type_names.init 
 
-    //while tokens_p Stack.pop dup Opt.is_some {
-    //    Opt.unwrap Token.puts "\n" puts
-    //} drop
-    
+    "./selfhost/lexer.hay" hay_into_ir
 }

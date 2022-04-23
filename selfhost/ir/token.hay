@@ -49,6 +49,34 @@ fn TokenKind.fputs(TokenKind: kind u64: fd) {
     }
 }
 
+fn TokenKind.equals(TokenKind: t1 TokenKind: t2) -> [bool] {
+    t1::tag t2::tag == if { 
+
+        t1::tag TokenKindTag::Keyword == if {
+            t1::value::keyword t2::value::keyword ==
+        } else t1::tag TokenKindTag::Operator == if {
+            t1::value::operator t2::value::operator ==
+        } else t1::tag TokenKindTag::Literal == if {
+            "Cannot compare literal tokens" putlns
+            1 exit
+            false
+        } else t1::tag TokenKindTag::Marker == if {
+            t1::value::marker t2::value::marker ==
+        } else t1::tag TokenKindTag::Word == if {
+            true
+        } else t1::tag TokenKindTag::EndOfFile == if {
+            true
+        } else {
+            "Unknown TokenKind" putlns
+            1 exit 
+            false
+        }
+
+    } else {
+        false
+    }
+}
+
 fn TokenKind.puts(TokenKind) {
     1 TokenKind.fputs
 }

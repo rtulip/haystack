@@ -8,6 +8,11 @@ fn ptr+<T>(*T: ptr u64: n) -> [*T] {
 fn ptr-<T>(*T: ptr u64: n) -> [*T] {
     ptr cast(u64) sizeOf(T) n * - cast(*T) 
 }
+fn ptr-diff<T>(*T: ptr1 *T:  ptr2) -> [u64] {
+    ptr1 cast(u64)
+    ptr2 cast(u64)
+    - sizeOf(T) /
+}
 fn memset<T>(T: value Arr<T>: range) {
     0 while dup range::size < {
         as [i]

@@ -437,15 +437,23 @@ fn parse_annotation_list(Token: start_tok) -> [Token Opt<Arr<*Type>>] {
 
 }
 
+fn parse_signature(Token: start_tok) -> [Token Signature ] {
+
+    Marker::OpenParen TokenKind.from_marker expect_token_kind as [open_paren_tok]
+ 
+
+
+}
+
 fn parse_function(Token: start_tok) -> [Function] {
 
     start_tok Keyword::Function expect_token_keyword as [fn_tok]
     fn_tok expect_word as [name_tok name]
     "Parsing Function: `" puts name puts "`" putlns
-    name_tok parse_annotation_list as [ann_token maybe_annotations]
+    name_tok parse_annotation_list as [ann_token maybe_generics]
 
-    maybe_annotations Opt.is_some if {
-        maybe_annotations Opt.unwrap as [annotations]
+    maybe_generics Opt.is_some if {
+        maybe_generics Opt.unwrap as [annotations]
         "  Found an annotation list:" putlns
         "    * [" puts
         0 while dup annotations::size < {
@@ -461,6 +469,8 @@ fn parse_function(Token: start_tok) -> [Function] {
     } else {
         "  No annotation list provided" putlns 
     }
+
+    ann_tok parse_signature
 
     "Parsing Functions isn't completed yet." putlns
     1 exit    

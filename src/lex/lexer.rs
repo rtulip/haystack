@@ -91,7 +91,10 @@ fn parse_tokens_until_tokenkind(
                 panic!("Else keyword should be turned into an op")
             }
             TokenKind::Keyword(Keyword::Function) => {
-                panic!("Function keyword can't be converted into ops.")
+                panic!(
+                    "Function keyword can't be converted into ops. {}",
+                    token.loc
+                );
             }
             TokenKind::Keyword(Keyword::Struct) => {
                 panic!("Struct keyword can't be converted into ops")

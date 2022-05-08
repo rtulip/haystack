@@ -580,7 +580,10 @@ impl Type {
         type_map: &mut HashMap<TypeName, Type>,
     ) -> TypeName {
         match type_map.get(typ).unwrap().clone() {
-            Type::Placeholder { name } => generic_map.get(&name).unwrap().clone(),
+            Type::Placeholder { name } => generic_map
+                .get(&name)
+                .expect(format!("{}: Unrecognized generic: {name}", token.loc).as_str())
+                .clone(),
             Type::GenericUnionInstance {
                 base,
                 members,

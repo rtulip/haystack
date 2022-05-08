@@ -1,0 +1,55 @@
+include "arr.hay"
+include "stack.hay"
+include "opt.hay"
+
+var *Arr<u8>[2048]: chunks_data
+var Stack<*Arr<u8>>: chunk_stack
+
+fn align(u64: n) -> [u64] {
+    n
+}
+
+fn mmap_alloc(u64: n) -> [*Arr<u8>] {
+    var u8[10]: arr
+    arr
+}
+
+fn Chunk.try_alloc(u64: n *Arr<u8>: chunk) -> [Opt<*Arr<u8>>] {
+    Opt.None::<*Arr<u8>>
+}
+
+fn malloc(u64: n) -> [*Arr<u8>] {
+
+    n 512 >= if {
+        n align mmap_alloc
+    } else {
+
+        
+        chunks_data @ chunk_stack @ as [chunk_start chunks]
+        Opt.None::<*Arr<u8>> 0 while as [maybe_chunk idx] { maybe_chunk idx
+            idx chunks::size <
+            maybe_chunk Opt.is_none land
+        }
+        {
+            // clear the previous option and capture the index
+            as [idx] drop
+            idx chunk_start Arr.get as [chunk]
+
+            n chunk Chunk.try_alloc
+            idx 1 +
+        } drop
+
+        as [maybe_alloc]
+
+        maybe_alloc Opt.is_some if {
+             maybe_alloc Opt.unwrap
+        } else {
+            n align mmap_alloc
+        }
+    }
+
+}
+
+fn main() {
+
+}

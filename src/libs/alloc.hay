@@ -2,23 +2,85 @@ include "arr.hay"
 include "stack.hay"
 include "opt.hay"
 
-var *Arr<u8>[2048]: chunks_data
-var Stack<*Arr<u8>>: chunk_stack
+struct Block {
+    Arr<u8>: arr
+    bool: allocated
+}
+
+struct Chunk {
+    u64: cap
+    *Block: start
+}
+
+// [(N ptr bool)[ .. data ..  ](N ptr bool)[ .. data .. ] ... ]
+//      |-------^                  |-------^
+fn Chunk.try_alloc(u64: n *Chunk: chunk_p) -> [Opt<Arr<u8>>] {
+    
+    chunk_p @ as [chunk]
+    chunk::start cast(u64) cast(*u8) chunk::cap ptr+ cast(u64) cast(*Block) as [end]
+
+    Opt.None::<Arr<u8>> chunk::start while as [maybe_alloc ptr] { maybe_alloc ptr
+        maybe_alloc Opt.is_none 
+        ptr cast(u64) end cast(u64) < land
+    }
+    {
+        as [block_p] drop
+        block_p cast(u64) cast(*u8) as [void_block_p]
+        block_p @ as [block] 
+        
+        block::allocated if {
+            Opt.None::<Arr<u8>>
+            void_block_p sizeOf(Block) ptr+ block::arr::size ptr+ cast(u64) cast(*Block)
+        } else {
+
+            block::arr::size n < if {
+                Opt.None::<Arr<u8>>
+            } else {
+
+                // check to see if there's space for another block:
+                n block::arr::size - sizeOf(Block) >= if {
+                    // Update the block.
+                    n block::arr::data cast(Arr) as [arr]
+                    arr true cast(Block) block_p !
+                    
+                    // Create a new un-allocated block
+                    n sizeOf(Block) - block::arr::size - 
+                    void_block_p n ptr+ sizeOf(Block) ptr+
+                    cast(Arr) false cast(Block)
+                    void_block_p sizeOf(Block) ptr+ n ptr+ cast(u64) cast(*Block) !
+
+                    // create the return result
+                    arr Opt.Some
+
+                    
+                } else {
+                    block::arr true cast(Block) block_p !
+                    block::arr Opt.Some
+                }
+
+            }
+
+            void_block_p sizeOf(Block) ptr+ block::arr::size ptr+ cast(u64) cast(*Block)
+        }
+
+    } drop
+
+
+
+}
+
+var Chunk[2048]: chunks_data
+var Stack<Chunk>: chunk_stack
 
 fn align(u64: n) -> [u64] {
     n
 }
 
-fn mmap_alloc(u64: n) -> [*Arr<u8>] {
-    var u8[10]: arr
-    arr
+fn mmap_alloc(u64: n) -> [Arr<u8>] {
+    0 0 cast(*u8) cast(Arr)
 }
 
-fn Chunk.try_alloc(u64: n *Arr<u8>: chunk) -> [Opt<*Arr<u8>>] {
-    Opt.None::<*Arr<u8>>
-}
-
-fn malloc(u64: n) -> [*Arr<u8>] {
+fn malloc(u64: n) -> [Arr<u8>] {
 
     n 512 >= if {
         n align mmap_alloc
@@ -26,23 +88,23 @@ fn malloc(u64: n) -> [*Arr<u8>] {
 
         
         chunks_data @ chunk_stack @ as [chunk_start chunks]
-        Opt.None::<*Arr<u8>> 0 while as [maybe_chunk idx] { maybe_chunk idx
+        Opt.None::<Arr<u8>> 0 while as [maybe_chunk idx] { maybe_chunk idx
             idx chunks::size <
             maybe_chunk Opt.is_none land
         }
         {
             // clear the previous option and capture the index
             as [idx] drop
-            idx chunk_start Arr.get as [chunk]
+            idx chunk_start Arr.get_ref as [chunk_p]
 
-            n chunk Chunk.try_alloc
+            n chunk_p Chunk.try_alloc
             idx 1 +
         } drop
 
         as [maybe_alloc]
 
         maybe_alloc Opt.is_some if {
-             maybe_alloc Opt.unwrap
+            maybe_alloc Opt.unwrap
         } else {
             n align mmap_alloc
         }

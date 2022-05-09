@@ -21,20 +21,30 @@ fn Chunk.next(*Block: blk_p) -> [*Block] {
 }
 
 fn Chunk.puts(Chunk: chunk) {
-    "Chunk:" putlns
+    "[" puts 
     chunk::start cast(u64) chunk::cap + cast(u64) as [end]
     0 chunk::start cast(u64) while dup end < {
 
         cast(*Block) as [n blk_p]
         blk_p @ as [blk]
 
-        "  Block " puts n putu ": (" puts blk_p cast(u64) putu ")" putlns
-        "    * size:  " puts blk::arr::size putlnu
-        "    * alloc: " puts blk::allocated putlnb
+        " | " puts blk::arr::size putu " " puts blk::allocated putb " | " puts
 
         n 1 +
         blk_p Chunk.next cast(u64)
     } drop drop
+    "] " puts chunk::cap putlnu
+}
+
+fn Heap.debug_summary() {
+
+    chunk_stack @ as [stk]
+    "Heap:" putlns
+    0 while dup stk::size < {
+        as [i]
+        "  * " puts i stk::arr Arr.get Chunk.puts
+        i 1 +
+    } drop
 
 }
 
@@ -44,13 +54,8 @@ fn align(u64: n) -> [u64] { n sizeOf(Block) + bytes_to_pages PAGE_SIZE *}
 
 // [(N ptr bool)[ .. data ..  ](N ptr bool)[ .. data .. ] ... ]
 //      |-------^                  |-------^
-fn Chunk.try_alloc(u64: n *Chunk: chunk_p) -> [Opt<Arr<u8>>] {
-    "Trying to allocate " puts n putu " bytes into a chunk" putlns
-    
+fn Chunk.try_alloc(u64: n *Chunk: chunk_p) -> [Opt<Arr<u8>>] {    
     chunk_p @ as [chunk]
-    "------------- BEFORE --------------" putlns
-    chunk Chunk.puts
-    "-----------------------------------" putlns
     
     chunk::start cast(u64) chunk::cap + cast(u64) cast(*Block) as [end]
     Opt.None::<Arr<u8>> chunk::start while as [maybe_alloc ptr] { maybe_alloc ptr
@@ -71,8 +76,7 @@ fn Chunk.try_alloc(u64: n *Chunk: chunk_p) -> [Opt<Arr<u8>>] {
             block::arr::size required_size < if {
                 Opt.None::<Arr<u8>>
             } else {
-                "Chunk has enough space for a total of " puts required_size putu " bytes" putlns 
-
+                
                 // check to see if there's space for another block:
                 block::arr::size sizeOf(Block) - n >= if {
                     // Update the block.
@@ -100,11 +104,6 @@ fn Chunk.try_alloc(u64: n *Chunk: chunk_p) -> [Opt<Arr<u8>>] {
         }
 
     } drop
-
-    "------------- AFTER --------------" putlns
-    chunk Chunk.puts
-    "----------------------------------" putlns
-
 }
 
 fn Chunk.consolidate(*Chunk: chunk_p) {
@@ -139,7 +138,6 @@ var Chunk[2048]: chunks_data
 var Stack<Chunk>: chunk_stack
 
 fn mmap_new_chunk(u64: n) -> [*Chunk] {
-    "  Creating new chunk of with capacity: " puts n putlnu
     n PAGE_SIZE % 0 != if {
         "Size `" puts n putu "` isn't page-size aligned" putlns
         1 exit
@@ -160,7 +158,6 @@ fn mmap_new_chunk(u64: n) -> [*Chunk] {
         1 exit
     }
 
-
     n sizeOf(Block) -
         addr cast(u64) sizeOf(Block) + cast(*u8)
         cast(Arr)
@@ -176,14 +173,6 @@ fn mmap_new_chunk(u64: n) -> [*Chunk] {
     }
 
     chunk_stack @ as [stk]
-    stk::size 1 - stk::arr Arr.get as [chnk]
-    "  New chunk capacity: " puts chnk::cap putlnu
-    "  New chunk starting block: " putlns
-    "    * addr: " puts chnk::start cast(u64) putlnu
-    chnk::start @ as [blk]
-    "    * blk::size:  " puts blk::arr::size putlnu
-    "    * blk::alloc: " puts blk::allocated putlnb 
-
     stk::size 1 - stk::arr Arr.get_ref
 
 }
@@ -225,7 +214,6 @@ fn malloc<T>(u64: count) -> [Arr<T>] {
         maybe_alloc Opt.is_some if {
             maybe_alloc Opt.unwrap
         } else {
-            "malloc: Need to allocate new chunk" putlns
             n sizeOf(Block) + align mmap_new_chunk
             n swap Chunk.try_alloc Opt.unwrap
         }
@@ -283,19 +271,15 @@ fn main() {
 
     malloc_init
 
-    123 malloc::<u8> as [arr] {
-        "Allocated space for: " puts arr::size putu " u8s" putlns
-        arr free
-    }
-    200 malloc::<u8> as [arr] {
-        "Allocated space for: " puts arr::size putu " u8s" putlns
-        arr free
-    }
-    3600 malloc::<u8> as [arr] {
-        "Allocated space for: " puts arr::size putu " u8s" putlns
-    }
-    500 malloc::<u8> as [arr] {
-        "Allocated space for: " puts arr::size putu " u8s" putlns
-        arr free
-    }
+    200 malloc::<u8> as [arr1]
+    400 malloc::<u8> as [arr2] 
+    3200 malloc::<u8> as [arr3]
+    arr1 free
+    arr2 free
+
+    500 malloc::<u8> as [arr4]
+    arr3 free
+    arr4 free
+    
+    Heap.debug_summary
 }

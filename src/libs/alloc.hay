@@ -1,6 +1,7 @@
 include "arr.hay"
 include "stack.hay"
 include "opt.hay"
+include "sys_x86_64.hay"
 
 struct Block {
     Arr<u8>: arr
@@ -65,8 +66,6 @@ fn Chunk.try_alloc(u64: n *Chunk: chunk_p) -> [Opt<Arr<u8>>] {
 
     } drop
 
-
-
 }
 
 var Chunk[2048]: chunks_data
@@ -77,7 +76,24 @@ fn align(u64: n) -> [u64] {
 }
 
 fn mmap_alloc(u64: n) -> [Arr<u8>] {
-    0 0 cast(*u8) cast(Arr)
+    
+    0           // offset
+    0           // fd
+    34          // MAP_ANONYMOUS | MAP_PRIVATE
+    3           // PROT_READ | PROT_WRITE
+    n           // length
+    0 cast(*u8) // addr
+    sys_mmap
+
+    as [addr]
+
+    addr cast(u64) 0 1 - == if {
+        "Error: mmap call failed..." putlns
+        1 exit
+    }
+
+    n addr cast(Arr)
+
 }
 
 fn malloc(u64: n) -> [Arr<u8>] {
@@ -113,5 +129,21 @@ fn malloc(u64: n) -> [Arr<u8>] {
 }
 
 fn main() {
+
+    123 mmap_alloc split cast(u64) cast(*u64) cast(Arr) as [arr]
+    
+    
+    "size: " puts arr::size putlnu
+    "data: " puts arr::data cast(u64) putlnu
+    
+    0 while dup arr::size < {
+        as [i]
+        "arr[" puts i putu "]: " puts 
+        i i arr Arr.set
+        i arr Arr.get putlnu
+        i 1 + 
+    } drop
+
+
 
 }

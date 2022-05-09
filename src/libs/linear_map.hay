@@ -10,10 +10,10 @@ struct Map<T> {
 fn Map.init<T>(*Stack<Str>: keys_p *Stack<T>: values_p *Map<T>: map) {
     
     keys_p @ values_p @ as [keys values]
-    keys::arr::size values::arr::size != if {
+    keys::slice::size values::slice::size != if {
         "Maps must have the same amount of space for both keys and values" putlns
-        "    Keys has capacity:   " puts keys::arr::size putlnu
-        "    Values has capacity: " puts values::arr::size putlnu
+        "    Keys has capacity:   " puts keys::slice::size putlnu
+        "    Values has capacity: " puts values::slice::size putlnu
 
         1 exit
     }
@@ -26,10 +26,10 @@ fn Map.idx_of<T>(Str: key *Map<T>: map_p) -> [Opt<u64>] {
     map::keys @ as [keys]
     false 0 while as [result idx] { result idx
         result lnot
-        idx keys::size < land
+        idx keys::len < land
     } {
         as [result idx]
-        idx keys::arr Arr.get key Str.equals 
+        idx keys::slice Arr.get key Str.equals 
         idx 1 + 
     }
 
@@ -63,7 +63,7 @@ fn Map.get<T>(Str: key *Map<T>: map_p) -> [Opt<T>] {
     map::values @ as [values]
     key map_p Map.idx_of as [maybe_idx] 
     maybe_idx Opt.is_some if {
-        maybe_idx Opt.unwrap values::arr Arr.get Opt.Some
+        maybe_idx Opt.unwrap values::slice Arr.get Opt.Some
     } else {
         Opt.None::<T>
     }
@@ -77,11 +77,11 @@ fn Map.insert<T>(Str: key T: value *Map<T>: map_p) -> [Opt<T>] {
     key map_p Map.idx_of as [maybe_idx]
     maybe_idx Opt.is_some if {
         maybe_idx Opt.unwrap as [idx]
-        idx values::arr Arr.get Opt.Some
-        value idx values::arr Arr.set
+        idx values::slice Arr.get Opt.Some
+        value idx values::slice Arr.set
     } else {
-        key map::keys Stack.push drop
-        value map::values Stack.push drop
+        key map::keys Stack.push
+        value map::values Stack.push
         Opt.None::<T>
     }
 

@@ -1,51 +1,60 @@
 include "std.hay"
 include "opt.hay"
+include "alloc.hay"
+
 struct Stack<T> {
-    u64: size
-    Arr<T>: arr
+    Arr<T>: slice
+    u64: len
 }
 
-fn Stack.arr<T>(Stack<T>: stk_p) -> [*Arr<T>] {
+fn Stack.slice<T>(Stack<T>: stk_p) -> [*Arr<T>] {
     stk_p @ as [stk]
-    stk::arr
+    stk::slice
 }
 
-fn Stack.init<T>(Arr<T>: arr *Stack<T>: stk_p) {
-    0 arr cast(Stack) stk_p !
+fn Stack.init<T>(*Stack<T>: stk_p) {
+    8 malloc::<T> 0 cast(Stack) stk_p !
 }
 
-fn Stack.push<T>(T: value *Stack<T>: stk_p) -> [Opt<T>] {
+fn Stack.push<T>(T: value *Stack<T>: stk_p) {
+    stk_p @ as [stk] {
+        stk::len stk::slice::size == if {
+            stk::slice::size 2 * stk::slice realloc stk::len cast(Stack) stk_p !  
+        }    
+    }
+
     stk_p @ as [stk]
-    stk::size stk::arr::size >= if {
-        value Opt.Some
-    } else {
-        value stk::size stk::arr Arr.set
-        stk::size 1 + stk::arr cast(Stack) stk_p !
-        Opt.None::<T>
+    {
+        value stk::len stk::slice Arr.set
+        stk::slice stk::len 1 + cast(Stack) stk_p !
     }
 }
 
 fn Stack.pop<T>(*Stack<T>: stk_p) -> [Opt<T>] {
     stk_p @ as [stk]
-    stk::size 0 == if {
+    stk::len 0 == if {
         Opt.None::<T>
     } else {
-        stk::size 1 - stk::arr cast(Stack) stk_p !
-        stk::size 1 - stk::arr Arr.get Opt.Some
+        stk::slice stk::len 1 - cast(Stack) stk_p !
+        stk::len 1 - stk::slice Arr.get Opt.Some
     }
 }
 
 fn Stack.peek<T>(*Stack<T>: stk_p) -> [Opt<T>] {
     stk_p @ as [stk]
-    stk::size 0 == if {
+    stk::len 0 == if {
         Opt.None::<T>
     } else {
-        stk::size 1 - stk::arr Arr.get Opt.Some
+        stk::len 1 - stk::slice Arr.get Opt.Some
     }
 }
 
 fn Stack.rev<T>(*Stack<T>: stk_p) {
-
     stk_p @ as [stk]
-    stk::size stk::arr::data cast(Arr) Arr.rev
+    stk::len stk::slice::data cast(Arr) Arr.rev
+}
+
+fn Stack.destroy<T>(*Stack<T>: stk_p) {
+    stk_p @ as [stk]
+    stk::slice free
 }

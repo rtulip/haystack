@@ -1,5 +1,4 @@
 include "arr.hay"
-include "stack.hay"
 include "opt.hay"
 include "sys_x86_64.hay"
 
@@ -39,12 +38,12 @@ fn Chunk.puts(Chunk: chunk) {
 }
 
 fn Heap.debug_summary() {
-    malloc_ensure_init
-    chunk_stack @ as [stk]
+    
+    chunks_p @ as [chunks]
     "Heap:" putlns
-    0 while dup stk::size < {
+    0 while dup n_chunks_p @ < {
         as [i]
-        "  * " puts i stk::arr Arr.get Chunk.puts
+        "  * " puts i chunks Arr.get Chunk.puts
         i 1 +
     } drop
 
@@ -136,12 +135,11 @@ fn Chunk.consolidate(*Chunk: chunk_p) {
 
 }
 
-var Chunk[2048]: chunks_data
-var Stack<Chunk>: chunk_stack
+var Chunk[2048]: chunks_p
+var u64: n_chunks_p
 
 fn mmap_new_chunk(u64: n) -> [*Chunk] {
-    malloc_ensure_init
-
+    
     n PAGE_SIZE % 0 != if {
         "Size `" puts n putu "` isn't page-size aligned" putlns
         1 exit
@@ -170,14 +168,18 @@ fn mmap_new_chunk(u64: n) -> [*Chunk] {
     
     addr cast(u64) cast(*Block) !
 
-    n addr cast(u64) cast(*Block) cast(Chunk)
-    chunk_stack Stack.push Opt.is_some if {
-        "Heap allocation chunk stack full!" putlns
+    n addr cast(u64) cast(*Block) cast(Chunk) as [new_chunk]
+    n_chunks_p @ chunks_p @ as [n_chunks chunks]
+    n_chunks_p @ chunks::size >= if {
+        "Global allocator ran out of room for new chunks" putlns
+        "  Note: Maxed out on heap memory" putlns
         1 exit
     }
 
-    chunk_stack @ as [stk]
-    stk::size 1 - stk::arr Arr.get_ref
+    new_chunk n_chunks chunks Arr.set
+    n_chunks 1 + n_chunks_p !
+
+    n_chunks chunks Arr.get_ref
 
 }
 
@@ -191,22 +193,22 @@ fn arr_convert<T>(Arr<u8>) -> [Arr<T>] {
 }
 
 fn malloc<T>(u64: count) -> [Arr<T>] {
-    malloc_ensure_init
+    
     count sizeOf(T) *  as [n]
     n sizeOf(Block) + PAGE_SIZE >= if {
         n sizeOf(Block) + align mmap_new_chunk
         n swap Chunk.try_alloc Opt.unwrap
     } else {
         
-        chunks_data @ chunk_stack @ as [chunk_start chunks]
+        n_chunks_p @ chunks_p @ as [n_chunks chunks]
         Opt.None::<Arr<u8>> 0 while as [maybe_chunk idx] { maybe_chunk idx
-            idx chunks::size <
+            idx n_chunks <
             maybe_chunk Opt.is_none land
         }
         {
             // clear the previous option and capture the index
             as [idx] drop
-            idx chunk_start Arr.get_ref as [chunk_p]
+            idx chunks Arr.get_ref as [chunk_p]
 
             n chunk_p Chunk.try_alloc
             idx 1 +
@@ -217,8 +219,8 @@ fn malloc<T>(u64: count) -> [Arr<T>] {
         maybe_alloc Opt.is_some if {
             maybe_alloc Opt.unwrap
         } else {
-            n sizeOf(Block) + align mmap_new_chunk
-            n swap Chunk.try_alloc Opt.unwrap
+            n sizeOf(Block) + align mmap_new_chunk as [new_chunk_p]
+            n new_chunk_p Chunk.try_alloc Opt.unwrap
         }
     }
     as [arr]
@@ -228,20 +230,20 @@ fn malloc<T>(u64: count) -> [Arr<T>] {
 }
 
 fn find_chunk<T>(Arr<T>: arr) -> [Opt<*Chunk>] {   
-    malloc_ensure_init
+    
 
-    chunk_stack @ as [stk]
+    n_chunks_p @ chunks_p @ as [n_chunks chunks]
     Opt.None::<*Chunk> 0 while as [maybe_blk n] { maybe_blk n 
         maybe_blk Opt.is_none
-        n stk::size < land
+        n n_chunks < land
     }
     {
         as [n] drop
-        n stk::arr Arr.get as [chunk]
+        n chunks Arr.get as [chunk]
         
         arr::data cast(u64) chunk::start cast(u64) >=
         arr::data cast(u64) chunk::start cast(u64) chunk::cap + <= land if {
-            n stk::arr Arr.get_ref Opt.Some 
+            n chunks Arr.get_ref Opt.Some 
         } else {
             Opt.None::<*Chunk>
         }
@@ -281,29 +283,4 @@ fn realloc<T>(u64: new_size Arr<T>: arr) -> [Arr<T>] {
     arr::data new_arr::data memcpy
     arr free
     new_arr
-}
-
-fn malloc_ensure_init() {
-    chunk_stack @ as [stk]
-    stk::arr::data cast(u64) 0 == if {
-        chunks_data @ chunk_stack Stack.init
-    }
-}
-
-fn main() {
-    var u8[1234]: foo
-
-    foo @ free
-
-    200 malloc::<u64> as [arr1]
-    123 arr1 memset
-    400 malloc::<u8> as [arr2]
-    2 cast(u8) arr2 memset
-    3200 malloc::<u8> as [arr3]
-    3 cast(u8) arr3 memset
-    500 malloc::<u8> as [arr4]
-    4 cast(u8) arr4 memset
-    
-    400 arr1 realloc as [new_arr1]
-    Heap.debug_summary
 }

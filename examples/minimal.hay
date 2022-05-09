@@ -1,0 +1,17 @@
+include "std.hay"
+struct Pair {
+    u64: first
+    u64: second
+}
+
+fn main() {
+    123 456 cast(Pair) while as [pair] { pair 
+        pair::first pair::second < }
+    {
+        as [pair]
+        "Body:" putlns
+        "  first: " puts pair::first putlnu
+        "  second: " puts pair::second putlnu
+        pair::second pair::first cast(Pair)
+    } drop
+}

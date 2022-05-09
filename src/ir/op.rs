@@ -708,10 +708,11 @@ impl Op {
                     Type::Bool => {
                         unimplemented!("{}: Casting to Bool isn't implemented yet.", self.token.loc)
                     }
-                    Type::Placeholder { .. } => unreachable!(
-                        "{}: Casting to placeholder type should be unreachable",
-                        self.token.loc
-                    ),
+                    Type::Placeholder { name } => {
+                        let concrete_t = gen_map.get(&name).unwrap();
+                        self.kind = OpKind::Cast(concrete_t.clone());
+                        self.type_check(stack, frame, fn_table, type_map, gen_map, locals, globals);
+                    }
                     Type::GenericStructInstance { .. } => unreachable!(
                         "{}: Casting to instance of generic struct should be unreachable",
                         self.token.loc

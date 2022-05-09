@@ -3,57 +3,92 @@ include "stack.hay"
 include "opt.hay"
 include "sys_x86_64.hay"
 
+// Doesn't need to be aligned to page size
 struct Block {
     Arr<u8>: arr
     bool: allocated
 }
 
+// Always aligned to page size
 struct Chunk {
     u64: cap
     *Block: start
 }
 
+fn Chunk.next(*Block: blk_p) -> [*Block] {
+    blk_p @ as [blk]
+    blk_p cast(u64) blk::arr::size + sizeOf(Block) + cast(*Block)
+}
+
+fn Chunk.puts(Chunk: chunk) {
+    "Chunk:" putlns
+    chunk::start cast(u64) cast(*u8) chunk::cap ptr+ cast(u64) as [end]
+    0 chunk::start cast(u64) while dup end < {
+
+        cast(*Block) as [n blk_p]
+        blk_p @ as [blk]
+
+        "  Block " puts n putu ":" putlns
+        "    * size:  " puts blk::arr::size putlnu
+        "    * alloc: " puts blk::allocated putlnb
+
+        n 1 +
+        blk_p Chunk.next cast(u64)
+    } drop drop
+
+}
+
+fn PAGE_SIZE() -> [u64] { 4096 }
+fn bytes_to_pages(u64) -> [u64] { PAGE_SIZE / 1 + }
+fn align(u64: n) -> [u64] { n sizeOf(Block) + bytes_to_pages PAGE_SIZE *}
+
 // [(N ptr bool)[ .. data ..  ](N ptr bool)[ .. data .. ] ... ]
 //      |-------^                  |-------^
 fn Chunk.try_alloc(u64: n *Chunk: chunk_p) -> [Opt<Arr<u8>>] {
+    "Trying to allocate " puts n putu " bytes into a chunk" putlns
     
     chunk_p @ as [chunk]
+    "------------- BEFORE --------------" putlns
+    chunk Chunk.puts
+    "-----------------------------------" putlns
+    
     chunk::start cast(u64) cast(*u8) chunk::cap ptr+ cast(u64) cast(*Block) as [end]
-
     Opt.None::<Arr<u8>> chunk::start while as [maybe_alloc ptr] { maybe_alloc ptr
         maybe_alloc Opt.is_none 
         ptr cast(u64) end cast(u64) < land
     }
     {
+
         as [block_p] drop
         block_p cast(u64) cast(*u8) as [void_block_p]
         block_p @ as [block] 
         
         block::allocated if {
             Opt.None::<Arr<u8>>
-            void_block_p sizeOf(Block) ptr+ block::arr::size ptr+ cast(u64) cast(*Block)
+            block_p Chunk.next
         } else {
-
-            block::arr::size n < if {
+            n sizeOf(Block) + as [required_size]
+            block::arr::size required_size < if {
                 Opt.None::<Arr<u8>>
             } else {
+                "Chunk has enough space for a total of " puts required_size putu " bytes" putlns 
 
                 // check to see if there's space for another block:
-                n block::arr::size - sizeOf(Block) >= if {
+                block::arr::size sizeOf(Block) - n >= if {
                     // Update the block.
                     n block::arr::data cast(Arr) as [arr]
                     arr true cast(Block) block_p !
                     
-                    // Create a new un-allocated block
-                    n sizeOf(Block) - block::arr::size - 
-                    void_block_p n ptr+ sizeOf(Block) ptr+
+                    block_p Chunk.next as [next_block_p]
+
+                    block::arr::size required_size -
+                    next_block_p sizeOf(Block) ptr+ cast(u64) cast(*u8)
                     cast(Arr) false cast(Block)
-                    void_block_p sizeOf(Block) ptr+ n ptr+ cast(u64) cast(*Block) !
+                    next_block_p !
 
                     // create the return result
                     arr Opt.Some
 
-                    
                 } else {
                     block::arr true cast(Block) block_p !
                     block::arr Opt.Some
@@ -61,28 +96,33 @@ fn Chunk.try_alloc(u64: n *Chunk: chunk_p) -> [Opt<Arr<u8>>] {
 
             }
 
-            void_block_p sizeOf(Block) ptr+ block::arr::size ptr+ cast(u64) cast(*Block)
+            block_p Chunk.next
         }
 
     } drop
+
+    "------------- AFTER --------------" putlns
+    chunk Chunk.puts
+    "----------------------------------" putlns
 
 }
 
 var Chunk[2048]: chunks_data
 var Stack<Chunk>: chunk_stack
 
-fn align(u64: n) -> [u64] {
-    n
-}
+fn mmap_new_chunk(u64: n) -> [*Chunk] {
+    "  Creating new chunk of with capacity: " puts n putlnu
+    n PAGE_SIZE % 0 != if {
+        "Size `" puts n putu "` isn't page-size aligned" putlns
+        1 exit
+    }
 
-fn mmap_alloc(u64: n) -> [Arr<u8>] {
-    
-    0           // offset
-    0           // fd
-    34          // MAP_ANONYMOUS | MAP_PRIVATE
-    3           // PROT_READ | PROT_WRITE
-    n           // length
-    0 cast(*u8) // addr
+    0                   // offset
+    0                   // fd
+    34                  // MAP_ANONYMOUS | MAP_PRIVATE
+    3                   // PROT_READ | PROT_WRITE
+    n sizeOf(Block) +   // length
+    0 cast(*u8)         // addr
     sys_mmap
 
     as [addr]
@@ -92,16 +132,51 @@ fn mmap_alloc(u64: n) -> [Arr<u8>] {
         1 exit
     }
 
-    n addr cast(Arr)
+
+    n sizeOf(Block) -
+        addr sizeOf(Block) ptr+
+        cast(Arr)
+    false 
+    cast(Block)
+    
+    addr cast(u64) cast(*Block) !
+
+    n  addr cast(u64) cast(*Block) cast(Chunk)
+    chunk_stack Stack.push Opt.is_some if {
+        "Heap allocation chunk stack full!" putlns
+        1 exit
+    }
+
+    chunk_stack @ as [stk]
+    stk::size 1 - stk::arr Arr.get as [chnk]
+    "  New chunk capacity: " puts chnk::cap putlnu
+    "  New chunk starting block: " putlns
+    "    * addr: " puts chnk::start cast(u64) putlnu
+    chnk::start @ as [blk]
+    "    * blk::size:  " puts blk::arr::size putlnu
+    "    * blk::alloc: " puts blk::allocated putlnb 
+
+    stk::size 1 - stk::arr Arr.get_ref
 
 }
 
-fn malloc(u64: n) -> [Arr<u8>] {
+fn arr_convert<T>(Arr<u8>) -> [Arr<T>] {
 
-    n 512 >= if {
-        n align mmap_alloc
+    split as [bytes ptr]
+
+    bytes sizeOf(T) /
+    ptr cast(u64) cast(*T)
+    cast(Arr)
+
+}
+
+fn malloc<T>(u64: count) -> [Arr<T>] {
+
+    count sizeOf(T) *  as [n]
+    n sizeOf(Block) + PAGE_SIZE >= if {
+        n sizeOf(Block) + align mmap_new_chunk
+        n swap Chunk.try_alloc Opt.unwrap
     } else {
-
         
         chunks_data @ chunk_stack @ as [chunk_start chunks]
         Opt.None::<Arr<u8>> 0 while as [maybe_chunk idx] { maybe_chunk idx
@@ -122,28 +197,35 @@ fn malloc(u64: n) -> [Arr<u8>] {
         maybe_alloc Opt.is_some if {
             maybe_alloc Opt.unwrap
         } else {
-            n align mmap_alloc
+            "malloc: Need to allocate new chunk" putlns
+            n sizeOf(Block) + align mmap_new_chunk
+            n swap Chunk.try_alloc Opt.unwrap
         }
     }
 
+    arr_convert::<T>
+
 }
 
+fn malloc_init() {
+    chunks_data @ chunk_stack Stack.init
+}
+
+
 fn main() {
-
-    123 mmap_alloc split cast(u64) cast(*u64) cast(Arr) as [arr]
     
-    
-    "size: " puts arr::size putlnu
-    "data: " puts arr::data cast(u64) putlnu
-    
-    0 while dup arr::size < {
-        as [i]
-        "arr[" puts i putu "]: " puts 
-        i i arr Arr.set
-        i arr Arr.get putlnu
-        i 1 + 
-    } drop
+    malloc_init
 
-
-
+    123 malloc::<u8> as [arr] {
+        "Allocated space for: " puts arr::size putu " u8s" putlns
+    }
+    200 malloc::<u8> as [arr] {
+        "Allocated space for: " puts arr::size putu " u8s" putlns
+    }
+    3600 malloc::<u8> as [arr] {
+        "Allocated space for: " puts arr::size putu " u8s" putlns
+    }
+    500 malloc::<u8> as [arr] {
+        "Allocated space for: " puts arr::size putu " u8s" putlns
+    }
 }

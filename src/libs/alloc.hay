@@ -39,7 +39,7 @@ fn Chunk.puts(Chunk: chunk) {
 }
 
 fn Heap.debug_summary() {
-
+    malloc_ensure_init
     chunk_stack @ as [stk]
     "Heap:" putlns
     0 while dup stk::size < {
@@ -109,7 +109,7 @@ fn Chunk.try_alloc(u64: n *Chunk: chunk_p) -> [Opt<Arr<u8>>] {
 }
 
 fn Chunk.consolidate(*Chunk: chunk_p) {
-
+    
     chunk_p @ as [chunk]
     chunk::start cast(u64) chunk::cap + as [end]
     chunk::start chunk::start Chunk.next while dup cast(u64) end < {
@@ -140,6 +140,8 @@ var Chunk[2048]: chunks_data
 var Stack<Chunk>: chunk_stack
 
 fn mmap_new_chunk(u64: n) -> [*Chunk] {
+    malloc_ensure_init
+
     n PAGE_SIZE % 0 != if {
         "Size `" puts n putu "` isn't page-size aligned" putlns
         1 exit
@@ -168,7 +170,7 @@ fn mmap_new_chunk(u64: n) -> [*Chunk] {
     
     addr cast(u64) cast(*Block) !
 
-    n  addr cast(u64) cast(*Block) cast(Chunk)
+    n addr cast(u64) cast(*Block) cast(Chunk)
     chunk_stack Stack.push Opt.is_some if {
         "Heap allocation chunk stack full!" putlns
         1 exit
@@ -182,7 +184,6 @@ fn mmap_new_chunk(u64: n) -> [*Chunk] {
 fn arr_convert<T>(Arr<u8>) -> [Arr<T>] {
 
     split as [bytes ptr]
-
     bytes sizeOf(T) /
     ptr cast(u64) cast(*T)
     cast(Arr)
@@ -190,7 +191,7 @@ fn arr_convert<T>(Arr<u8>) -> [Arr<T>] {
 }
 
 fn malloc<T>(u64: count) -> [Arr<T>] {
-
+    malloc_ensure_init
     count sizeOf(T) *  as [n]
     n sizeOf(Block) + PAGE_SIZE >= if {
         n sizeOf(Block) + align mmap_new_chunk
@@ -226,7 +227,8 @@ fn malloc<T>(u64: count) -> [Arr<T>] {
 
 }
 
-fn find_chunk<T>(Arr<T>: arr) -> [Opt<*Chunk>] {
+fn find_chunk<T>(Arr<T>: arr) -> [Opt<*Chunk>] {   
+    malloc_ensure_init
 
     chunk_stack @ as [stk]
     Opt.None::<*Chunk> 0 while as [maybe_blk n] { maybe_blk n 
@@ -250,7 +252,6 @@ fn find_chunk<T>(Arr<T>: arr) -> [Opt<*Chunk>] {
 }
 
 fn free<T>(Arr<T>: arr) {
-
     arr find_chunk as [maybe_chunk]
     maybe_chunk Opt.is_some if {
         maybe_chunk Opt.unwrap as [chunk_p] 
@@ -282,14 +283,17 @@ fn realloc<T>(u64: new_size Arr<T>: arr) -> [Arr<T>] {
     new_arr
 }
 
-fn malloc_init() {
-    chunks_data @ chunk_stack Stack.init
+fn malloc_ensure_init() {
+    chunk_stack @ as [stk]
+    stk::arr::data cast(u64) 0 == if {
+        chunks_data @ chunk_stack Stack.init
+    }
 }
 
 fn main() {
     var u8[1234]: foo
 
-    malloc_init
+    foo @ free
 
     200 malloc::<u64> as [arr1]
     123 arr1 memset
@@ -301,7 +305,5 @@ fn main() {
     4 cast(u8) arr4 memset
     
     400 arr1 realloc as [new_arr1]
-
-    4096 malloc::<u64> as [foo]
     Heap.debug_summary
 }

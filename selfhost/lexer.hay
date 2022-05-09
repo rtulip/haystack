@@ -9,6 +9,10 @@ include "selfhost/ir/op.hay"
 include "selfhost/ir/types/type.hay"
 include "selfhost/ir/types/type_names.hay"
 
+struct &str {
+    u64: foo
+}
+
 var u8[65536]: filebuff_p
 var Token[65536]: token_buff_p
 var Stack<Token>: tokens_p
@@ -470,7 +474,7 @@ fn parse_function(Token: start_tok) -> [Function] {
         "  No annotation list provided" putlns 
     }
 
-    ann_tok parse_signature
+    ann_token parse_signature
 
     "Parsing Functions isn't completed yet." putlns
     1 exit    

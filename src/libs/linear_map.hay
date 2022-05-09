@@ -7,17 +7,23 @@ struct Map<T> {
     *Stack<T>: values
 }
 
-fn Map.init<T>(*Stack<Str>: keys_p *Stack<T>: values_p *Map<T>: map) {
+fn Map.init<T>(*Map<T>: map_p) {
+    sizeOf(Stack<Str>) malloc::<u8> as [keys_bytes]
+    keys_bytes::data cast(u64) cast(*Stack<Str>) as [keys_p]
+    sizeOf(Stack<T>) malloc::<u8> as [values_bytes]
+    values_bytes::data cast(u64) cast(*Stack<T>) as [values_p] 
     
-    keys_p @ values_p @ as [keys values]
-    keys::slice::size values::slice::size != if {
-        "Maps must have the same amount of space for both keys and values" putlns
-        "    Keys has capacity:   " puts keys::slice::size putlnu
-        "    Values has capacity: " puts values::slice::size putlnu
+    keys_p   Stack.init
+    values_p Stack.init
+    keys_p values_p cast(Map) map_p !
+}
 
-        1 exit
-    }
-    keys_p values_p cast(Map) map !
+fn Map.destroy<T>(*Map<T>: map_p) {
+    map_p @ as [map]
+    map::keys Stack.destroy
+    map::values Stack.destroy
+    sizeOf(Stack<Str>) map::keys cast(u64) cast(*u8) cast(Arr) free
+    sizeOf(Stack<T>) map::values cast(u64) cast(*u8) cast(Arr) free
 }
 
 fn Map.idx_of<T>(Str: key *Map<T>: map_p) -> [Opt<u64>] {

@@ -53,13 +53,8 @@ fn TypeBuilder.start(Str: name TypeKind: kind) {
         1 exit 
     }
 
-    name names_in_progress_stack_p Stack.push Opt.is_some if {
-        "names in progrees stack full..." putlns
-        1 exit 
-    }
-
-    0 member_count_stack_p   Stack.push drop
-    0 generics_count_stack_p Stack.push drop
+    0 member_count_stack_p   Stack.push
+    0 generics_count_stack_p Stack.push
 }
 
 fn TypeBuilder.current.type_kind() -> [TypeKind] {
@@ -365,61 +360,3 @@ fn type_list.init() {
         "data" "*T"  TypeBuilder.add_member
         TypeBuilder.finish drop
 }
-
-
-//fn main() {
-//
-//    type_list.init
-//
-//    "u64"  type_map_p Map.get Opt.unwrap as [u64_t] {
-//        "u64_t tag: " puts u64_t::tag TypeKind.puts "\n" puts
-//    }
-//    "u8"   type_map_p Map.get Opt.unwrap as [u8_t] {
-//        "u8_t tag: " puts u8_t::tag TypeKind.puts "\n" puts
-//    } 
-//    "bool" type_map_p Map.get Opt.unwrap as [bool_t] {
-//        "bool_t tag: " puts bool_t::tag TypeKind.puts "\n" puts
-//    } 
-//    "*u64" type_map_p Map.get Opt.unwrap as [Ptr-u64] {
-//        "*u64_t tag: " puts Ptr-u64::tag TypeKind.puts "\n" puts
-//        "  *u64_t inner: " puts Ptr-u64::type::Pointer::inner @ as [inner] {
-//            inner::tag TypeKind.puts "\n" puts
-//        }
-//    }
-//    "*u8"  type_map_p Map.get Opt.unwrap as [Ptr-u8] {
-//        "*u8_t tag: " puts Ptr-u8::tag TypeKind.puts "\n" puts
-//        "  *u8_t inner: " puts Ptr-u8::type::Pointer::inner @ as [inner] {
-//            inner::tag TypeKind.puts "\n" puts
-//        }
-//    }
-//    "Str"  type_map_p Map.get Opt.unwrap  as [str_t] {
-//        "str_t tag: " puts str_t::tag TypeKind.puts "\n" puts
-//        "  members: " putlns 
-//            str_t::type::Struct::members
-//            str_t::type::Struct::idents as [members idents]
-//        
-//        0 while dup members::size < {
-//            as [i]
-//            "    * " puts i idents Arr.get puts ": " puts 
-//            i members Arr.get @ as [t]
-//            t Type.puts "\n" puts
-//            i 1 + 
-//        } drop
-//    } 
-//    "T" type_map_p Map.get Opt.unwrap as [gen_t] {
-//        "T: " puts gen_t Type.puts "\n" puts
-//    }
-//    "Arr"  type_map_p Map.get Opt.unwrap as [arr_t] {
-//        arr_t Type.puts ":" putlns
-//        arr_t::type::GenericStructBase::base::members
-//        arr_t::type::GenericStructBase::base::idents as [members idents]
-//        0 while dup members::size < {
-//            as [i]
-//            " * " puts i idents Arr.get puts ": " puts 
-//            i members Arr.get @ Type.puts "\n" puts
-//            i 1 +
-//        } drop
-//
-//    }
-//
-//}

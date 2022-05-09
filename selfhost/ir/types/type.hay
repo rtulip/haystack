@@ -1,9 +1,8 @@
+include "stack.hay"
 
-// Predeclare a type name
-// Must ensure that Type is defined later.
 struct EnumType {
     Str: name
-    Arr<Str>: Variants
+    Stack<Str>: Variants
 }
 
 struct PointerType<T> {
@@ -12,19 +11,19 @@ struct PointerType<T> {
 
 struct StructType<T> {
     Str: name
-    Arr<*T>: members
-    Arr<Str>: idents
+    Stack<*T>: members
+    Stack<Str>: idents
 }
 
 struct GenericStructBaseType<T> {
     StructType<T>: base
-    Arr<*T>: generics
+    Stack<*T>: generics
 }
 
 struct GenericStructInstanceType<T> {
     *GenericStructBaseType<T>: base
     StructType<T>: instance
-    Arr<*T>: alias_list
+    Stack<*T>: alias_list
 }
 
 struct ResolvedStructType<T> {
@@ -34,19 +33,19 @@ struct ResolvedStructType<T> {
 
 struct UnionType<T> {
     Str: name
-    Arr<*T>: members
-    Arr<Str>: idents
+    Stack<*T>: members
+    Stack<Str>: idents
 }
 
 struct GenericUnionBaseType<T> {
     UnionType<T>: base
-    Arr<*T>: generics
+    Stack<*T>: generics
 }
 
 struct GenericUnionInstanceType<T> {
     *GenericUnionBaseType<T>: base
     UnionType<T>: instance 
-    Arr<*T>: alias_list
+    Stack<*T>: alias_list
 }
 
 struct ResolvedUnionType<T> {
@@ -164,7 +163,7 @@ fn Type.fputs(Type: type u64: fd) {
             i 0 != if {
                 " " fd fputs 
             }
-            i gen Arr.get @ fd Type.fputs
+            i gen Stack.get @ fd Type.fputs
             i 1 + 
         } drop 
 

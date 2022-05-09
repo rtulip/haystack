@@ -28,7 +28,9 @@ fn Chunk.puts(Chunk: chunk) {
         cast(*Block) as [n blk_p]
         blk_p @ as [blk]
 
-        " | " puts blk::arr::size putu " " puts blk::allocated putb " | " puts
+        " | " puts 
+        //blk::arr::data cast(u64) putu " " puts
+        blk::arr::size putu " " puts blk::allocated putb " | " puts
 
         n 1 +
         blk_p Chunk.next cast(u64)
@@ -218,8 +220,9 @@ fn malloc<T>(u64: count) -> [Arr<T>] {
             n swap Chunk.try_alloc Opt.unwrap
         }
     }
-
-    arr_convert::<T>
+    as [arr]
+    0 cast(u8) arr memset
+    arr arr_convert::<T>
 
 }
 
@@ -253,33 +256,52 @@ fn free<T>(Arr<T>: arr) {
         maybe_chunk Opt.unwrap as [chunk_p] 
         chunk_p @ as [chunk]
         arr::data cast(u64) sizeOf(Block) - cast(*Block) as [blk_p]
-        blk_p @ as [blk]
-        blk::arr false cast(Block) blk_p !
-        chunk_p Chunk.consolidate
+        chunk::start while dup cast(u64) blk_p cast(u64) <= {
+            as [chunk_blk_p]
+            chunk_blk_p cast(u64) blk_p cast(u64) == if {
+                blk_p @ as [blk]
+                blk::arr false cast(Block) blk_p !
+                chunk_p Chunk.consolidate
+            }
+            chunk_blk_p Chunk.next
+        } drop
+        
     }
 
 }
 
+fn realloc<T>(u64: new_size Arr<T>: arr) -> [Arr<T>] {
+    new_size malloc::<T> as [new_arr]
+    arr::size new_size < if {
+        arr::size
+    } else {
+        new_size
+    } 
+    arr::data new_arr::data memcpy
+    arr free
+    new_arr
+}
 
 fn malloc_init() {
     chunks_data @ chunk_stack Stack.init
 }
-
 
 fn main() {
     var u8[1234]: foo
 
     malloc_init
 
-    200 malloc::<u8> as [arr1]
-    400 malloc::<u8> as [arr2] 
+    200 malloc::<u64> as [arr1]
+    123 arr1 memset
+    400 malloc::<u8> as [arr2]
+    2 cast(u8) arr2 memset
     3200 malloc::<u8> as [arr3]
-    arr1 free
-    arr2 free
-
+    3 cast(u8) arr3 memset
     500 malloc::<u8> as [arr4]
-    arr3 free
-    arr4 free
+    4 cast(u8) arr4 memset
     
+    400 arr1 realloc as [new_arr1]
+
+    4096 malloc::<u64> as [foo]
     Heap.debug_summary
 }

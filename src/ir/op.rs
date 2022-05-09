@@ -129,7 +129,7 @@ impl Op {
         let mut t = frame[index].clone();
         let mut t_offset: usize = frame[0..index]
             .iter()
-            .map(|t| type_map.get(t).unwrap().size(type_map) * type_map.get(t).unwrap().width())
+            .map(|t| type_map.get(t).unwrap().size(type_map) * 8)
             .sum();
         for field in inner {
             let (new_t, new_offset) = match type_map.get(&t).unwrap() {

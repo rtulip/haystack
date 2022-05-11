@@ -1,0 +1,57 @@
+include "stack.hay"
+include "linear_map.hay"
+include "selfhost/ir/types/type.hay"
+
+struct Program {
+    *Map<*Type>: types 
+    // todo: functions
+    // todo: global vars
+    // todo: init data
+    // todo: uninit data
+}
+
+fn Program.new() -> [*Program] {
+
+    Map.new::<*Type> as [types_p]
+
+    "u64"  Type.u64 types_p Map.insert drop
+    "u8"   Type.u8  types_p Map.insert drop
+    "bool" Type.bool types_p Map.insert drop
+    "*u64" "u64" types_p Map.get Opt.unwrap Type.Pointer types_p Map.insert drop
+    "*u8"  "u8"  types_p Map.get Opt.unwrap Type.Pointer types_p Map.insert drop
+
+    "Str" 
+        Map.new::<*Type> as [members_p] {
+            "size" "u64" types_p Map.get Opt.unwrap members_p Map.insert drop
+            "data" "*u8" types_p Map.get Opt.unwrap members_p Map.insert drop
+
+            "Str" members_p Type.Struct
+        }
+        types_p Map.insert drop
+
+    "T" "T" Type.Placeholder types_p Map.insert drop
+    "*T" "T" types_p Map.get Opt.unwrap Type.Pointer types_p Map.insert drop
+    "Arr" 
+        Map.new::<*Type> Stack.new::<*Type> as [members_p generics_p] {
+            "size" "u64" types_p Map.get Opt.unwrap members_p Map.insert drop
+            "data" "*T"  types_p Map.get Opt.unwrap members_p Map.insert drop
+            "T" types_p Map.get Opt.unwrap generics_p Stack.push
+
+            "Arr" members_p generics_p Type.GenericStructBase 
+        }
+        types_p Map.insert drop
+
+    types_p cast(Program) as [program]
+
+    malloc_obj::<Program> as [program_p] program program_p !
+    program_p
+
+}
+
+fn main() {
+
+    Program.new drop
+
+    Heap.debug_summary
+
+}

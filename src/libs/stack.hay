@@ -7,6 +7,12 @@ struct Stack<T> {
     u64: len
 }
 
+fn Stack.new<T>() -> [*Stack<T>] {
+    malloc_obj::<Stack<T>> as [stk_p]
+    stk_p Stack.init
+    stk_p
+}
+
 fn Stack.slice<T>(Stack<T>: stk_p) -> [*Arr<T>] {
     stk_p @ as [stk]
     stk::slice

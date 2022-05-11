@@ -1,0 +1,51 @@
+include "selfhost/ir/types/type.hay"
+include "linear_map.hay"
+
+struct TypeBuilder {
+    *Map<*Type>: type_map_p
+    *Stack<*Type>: types_in_progress
+}
+
+fn TypeBuilder.init(*TypeBuilder: builder_p) {
+    builder_p @ as [builder]
+    builder::type_map_p Map.init
+    builder::types_in_progress Stack.init
+}
+
+fn TypeBulider.start(Str: name TypeKind: kind *TypeBuilder: builder_p) {
+    builder_p @ as [builder]
+
+    name kind Type.new_empty builder::type_map_p Map.insert as [maybe_type]
+
+    maybe_type Opt.is_some if {
+        "Redefinition of Type: `" puts name puts "`." putlns
+        1 exit 
+    }
+
+}
+
+fn TypeBuilder.add_member(Str: ident Str: type_name *TypeBuilder: builder_p) {
+    builder_p @ as [builder]
+
+    type_name builder::type_map_p Map.get_ref Opt.unwrap as [type_p]
+    builder_p TypeBuilder.current_kind as [kind]
+    kind TypeKind::Struct ==
+    kind TypeKind::GenericStructBase == lor
+    kind TypeKind::GenericStructInstance == lor
+    kind TypeKind::ResolvedStruct == lor
+    kind TypeKind::Union == lor
+    kind TypeKind::GenericUnionBase == lor
+    kind TypeKind::GenericUnionInstance == lor
+    kind TypeKind::ResolvedUnion == lor
+    lnot if {
+        "Cannot add a member to a type which doesn't expect a member" putlns
+        1 exit
+    }
+
+
+
+}
+
+fn main() {
+
+}

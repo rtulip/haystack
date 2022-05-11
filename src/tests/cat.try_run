@@ -1,5 +1,5 @@
 {
   "exit_code": 0,
-  "stdout": "include \"std.hay\"\ninclude \"file.hay\"\n\nfn cat(Str: path) {\n    var u8[8192]: file_buf file_buf @ as [buff]\n    \n    path buff File.read_path_to_buff\n    split cast(Str) putlns\n\n}\n\nfn main() {\n    \"./examples/cat.hay\" cat\n}\n",
+  "stdout": "include \"std.hay\"\ninclude \"file.hay\"\n\nfn cat(Str: path) {\n    path File.str_from_path as [file_str]\n    file_str putlns \n    file_str split cast(Arr) free \n}\n\nfn main() {\n    \"./src/tests/cat.hay\" cat\n}\n",
   "stderr": ""
 }

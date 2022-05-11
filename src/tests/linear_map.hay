@@ -28,5 +28,4 @@ fn main() {
     }
 
     map_p Map.destroy
-
 }

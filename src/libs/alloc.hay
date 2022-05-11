@@ -229,6 +229,11 @@ fn malloc<T>(u64: count) -> [Arr<T>] {
 
 }
 
+fn malloc_obj<T>() -> [*T] {
+    sizeOf(T) malloc::<u8> as [bytes]
+    bytes::data cast(u64) cast(*T)
+}
+
 fn find_chunk<T>(Arr<T>: arr) -> [Opt<*Chunk>] {   
     
 
@@ -271,6 +276,10 @@ fn free<T>(Arr<T>: arr) {
         
     }
 
+}
+
+fn free_obj<T>(*T: ptr) {
+    sizeOf(T) ptr cast(Arr) free
 }
 
 fn realloc<T>(u64: new_size Arr<T>: arr) -> [Arr<T>] {

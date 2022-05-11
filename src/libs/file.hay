@@ -1,4 +1,5 @@
 include "str.hay"
+include "alloc.hay"
 
 struct File {
     u64: fd
@@ -29,27 +30,15 @@ fn File.close(File: file) {
     file::fd sys_close drop
 }
 
-fn File.read_path_to_buff(Str: path Arr<u8>: buffer) -> [Arr<u8>] {
+fn File.str_from_path(Str: path) -> [Str] {
     0 0 path File.open as [file]
-    file buffer File.read_to_buff
-    file File.close
-}
-
-fn File.read_path_to_str(Str Arr<u8>) -> [Str] {
-    File.read_path_to_buff split cast(Str)
-}
-
-fn File.read_to_buff(File: file Arr<u8>: buffer) -> [Arr<u8>] {
-    file File.size as [size] 
-    size buffer::size >= if {
-        "Insufficient capacity to read file into buffer" putlns
-        "    File Size:   " puts size putlnu
-        "    Buffer Size: " puts buffer::size putlnu
-        1 exit 
-    }
-
+    file File.size as [size]
+    size malloc::<u8> as [buffer]
     size buffer::data file::fd sys_read drop
-    size buffer::data cast(Arr)
+    file File.close
+
+    buffer split cast(Str)
+
 }
 
 fn File.size(File: file) -> [u64] {

@@ -7,11 +7,15 @@ struct Map<T> {
     *Stack<T>: values
 }
 
+fn Map.new<T>() -> [*Map<T>] {
+    malloc_obj::<Map<T>> as [map_p]
+    map_p Map.init
+    map_p
+}
+
 fn Map.init<T>(*Map<T>: map_p) {
-    sizeOf(Stack<Str>) malloc::<u8> as [keys_bytes]
-    keys_bytes::data cast(u64) cast(*Stack<Str>) as [keys_p]
-    sizeOf(Stack<T>) malloc::<u8> as [values_bytes]
-    values_bytes::data cast(u64) cast(*Stack<T>) as [values_p] 
+    malloc_obj::<Stack<Str>> as [keys_p]
+    malloc_obj::<Stack<T>> as [values_p] 
     
     keys_p   Stack.init
     values_p Stack.init
@@ -20,10 +24,10 @@ fn Map.init<T>(*Map<T>: map_p) {
 
 fn Map.destroy<T>(*Map<T>: map_p) {
     map_p @ as [map]
-    map::keys Stack.destroy
+    map::keys   Stack.destroy
     map::values Stack.destroy
-    sizeOf(Stack<Str>) map::keys cast(u64) cast(*u8) cast(Arr) free
-    sizeOf(Stack<T>) map::values cast(u64) cast(*u8) cast(Arr) free
+    map::keys   free_obj
+    map::values free_obj
 }
 
 fn Map.idx_of<T>(Str: key *Map<T>: map_p) -> [Opt<u64>] {
@@ -58,7 +62,7 @@ fn Map.get_ref<T>(Str: key *Map<T>: map_p) -> [Opt<*T>] {
     map::values @ as [values]
     key map_p Map.idx_of as [maybe_idx] 
     maybe_idx Opt.is_some if {
-        maybe_idx Opt.unwrap values::arr Arr.get_ref Opt.Some
+        maybe_idx Opt.unwrap values::slice Arr.get_ref Opt.Some
     } else {
         Opt.None::<*T>
     }

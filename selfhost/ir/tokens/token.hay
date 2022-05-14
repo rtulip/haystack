@@ -149,3 +149,31 @@ fn Token.fputs(Token: tok u64: fd) {
 fn Token.puts(Token) {
     1 Token.fputs
 }
+
+fn Token.is_kind(Token: token TokenKindTag: kind) -> [bool] {
+    token::kind::tag kind == 
+}
+
+fn Token.keyword(Token: token) -> [Opt<Keyword>] {
+    token TokenKindTag::Keyword Token.is_kind if  {
+        token::kind::value::keyword Opt.Some
+    } else {
+        Opt.None::<Keyword>
+    }
+}
+
+fn Token.word(Token: token) -> [Opt<Str>] {
+    token TokenKindTag::Word Token.is_kind if {
+        token::kind::value::word Opt.Some
+    } else {
+        Opt.None::<Str>
+    }
+}
+
+fn Token.literal(Token: token) -> [Opt<Literal>] {
+    token TokenKindTag::Literal Token.is_kind if {
+        token::kind::value::literal Opt.Some
+    } else {
+        Opt.None::<Literal>
+    }
+}

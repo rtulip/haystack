@@ -60,3 +60,11 @@ fn Literal.fputs(Literal: literal u64: fd) {
 fn Literal.puts(Literal) {
     1 Literal.fputs
 }
+
+fn Literal.u64(Literal: lit) -> [Opt<u64>] {
+    lit::tag LiteralTag::u64 == if {
+        lit::value::u64 Opt.Some
+    } else {
+        Opt.None::<u64>
+    }
+}

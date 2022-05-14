@@ -1,5 +1,5 @@
 include "stack.hay"
-include "./selfhost/ir/token.hay"
+include "./selfhost/ir/tokens/token.hay"
 include "./selfhost/ir/types/signature.hay"
 include "./selfhost/ir/op.hay"
 
@@ -7,7 +7,17 @@ struct Function {
     Str: name
     Token: token
     Signature: sig
-    Arr<Op>: ops
-    // TODO: Generics Map
+    *Stack<Op>: ops
+    // TODO: Generics
     // TODO: Locals
+}
+
+fn Function.new(Str: name Token: token) -> [*Function] {
+    malloc_obj::<Function> as [fn_p]
+    
+    name token Stack.new::<*Type> Stack.new::<*Type> cast(Signature) Stack.new::<Op> 
+    cast(Function) fn_p !
+
+    fn_p
+
 }

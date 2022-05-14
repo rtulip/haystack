@@ -53,8 +53,8 @@ fn Map.idx_of<T>(Str: key *Map<T>: map_p) -> [Opt<u64>] {
 
 }
 
-fn Map.contains<T>(Str: key Map<T>: map) -> [bool] {
-    key map Map.idx_of Opt.is_some
+fn Map.contains<T>(Str: key *Map<T>: map_p) -> [bool] {
+    key map_p Map.idx_of Opt.is_some
 }
 
 fn Map.get_ref<T>(Str: key *Map<T>: map_p) -> [Opt<*T>] {

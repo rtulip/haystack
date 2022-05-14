@@ -237,23 +237,34 @@ fn Type.GenericStructBase(Str: name *Map<*Type>: members *Stack<*Type>: generics
 
 }
 
+fn Type.name(*Type: typ_p) -> [Str] {
 
-//fn Type.u64() -> [Type] {
-//    0 cast(TypeValue<Type>) TypeKind::U64 cast(Type)  
-//}
-//
-//fn Type.u8() -> [Type] {
-//    0 cast(TypeValue<Type>) TypeKind::U8 cast(Type)
-//}
-//
-//fn Type.bool() -> [Type] {
-//    0 cast(TypeValue<Type>) TypeKind::Bool cast(Type)
-//}
-//
-//fn Type.struct(Str Arr<*Type> Arr<Str>) -> [Type] {
-//    cast(StructType) cast(TypeValue<Type>) TypeKind::Struct cast(Type)
-//}
-//
-//fn Type.generic_struct_base(StructType<Type> Arr<*Type>) -> [Type] {
-//    cast(GenericStructBaseType) cast(TypeValue<Type>) TypeKind::GenericStructBase cast(Type)
-//}
+    typ_p @ as [typ]
+
+    typ::tag TypeKind::U64 == if {
+        "u64"
+    } else typ::tag TypeKind::U8 == if {
+        "u8"
+    } else typ::tag TypeKind::Bool == if {
+        "bool"
+    } else typ::tag TypeKind::Enum == if {
+        typ::type::Enum::name 
+    } else typ::tag TypeKind::Placeholder == if {
+        typ::type::Placeholder
+    } else typ::tag TypeKind::Pointer == if {
+        typ::type::Pointer::inner Type.name as [inner]
+
+        inner::size 1 + malloc::<u8> as [name]
+        "*" split name::data memcpy
+        inner split name::data 1 ptr+ memcpy
+        name split cast(Str)
+
+    } else typ::tag TypeKind::Struct == if {
+        typ::type::Struct::name
+    } else {
+        "NotImplementedYet"
+        "Getting names of " puts typ::tag TypeKind.puts " isn't implemented yet" putlns
+        1 exit 
+    }
+ 
+}

@@ -1,10 +1,12 @@
 include "stack.hay"
 include "linear_map.hay"
 include "selfhost/ir/types/type.hay"
+include "selfhost/ir/function.hay"
 
 struct Program {
     *Map<*Type>: types 
-    // todo: functions
+    *Stack<*Function>: functions
+
     // todo: global vars
     // todo: init data
     // todo: uninit data
@@ -41,17 +43,11 @@ fn Program.new() -> [*Program] {
         }
         types_p Map.insert drop
 
-    types_p cast(Program) as [program]
+    types_p
+    Stack.new::<*Function> 
+    cast(Program) as [program]
 
     malloc_obj::<Program> as [program_p] program program_p !
     program_p
-
-}
-
-fn main() {
-
-    Program.new drop
-
-    Heap.debug_summary
 
 }

@@ -1,13 +1,313 @@
+include "std.hay"
 include "file.hay"
+include "stack.hay"
 
-struct Program {
-    u64: todo
+include "selfhost/ir/program.hay"
+include "selfhost/ir/tokens/token.hay"
+include "selfhost/ir/tokens/tokenizer.hay"
+include "selfhost/ir/types/type.hay"
+include "selfhost/ir/function.hay"
+
+fn peek_token_kind(*Stack<Token>: tokens TokenKind: kind) -> [bool] {
+    
+    tokens Stack.peek Opt.is_some if {
+        tokens Stack.peek Opt.unwrap as [token]
+        token::kind::tag kind::tag == if {
+
+            token::kind::tag TokenKindTag::Keyword == if {
+                token::kind::value::keyword kind::value::keyword ==
+            } else token::kind::tag TokenKindTag::Operator == if {
+                token::kind::value::operator kind::value::operator ==
+            } else token::kind::tag TokenKindTag::Literal == if {
+                token::kind::value::literal::tag kind::value::literal::tag == 
+            } else token::kind::tag TokenKindTag::Marker == if {
+                token::kind::value::marker kind::value::marker == 
+            } else token::kind::tag TokenKindTag::Word == if {
+                true
+            } else token::kind::tag TokenKindTag::EndOfFile == if {
+                true
+            } else {
+                "Unrecognized TokenKindTag" putlns
+                1 exit 
+                false
+            }
+
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+
 }
 
-fn hay_into_ir(Str: path *Program: program *Stack<Str>: included_files) {
+fn expect_token_kind(Token: token *Stack<Token>: tokens TokenKind: kind) -> [Token] {
 
-    path File.str_from_path as [file_str]
+    tokens Stack.peek Opt.is_some if {
+
+        tokens kind peek_token_kind if {
+
+            tokens Stack.pop Opt.unwrap
+
+        } else {
+            "Expected " puts kind TokenKind.puts ", but found " puts tokens Stack.pop Opt.unwrap Token.puts " instead." putlns
+            1 exit
+            token 
+        }
+        
+    } else {
+        "Expected " puts kind TokenKind.puts ", but found empty tokens stack instead" putlns
+        1 exit
+        token
+    }
 
     
 
+}
+
+fn expect_word(Token: prev_tok *Stack<Token>: tokens) -> [Token Str] {
+
+    tokens Stack.pop as [maybe_tok]
+    maybe_tok Opt.is_some if {
+
+        maybe_tok Opt.unwrap as [tok]
+        tok Token.word Opt.is_some if {
+
+            tok tok Token.word Opt.unwrap
+
+        } else {
+            tok "" 
+            tok::loc Loc.puts
+            ": Expected a word, but found " puts tok Token.puts " instead." putlns
+            1 exit
+        }
+
+    } else {
+        prev_tok "" 
+        prev_tok::loc Loc.puts
+        ": Expected a word, but token stack was empty instead." putlns
+        1 exit
+    }
+
+}
+
+fn expect_u64(Token: prev_tok *Stack<Token>: tokens) -> [Token u64] {
+
+    tokens Stack.pop as [maybe_tok]
+    maybe_tok Opt.is_some if {
+
+        maybe_tok Opt.unwrap as [tok]
+        tok Token.literal Opt.is_some if {
+
+            tok Token.literal Opt.unwrap as [lit]
+            lit Literal.u64 Opt.is_some if {
+
+                tok lit Literal.u64 Opt.unwrap 
+
+            } else {
+                tok 0
+                tok::loc Loc.puts
+                ": Expected a u64 literal, but found " puts tok Token.puts " instead." putlns
+                1 exit
+            }
+
+        } else {
+            tok 0 
+            tok::loc Loc.puts
+            ": Expected a u64 literal, but found " puts tok Token.puts " instead." putlns
+            1 exit
+        }
+
+    } else {
+        prev_tok 0 
+        prev_tok::loc Loc.puts
+        ": Expected a word, but token stack was empty instead." putlns
+        1 exit
+    }    
+
+}
+
+fn parse_function(
+    Token: start_tok 
+    *Stack<Token>: tokens
+    *Map<*Type>: type_map
+    // TODO: init data
+) -> [*Function] {
+
+    start_tok tokens expect_word as [name_tok name]
+
+    name name_tok Function.new
+
+    "Parsing functions isn't finished yet..." putlns
+    1 exit
+
+}
+
+fn parse_type(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+) -> [Token *Type Opt<u64>] {
+
+    tokens Operator::Mul TokenKind.from_operator peek_token_kind if {
+
+        start_tok tokens Operator::Mul TokenKind.from_operator expect_token_kind as [tok] {
+            tok tokens types parse_type 
+        } as [tok inner dimension]
+
+        dimension Opt.is_some if {
+            start_tok::loc Loc.puts
+            ": Pointers cannot have an array dimension" putlns
+            1 exit
+        }
+
+        inner Type.Pointer as [typ]
+        typ Type.name as [name]
+
+        name types Map.contains lnot if {
+            typ Type.name typ types Map.insert drop
+        }
+
+        tok typ dimension
+
+    } else {
+
+        start_tok tokens expect_word as [name_tok name]
+        name_tok tokens types parse_annotation_list as [tok annotations]
+
+        name types Map.get as [maybe_typ]
+
+        maybe_typ Opt.is_some if {
+
+            maybe_typ Opt.unwrap as [typ_p]
+            typ_p @ as [typ]
+            typ::tag TypeKind::GenericStructBase == if {
+                typ_p
+                "Parsing Generic Structs isn't implemented yet..." putlns
+                1 exit 
+            } else typ::tag TypeKind::GenericUnionBase == if {
+                typ_p
+                "Parsing Generic Unions isn't implemented yet..." putlns
+                1 exit 
+            } else {
+                typ_p
+            }
+
+        } else {
+            
+            name Type.Placeholder as [typ]
+            typ Type.name typ types Map.insert drop
+            typ
+
+        } as [typ]
+
+        tokens Marker::OpenBracket TokenKind.from_marker peek_token_kind if {
+
+            tok tokens Marker::OpenBracket TokenKind.from_marker expect_token_kind as [open_tok]
+            open_tok tokens expect_u64 as [size_tok size]
+            size_tok tokens Marker::CloseBracket TokenKind.from_marker expect_token_kind as [close_tok]
+            close_tok typ size Opt.Some 
+
+        } else {
+            tok typ Opt.None::<u64> 
+        }
+
+    }
+
+}
+
+fn parse_untagged_type(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+) -> [Opt<Token> Opt<*Type> Opt<u64>] {
+
+    tokens Operator::Mul TokenKind.from_operator peek_token_kind
+    tokens "" TokenKind.from_word peek_token_kind lor if {
+        start_tok tokens types parse_type as [tok name dimension]
+        tok Opt.Some name Opt.Some dimension
+    } else {
+        Opt.None::<Token> Opt.None::<*Type> Opt.None::<u64>
+    }
+}
+
+fn parse_annotation_list(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+) -> [Token Opt<*Stack<*Type>>] {
+
+    tokens Operator::LessThan TokenKind.from_operator peek_token_kind if {
+        start_tok tokens Operator::LessThan TokenKind.from_operator expect_token_kind as [open_tok]
+        Stack.new::<*Type> as [annotations]
+        
+        open_tok while tokens types parse_untagged_type
+            as [maybe_tok maybe_typ dimension] { maybe_tok maybe_typ dimension
+            maybe_tok Opt.is_some
+            maybe_typ Opt.is_some land
+        }
+        {
+            as [maybe_tok maybe_typ dimension]
+            maybe_tok Opt.unwrap maybe_typ Opt.unwrap as [tok typ]
+            dimension Opt.is_some if {
+                tok::loc Loc.puts
+                ": Cannot hav earray values in annotatoins list." putlns
+                1 exit
+            }
+
+            typ annotations Stack.push
+            tok
+        } drop drop drop
+
+        start_tok tokens Operator::GreaterThan TokenKind.from_operator expect_token_kind as [close_tok]
+        annotations Stack.is_empty if {
+            close_tok::loc Loc.puts
+            ": Type annotations cannot be empty" putlns
+            "    * Consider removing the annotation list." putlns
+            1 exit
+        }
+        
+        close_tok annotations Opt.Some
+
+    } else {
+        start_tok Opt.None::<*Stack<*Type>>
+    }
+
+}
+
+fn hay_into_ir(Str: path *Program: program_p *Stack<Str>: included_files) {
+
+    program_p @ as [program]
+    path File.str_from_path as [file_str]
+    Stack.new::<Token> as [tokens]
+
+    path file_str tokens parse_tokens tokens Stack.rev
+    
+    while tokens Stack.pop Opt.unwrap as [token] { token
+        token::kind::tag TokenKindTag::EndOfFile == lnot
+    }
+    {
+        as [token]
+        token Token.keyword Opt.is_some if {
+            
+            token Token.keyword Opt.unwrap as [kw]
+
+            kw Keyword::Function == if {
+                token tokens program::types parse_function program::functions Stack.push
+                "Lexing functions isn't implemented yet..." putlns
+                1 exit
+            } else {
+                "Lexing keyword `" puts kw Keyword.puts "` isn't implemented yet" putlns
+                1 exit  
+            }
+
+        } else {
+            "Lexing TokenKind `" puts token::kind TokenKind.puts "` isn't implemented yet." putlns
+            1 exit 
+        }
+
+    } drop
+    
+    "converting .hay files into intermediate representation isn't finished yet..." putlns
+    1 exit 
 }

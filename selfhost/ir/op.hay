@@ -198,16 +198,12 @@ fn Op.Nop(Token: token Keyword: kw) -> [Op] {
     OpKindTag::Nop kw cast(OpKindValue) cast(OpKind) token cast(Op)
 }
 
-fn Op.JumpCondNone(Token: token) -> [Op] {
-    OpKindTag::JumpCond Opt.None::<u64> cast(OpKindValue) cast(OpKind) token cast(Op)
+fn Op.JumpCond(Token: token Opt<u64>: dest) -> [Op] {
+    OpKindTag::JumpCond dest cast(OpKindValue) cast(OpKind) token cast(Op)
 }
 
-fn Op.JumpCondSome(Token: token u64: dest) -> [Op] {
-    OpKindTag::JumpCond dest Opt.Some cast(OpKindValue) cast(OpKind) token cast(Op)
-}
-
-fn Op.JumpSome(Token: token u64: dest) -> [Op] {
-    OpKindTag::Jump dest Opt.Some cast(OpKindValue) cast(OpKind) token cast(Op)
+fn Op.Jump(Token: token Opt<u64>: dest) -> [Op] {
+    OpKindTag::Jump dest cast(OpKindValue) cast(OpKind) token cast(Op)
 }
 
 fn Op.JumpDest(Token: token u64: dest) -> [Op] {

@@ -909,7 +909,7 @@ fn close_if_block(token: &Token, ops: &mut Vec<Op>, if_idx: usize) -> usize {
     assert!(
         matches!(ops[if_idx + 1].kind, OpKind::JumpCond(None)),
         "Expected JumpCond(None), but found {:?}",
-        ops[if_idx].kind
+        ops[if_idx + 1].kind
     );
     ops[if_idx + 1].kind = OpKind::JumpCond(Some(jump_dest));
 

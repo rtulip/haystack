@@ -377,7 +377,7 @@ fn parse_while_block(
     } as [open_tok]
     
     ops @ as [ops_] { ops_::len } as [cond_jump_loc]
-    open_tok Op.JumpCondNone ops Stack.push
+    open_tok Opt.None::<u64> Op.JumpCond ops Stack.push
     open_tok Op.StartBlock ops Stack.push
 
     Stack.new::<TokenKind> as [break_on] {
@@ -388,14 +388,13 @@ fn parse_while_block(
 
     ops cond_jump_loc 1 + make_ident_count as [var_count]
     close_tok var_count Op.EndBlock ops Stack.push
-    close_tok loop_dest Op.JumpSome ops Stack.push
+    close_tok loop_dest Opt.Some Op.Jump ops Stack.push
     ops @ as [ops_] { ops_::len } as [end_loc]
     close_tok end_loc Op.JumpDest ops Stack.push
     
     ops @ as [ops_] { 
         cond_jump_loc ops_::slice Arr.get as [op]
-        op::token end_loc Op.JumpCondSome 
-
+        op::token end_loc Opt.Some Op.JumpCond 
         cond_jump_loc ops_::slice Arr.set
     }
 
@@ -469,6 +468,136 @@ fn parse_as(
 
 }
 
+fn start_if_ops(Token: tok *Stack<Op>: ops) -> [u64] {
+    ops @ as [stk] { stk::len }
+    tok Keyword::If Op.Nop          ops Stack.push
+    tok Opt.None::<u64> Op.JumpCond ops Stack.push
+    tok Op.StartBlock               ops Stack.push
+}
+
+fn close_if_block(Token: tok *Stack<Op>: ops u64: if_idx) -> [u64] {
+    ops if_idx make_ident_count as [var_count]
+    tok var_count Op.EndBlock   ops Stack.push
+    tok Opt.None::<u64> Op.Jump ops Stack.push
+
+    ops @ as [stk]  
+    stk::len as [jump_dest]
+
+    if_idx 1 + stk::slice Arr.get as [jump_cond]
+    jump_cond::kind::tag OpKindTag::JumpCond ==
+    jump_cond::kind::value::Jump::tag OptTag::None == land lnot if {
+        "Expected JumpCond(None), but found something else instead." putlns
+        "  * Not Op.puts isn't implemented yet..." putlns
+        1 exit
+    }
+    jump_cond::token jump_dest Opt.Some Op.JumpCond if_idx 1+ stk::slice Arr.set
+
+    tok jump_dest Op.JumpDest ops Stack.push
+
+    jump_dest
+    
+} 
+
+fn if_block_to_ops(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Stack<Op>: ops
+    *Map<*Type>: types
+    // TODO: init data
+) -> [Token u64] {
+    start_tok ops start_if_ops as [if_idx]
+    start_tok tokens Marker::OpenBrace TokenKind.from_marker expect_token_kind
+    Stack.new::<TokenKind> as [break_on] {
+        Marker::CloseBrace TokenKind.from_marker break_on Stack.push
+        tokens ops types break_on parse_tokens_until_tokenkind
+        break_on Stack.destroy
+    } as [tok]
+
+    tok tok ops if_idx close_if_block
+    
+}
+
+fn parse_if_block(
+    Token: token
+    *Stack<Token>: tokens
+    *Stack<Op>: ops
+    *Map<*Type>: types
+    // TODO: init data
+) -> [Token] {
+    var u64: jump_dest
+    ops @ as [ops_] { ops_::len } as [start_ip]
+
+    
+    token tokens ops types if_block_to_ops jump_dest !
+    true
+    while tokens Keyword::Else TokenKind.from_keyword peek_token_kind land {
+
+        tokens Keyword::Else TokenKind.from_keyword expect_token_kind as [else_tok]
+        else_tok Keyword::Else Op.Nop ops Stack.push
+
+        tokens Marker::OpenBrace TokenKind.from_marker peek_token_kind if {
+            else_tok tokens Marker::OpenBrace TokenKind.from_marker expect_token_kind as [open_tok]
+            ops @ as [ops_] { ops_::len } as [block_idx]
+            open_tok Op.StartBlock ops Stack.push
+
+            Stack.new::<TokenKind> as [break_on] {
+                Marker::CloseBrace TokenKind.from_marker break_on Stack.push
+                open_tok tokens ops types break_on parse_tokens_until_tokenkind
+                break_on Stack.destroy
+            } as [close_tok]
+
+            ops block_idx make_ident_count as [var_count] 
+        
+            close_tok var_count Op.EndBlock ops Stack.push
+
+            close_tok ops @ as [ops_] { 
+                ops_::len jump_dest !
+                ops_::len
+            }  Op.JumpDest ops Stack.push
+
+            close_tok false
+        } else {
+
+            Stack.new::<TokenKind> as [break_on] {
+                Keyword::If TokenKind.from_keyword break_on Stack.push
+                else_tok tokens ops types break_on parse_tokens_until_tokenkind
+                break_on Stack.destroy
+            } as [if_tok]
+
+            if_tok ops start_if_ops as [if_idx]
+            if_tok tokens Marker::OpenBrace TokenKind.from_marker expect_token_kind as [open_tok]
+            
+            Stack.new::<TokenKind> as [break_on] {
+                Marker::CloseBrace TokenKind.from_marker break_on Stack.push
+                if_tok tokens ops types break_on parse_tokens_until_tokenkind
+                break_on Stack.destroy
+            } as [close_tok]
+
+            close_tok ops if_idx close_if_block jump_dest !
+
+            close_tok true 
+        }
+
+    } as [tok]
+
+
+    start_ip while dup ops @ as [stk] { stk::len } < {
+        ops @ as [i stk]
+        i stk::slice Arr.get as [op]
+
+        op::kind::tag OpKindTag::Jump ==
+        op::kind::value::Jump::tag OptTag::None == land if {
+            op::token jump_dest @ Opt.Some Op.Jump i stk::slice Arr.set
+        }
+ 
+        i 1 +
+
+    } drop
+
+    tok
+
+}
+
 fn parse_tokens_until_tokenkind(
     Token: start_tok
     *Stack<Token>: tokens
@@ -486,8 +615,6 @@ fn parse_tokens_until_tokenkind(
         maybe_tok Opt.is_some brk lnot land
     }
     {
-
-        
 
         as [brk maybe_tok]
         maybe_tok Opt.unwrap as [tok]
@@ -515,6 +642,8 @@ fn parse_tokens_until_tokenkind(
                     tok tokens ops types parse_while_block
                 } else kw Keyword::As == if {
                     tok tokens ops types parse_as
+                } else kw Keyword::If == if {
+                    tok tokens ops types parse_if_block drop
                 } else {
                     "  Parsing " puts kw Keyword.puts " isn't implemented yet" putlns
                     1 exit

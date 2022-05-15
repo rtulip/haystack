@@ -401,6 +401,74 @@ fn parse_while_block(
 
 }
 
+fn parse_word_list(
+    Token: start_tok
+    *Stack<Token>: tokens
+    TokenKind: open
+    TokenKind: close
+) -> [Token *Stack<Token> *Stack<Str>] {
+
+    Stack.new::<Token> Stack.new::<Str> as [word_toks words]
+
+    start_tok tokens open expect_token_kind
+    while tokens "" TokenKind.from_word peek_token_kind {
+        tokens expect_word as [word_tok word]
+        word_tok word_toks Stack.push
+        word     words     Stack.push
+        word_tok 
+    }
+
+    tokens close expect_token_kind
+    word_toks words
+
+}
+
+fn parse_as(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Stack<Op>: ops
+    *Map<*Type>: types
+    // TODO: init data
+) {
+
+    start_tok 
+    tokens 
+    Marker::OpenBracket TokenKind.from_marker 
+    Marker::CloseBracket TokenKind.from_marker
+    parse_word_list as [list_end_tok word_toks_p words_p]
+    word_toks_p @ words_p @ as [word_toks words]
+
+    ops @ as [ops_] { ops_::len } as [start_idx]
+
+    0 while dup words::len < {
+        as [i]
+
+        i word_toks::slice Arr.get
+        i words::slice Arr.get
+        Opt.None::<u64>
+        Op.MakeIdent
+        ops Stack.push
+
+        i 1 +
+    } drop
+
+    tokens Marker::OpenBrace TokenKind.from_marker peek_token_kind if {
+
+        list_end_tok tokens Marker::OpenBrace TokenKind.from_marker expect_token_kind as [tok]
+        tok Op.StartBlock ops Stack.push
+
+        Stack.new::<TokenKind> as [break_on] {
+            Marker::CloseBrace TokenKind.from_marker break_on Stack.push
+            tok tokens ops types break_on parse_tokens_until_tokenkind
+            break_on Stack.destroy
+        } as [close_tok]
+    
+        close_tok ops start_idx make_ident_count Op.EndBlock ops Stack.push    
+
+    }
+
+}
+
 fn parse_tokens_until_tokenkind(
     Token: start_tok
     *Stack<Token>: tokens
@@ -445,6 +513,8 @@ fn parse_tokens_until_tokenkind(
                     tok tokens types parse_size_of ops Stack.push
                 } else kw Keyword::While == if {
                     tok tokens ops types parse_while_block
+                } else kw Keyword::As == if {
+                    tok tokens ops types parse_as
                 } else {
                     "  Parsing " puts kw Keyword.puts " isn't implemented yet" putlns
                     1 exit

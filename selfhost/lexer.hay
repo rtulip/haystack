@@ -218,6 +218,125 @@ fn parse_maybe_tagged_type_list(
 
 }
 
+fn parse_tagged_type_list(
+    Token: token
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+    Opt<*Stack<*Type>>: maybe_generics
+) -> [*Map<*Type>] {
+
+    Map.new::<*Type> as [type_list]
+
+    token while tokens types parse_tagged_type as [maybe_tok maybe_ident maybe_typ dimension] {
+        maybe_tok maybe_ident maybe_typ dimension
+        maybe_tok   Opt.is_some
+        maybe_ident Opt.is_some land 
+        maybe_typ   Opt.is_some land 
+    } {
+
+        as [maybe_tok maybe_ident maybe_typ dimension]
+        maybe_tok Opt.unwrap maybe_ident Opt.unwrap maybe_typ Opt.unwrap as [tok ident typ]
+
+        dimension Opt.is_some if {
+            tok::loc Loc.puts
+            ": Cannot have array types in type lists" putlns
+            1 exit
+        }
+
+        Stack.new::<*Type> as [visited] {
+            typ types visited Type.deep_check_generics
+            visited Stack.destroy
+        } as [generics]
+
+        generics Stack.is_empty lnot if {
+
+            maybe_generics Opt.is_none if { 
+
+                tok::loc Loc.puts
+                ": Unrecognized generic types: [" puts
+                while generics Stack.peek Opt.is_some {
+                    generics Stack.pop Opt.unwrap Type.name as [gen_name]
+                    " " puts gen_name puts
+                    gen_name split cast(Arr) free
+                }
+                " ]" putlns
+                "    * No generics were expected within this context" putlns
+                "    * Consider adding a type annotation list" putlns
+                1 exit 
+
+            } else {
+
+                while generics Stack.peek Opt.is_some {
+                    
+                    generics Stack.pop Opt.unwrap as [gen_t]
+                    Stack.new::<*Type> as [all_known_generics_p]
+
+                    maybe_generics Opt.unwrap as [known_generics_p]
+                    known_generics_p @ as [known_generics]
+
+                    0 while dup known_generics::slice::size < {
+                        as [i]
+
+                        i known_generics::slice Arr.get all_known_generics_p Stack.push
+                        i 1 +
+                    } drop
+
+                    gen_t types Type.shallow_check_generics as [shallow] {
+                        while shallow Stack.peek Opt.is_some {
+                            shallow Stack.pop Opt.unwrap all_known_generics_p Stack.push
+                        }
+                    }
+
+                    all_known_generics_p @ as [all_known_generics]
+                    false 0 while dup all_known_generics::slice::size < {
+                        as [i]
+                        
+                        i all_known_generics::slice Arr.get cast(u64)
+                        gen_t cast(u64) == lor
+
+                        i 1 +
+                    } drop lnot if {
+
+                        tok::loc Loc.puts
+                        ": Unrecognized generic types: [" puts
+                        while generics Stack.peek Opt.is_some {
+                            generics Stack.pop Opt.unwrap Type.name as [gen_name]
+                            " " puts gen_name puts
+                            gen_name split cast(Arr) free
+                        }
+                        " ]" putlns
+                        "    * Only these generics are known in this context: [" puts 
+                            while known_generics_p Stack.peek Opt.is_some {
+                                known_generics_p Stack.pop Opt.unwrap Type.name as [gen_name]
+                                " " puts gen_name puts
+                                gen_name split cast(Arr) free
+                            }
+                            " ]" putlns
+                        "    * Consider adding a type annotation list" putlns
+                        1 exit 
+
+                    }
+
+                    
+                }                
+
+            }
+        } 
+
+        ident typ type_list Map.insert as [already_in_map]
+
+        already_in_map Opt.is_some if {
+            "Duplicate identifier: " puts ident putlns
+            1 exit 
+        }
+        tok
+
+    } drop drop drop drop
+
+    type_list
+
+}
+
 fn parse_untagged_type_list(
     Token: start_tok
     *Stack<Token>: tokens
@@ -692,6 +811,9 @@ fn parse_tokens_until_tokenkind(
                     1 exit  
                 } else kw Keyword::Syscall == if {
                     tok tokens parse_syscall ops Stack.push
+                } else kw Keyword::Struct == if {
+                    "Struct keyword cannot be converted into ops" putlns
+                    1 exit
                 } else {
                     "  Parsing " puts kw Keyword.puts " isn't implemented yet" putlns
                     1 exit
@@ -839,6 +961,27 @@ fn parse_function(
 
 }
 
+fn parse_tagged_type(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+) -> [Opt<Token> Opt<Str> Opt<*Type> Opt<u64>] {
+
+    tokens "" TokenKind.from_word peek_token_kind
+    tokens Operator::Mul TokenKind.from_operator peek_token_kind lor if {
+
+        start_tok tokens types parse_type as [typ_tok typ dimension]
+        typ_tok tokens Marker::Colon TokenKind.from_marker expect_token_kind 
+        tokens expect_word as [ident_tok ident]
+
+        ident_tok Opt.Some ident Opt.Some typ Opt.Some dimension
+
+    } else {
+        Opt.None::<Token> Opt.None::<Str> Opt.None::<*Type> Opt.None::<u64> 
+    }
+
+}
+
 fn parse_type(
     Token: start_tok
     *Stack<Token>: tokens
@@ -971,6 +1114,40 @@ fn parse_annotation_list(
 
 }
 
+fn parse_struct(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+) -> [Str *Type] {
+
+    start_tok tokens expect_word as [name_tok name]
+    name_tok tokens types parse_annotation_list as [ann_tok generics]
+
+    malloc_obj::<Type> as [t]
+
+    name t types Map.insert Opt.is_some if {
+        name_tok::loc Loc.puts
+        ": Redefinition of type: `" puts name puts "`" putlns
+        1 exit 
+    }
+
+    ann_tok tokens Marker::OpenBrace TokenKind.from_marker expect_token_kind
+    tokens types generics parse_tagged_type_list as [members]
+    name_tok tokens Marker::CloseBrace TokenKind.from_marker expect_token_kind drop
+
+    generics Opt.is_some if {
+        name members generics Opt.unwrap Type.GenericStructBase as [tmp]
+        tmp @ t !
+        tmp free_obj
+    } else {
+        name members Type.Struct as [tmp]
+        tmp @ t !
+        tmp free_obj
+    }
+    name t
+
+}
+
 fn hay_into_ir(Str: path *Program: program_p *Map<Str>: included_files) {
 
     program_p @ as [program]
@@ -1023,6 +1200,11 @@ fn hay_into_ir(Str: path *Program: program_p *Map<Str>: included_files) {
                     include_path include_path included_files Map.insert drop
                     include_path program_p included_files hay_into_ir
                 }
+
+            } else kw Keyword::Struct == if {
+                
+                token tokens program::types parse_struct as [name typ]
+                name typ program::types Map.insert drop
 
             } else {
                 "Lexing keyword `" puts kw Keyword.puts "` isn't implemented yet" putlns

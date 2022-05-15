@@ -33,8 +33,7 @@ struct ResolvedStructType<T> {
 
 struct UnionType<T> {
     Str: name
-    *Stack<*T>: members
-    *Stack<Str>: idents
+    *Map<*T>: members
 }
 
 struct GenericUnionBaseType<T> {
@@ -79,7 +78,7 @@ union TypeValue<T> {
     PointerType<T>:               Pointer
     StructType<T>:                Struct
     GenericStructBaseType<T>:     GenericStructBase
-    GenericStructInstanceType<T>: GenericStructInstanceType
+    GenericStructInstanceType<T>: GenericStructInstance
     ResolvedStructType<T>:        ResolvedStruct
     UnionType<T>:                 Union
     GenericUnionBaseType<T>:      GenericUnionBase
@@ -267,4 +266,149 @@ fn Type.name(*Type: typ_p) -> [Str] {
         1 exit 
     }
  
+}
+
+fn Type.deep_check_generics(
+    *Type: typ_p
+    *Map<*Type>: types
+    *Stack<*Type>: visited_p
+) -> [*Stack<*Type>] {
+
+    Stack.new::<*Type> as [stk]
+
+    visited_p @ as [visited]
+    false 0 while dup visited::slice::size < {
+        as [i]
+        i visited::slice Arr.get cast(u64) typ_p cast(u64) == lor
+        i 1 + 
+    } drop if {
+        stk
+    } else {
+
+        typ_p visited_p Stack.push
+
+        typ_p @ as [typ]
+        typ::tag TypeKind::U64  ==
+        typ::tag TypeKind::U8   == lor
+        typ::tag TypeKind::Bool == lor
+        typ::tag TypeKind::Enum == lor if {
+            stk
+        } else typ::tag TypeKind::Placeholder == if {
+            typ_p stk Stack.push
+            stk
+        } else typ::tag TypeKind::Pointer == if {
+            typ::type::Pointer::inner types visited_p Type.deep_check_generics
+        } else typ::tag TypeKind::Struct                 ==
+               typ::tag TypeKind::Union                 == lor 
+               typ::tag TypeKind::GenericStructBase     == lor
+               typ::tag TypeKind::GenericStructInstance == lor
+               typ::tag TypeKind::ResolvedStruct        == lor
+               typ::tag TypeKind::GenericUnionBase      == lor
+               typ::tag TypeKind::GenericUnionInstance  == lor
+               typ::tag TypeKind::ResolvedUnion         == lor if {
+            
+            typ::tag TypeKind::Struct == if {
+                typ::type::Struct::members
+            } else typ::tag TypeKind::Union == if {
+                typ::type::Union::members
+            } else typ::tag TypeKind::GenericStructBase == if {
+                typ::type::GenericStructBase::base::members
+            } else typ::tag TypeKind::GenericStructInstance == if {
+                typ::type::GenericStructInstance::instance::members
+            } else typ::tag TypeKind::ResolvedStruct == if {
+                typ::type::ResolvedStruct::instance::members
+            } else typ::tag TypeKind::GenericUnionBase == if {
+                typ::type::GenericUnionBase::base::members
+            } else typ::tag TypeKind::GenericUnionInstance == if {
+                typ::type::GenericUnionInstance::instance::members
+            } else typ::tag TypeKind::ResolvedUnion == if {
+                typ::type::ResolvedUnion::instance::members
+            } else {
+                typ::type::Struct::members
+                "Unreachable" putlns
+                1 exit
+            } as [members_p]
+
+            members_p @ as [members] {members::values @ as [values] values::slice } as [members] 
+
+            0 while dup members::size < {
+
+                as [i]
+
+                i members Arr.get as [member]
+
+                member types visited_p Type.deep_check_generics as [generics]
+
+                while generics Stack.peek Opt.is_some {
+                    generics Stack.pop Opt.unwrap stk Stack.push
+                }
+
+                generics Stack.destroy
+
+                i 1 +
+
+            } drop
+
+            stk
+
+        } else {
+            "Unhandled type in Type.deep_check_generics" putlns
+            1 exit
+            stk
+        }
+    }
+}
+
+fn Type.shallow_check_generics(
+    *Type: typ_p
+    *Map<*Type>: types
+) -> [*Stack<*Type>] {
+
+    typ_p @ as [typ]
+    Stack.new::<*Type> as [stk]
+
+    typ::tag TypeKind::U64 ==
+    typ::tag TypeKind::U8 == lor
+    typ::tag TypeKind::Bool == lor
+    typ::tag TypeKind::Enum == lor
+    typ::tag TypeKind::Struct == lor
+    typ::tag TypeKind::Union == lor
+    typ::tag TypeKind::ResolvedStruct == lor
+    typ::tag TypeKind::ResolvedUnion == lor if {
+    } else typ::tag TypeKind::Placeholder == if {
+        typ_p stk Stack.push
+    } else typ::tag TypeKind::GenericStructBase ==
+           typ::tag TypeKind::GenericStructInstance == lor
+           typ::tag TypeKind::GenericUnionBase == lor
+           typ::tag TypeKind::GenericUnionInstance == lor if {
+        
+        typ::tag TypeKind::GenericStructBase == if {
+            typ::type::GenericStructBase::generics
+        } else typ::tag TypeKind::GenericStructInstance == if {
+            typ::type::GenericStructInstance::alias_list 
+        } else typ::tag TypeKind::GenericUnionBase == if {
+            typ::type::GenericUnionBase::generics
+        } else typ::tag TypeKind::GenericUnionInstance == if {
+            typ::type::GenericUnionInstance::alias_list
+        } else {
+            stk
+            "Unreachable state in Type.shallow_check_generics" putlns
+            1 exit
+        } @ as [gen]
+
+        0 while dup gen::slice::size < {
+            as [i]
+
+            i gen::slice Arr.get stk Stack.push
+
+            i 1 +
+        } drop
+
+    } else {
+        "Unhandled type in Type.shallow_check_generics" putlns
+        1 exit
+    }
+
+    stk
+
 }

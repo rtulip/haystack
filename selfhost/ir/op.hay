@@ -191,3 +191,30 @@ fn Op.from_literal_tok(Token: tok) -> [Op] {
 
 }
 
+fn Op.Nop(Token: token Keyword: kw) -> [Op] {
+    OpKindTag::Nop kw cast(OpKindValue) cast(OpKind) token cast(Op)
+}
+
+fn Op.JumpCondNone(Token: token) -> [Op] {
+    OpKindTag::JumpCond Opt.None::<u64> cast(OpKindValue) cast(OpKind) token cast(Op)
+}
+
+fn Op.JumpCondSome(Token: token u64: dest) -> [Op] {
+    OpKindTag::JumpCond dest Opt.Some cast(OpKindValue) cast(OpKind) token cast(Op)
+}
+
+fn Op.JumpSome(Token: token u64: dest) -> [Op] {
+    OpKindTag::Jump dest Opt.Some cast(OpKindValue) cast(OpKind) token cast(Op)
+}
+
+fn Op.JumpDest(Token: token u64: dest) -> [Op] {
+    OpKindTag::JumpDest dest Opt.Some cast(OpKindValue) cast(OpKind) token cast(Op)
+}
+
+fn Op.StartBlock(Token: token) -> [Op] {
+    OpKindTag::StartBlock 0 cast(OpKindValue) cast(OpKind) token cast(Op)
+}
+
+fn Op.EndBlock(Token: token u64: var_count) -> [Op] {
+    OpKindTag::EndBlock var_count cast(OpKindValue) cast(OpKind) token cast(Op)
+}

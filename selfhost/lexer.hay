@@ -335,6 +335,72 @@ fn parse_size_of(
 
 }
 
+fn make_ident_count(*Stack<Op>: ops_p u64: start_ip) -> [u64] {
+
+    ops_p @ as [ops]
+
+    0 start_ip while dup ops::len < {
+
+        as [var_count ip]
+
+        ip ops::slice Arr.get as [op]
+        op::kind::tag OpKindTag::MakeIdent == if {
+            var_count 1 + 
+        } else op::kind::tag OpKindTag::EndBlock == if {
+            var_count op::kind::value::EndBlock -
+        } else {
+            var_count
+        }
+
+        ip 1 +  
+
+    } drop
+
+
+}
+
+fn parse_while_block(
+    Token: token
+    *Stack<Token>: tokens
+    *Stack<Op>: ops
+    *Map<*Type>: types
+    // TODO: init_data
+){
+
+    token Keyword::While Op.Nop ops Stack.push
+    ops @ as [ops_] { ops_::len } as [loop_dest]
+
+    Stack.new::<TokenKind> as [break_on] {
+        Marker::OpenBrace TokenKind.from_marker break_on Stack.push
+        token tokens ops types break_on parse_tokens_until_tokenkind 
+        break_on Stack.destroy
+    } as [open_tok]
+    
+    ops @ as [ops_] { ops_::len } as [cond_jump_loc]
+    open_tok Op.JumpCondNone ops Stack.push
+    open_tok Op.StartBlock ops Stack.push
+
+    Stack.new::<TokenKind> as [break_on] {
+        Marker::CloseBrace TokenKind.from_marker break_on Stack.push
+        token tokens ops types break_on parse_tokens_until_tokenkind 
+        break_on Stack.destroy
+    } as [close_tok]
+
+    ops cond_jump_loc 1 + make_ident_count as [var_count]
+    close_tok var_count Op.EndBlock ops Stack.push
+    close_tok loop_dest Op.JumpSome ops Stack.push
+    ops @ as [ops_] { ops_::len } as [end_loc]
+    close_tok end_loc Op.JumpDest ops Stack.push
+    
+    ops @ as [ops_] { 
+        cond_jump_loc ops_::slice Arr.get as [op]
+        op::token end_loc Op.JumpCondSome 
+
+        cond_jump_loc ops_::slice Arr.set
+    }
+
+}
+
 fn parse_tokens_until_tokenkind(
     Token: start_tok
     *Stack<Token>: tokens
@@ -374,6 +440,8 @@ fn parse_tokens_until_tokenkind(
                     tok tokens types parse_cast ops Stack.push
                 } else kw Keyword::SizeOf == if {
                     tok tokens types parse_size_of ops Stack.push
+                } else kw Keyword::While == if {
+                    tok tokens ops types parse_while_block
                 } else {
                     "  Parsing " puts kw Keyword.puts " isn't implemented yet" putlns
                     1 exit
@@ -411,7 +479,7 @@ fn parse_tokens_until_tokenkind(
                     "Parsing string literal isn't implemented yet" putlns
                     1 exit 
                 } else {
-                    tok Op.from_literal_tok 
+                    tok Op.from_literal_tok ops Stack.push
                 }
 
             } else {

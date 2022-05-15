@@ -7,17 +7,27 @@ struct Map<T> {
     *Stack<T>: values
 }
 
-fn Map.init<T>(*Stack<Str>: keys_p *Stack<T>: values_p *Map<T>: map) {
-    
-    keys_p @ values_p @ as [keys values]
-    keys::arr::size values::arr::size != if {
-        "Maps must have the same amount of space for both keys and values" putlns
-        "    Keys has capacity:   " puts keys::arr::size putlnu
-        "    Values has capacity: " puts values::arr::size putlnu
+fn Map.new<T>() -> [*Map<T>] {
+    malloc_obj::<Map<T>> as [map_p]
+    map_p Map.init
+    map_p
+}
 
-        1 exit
-    }
-    keys_p values_p cast(Map) map !
+fn Map.init<T>(*Map<T>: map_p) {
+    malloc_obj::<Stack<Str>> as [keys_p]
+    malloc_obj::<Stack<T>> as [values_p] 
+    
+    keys_p   Stack.init
+    values_p Stack.init
+    keys_p values_p cast(Map) map_p !
+}
+
+fn Map.destroy<T>(*Map<T>: map_p) {
+    map_p @ as [map]
+    map::keys   Stack.destroy
+    map::values Stack.destroy
+    map::keys   free_obj
+    map::values free_obj
 }
 
 fn Map.idx_of<T>(Str: key *Map<T>: map_p) -> [Opt<u64>] {
@@ -26,10 +36,10 @@ fn Map.idx_of<T>(Str: key *Map<T>: map_p) -> [Opt<u64>] {
     map::keys @ as [keys]
     false 0 while as [result idx] { result idx
         result lnot
-        idx keys::size < land
+        idx keys::len < land
     } {
         as [result idx]
-        idx keys::arr Arr.get key Str.equals 
+        idx keys::slice Arr.get key Str.equals 
         idx 1 + 
     }
 
@@ -43,8 +53,8 @@ fn Map.idx_of<T>(Str: key *Map<T>: map_p) -> [Opt<u64>] {
 
 }
 
-fn Map.contains<T>(Str: key Map<T>: map) -> [bool] {
-    key map Map.idx_of Opt.is_some
+fn Map.contains<T>(Str: key *Map<T>: map_p) -> [bool] {
+    key map_p Map.idx_of Opt.is_some
 }
 
 fn Map.get_ref<T>(Str: key *Map<T>: map_p) -> [Opt<*T>] {
@@ -52,7 +62,7 @@ fn Map.get_ref<T>(Str: key *Map<T>: map_p) -> [Opt<*T>] {
     map::values @ as [values]
     key map_p Map.idx_of as [maybe_idx] 
     maybe_idx Opt.is_some if {
-        maybe_idx Opt.unwrap values::arr Arr.get_ref Opt.Some
+        maybe_idx Opt.unwrap values::slice Arr.get_ref Opt.Some
     } else {
         Opt.None::<*T>
     }
@@ -63,7 +73,7 @@ fn Map.get<T>(Str: key *Map<T>: map_p) -> [Opt<T>] {
     map::values @ as [values]
     key map_p Map.idx_of as [maybe_idx] 
     maybe_idx Opt.is_some if {
-        maybe_idx Opt.unwrap values::arr Arr.get Opt.Some
+        maybe_idx Opt.unwrap values::slice Arr.get Opt.Some
     } else {
         Opt.None::<T>
     }
@@ -77,12 +87,20 @@ fn Map.insert<T>(Str: key T: value *Map<T>: map_p) -> [Opt<T>] {
     key map_p Map.idx_of as [maybe_idx]
     maybe_idx Opt.is_some if {
         maybe_idx Opt.unwrap as [idx]
-        idx values::arr Arr.get Opt.Some
-        value idx values::arr Arr.set
+        idx values::slice Arr.get Opt.Some
+        value idx values::slice Arr.set
     } else {
-        key map::keys Stack.push drop
-        value map::values Stack.push drop
+        key map::keys Stack.push
+        value map::values Stack.push
         Opt.None::<T>
     }
 
+}
+
+fn Map.reverse_lookup<T>(*T: value_p *Map<T>: map_p) -> [Str] {
+    map_p @ as [map]
+    map::keys @ map::values @ as [keys values]
+    keys::arr::data                     // Linear map is two stacks
+    value_p values::arr::data ptr-diff  // Find the index of the type in the values
+    ptr+ @                              // Offset to the same key and read
 }

@@ -91,7 +91,10 @@ fn parse_tokens_until_tokenkind(
                 panic!("Else keyword should be turned into an op")
             }
             TokenKind::Keyword(Keyword::Function) => {
-                panic!("Function keyword can't be converted into ops.")
+                panic!(
+                    "Function keyword can't be converted into ops. {}",
+                    token.loc
+                );
             }
             TokenKind::Keyword(Keyword::Struct) => {
                 panic!("Struct keyword can't be converted into ops")
@@ -721,60 +724,7 @@ fn parse_cast(
     let (tok, annotations) = parse_annotation_list(&typ_tok, tokens, type_map);
     let _tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::CloseParen));
 
-    let typ = if let Type::GenericUnionBase {
-        name,
-        members,
-        idents,
-        generics,
-    } = type_map
-        .get(&typ)
-        .expect(format!("Type {typ} is unknown.").as_str())
-        .clone()
-    {
-        if let Some(mut annotations) = annotations {
-            if annotations.len() != generics.len() {
-                compiler_error(
-                    &typ_tok,
-                    "Incorrect number of generic annotations provided",
-                    vec![
-                        format!("Generic Union {name} is geneic over {:?}", generics).as_str(),
-                        format!("Found annotations: {:?}", annotations).as_str(),
-                    ],
-                )
-            }
-
-            if annotations
-                .iter()
-                .any(|t| matches!(type_map.get(t).unwrap(), Type::Placeholder { .. }))
-            {
-                let t = Type::GenericUnionInstance {
-                    base: name.clone(),
-                    members: members.clone(),
-                    idents: idents.clone(),
-                    alias_list: annotations,
-                    base_generics: generics.clone(),
-                };
-                type_map.insert(t.name(), t.clone());
-                t.name()
-            } else {
-                let generic_map: HashMap<TypeName, TypeName> = HashMap::from_iter(
-                    generics
-                        .iter()
-                        .map(|t| t.clone())
-                        .zip(annotations.drain(..)),
-                );
-                Type::assign_generics(start_tok, &name, &generic_map, type_map)
-            }
-        } else {
-            compiler_error(
-                &typ_tok,
-                format!("Casting to generic union `{name}` requires type annotations.").as_str(),
-                vec![format!("Annotations are required for: {:?}", generics).as_str()],
-            )
-        }
-    } else {
-        typ
-    };
+    let typ = Type::assign_parsed_annotations(start_tok, &typ_tok, &typ, &annotations, type_map);
 
     Op {
         kind: OpKind::Cast(typ),
@@ -1262,7 +1212,7 @@ fn parse_local_var(
 
             let data_local = LocalVar {
                 typ: data_typ.name(),
-                size: (type_map.get(&typ).unwrap().size(type_map)
+                size: (type_map.get(&typ).unwrap().size(token, type_map)
                     * type_map.get(&typ).unwrap().width()) as u64
                     * n,
                 value: None,
@@ -1281,7 +1231,7 @@ fn parse_local_var(
             type_map.insert(arr_ptr_typ.name(), arr_ptr_typ.clone());
             let arr_local = LocalVar {
                 typ: arr_ptr_typ.name(),
-                size: (type_map.get(&arr_typ).unwrap().size(type_map)
+                size: (type_map.get(&arr_typ).unwrap().size(&tok, type_map)
                     * type_map.get(&arr_typ).unwrap().width()) as u64,
                 value: Some(InitData::Arr {
                     size: n,
@@ -1311,7 +1261,7 @@ fn parse_local_var(
             type_map.insert(pointer_typ.name(), pointer_typ.clone());
             let local = LocalVar {
                 typ: pointer_typ.name(),
-                size: (type_map.get(&typ).unwrap().size(type_map)
+                size: (type_map.get(&typ).unwrap().size(token, type_map)
                     * type_map.get(&typ).unwrap().width()) as u64,
                 value: None,
             };
@@ -1342,7 +1292,7 @@ fn parse_global_var(
             let data_ptr = format!("data_{}", uninit_data.len());
             uninit_data.insert(
                 data_ptr.clone(),
-                UninitData::Region(type_map.get(&typ).unwrap().size(type_map) as u64 * n),
+                UninitData::Region(type_map.get(&typ).unwrap().size(&tok, type_map) as u64 * n),
             );
             let t = Type::Pointer { typ };
             type_map.insert(t.name(), t.clone());
@@ -1375,7 +1325,7 @@ fn parse_global_var(
         } else {
             uninit_data.insert(
                 global_ident.clone(),
-                UninitData::Region(type_map.get(&typ).unwrap().size(type_map) as u64),
+                UninitData::Region(type_map.get(&typ).unwrap().size(&tok, type_map) as u64),
             );
             let t = Type::Pointer { typ };
             type_map.insert(t.name(), t.clone());

@@ -1,9 +1,9 @@
+include "stack.hay"
+include "linear_map.hay"
 
-// Predeclare a type name
-// Must ensure that Type is defined later.
 struct EnumType {
     Str: name
-    Arr<Str>: Variants
+    Stack<Str>: Variants
 }
 
 struct PointerType<T> {
@@ -12,19 +12,18 @@ struct PointerType<T> {
 
 struct StructType<T> {
     Str: name
-    Arr<*T>: members
-    Arr<Str>: idents
+    *Map<*T>: members
 }
 
 struct GenericStructBaseType<T> {
     StructType<T>: base
-    Arr<*T>: generics
+    *Stack<*T>: generics
 }
 
 struct GenericStructInstanceType<T> {
     *GenericStructBaseType<T>: base
     StructType<T>: instance
-    Arr<*T>: alias_list
+    *Stack<*T>: alias_list
 }
 
 struct ResolvedStructType<T> {
@@ -34,19 +33,19 @@ struct ResolvedStructType<T> {
 
 struct UnionType<T> {
     Str: name
-    Arr<*T>: members
-    Arr<Str>: idents
+    *Stack<*T>: members
+    *Stack<Str>: idents
 }
 
 struct GenericUnionBaseType<T> {
     UnionType<T>: base
-    Arr<*T>: generics
+    *Stack<*T>: generics
 }
 
 struct GenericUnionInstanceType<T> {
     *GenericUnionBaseType<T>: base
     UnionType<T>: instance 
-    Arr<*T>: alias_list
+    *Stack<*T>: alias_list
 }
 
 struct ResolvedUnionType<T> {
@@ -155,18 +154,13 @@ fn Type.fputs(Type: type u64: fd) {
     } else kind TypeKind::Struct == if {
         type::type::Struct::name fd fputs
     } else kind TypeKind::GenericStructBase == if {
+        "Printing generic structs isn't implemented yet" putlns
+        1 exit 
         type::type::GenericStructBase::base::name fd fputs
+        
         "<" fd fputs
 
-        type::type::GenericStructBase::generics as [gen]
-        0 while dup gen::size < {
-            as [i]
-            i 0 != if {
-                " " fd fputs 
-            }
-            i gen Arr.get @ fd Type.fputs
-            i 1 + 
-        } drop 
+         
 
         ">" fd fputs
     } else kind TypeKind::GenericStructInstance == if {
@@ -192,26 +186,85 @@ fn Type.puts(Type) {
     1 Type.fputs
 }
 
-fn Type.new_empty(TypeKind: kind) -> [Type] {
-    0 cast(TypeValue<Type>) kind cast(Type)
+fn Type.new_empty(TypeKind: kind) -> [*Type] {
+    malloc_obj::<Type> as [type_p]
+    0 cast(TypeValue<Type>) kind cast(Type) type_p !
+    type_p
 }
 
-fn Type.u64() -> [Type] {
-    0 cast(TypeValue<Type>) TypeKind::U64 cast(Type)  
+fn Type.u64() -> [*Type] {
+    malloc_obj::<Type> as [type_p]
+    0 cast(TypeValue<Type>) TypeKind::U64 cast(Type) type_p !
+    type_p
 }
 
-fn Type.u8() -> [Type] {
-    0 cast(TypeValue<Type>) TypeKind::U8 cast(Type)
+fn Type.u8() -> [*Type] {
+    malloc_obj::<Type> as [type_p]
+    0 cast(TypeValue<Type>) TypeKind::U8 cast(Type) type_p !
+    type_p
 }
 
-fn Type.bool() -> [Type] {
-    0 cast(TypeValue<Type>) TypeKind::Bool cast(Type)
+fn Type.bool() -> [*Type] {
+    malloc_obj::<Type> as [type_p]
+    0 cast(TypeValue<Type>) TypeKind::Bool cast(Type) type_p !
+    type_p
 }
 
-fn Type.struct(Str Arr<*Type> Arr<Str>) -> [Type] {
-    cast(StructType) cast(TypeValue<Type>) TypeKind::Struct cast(Type)
+fn Type.Pointer(*Type: inner) -> [*Type] {
+    malloc_obj::<Type> as [type_p]
+    inner cast(PointerType) cast(TypeValue<Type>) TypeKind::Pointer cast(Type) type_p !
+    type_p
 }
 
-fn Type.generic_struct_base(StructType<Type> Arr<*Type>) -> [Type] {
-    cast(GenericStructBaseType) cast(TypeValue<Type>) TypeKind::GenericStructBase cast(Type)
+fn Type.Struct(Str: name *Map<*Type>: members) -> [*Type] {
+    malloc_obj::<Type> as [type_p]
+    name members cast(StructType) cast(TypeValue<Type>) TypeKind::Struct cast(Type) type_p !
+    type_p
+}
+
+fn Type.Placeholder(Str: name) -> [*Type] {
+    malloc_obj::<Type> as [type_p]
+    name cast(TypeValue<Type>) TypeKind::Placeholder cast(Type) type_p !
+    type_p
+}
+
+fn Type.GenericStructBase(Str: name *Map<*Type>: members *Stack<*Type>: generics) -> [*Type] {
+
+    malloc_obj::<Type> as [type_p]
+    name members cast(StructType) generics cast(GenericStructBaseType)
+        cast(TypeValue<Type>) TypeKind::Struct cast(Type) type_p !
+    type_p
+
+}
+
+fn Type.name(*Type: typ_p) -> [Str] {
+
+    typ_p @ as [typ]
+
+    typ::tag TypeKind::U64 == if {
+        "u64"
+    } else typ::tag TypeKind::U8 == if {
+        "u8"
+    } else typ::tag TypeKind::Bool == if {
+        "bool"
+    } else typ::tag TypeKind::Enum == if {
+        typ::type::Enum::name 
+    } else typ::tag TypeKind::Placeholder == if {
+        typ::type::Placeholder
+    } else typ::tag TypeKind::Pointer == if {
+        typ::type::Pointer::inner Type.name as [inner]
+
+        inner::size 1 + malloc::<u8> as [name]
+        "*" split name::data memcpy
+        inner split name::data 1 ptr+ memcpy
+        name split cast(Str)
+
+    } else typ::tag TypeKind::Struct == if {
+        typ::type::Struct::name
+    } else {
+        "NotImplementedYet"
+        "Getting names of " puts typ::tag TypeKind.puts " isn't implemented yet" putlns
+        1 exit 
+    }
+ 
 }

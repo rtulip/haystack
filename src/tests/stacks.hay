@@ -3,21 +3,23 @@ include "stack.hay"
 
 fn main()
 {
-    var u64[10]: data
     var Stack<u64>: stk_p
 
     // Initialize the Stack.
-    data @ stk_p Stack.init
+    stk_p Stack.init
 
     // Fill the stack with values 0..9
-    0 while dup stk_p Stack.push Opt.is_none
-    {
-        1 + 
+    0 while dup 10 < {
+        as [i]
+        i stk_p Stack.push
+        i 1 + 
     } drop
 
     // Empty the stack.
     while stk_p Stack.pop dup Opt.is_some {
         "Popped: " puts Opt.unwrap putlnu
     } drop
+
+    stk_p Stack.destroy
     
 }

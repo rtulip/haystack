@@ -1,0 +1,17 @@
+include "linear_map.hay"
+include "selfhost/ir/program.hay"
+include "selfhost/lexer.hay"
+
+fn compile_haystack(Str: input_path bool: run bool: ir bool: simple) {
+
+    Program.new Stack.new::<Str> as [program included_files]
+
+    "src/libs/prelude.hay" program included_files hay_into_ir 
+
+}
+
+fn main() {
+
+    "./selfhost/haystack.hay" false false false compile_haystack
+    
+}

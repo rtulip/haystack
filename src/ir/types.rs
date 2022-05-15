@@ -159,29 +159,45 @@ impl Type {
         }
     }
 
-    pub fn size(&self, type_map: &HashMap<TypeName, Type>) -> usize {
+    pub fn size(&self, token: &Token, type_map: &HashMap<TypeName, Type>) -> usize {
         match self {
             Type::U64 | Type::U8 | Type::Bool | Type::Pointer { .. } | Type::Enum { .. } => 1,
             Type::Struct { members, .. } | Type::ResolvedStruct { members, .. } => members
                 .iter()
-                .map(|t| type_map.get(t).unwrap().size(type_map))
+                .map(|t| type_map.get(t).unwrap().size(token, type_map))
                 .sum(),
             Type::Union { members, .. } | Type::ResolvedUnion { members, .. } => members
                 .iter()
-                .map(|t| type_map.get(t).unwrap().size(type_map))
+                .map(|t| type_map.get(t).unwrap().size(token, type_map))
                 .max()
                 .unwrap(),
             Type::GenericUnionBase { .. } => {
-                panic!("Size of generic union base is unknown: {}", self)
+                compiler_error(
+                    token,
+                    "Size of generic union base is unkown",
+                    vec![format!("Generic Struct base: {self}").as_str()],
+                );
             }
-            Type::GenericUnionInstance { .. } => {
-                panic!("Size of generic union instance is unknown: {}", self)
-            }
-            Type::Placeholder { .. } => panic!("Size of Placeholder types are unknown: {}", self),
-            Type::GenericStructBase { .. } => panic!("Size of a generic struct is unknown"),
-            Type::GenericStructInstance { .. } => {
-                panic!("Size of a generic struct is unknown: {}", self)
-            }
+            Type::GenericUnionInstance { .. } => compiler_error(
+                token,
+                "Size of generic union instance is unknown",
+                vec![format!("Generic Union Instance: {self}").as_str()],
+            ),
+            Type::Placeholder { .. } => compiler_error(
+                token,
+                "Size of Placeholder types are unknown",
+                vec![format!("Placeholder type: {self}").as_str()],
+            ),
+            Type::GenericStructBase { .. } => compiler_error(
+                token,
+                "Size of Generic Struct Base is unknown",
+                vec![format!("Generic Struct Base: {self}").as_str()],
+            ),
+            Type::GenericStructInstance { .. } => compiler_error(
+                token,
+                "Size of generic struct instance is unknown",
+                vec![format!("Generic Struct Instance: {self}").as_str()],
+            ),
         }
     }
 
@@ -580,7 +596,10 @@ impl Type {
         type_map: &mut HashMap<TypeName, Type>,
     ) -> TypeName {
         match type_map.get(typ).unwrap().clone() {
-            Type::Placeholder { name } => generic_map.get(&name).unwrap().clone(),
+            Type::Placeholder { name } => generic_map
+                .get(&name)
+                .expect(format!("{}: Unrecognized generic: {name}", token.loc).as_str())
+                .clone(),
             Type::GenericUnionInstance {
                 base,
                 members,
@@ -737,6 +756,123 @@ impl Type {
             | Type::ResolvedStruct { .. }
             | Type::Union { .. }
             | Type::ResolvedUnion { .. } => typ.clone(),
+        }
+    }
+
+    pub fn assign_parsed_annotations(
+        start_tok: &Token,
+        typ_tok: &Token,
+        typ: &TypeName,
+        annotations: &Option<Vec<TypeName>>,
+        type_map: &mut HashMap<TypeName, Type>,
+    ) -> TypeName {
+        match (
+            type_map
+                .get(typ)
+                .expect(format!("Type {typ} is unknown.").as_str())
+                .clone(),
+            annotations,
+        ) {
+            (
+                Type::GenericUnionBase {
+                    name,
+                    members,
+                    idents,
+                    generics,
+                },
+                Some(annotations),
+            ) => {
+                if annotations.len() != generics.len() {
+                    compiler_error(
+                        &typ_tok,
+                        "Incorrect number of generic annotations provided",
+                        vec![
+                            format!("Generic Union {name} is geneic over {:?}", generics).as_str(),
+                            format!("Found annotations: {:?}", annotations).as_str(),
+                        ],
+                    )
+                }
+                if annotations
+                    .iter()
+                    .any(|t| matches!(type_map.get(t).unwrap(), Type::Placeholder { .. }))
+                {
+                    let t = Type::GenericUnionInstance {
+                        base: name.clone(),
+                        members: members.clone(),
+                        idents: idents.clone(),
+                        alias_list: annotations.to_vec(),
+                        base_generics: generics.clone(),
+                    };
+                    type_map.insert(t.name(), t.clone());
+                    t.name()
+                } else {
+                    let generic_map: HashMap<TypeName, TypeName> = HashMap::from_iter(
+                        generics
+                            .iter()
+                            .map(|t| t.clone())
+                            .zip(annotations.to_vec().drain(..)),
+                    );
+                    Type::assign_generics(start_tok, &name, &generic_map, type_map)
+                }
+            }
+            (Type::GenericUnionBase { name, generics, .. }, None) => compiler_error(
+                &start_tok,
+                format!("Casting to generic union `{name}` requires type annotations.").as_str(),
+                vec![format!("Annotations are required for: {:?}", generics).as_str()],
+            ),
+            (
+                Type::GenericStructBase {
+                    name,
+                    members,
+                    idents,
+                    generics,
+                },
+                Some(annotations),
+            ) => {
+                if annotations.len() != generics.len() {
+                    compiler_error(
+                        &typ_tok,
+                        "Incorrect number of generic annotations provided",
+                        vec![
+                            format!("Generic Union {name} is geneic over {:?}", generics).as_str(),
+                            format!("Found annotations: {:?}", annotations).as_str(),
+                        ],
+                    )
+                }
+                if annotations
+                    .iter()
+                    .any(|t| matches!(type_map.get(t).unwrap(), Type::Placeholder { .. }))
+                {
+                    let t = Type::GenericStructInstance {
+                        base: name.clone(),
+                        members: members.clone(),
+                        idents: idents.clone(),
+                        alias_list: annotations.to_vec(),
+                        base_generics: generics.clone(),
+                    };
+                    type_map.insert(t.name(), t.clone());
+                    t.name()
+                } else {
+                    let generic_map: HashMap<TypeName, TypeName> = HashMap::from_iter(
+                        generics
+                            .iter()
+                            .map(|t| t.clone())
+                            .zip(annotations.to_vec().drain(..)),
+                    );
+                    Type::assign_generics(start_tok, &name, &generic_map, type_map)
+                }
+            }
+            (Type::Pointer { typ: inner }, Some(_)) => Type::Pointer {
+                typ: Type::assign_parsed_annotations(
+                    start_tok,
+                    typ_tok,
+                    &inner,
+                    annotations,
+                    type_map,
+                ),
+            }
+            .name(),
+            _ => typ.clone(),
         }
     }
 }

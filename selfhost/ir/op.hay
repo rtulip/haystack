@@ -1,0 +1,220 @@
+include "opt.hay"
+include "./selfhost/ir/types/type.hay"
+include "./selfhost/ir/keyword.hay"
+include "./selfhost/ir/tokens/token.hay"
+include "./selfhost/ir/operator.hay"
+include "./selfhost/ir/literal.hay"
+
+enum OpKindTag {
+    PushInt
+    PushBool
+    PushString
+    PushEnum
+    Add
+    Sub
+    Mul
+    Div
+    LessThan
+    LessEqual
+    GreaterThan
+    GreaterEqual
+    Equals
+    NotEquals
+    Mod
+    Read
+    Write
+    Cast
+    Pad
+    SizeOf
+    Split
+    Global
+    Word
+    Ident
+    MakeIdent
+    PushFramed
+    PushIdent
+    PushLocal
+    PushLocalPtr
+    Syscall
+    Call
+    PrepareFunc
+    JumpCond
+    Jump
+    JumpDest
+    StartBlock
+    EndBlock
+    Return
+    Defaul
+    Nop
+}
+
+struct EnumVariant {
+    *Type: type
+    u64: variant
+}
+
+struct IdentVariant {
+    Str: ident_name
+    *Stack<Str>: inner
+}
+
+struct MakeIdentVariant {
+    Str: ident
+    u64: size
+}
+
+struct PushFramedVariant {
+    u64: offset
+    u64: size
+}
+
+struct PushIdentVariant {
+    u64: index
+    Arr<Str>: inner
+}
+
+struct CallVariant {
+    Str: fn_name
+    Arr<*Type>: annotations
+}
+
+union OpKindValue {
+    u64: PushInt
+    bool: PushBool
+    Str: PushString
+    EnumVariant: PushEnum
+    *Type: Read
+    *Type: Write
+    *Type: Cast
+    u64: Pad
+    *Type: SizeOf
+    Str: Global
+    Str: Word
+    IdentVariant: Ident
+    MakeIdentVariant: MakeIdent
+    PushFramedVariant: PushFramed 
+    PushIdentVariant: PushIdent
+    Str: PushLocal
+    u64: PushLocalPtr
+    u64: Syscall
+    CallVariant: Call
+    Opt<u64>: JumpCond
+    Opt<u64>: Jump
+    u64: JumpDest
+    u64: EndBlock
+    Keyword: NOP
+}
+
+struct OpKind {
+    OpKindTag: tag
+    OpKindValue: value
+}
+
+struct Op {
+    OpKind: kind
+    Token: token
+}
+
+fn Op.PrepareFunc(Token: tok) -> [Op] {
+    OpKindTag::PrepareFunc 0 cast(OpKindValue) cast(OpKind) tok cast(Op)
+}
+
+fn Op.Return(Token: tok) -> [Op] {
+    OpKindTag::Return 0 cast(OpKindValue) cast(OpKind) tok cast(Op)
+}
+
+fn Op.Ident(Token: tok Str: ident *Stack<Str>: inner) -> [Op] {
+    OpKindTag::Ident ident inner cast(IdentVariant) cast(OpKindValue) cast(OpKind) tok cast(Op)
+}
+
+fn Op.Cast(Token: tok *Type: typ) -> [Op] {
+    OpKindTag::Cast typ cast(OpKindValue) cast(OpKind) tok cast(Op)
+}
+
+fn Op.SizeOf(Token: tok *Type: typ) -> [Op] {
+    OpKindTag::SizeOf typ cast(OpKindValue) cast(OpKind) tok cast(Op)
+}
+
+fn Op.from_oper_tok(Token: tok) -> [Op] {
+
+    tok Token.operator Opt.unwrap as [oper]
+
+    oper Operator::Add == if {
+        OpKindTag::Add 0 cast(OpKindValue) cast(OpKind) tok cast(Op)
+    } else oper Operator::Sub == if {
+        OpKindTag::Sub 0 cast(OpKindValue) cast(OpKind) tok cast(Op)
+    } else oper Operator::Mul == if {
+        OpKindTag::Mul 0 cast(OpKindValue) cast(OpKind) tok cast(Op)
+    } else oper Operator::Div == if {
+        OpKindTag::Div 0 cast(OpKindValue) cast(OpKind) tok cast(Op)
+    } else oper Operator::LessThan == if {
+        OpKindTag::LessThan 0 cast(OpKindValue) cast(OpKind) tok cast(Op)
+    } else oper Operator::LessEqual == if {
+        OpKindTag::LessEqual 0 cast(OpKindValue) cast(OpKind) tok cast(Op)
+    } else oper Operator::GreaterThan == if {
+        OpKindTag::GreaterThan 0 cast(OpKindValue) cast(OpKind) tok cast(Op)
+    } else oper Operator::GreaterEqual == if {
+        OpKindTag::GreaterEqual 0 cast(OpKindValue) cast(OpKind) tok cast(Op)
+    } else oper Operator::Equals == if {
+        OpKindTag::Equals 0 cast(OpKindValue) cast(OpKind) tok cast(Op)
+    } else oper Operator::NotEquals == if {
+        OpKindTag::NotEquals 0 cast(OpKindValue) cast(OpKind) tok cast(Op)
+    } else oper Operator::Mod == if {
+        OpKindTag::Mod 0 cast(OpKindValue) cast(OpKind) tok cast(Op)
+    } else oper Operator::Read == if {
+        OpKindTag::Write 0 cast(OpKindValue) cast(OpKind) tok cast(Op)
+    } else {
+        OpKindTag::Add 0 cast(OpKindValue) cast(OpKind) tok cast(Op)
+        "Unrecognized Operator" putlns
+        1 exit
+    }
+
+}
+
+fn Op.from_literal_tok(Token: tok) -> [Op] {
+
+    tok Token.literal Opt.unwrap as [lit]
+
+    lit::tag LiteralTag::u64 == if {
+        OpKindTag::PushInt lit::value::u64 cast(OpKindValue) cast(OpKind) tok cast(Op)
+    } else lit::tag LiteralTag::Str == if {
+        OpKindTag::PushString lit::value::Str cast(OpKindValue) cast(OpKind) tok cast(Op)
+        "Parsing String literals shouldn't be done here..." putlns
+        1 exit
+    } else lit::tag LiteralTag::bool == if {
+        OpKindTag::PushBool lit::value::bool cast(OpKindValue) cast(OpKind) tok cast(Op)
+    } else {
+        OpKindTag::PushInt lit::value::u64 cast(OpKindValue) cast(OpKind) tok cast(Op)
+        "Unrecognized literal type" putlns
+        1 exit
+    }
+
+}
+
+fn Op.Nop(Token: token Keyword: kw) -> [Op] {
+    OpKindTag::Nop kw cast(OpKindValue) cast(OpKind) token cast(Op)
+}
+
+fn Op.JumpCondNone(Token: token) -> [Op] {
+    OpKindTag::JumpCond Opt.None::<u64> cast(OpKindValue) cast(OpKind) token cast(Op)
+}
+
+fn Op.JumpCondSome(Token: token u64: dest) -> [Op] {
+    OpKindTag::JumpCond dest Opt.Some cast(OpKindValue) cast(OpKind) token cast(Op)
+}
+
+fn Op.JumpSome(Token: token u64: dest) -> [Op] {
+    OpKindTag::Jump dest Opt.Some cast(OpKindValue) cast(OpKind) token cast(Op)
+}
+
+fn Op.JumpDest(Token: token u64: dest) -> [Op] {
+    OpKindTag::JumpDest dest Opt.Some cast(OpKindValue) cast(OpKind) token cast(Op)
+}
+
+fn Op.StartBlock(Token: token) -> [Op] {
+    OpKindTag::StartBlock 0 cast(OpKindValue) cast(OpKind) token cast(Op)
+}
+
+fn Op.EndBlock(Token: token u64: var_count) -> [Op] {
+    OpKindTag::EndBlock var_count cast(OpKindValue) cast(OpKind) token cast(Op)
+}

@@ -129,7 +129,7 @@ impl Op {
         let mut t = frame[index].clone();
         let mut t_offset: usize = frame[0..index]
             .iter()
-            .map(|t| type_map.get(t).unwrap().size(type_map) * type_map.get(t).unwrap().width())
+            .map(|t| type_map.get(t).unwrap().size(&self.token, type_map) * 8)
             .sum();
         for field in inner {
             let (new_t, new_offset) = match type_map.get(&t).unwrap() {
@@ -151,7 +151,7 @@ impl Op {
                             members[idx + 1..]
                                 .iter()
                                 .map(|t| {
-                                    type_map.get(t).unwrap().size(type_map)
+                                    type_map.get(t).unwrap().size(&self.token, type_map)
                                         * type_map.get(t).unwrap().width()
                                 })
                                 .sum::<usize>(),
@@ -184,9 +184,12 @@ impl Op {
                 } => {
                     if idents.contains(&field.clone()) {
                         let idx = idents.iter().position(|s| s == &field.clone()).unwrap();
-                        let delta = type_map.get(&t).unwrap().size(type_map)
+                        let delta = type_map.get(&t).unwrap().size(&self.token, type_map)
                             * type_map.get(&t).unwrap().width()
-                            - type_map.get(&members[idx]).unwrap().size(type_map)
+                            - type_map
+                                .get(&members[idx])
+                                .unwrap()
+                                .size(&self.token, type_map)
                                 * type_map.get(&members[idx]).unwrap().width();
                         (members[idx].clone(), delta)
                     } else {
@@ -430,7 +433,7 @@ impl Op {
                     stack,
                 );
 
-                let n = type_map.get(&typ).unwrap().size(type_map);
+                let n = type_map.get(&typ).unwrap().size(&self.token, type_map);
                 let width = type_map.get(&typ).unwrap().width();
 
                 self.kind = OpKind::Read(Some((n, width)));
@@ -468,7 +471,7 @@ impl Op {
                     stack,
                 );
 
-                let n = type_map.get(&typ).unwrap().size(type_map);
+                let n = type_map.get(&typ).unwrap().size(&self.token, type_map);
                 let width = type_map.get(&typ).unwrap().width();
 
                 self.kind = OpKind::Write(Some((n, width)));
@@ -485,7 +488,10 @@ impl Op {
                     t.name()
                 };
 
-                let size = type_map.get(&typ_after).unwrap().size(type_map)
+                let size = type_map
+                    .get(&typ_after)
+                    .unwrap()
+                    .size(&self.token, type_map)
                     * type_map.get(&typ_after).unwrap().width();
 
                 self.kind = OpKind::PushInt(size as u64);
@@ -533,8 +539,11 @@ impl Op {
                                         },
                                         stack,
                                     );
-                                    let size_delta = type_map.get(&new_typ).unwrap().size(type_map)
-                                        - type_map.get(&typ).unwrap().size(type_map);
+                                    let size_delta = type_map
+                                        .get(&new_typ)
+                                        .unwrap()
+                                        .size(&self.token, type_map)
+                                        - type_map.get(&typ).unwrap().size(&self.token, type_map);
                                     self.kind = OpKind::Pad(size_delta);
                                 } else {
                                     compiler_error(
@@ -682,8 +691,9 @@ impl Op {
                                     stack,
                                 );
 
-                                let size_delta = type_map.get(cast_type).unwrap().size(type_map)
-                                    - type_map.get(&typ).unwrap().size(type_map);
+                                let size_delta =
+                                    type_map.get(cast_type).unwrap().size(&self.token, type_map)
+                                        - type_map.get(&typ).unwrap().size(&self.token, type_map);
                                 self.kind = OpKind::Pad(size_delta);
                             } else {
                                 compiler_error(
@@ -708,10 +718,11 @@ impl Op {
                     Type::Bool => {
                         unimplemented!("{}: Casting to Bool isn't implemented yet.", self.token.loc)
                     }
-                    Type::Placeholder { .. } => unreachable!(
-                        "{}: Casting to placeholder type should be unreachable",
-                        self.token.loc
-                    ),
+                    Type::Placeholder { name } => {
+                        let concrete_t = gen_map.get(&name).unwrap();
+                        self.kind = OpKind::Cast(concrete_t.clone());
+                        self.type_check(stack, frame, fn_table, type_map, gen_map, locals, globals);
+                    }
                     Type::GenericStructInstance { .. } => unreachable!(
                         "{}: Casting to instance of generic struct should be unreachable",
                         self.token.loc
@@ -815,7 +826,7 @@ impl Op {
                 if let Some(typ) = stack.pop() {
                     self.kind = OpKind::MakeIdent {
                         ident: ident.clone(),
-                        size: Some(type_map.get(&typ).unwrap().size(type_map)),
+                        size: Some(type_map.get(&typ).unwrap().size(&self.token, type_map)),
                     };
                     frame.push(typ);
                 } else {
@@ -829,7 +840,7 @@ impl Op {
             }
             OpKind::PushIdent { index, inner } => {
                 let (t, offset) = self.get_type_from_frame(frame, *index, inner, type_map);
-                let size = type_map.get(&t).unwrap().size(type_map);
+                let size = type_map.get(&t).unwrap().size(&self.token, type_map);
                 evaluate_signature(
                     self,
                     &Signature {
@@ -889,8 +900,8 @@ impl Op {
                 let mut frame_width = 0;
                 for _ in 0..*n {
                     let t = frame.pop().unwrap();
-                    frame_width +=
-                        type_map.get(&t).unwrap().size(type_map) * type_map.get(&t).unwrap().width()
+                    frame_width += type_map.get(&t).unwrap().size(&self.token, type_map)
+                        * type_map.get(&t).unwrap().width()
                 }
 
                 self.kind = OpKind::EndBlock(frame_width);
@@ -925,7 +936,7 @@ impl Op {
                 );
                 for _ in 0..*n {
                     let t = stack.pop().unwrap();
-                    if type_map.get(&t).unwrap().size(type_map) != 1 {
+                    if type_map.get(&t).unwrap().size(&self.token, type_map) != 1 {
                         compiler_error(
                             &self.token,
                             "Only u64's can be used in a syscall",

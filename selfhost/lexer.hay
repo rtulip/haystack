@@ -2,230 +2,743 @@ include "std.hay"
 include "file.hay"
 include "stack.hay"
 
-include "selfhost/ir/token.hay"
+include "selfhost/ir/program.hay"
+include "selfhost/ir/tokens/token.hay"
+include "selfhost/ir/tokens/tokenizer.hay"
+include "selfhost/ir/types/type.hay"
+include "selfhost/ir/function.hay"
+include "selfhost/ir/op.hay"
 
-var u8[65536]: filebuff_p
-var Token[2048]: token_buff_p
-var Stack<Token>: tokens_p
-
-fn push_token(Token) {
-    tokens_p @ Stack.push Opt.is_some if {
-        "Tokens Stack overflow!" putlns
-        1 exit
-    }
-    tokens_p !
-}
-
-fn parse_comment(*Loc: loc Str: s) -> [Str] {
-
-    s while as [str] { str
-        "\n" str Str.starts_with lnot 
-        str::size 0 >            land 
-    }
-    {
-        as [str] 
-        str::size 1 - 
-        str::data 1 ptr+
-        cast(Str)
-
-        1 loc loc_bump
-    }
-
-}
-
-fn Str.is_numeric(Str: s) -> [bool] {
-
-    true 0 while dup s::size < {
-        as [cond i]
-        s::data i ptr+ @ cast(u64) as [char]
-        48 char <= char 57 <= land
-        cond land
-        i 1 +  
-    } drop
-}
-
-fn Str.to_u64(Str: s) -> [u64] {
-
-    s Str.is_numeric lnot if {
-        "Cannot convert non numeric string `" puts
-        s puts
-        "` to a u64" putlns
-        1 exit
-    }
-
-    s::size s::data cast(Arr) as [arr]
-
-    0 0 while dup s::size < {
-        as [result idx]
-        result 10 * 
-        idx arr Arr.get cast(u64) 48 - +
-        idx 1 +
-    } drop
-
-}
-
-fn parse_word(*Loc: loc Str: s) -> [Str] {
-    0 s::data cast(Str)
-    s while as [str] { str                       // Break on:
-        " "  str Str.starts_with       lnot      //  * space
-        "\n" str Str.starts_with       lnot land //  * newline
-        str Marker.try_from_str Opt.is_none land //  * marker
-        str::data @ cast(u64) 34 !=         land //  * quote
-        str::size 0 >                       land //  * empty string
-    }
-    {
-        as [word str]
-        word::size 1 + word::data       cast(Str)
-        str::size  1 - str::data 1 ptr+ cast(Str)
-    }
-    as [word str]
-    word Str.is_numeric if {
-        word Str.to_u64 Literal.from_u64 TokenKind.from_literal loc @ cast(Token)
-    } else word Keyword.try_from_str Opt.is_some if {
-        word Keyword.try_from_str Opt.unwrap 
-        TokenKind.from_keyword loc @ cast(Token)
-    } else word Operator.try_from_str Opt.is_some if {
-        word Operator.try_from_str Opt.unwrap
-        TokenKind.from_operator loc @ cast(Token)
-    } else {
-        word TokenKind.from_word loc @ cast(Token)
-    }
-
-    push_token
-    word::size loc loc_bump
-    str
-
-}
-
-fn parse_string_literal(*Loc: loc Str: s) -> [Str] {
+fn peek_token_kind(*Stack<Token>: tokens TokenKind: kind) -> [bool] {
     
-    s::data @ cast(u64) 34 != if {
-        "Parsing string failed. Expected double quote, but found: `" puts 
-        0 1 s Str.substr puts
-        "` instead." putlns
+    tokens Stack.peek Opt.is_some if {
+        tokens Stack.peek Opt.unwrap as [token]
+        token::kind::tag kind::tag == if {
+
+            token::kind::tag TokenKindTag::Keyword == if {
+                token::kind::value::keyword kind::value::keyword ==
+            } else token::kind::tag TokenKindTag::Operator == if {
+                token::kind::value::operator kind::value::operator ==
+            } else token::kind::tag TokenKindTag::Literal == if {
+                token::kind::value::literal::tag kind::value::literal::tag == 
+            } else token::kind::tag TokenKindTag::Marker == if {
+                token::kind::value::marker kind::value::marker == 
+            } else token::kind::tag TokenKindTag::Word == if {
+                true
+            } else token::kind::tag TokenKindTag::EndOfFile == if {
+                true
+            } else {
+                "Unrecognized TokenKindTag" putlns
+                1 exit 
+                false
+            }
+
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+
+}
+
+fn expect_token_kind(Token: token *Stack<Token>: tokens TokenKind: kind) -> [Token] {
+
+    tokens Stack.peek Opt.is_some if {
+
+        tokens kind peek_token_kind if {
+
+            tokens Stack.pop Opt.unwrap
+
+        } else {
+            "Expected " puts kind TokenKind.puts ", but found " puts tokens Stack.pop Opt.unwrap Token.puts " instead." putlns
+            1 exit
+            token 
+        }
+        
+    } else {
+        "Expected " puts kind TokenKind.puts ", but found empty tokens stack instead" putlns
         1 exit
+        token
     }
 
-    1 s::data cast(Str)
-    s::size 1 - s::data 1 ptr+ cast(Str)
-    while as [str] { str
-        str::data @ cast(u64) 34 !=
-        str::size 0 >               land
-    }
-    {
-        as [word str]
-        0 1 str Str.substr as [char]
-        word::size 1 + word::data       cast(Str)
-        str::size  1 - str::data 1 ptr+ cast(Str)
-    }
+    
 
-    as [word str] {
-        str::data @ cast(u64) 34 != if {
-            "Didn't find end of string" putlns
+}
+
+fn expect_word(Token: prev_tok *Stack<Token>: tokens) -> [Token Str] {
+
+    tokens Stack.pop as [maybe_tok]
+    maybe_tok Opt.is_some if {
+
+        maybe_tok Opt.unwrap as [tok]
+        tok Token.word Opt.is_some if {
+
+            tok tok Token.word Opt.unwrap
+
+        } else {
+            tok "" 
+            tok::loc Loc.puts
+            ": Expected a word, but found " puts tok Token.puts " instead." putlns
             1 exit
         }
-        word::size 1 + word::data       cast(Str)
-        str::size  1 - str::data 1 ptr+ cast(Str)
-    }
-    
-    as [word str]
-    word Literal.from_str TokenKind.from_literal loc @ cast(Token)
-    push_token
 
-    0 while dup word::size < {
-        as [i]
-        i 1 word Str.substr "\n" Str.equals if {
-            loc loc_newline
-        } else {
-            1 loc loc_bump
-        }
-        i 1 +
-    } drop
-
-    str
-
-}
-
-fn loc_bump(u64: n *Loc: loc_p) {
-    loc_p @ as [loc]
-    loc::file loc::row loc::col n + cast(Loc)
-    loc_p !
-}
-
-fn loc_newline(*Loc: loc_p) {
-    loc_p @ as [loc]
-    loc::file loc::row 1 + 1 cast(Loc)
-    loc_p !
-}
-
-fn parse_next(*Loc: loc Str: str) -> [Str] {
-    str::size 0 == if {
-        "No token to be found..." putlns
-        str
     } else {
-        " " str Str.starts_with if {
-            1 loc loc_bump
-            1 str::size 1 - str Str.substr
-        } else "\n" str Str.starts_with if {
-            loc loc_newline
-            1 str::size 1 - str Str.substr
-        } else "//" str Str.starts_with if {
-            loc str parse_comment
-        } else str Marker.try_from_str Opt.is_some if {
-            str Marker.try_from_str Opt.unwrap as [marker]
-            marker TokenKind.from_marker loc @ cast(Token) push_token
-            marker Marker.to_str as [marker_str] 
-            marker_str::size loc loc_bump
-            marker_str::size str::size marker_str::size - str Str.substr
-        } else str::data @ cast(u64) 34 == if {
-            loc str parse_string_literal
-        } else {
-            loc str parse_word
-        }
+        prev_tok "" 
+        prev_tok::loc Loc.puts
+        ": Expected a word, but token stack was empty instead." putlns
+        1 exit
     }
-    
-    
+
 }
 
-fn parse_tokens(Str: path Str: input) {
-    var Loc: loc
-    var Str: token
+fn expect_u64(Token: prev_tok *Stack<Token>: tokens) -> [Token u64] {
 
-    "Starting to parse tokens..." putlns
+    tokens Stack.pop as [maybe_tok]
+    maybe_tok Opt.is_some if {
 
-    path 1 1 cast(Loc) loc !
-    0 input::data cast(Str) token !
+        maybe_tok Opt.unwrap as [tok]
+        tok Token.literal Opt.is_some if {
 
-    input while as [str] { str
-        str::size 0 >
+            tok Token.literal Opt.unwrap as [lit]
+            lit Literal.u64 Opt.is_some if {
+
+                tok lit Literal.u64 Opt.unwrap 
+
+            } else {
+                tok 0
+                tok::loc Loc.puts
+                ": Expected a u64 literal, but found " puts tok Token.puts " instead." putlns
+                1 exit
+            }
+
+        } else {
+            tok 0 
+            tok::loc Loc.puts
+            ": Expected a u64 literal, but found " puts tok Token.puts " instead." putlns
+            1 exit
+        }
+
+    } else {
+        prev_tok 0 
+        prev_tok::loc Loc.puts
+        ": Expected a word, but token stack was empty instead." putlns
+        1 exit
+    }    
+
+}
+
+fn parse_maybe_tagged_type(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+) -> [Opt<Token> Opt<Str> Opt<*Type> Opt<u64>] {
+
+    tokens Operator::Mul TokenKind.from_operator peek_token_kind
+    tokens "" TokenKind.from_word peek_token_kind lor if {
+
+        start_tok tokens types parse_type as [typ_tok typ dimension] 
+        tokens Marker::Colon TokenKind.from_marker peek_token_kind if {
+            typ_tok tokens Marker::Colon TokenKind.from_marker expect_token_kind
+            tokens expect_word as [tok ident]
+
+            tok   Opt.Some
+            ident Opt.Some 
+            typ   Opt.Some 
+            dimension
+        } else {
+            typ_tok Opt.Some
+                    Opt.None::<Str>
+            typ     Opt.Some
+            dimension
+        }
+
+    } else {
+        Opt.None::<Token> Opt.None::<Str> Opt.None::<*Type> Opt.None::<u64>
+    }
+
+}
+
+fn parse_maybe_tagged_type_list(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+) -> [*Stack<*Type> *Stack<Opt<Str>>] {
+
+    Stack.new::<*Type> Stack.new::<Opt<Str>> as [inputs idents]
+    start_tok while tokens types parse_maybe_tagged_type as [maybe_tok maybe_ident maybe_typ dimension]
+    { maybe_tok maybe_ident maybe_typ dimension
+        maybe_tok Opt.is_some
+        maybe_typ Opt.is_some land
     }
     {
-        as [str]
-        loc str parse_next
-    } drop
+        as [maybe_tok maybe_ident maybe_typ dimension]
+        
+        maybe_tok Opt.unwrap maybe_typ Opt.unwrap as [tok typ]
 
-    TokenKind.from_eof loc @ cast(Token) push_token
+        dimension Opt.is_some if {
+            tok::loc Loc.puts
+            ": Cannot have array types in type list" putlns
+            1 exit
+        }
+
+        typ         inputs Stack.push
+        maybe_ident idents Stack.push
+        
+        tok
+    } drop drop drop drop
+
+    inputs idents
 
 }
 
-fn main()
+fn parse_untagged_type_list(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+) -> [*Stack<*Type>] {
+
+    Stack.new::<*Type> as [typs]
+    start_tok while tokens types parse_untagged_type as [maybe_tok maybe_typ dimension]
+    { maybe_tok maybe_typ dimension
+        maybe_tok Opt.is_some
+        maybe_typ Opt.is_some land
+    }
+    {
+        as [maybe_tok maybe_typ dimension]
+        maybe_tok Opt.unwrap maybe_typ Opt.unwrap as [tok typ]
+
+        typ typs Stack.push
+
+        tok
+
+    } drop drop drop
+
+    typs
+
+}
+
+fn parse_signature(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+) -> [Token Signature *Stack<Opt<Str>>]
 {
-    var Loc: loc
 
-    token_buff_p @ Stack.init tokens_p !
+    start_tok tokens Marker::OpenParen TokenKind.from_marker expect_token_kind as [inputs_start_tok]
+    inputs_start_tok tokens types parse_maybe_tagged_type_list as [inputs idents]
+    inputs_start_tok tokens Marker::CloseParen TokenKind.from_marker expect_token_kind as [inputs_close_tok]
 
-    "./selfhost/lexer.hay" as [path] 
-
-    path 1 1 cast(Loc) loc !
-
-    path filebuff_p @ File.read_path_to_str as [file_str]
-    file_str putlns
-    path file_str parse_tokens
-
-    while tokens_p @ Stack.pop dup Opt.is_some {
-        Opt.unwrap Token.puts "\n" puts
-        tokens_p !
-    } drop
-    tokens_p !
+    tokens Marker::Arrow TokenKind.from_marker peek_token_kind lnot if {
     
+        inputs_close_tok inputs Stack.new::<*Type> cast(Signature) idents
+    
+    }  else {
+        inputs_close_tok tokens Marker::Arrow TokenKind.from_marker expect_token_kind as [arrow_tok]
+        arrow_tok tokens Marker::OpenBracket TokenKind.from_marker expect_token_kind as [output_start_tok]
+        output_start_tok tokens types parse_untagged_type_list as [outputs]
+        output_start_tok tokens Marker::CloseBracket TokenKind.from_marker expect_token_kind as [output_close_tok]
+    
+        output_close_tok inputs outputs cast(Signature) idents    
+    }
+
+}
+
+fn parse_partial_type(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+) -> [Token *Type] {
+
+    tokens Operator::Mul TokenKind.from_operator peek_token_kind if {
+
+        start_tok tokens Operator::Mul TokenKind.from_operator expect_token_kind
+        tokens types parse_partial_type as [typ_tok ptr_typ]
+
+        ptr_typ Type.Pointer as [ptr] // leaked
+        ptr Type.name as [ptr_name] // leaked
+
+        ptr_name types Map.contains lnot if {
+            ptr_name ptr types Map.insert drop
+            ptr
+        } else {
+            ptr_name types Map.get Opt.unwrap
+        }
+
+        as [typ]
+        
+        typ_tok typ
+
+    } else {
+
+        start_tok tokens expect_word as [tok typ_name]
+        typ_name types Map.get as [maybe_typ]
+
+        maybe_typ Opt.is_some if {
+            maybe_typ Opt.unwrap
+        } else {
+
+            typ_name Type.Placeholder as [t]
+            typ_name t types Map.insert Opt.is_none lnot if {
+                "This should be unreachable..." putlns
+                1 exit
+            }
+
+            t
+        } as [typ]
+
+        tok typ
+    }
+
+}
+
+fn parse_cast(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+) -> [Op] {
+
+    start_tok tokens Marker::OpenParen TokenKind.from_marker expect_token_kind 
+    tokens types parse_partial_type as [typ_tok typ]
+    typ_tok tokens types parse_annotation_list as [ann_tok annotations]
+    ann_tok tokens Marker::CloseParen TokenKind.from_marker expect_token_kind drop
+
+    annotations Opt.is_some if {
+        start_tok Op.Return
+        
+        "Assigning parsed annotations isn't implemented yet..." putlns
+        1 exit
+    } else {
+
+        start_tok typ Op.Cast
+    }
+
+}
+
+fn parse_size_of(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+) -> [Op] {
+
+    start_tok tokens Marker::OpenParen TokenKind.from_marker expect_token_kind
+    tokens types parse_type as [tok typ dimension]
+
+    dimension Opt.is_some if {
+        tok::loc Loc.puts
+        ": Cannot have array values in sizeOf operator" putlns
+        1 exit
+    }
+
+    tok tokens Marker::CloseParen TokenKind.from_marker expect_token_kind drop
+    tok typ Op.SizeOf
+
+}
+
+fn make_ident_count(*Stack<Op>: ops_p u64: start_ip) -> [u64] {
+
+    ops_p @ as [ops]
+
+    0 start_ip while dup ops::len < {
+
+        as [var_count ip]
+
+        ip ops::slice Arr.get as [op]
+        op::kind::tag OpKindTag::MakeIdent == if {
+            var_count 1 + 
+        } else op::kind::tag OpKindTag::EndBlock == if {
+            var_count op::kind::value::EndBlock -
+        } else {
+            var_count
+        }
+
+        ip 1 +  
+
+    } drop
+
+
+}
+
+fn parse_while_block(
+    Token: token
+    *Stack<Token>: tokens
+    *Stack<Op>: ops
+    *Map<*Type>: types
+    // TODO: init_data
+){
+
+    token Keyword::While Op.Nop ops Stack.push
+    ops @ as [ops_] { ops_::len } as [loop_dest]
+
+    Stack.new::<TokenKind> as [break_on] {
+        Marker::OpenBrace TokenKind.from_marker break_on Stack.push
+        token tokens ops types break_on parse_tokens_until_tokenkind 
+        break_on Stack.destroy
+    } as [open_tok]
+    
+    ops @ as [ops_] { ops_::len } as [cond_jump_loc]
+    open_tok Op.JumpCondNone ops Stack.push
+    open_tok Op.StartBlock ops Stack.push
+
+    Stack.new::<TokenKind> as [break_on] {
+        Marker::CloseBrace TokenKind.from_marker break_on Stack.push
+        token tokens ops types break_on parse_tokens_until_tokenkind 
+        break_on Stack.destroy
+    } as [close_tok]
+
+    ops cond_jump_loc 1 + make_ident_count as [var_count]
+    close_tok var_count Op.EndBlock ops Stack.push
+    close_tok loop_dest Op.JumpSome ops Stack.push
+    ops @ as [ops_] { ops_::len } as [end_loc]
+    close_tok end_loc Op.JumpDest ops Stack.push
+    
+    ops @ as [ops_] { 
+        cond_jump_loc ops_::slice Arr.get as [op]
+        op::token end_loc Op.JumpCondSome 
+
+        cond_jump_loc ops_::slice Arr.set
+    }
+
+}
+
+fn parse_tokens_until_tokenkind(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Stack<Op>: ops
+    *Map<*Type>: types
+    // TODO: init data
+    // TODO: locals
+    *Stack<TokenKind>: break_on
+) -> [Token] {
+
+    var Opt<*Stack<*Type>>: annotations
+
+    false tokens Stack.pop while as [brk maybe_tok] { brk maybe_tok
+        maybe_tok Opt.is_some brk lnot land
+    }
+    {
+
+        as [brk maybe_tok]
+        maybe_tok Opt.unwrap as [tok]
+
+        break_on @ as [to_break]
+        false 0 while dup to_break::slice::size < {
+            as [match i]
+            i to_break::slice Arr.get as [brk_kind]
+            brk_kind tok::kind TokenKind.equals match lor
+            i 1 +
+        } drop as [break]
+
+        break lnot if {
+
+            "  Parsing Token: " puts tok Token.puts "\n" puts
+
+            tok Token.keyword Opt.is_some if {
+                tok Token.keyword Opt.unwrap as [kw]
+
+                kw Keyword::Cast == if {
+                    tok tokens types parse_cast ops Stack.push
+                } else kw Keyword::SizeOf == if {
+                    tok tokens types parse_size_of ops Stack.push
+                } else kw Keyword::While == if {
+                    tok tokens ops types parse_while_block
+                } else {
+                    "  Parsing " puts kw Keyword.puts " isn't implemented yet" putlns
+                    1 exit
+                }
+
+                
+            } else tok Token.word Opt.is_some if {
+                
+                Stack.new::<Str> as [inner]
+
+                tok Token.word Opt.unwrap as [word]
+
+                while tokens Marker::DoubleColon TokenKind.from_marker peek_token_kind  {
+                    "Parsing fields isn't implemented yet" putlns 
+                    1 exit
+                } 
+                
+                annotations @ Opt.is_some if {
+                    "  Parsing annotated function calls isn't implemented yet" putlns
+                    1 exit
+                } else {
+                    
+                    tok word inner Op.Ident ops Stack.push
+
+                }
+
+            } else tok Token.operator Opt.is_some if {
+                
+                tok Op.from_oper_tok ops Stack.push
+
+            } else tok Token.literal Opt.is_some if {
+                
+                tok Token.literal Opt.unwrap as [lit]
+                lit::tag LiteralTag::Str == if {
+                    "Parsing string literal isn't implemented yet" putlns
+                    1 exit 
+                } else {
+                    tok Op.from_literal_tok ops Stack.push
+                }
+
+            } else {
+                "  " puts tok::loc Loc.puts
+                ": Parsing " puts
+                tok::kind TokenKind.puts
+                " isn't implemented yet" putlns
+                1 exit
+            }
+
+            false tokens Stack.pop
+
+        } else {
+            "  Breaking..." putlns
+            break maybe_tok
+        }
+    } as [_ tok]
+
+    tok Opt.unwrap
+
+}
+
+fn parse_function(
+    Token: start_tok 
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+    // TODO: init data
+) -> [*Function] {
+
+    start_tok tokens expect_word as [name_tok name]
+
+    "Parsing function: " puts name putlns
+
+    name_tok tokens types parse_annotation_list as [ann_tok generics]
+    ann_tok tokens types parse_signature as [sig_tok sig idents]
+
+    sig::inputs @ as [inputs] {
+        0 while dup inputs::len < {
+            as [i]
+
+            i inputs::slice Arr.get as [typ_p]
+            typ_p @ as [typ] 
+            typ::tag TypeKind::Placeholder == if {
+
+                generics Opt.is_some if {
+                    generics Opt.unwrap @ as [gen]
+                    false 0 while dup gen::len < {
+                        as [j]
+
+                        j gen::slice Arr.get cast(u64) typ_p cast(u64) == lor
+                        j 1 +
+                    } drop
+
+                    lnot if {
+                        sig_tok::loc Loc.puts
+                        "Unrecognized type: `" puts 
+                        typ_p Type.name as [typ_name] // NOTE: typ_name is leaked
+                        typ_name puts 
+                        "`" putlns
+                        "    * Consider adding `" puts typ_name puts "` to the generic list" putlns
+                        1 exit
+                    }
+
+                } else {
+                    name_tok::loc Loc.puts
+                    "Unrecognized type `" puts
+                    typ_p Type.name as [typ_name] // NOTE: typ_name is leaked
+                    "`" putlns
+                    "    * Consider adding generics list" putlns
+                    1 exit 
+                }
+            }         
+
+            i 1 +    
+        } drop
+    }
+    
+    sig_tok tokens Marker::OpenBrace TokenKind.from_marker expect_token_kind as [body_start_tok]
+    Stack.new::<Op> as [ops]
+
+    name_tok Op.PrepareFunc ops Stack.push
+
+    Stack.new::<TokenKind> as [break_on]
+    Marker::CloseBrace TokenKind.from_marker break_on Stack.push
+    sig_tok tokens ops types break_on parse_tokens_until_tokenkind as [end_tok]
+    break_on Stack.destroy
+
+    end_tok Op.Return ops Stack.push
+
+    name start_tok Function.new as [func]
+    name start_tok sig ops cast(Function) func !
+    func
+
+}
+
+fn parse_type(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+) -> [Token *Type Opt<u64>] {
+
+    tokens Operator::Mul TokenKind.from_operator peek_token_kind if {
+
+        start_tok tokens Operator::Mul TokenKind.from_operator expect_token_kind as [tok] {
+            tok tokens types parse_type 
+        } as [tok inner dimension]
+
+        dimension Opt.is_some if {
+            start_tok::loc Loc.puts
+            ": Pointers cannot have an array dimension" putlns
+            1 exit
+        }
+
+        inner Type.Pointer as [typ]
+        typ Type.name as [name]
+
+        name types Map.contains lnot if {
+            typ Type.name typ types Map.insert drop
+        }
+
+        tok typ dimension
+
+    } else {
+
+        start_tok tokens expect_word as [name_tok name]
+        name_tok tokens types parse_annotation_list as [tok annotations]
+
+        name types Map.get as [maybe_typ]
+
+        maybe_typ Opt.is_some if {
+
+            maybe_typ Opt.unwrap as [typ_p]
+            typ_p @ as [typ]
+            typ::tag TypeKind::GenericStructBase == if {
+                typ_p
+                "Parsing Generic Structs isn't implemented yet..." putlns
+                1 exit 
+            } else typ::tag TypeKind::GenericUnionBase == if {
+                typ_p
+                "Parsing Generic Unions isn't implemented yet..." putlns
+                1 exit 
+            } else {
+                typ_p
+            }
+
+        } else {
+            
+            name Type.Placeholder as [typ]
+            typ Type.name typ types Map.insert drop
+            typ
+
+        } as [typ]
+
+        tokens Marker::OpenBracket TokenKind.from_marker peek_token_kind if {
+
+            tok tokens Marker::OpenBracket TokenKind.from_marker expect_token_kind as [open_tok]
+            open_tok tokens expect_u64 as [size_tok size]
+            size_tok tokens Marker::CloseBracket TokenKind.from_marker expect_token_kind as [close_tok]
+            close_tok typ size Opt.Some 
+
+        } else {
+            tok typ Opt.None::<u64> 
+        }
+
+    }
+
+}
+
+fn parse_untagged_type(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+) -> [Opt<Token> Opt<*Type> Opt<u64>] {
+
+    tokens Operator::Mul TokenKind.from_operator peek_token_kind
+    tokens "" TokenKind.from_word peek_token_kind lor if {
+        start_tok tokens types parse_type as [tok name dimension]
+        tok Opt.Some name Opt.Some dimension
+    } else {
+        Opt.None::<Token> Opt.None::<*Type> Opt.None::<u64>
+    }
+}
+
+fn parse_annotation_list(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+) -> [Token Opt<*Stack<*Type>>] {
+
+    tokens Operator::LessThan TokenKind.from_operator peek_token_kind if {
+        start_tok tokens Operator::LessThan TokenKind.from_operator expect_token_kind as [open_tok]
+        Stack.new::<*Type> as [annotations]
+        
+        open_tok while tokens types parse_untagged_type
+            as [maybe_tok maybe_typ dimension] { maybe_tok maybe_typ dimension
+            maybe_tok Opt.is_some
+            maybe_typ Opt.is_some land
+        }
+        {
+            as [maybe_tok maybe_typ dimension]
+            maybe_tok Opt.unwrap maybe_typ Opt.unwrap as [tok typ]
+            dimension Opt.is_some if {
+                tok::loc Loc.puts
+                ": Cannot hav earray values in annotatoins list." putlns
+                1 exit
+            }
+
+            typ annotations Stack.push
+            tok
+        } drop drop drop
+
+        start_tok tokens Operator::GreaterThan TokenKind.from_operator expect_token_kind as [close_tok]
+        annotations Stack.is_empty if {
+            close_tok::loc Loc.puts
+            ": Type annotations cannot be empty" putlns
+            "    * Consider removing the annotation list." putlns
+            1 exit
+        }
+        
+        close_tok annotations Opt.Some
+
+    } else {
+        start_tok Opt.None::<*Stack<*Type>>
+    }
+
+}
+
+fn hay_into_ir(Str: path *Program: program_p *Stack<Str>: included_files) {
+
+    program_p @ as [program]
+    path File.str_from_path as [file_str]
+    Stack.new::<Token> as [tokens]
+
+    path file_str tokens parse_tokens tokens Stack.rev
+    
+    while tokens Stack.pop Opt.unwrap as [token] { token
+        token::kind::tag TokenKindTag::EndOfFile == lnot
+    }
+    {
+        as [token]
+        token Token.puts "\n" puts
+        token Token.keyword Opt.is_some if {
+            
+            token Token.keyword Opt.unwrap as [kw]
+
+            kw Keyword::Function == if {
+                token tokens program::types parse_function program::functions Stack.push
+            } else {
+                "Lexing keyword `" puts kw Keyword.puts "` isn't implemented yet" putlns
+                1 exit  
+            }
+
+        } else {
+            "Lexing TokenKind `" puts token::kind TokenKind.puts "` isn't implemented yet." putlns
+            1 exit 
+        }
+
+    } drop
+    
+    "converting .hay files into intermediate representation isn't finished yet..." putlns
+    1 exit 
 }

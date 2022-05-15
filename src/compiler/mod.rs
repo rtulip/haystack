@@ -16,17 +16,16 @@ pub fn compile_haystack(input_path: String, run: bool, ir: bool, simple: bool) -
     let mut included_files: HashSet<String> = HashSet::new();
     lex::hay_into_ir("src/libs/prelude.hay", &mut program, &mut included_files);
     lex::hay_into_ir(&input_path, &mut program, &mut included_files);
-
     program.check_for_entry_point();
     program.check_for_name_conflicts();
     program.assign_words();
+    program.type_check();
     if ir {
         program_to_json(&ir_path, &program);
     }
     if simple {
         simplify_ir(&program, &path.with_extension("simple"));
     }
-    program.type_check();
     program.normalize_function_names();
     program.normalize_global_names();
     x86_64::compile_program(&program, &path.with_extension("asm").to_str().unwrap());

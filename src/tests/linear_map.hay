@@ -1,16 +1,8 @@
 include "linear_map.hay"
 
 fn main() {
-    var Str[10]: keys_data
-    var u64[10]: values_data
-    var Stack<Str>: keys 
-    var Stack<u64>: values
     var Map<u64>: map_p
-
-    keys_data @ keys Stack.init
-    values_data @ values Stack.init
-
-    keys values map_p Map.init
+    map_p Map.init
 
     "one" 0 map_p Map.insert drop
     "two" 2 map_p Map.insert drop
@@ -35,6 +27,5 @@ fn main() {
         1 exit 
     }
 
-
-
+    map_p Map.destroy
 }

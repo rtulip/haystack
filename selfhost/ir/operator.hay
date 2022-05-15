@@ -53,33 +53,67 @@ fn Operator.fputs(Operator: op u64: fd) {
 fn Operator.puts(Operator) { 1 Operator.fputs }
 
 fn Operator.try_from_str(Str: maybe_op) -> [Opt<Operator>] {
-    "+" maybe_op Str.equals if {
+    "+" maybe_op Str.starts_with if {
         Operator::Add Opt.Some
-    } else "-" maybe_op Str.equals if {
+    } else "-" maybe_op Str.starts_with if {
         Operator::Sub Opt.Some
-    } else "*" maybe_op Str.equals if {
+    } else "*" maybe_op Str.starts_with if {
         Operator::Mul Opt.Some
-    } else "/" maybe_op Str.equals if {
+    } else "/" maybe_op Str.starts_with if {
         Operator::Div Opt.Some 
-    } else "<" maybe_op Str.equals if {
+    } else "<" maybe_op Str.starts_with if {
         Operator::LessThan Opt.Some
-    } else "<=" maybe_op Str.equals if {
+    } else "<=" maybe_op Str.starts_with if {
         Operator::LessEqual Opt.Some
-    } else ">" maybe_op Str.equals if {
+    } else ">" maybe_op Str.starts_with if {
         Operator::GreaterThan Opt.Some
-    } else ">=" maybe_op Str.equals if {
+    } else ">=" maybe_op Str.starts_with if {
         Operator::GreaterEqual Opt.Some 
-    } else "==" maybe_op Str.equals if {
+    } else "==" maybe_op Str.starts_with if {
         Operator::Equals Opt.Some
-    } else "!=" maybe_op Str.equals if {
+    } else "!=" maybe_op Str.starts_with if {
         Operator::NotEquals Opt.Some 
-    } else "%" maybe_op Str.equals if {
+    } else "%" maybe_op Str.starts_with if {
         Operator::Mod Opt.Some 
-    } else "@" maybe_op Str.equals if {
+    } else "@" maybe_op Str.starts_with if {
         Operator::Read Opt.Some 
-    } else "!" maybe_op Str.equals if {
+    } else "!" maybe_op Str.starts_with if {
         Operator::Write Opt.Some
     } else {
         Opt.None::<Operator>
     }
 }
+
+fn Operator.to_str(Operator: oper) -> [Str] {
+    oper Operator::Add == if {
+        "+"
+    } else oper Operator::Sub == if {
+        "-"
+    } else oper Operator::Mul == if {
+        "*"
+    } else oper Operator::Div == if {
+        "/"
+    } else oper Operator::LessThan == if {
+        "<"
+    } else oper Operator::LessEqual == if {
+        "<="
+    } else oper Operator::GreaterThan == if {
+        ">"
+    } else oper Operator::GreaterEqual == if {
+        ">="
+    } else oper Operator::Equals == if {
+        "=="
+    } else oper Operator::NotEquals == if {
+        "!="
+    } else oper Operator::Mod == if {
+        "%"
+    } else oper Operator::Read == if {
+        "@"
+    } else oper Operator::Write == if {
+        "!"
+    } else {
+        "Unrecognized Operator type" putlns
+        1 exit
+        "error"
+    }
+} 

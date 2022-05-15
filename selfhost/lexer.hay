@@ -454,7 +454,7 @@ fn parse_tokens_until_tokenkind(
 
                 tok Token.word Opt.unwrap as [word]
 
-                while tokens Marker::DoubleColon TokenKind.from_marker peek_token_kind {
+                while tokens Marker::DoubleColon TokenKind.from_marker peek_token_kind  {
                     "Parsing fields isn't implemented yet" putlns 
                     1 exit
                 } 

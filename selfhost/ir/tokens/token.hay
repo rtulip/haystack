@@ -185,3 +185,11 @@ fn Token.operator(Token: token) -> [Opt<Operator>] {
         Opt.None::<Operator>
     } 
 }
+
+fn Token.Literal(Token: token) -> [Opt<Literal>] {
+    token TokenKindTag::Literal Token.is_kind if {
+        token::kind::value::literal Opt.Some
+    } else {
+        Opt.None::<Literal>
+    }
+}

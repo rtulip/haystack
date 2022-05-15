@@ -119,7 +119,9 @@ fn parse_string_literal(*Loc: loc Str: s *Stack<Token>: tokens) -> [Str] {
     }
     
     as [word str]
-    word Literal.from_str TokenKind.from_literal loc @ cast(Token)
+
+    word::size 2 - word::data 1 ptr+ cast(Str)
+    Literal.from_str TokenKind.from_literal loc @ cast(Token)
     tokens Stack.push
 
     0 while dup word::size < {

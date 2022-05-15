@@ -1404,8 +1404,8 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
                         .unwrap(),
                 );
                 if !included_files.contains(&path) {
+                    included_files.insert(path.clone());
                     hay_into_ir(&path, program, included_files);
-                    included_files.insert(path);
                 }
             }
             Some(Token {

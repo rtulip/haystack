@@ -66,6 +66,32 @@ fn expect_token_kind(Token: token *Stack<Token>: tokens TokenKind: kind) -> [Tok
 
 }
 
+fn expect_literal(Token: prev_tok *Stack<Token>: tokens) -> [Token Literal] {
+
+    tokens Stack.pop as [maybe_tok]
+    maybe_tok Opt.is_some if {
+
+        maybe_tok Opt.unwrap as [tok]
+        tok Token.Literal Opt.is_some if {
+
+            tok tok Token.Literal Opt.unwrap
+
+        } else {
+            tok 0 Literal.from_u64 
+            tok::loc Loc.puts
+            ": Expected a Literal, but found " puts tok Token.puts " instead." putlns
+            1 exit
+        }
+
+    } else {
+        prev_tok 0 Literal.from_u64
+        prev_tok::loc Loc.puts
+        ": Expected a Literal, but token stack was empty instead." putlns
+        1 exit
+    }
+
+}
+
 fn expect_word(Token: prev_tok *Stack<Token>: tokens) -> [Token Str] {
 
     tokens Stack.pop as [maybe_tok]
@@ -631,6 +657,7 @@ fn parse_tokens_until_tokenkind(
 
             "  Parsing Token: " puts tok Token.puts "\n" puts
 
+            // Check for keywords
             tok Token.keyword Opt.is_some if {
                 tok Token.keyword Opt.unwrap as [kw]
 
@@ -644,6 +671,9 @@ fn parse_tokens_until_tokenkind(
                     tok tokens ops types parse_as
                 } else kw Keyword::If == if {
                     tok tokens ops types parse_if_block drop
+                } else kw Keyword::Include == if {
+                    "Include keyword cannot be converted into ops" putlns
+                    1 exit  
                 } else {
                     "  Parsing " puts kw Keyword.puts " isn't implemented yet" putlns
                     1 exit
@@ -923,7 +953,7 @@ fn parse_annotation_list(
 
 }
 
-fn hay_into_ir(Str: path *Program: program_p *Stack<Str>: included_files) {
+fn hay_into_ir(Str: path *Program: program_p *Map<Str>: included_files) {
 
     program_p @ as [program]
     path File.str_from_path as [file_str]
@@ -943,6 +973,41 @@ fn hay_into_ir(Str: path *Program: program_p *Stack<Str>: included_files) {
 
             kw Keyword::Function == if {
                 token tokens program::types parse_function program::functions Stack.push
+            } else kw Keyword::Include == if {
+                token tokens expect_literal Literal.Str as [path_tok maybe_include_path]
+                maybe_include_path Opt.is_none if {
+                    path_tok::loc Loc.puts
+                    ": Expected a string literal as include path" putlns
+                    1 exit 
+                }
+
+
+                maybe_include_path Opt.unwrap "./src/libs/" as [base_include_path libs_path]
+                base_include_path::size libs_path::size + 1 + malloc::<u8> as [buffer]
+
+                libs_path split buffer::data memcpy
+                base_include_path split buffer::data libs_path::size ptr+ memcpy
+                
+                buffer split cast(Str) as [libs_include_path]
+
+                base_include_path File.exists if {
+                    base_include_path
+                } else libs_include_path File.exists if {
+                    libs_include_path
+                } else {
+                    "error_path"
+                    token::loc Loc.puts
+                    ": Cannot find file: " puts base_include_path putlns
+                    1 exit                    
+                } as [include_path]
+
+                include_path included_files Map.contains lnot if {
+                    include_path include_path included_files Map.insert drop
+                    include_path program_p included_files hay_into_ir
+                }
+
+                "Lexing include is in progress..." putlns
+                1 exit
             } else {
                 "Lexing keyword `" puts kw Keyword.puts "` isn't implemented yet" putlns
                 1 exit  
@@ -955,6 +1020,4 @@ fn hay_into_ir(Str: path *Program: program_p *Stack<Str>: included_files) {
 
     } drop
     
-    "converting .hay files into intermediate representation isn't finished yet..." putlns
-    1 exit 
 }

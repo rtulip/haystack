@@ -108,5 +108,5 @@ fn Map.reverse_lookup<T>(*T: value_p *Map<T>: map_p) -> [Str] {
 fn Map.len<T>(*Map<T>: map_p) -> [u64] {
     map_p @ as [map]
     map::keys @ as [keys]
-    keys::slice::size
+    keys::len
 }

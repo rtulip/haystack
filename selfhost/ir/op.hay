@@ -229,3 +229,7 @@ fn Op.Syscall(Token: token u64: n) -> [Op] {
 fn Op.PushString(Token: token Str: str) -> [Op] {
     OpKindTag::PushString str cast(OpKindValue) cast(OpKind) token cast(Op)
 }
+
+fn Op.Split(Token: token) -> [Op] {
+    OpKindTag::Split 0 cast(OpKindValue) cast(OpKind) token cast(Op)
+}

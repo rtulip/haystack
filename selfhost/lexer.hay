@@ -854,6 +854,8 @@ fn parse_tokens_until_tokenkind(
                 } else kw Keyword::Struct == if {
                     "Struct keyword cannot be converted into ops" putlns
                     1 exit
+                } else kw Keyword::Split == if {
+                    tok Op.Split ops Stack.push
                 } else {
                     "  Parsing " puts kw Keyword.puts " isn't implemented yet" putlns
                     1 exit
@@ -914,7 +916,7 @@ fn parse_tokens_until_tokenkind(
                     len_str split ident_str::data ident_prefix::size ptr+ memcpy 
                     u64_buffer free
 
-                    ident_str 
+                    ident_str
                     lit Literal.Str Opt.unwrap escape_string InitData.String 
                     init_data Map.insert Opt.is_some if {
                         "Somehow created a duplicate string identifier" putlns

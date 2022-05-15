@@ -67,6 +67,7 @@ fn parse_word(*Loc: loc Str: s *Stack<Token>: tokens) -> [Str] {
         word::size 1 + word::data       cast(Str)
         str::size  1 - str::data 1 ptr+ cast(Str)
     }
+    
     as [word str]
     word Str.is_numeric if {
         word Str.to_u64 Literal.from_u64 TokenKind.from_literal loc @ cast(Token)

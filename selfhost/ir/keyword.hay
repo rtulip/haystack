@@ -85,6 +85,8 @@ fn Keyword.try_from_str(Str: maybe_keyword) -> [Opt<Keyword>] {
         Keyword::Include Opt.Some
     } else "sizeOf" maybe_keyword Str.equals if {
         Keyword::SizeOf Opt.Some 
+    } else "cast" maybe_keyword Str.equals if {
+        Keyword::Cast Opt.Some
     } else {
         Opt.None::<Keyword>
     }

@@ -624,6 +624,22 @@ fn parse_if_block(
 
 }
 
+fn parse_syscall(Token: start_tok *Stack<Token>: tokens) -> [Op] {
+    start_tok tokens Marker::OpenParen TokenKind.from_marker expect_token_kind
+    tokens expect_u64 as [tok n]
+
+    n 6 > if {
+        tok::loc Loc.puts
+        ": Syscall's can only accept up to 6 arguments" putlns
+        1 exit
+    }
+
+    tok tokens Marker::CloseParen TokenKind.from_marker expect_token_kind drop
+
+    tok n Op.Syscall
+
+}
+
 fn parse_tokens_until_tokenkind(
     Token: start_tok
     *Stack<Token>: tokens
@@ -674,6 +690,8 @@ fn parse_tokens_until_tokenkind(
                 } else kw Keyword::Include == if {
                     "Include keyword cannot be converted into ops" putlns
                     1 exit  
+                } else kw Keyword::Syscall == if {
+                    tok tokens parse_syscall ops Stack.push
                 } else {
                     "  Parsing " puts kw Keyword.puts " isn't implemented yet" putlns
                     1 exit
@@ -1006,8 +1024,6 @@ fn hay_into_ir(Str: path *Program: program_p *Map<Str>: included_files) {
                     include_path program_p included_files hay_into_ir
                 }
 
-                "Lexing include is in progress..." putlns
-                1 exit
             } else {
                 "Lexing keyword `" puts kw Keyword.puts "` isn't implemented yet" putlns
                 1 exit  

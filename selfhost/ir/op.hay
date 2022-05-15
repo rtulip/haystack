@@ -221,3 +221,7 @@ fn Op.EndBlock(Token: token u64: var_count) -> [Op] {
 fn Op.MakeIdent(Token: token Str: ident Opt<u64>: size) -> [Op] {
     OpKindTag::MakeIdent ident size cast(MakeIdentVariant) cast(OpKindValue) cast(OpKind) token cast(Op)
 }
+
+fn Op.Syscall(Token: token u64: n) -> [Op] {
+    OpKindTag::Syscall n cast(OpKindValue) cast(OpKind) token cast(Op)
+}

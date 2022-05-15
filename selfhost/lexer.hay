@@ -412,11 +412,14 @@ fn parse_tokens_until_tokenkind(
 ) -> [Token] {
 
     var Opt<*Stack<*Type>>: annotations
+    Opt.None::<*Stack<*Type>> annotations !
 
     false tokens Stack.pop while as [brk maybe_tok] { brk maybe_tok
         maybe_tok Opt.is_some brk lnot land
     }
     {
+
+        
 
         as [brk maybe_tok]
         maybe_tok Opt.unwrap as [tok]
@@ -454,10 +457,25 @@ fn parse_tokens_until_tokenkind(
 
                 tok Token.word Opt.unwrap as [word]
 
-                while tokens Marker::DoubleColon TokenKind.from_marker peek_token_kind  {
-                    "Parsing fields isn't implemented yet" putlns 
-                    1 exit
-                } 
+                tok while tokens Marker::DoubleColon TokenKind.from_marker peek_token_kind  {
+                    as [tmp_tok]
+                    tmp_tok tokens Marker::DoubleColon TokenKind.from_marker expect_token_kind as [marker_tok]
+                    tokens Operator::LessThan TokenKind.from_operator peek_token_kind if {
+
+                        marker_tok tokens types parse_annotation_list as [_ ann]
+                        ann annotations !
+                        inner Stack.is_empty lnot if {
+                            "Cannot have both ann and inner types" putlns
+                            1 exit 
+                        }
+                        marker_tok
+                    } else {
+                        marker_tok tokens expect_word as [inner_tok field]
+                        inner_tok
+                        field inner Stack.push
+                    }
+
+                } drop
                 
                 annotations @ Opt.is_some if {
                     "  Parsing annotated function calls isn't implemented yet" putlns
@@ -493,7 +511,6 @@ fn parse_tokens_until_tokenkind(
             false tokens Stack.pop
 
         } else {
-            "  Breaking..." putlns
             break maybe_tok
         }
     } as [_ tok]

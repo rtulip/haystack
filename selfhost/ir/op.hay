@@ -225,3 +225,7 @@ fn Op.MakeIdent(Token: token Str: ident Opt<u64>: size) -> [Op] {
 fn Op.Syscall(Token: token u64: n) -> [Op] {
     OpKindTag::Syscall n cast(OpKindValue) cast(OpKind) token cast(Op)
 }
+
+fn Op.PushString(Token: token Str: str) -> [Op] {
+    OpKindTag::PushString str cast(OpKindValue) cast(OpKind) token cast(Op)
+}

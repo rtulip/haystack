@@ -9,6 +9,46 @@ include "selfhost/ir/types/type.hay"
 include "selfhost/ir/function.hay"
 include "selfhost/ir/op.hay"
 
+fn escape_string(Str: unescaped_str) -> [Str] {
+    unescaped_str split cast(Arr) as [unescaped]
+    Stack.new::<u8> as [escaped]
+
+    0 while dup unescaped::size < {
+        as [i]
+        
+        i unescaped Arr.get cast(u64) as [c]
+        
+        92 c == if { // check for `\`
+
+            i 1 + unescaped::size < if {
+                i 1 + unescaped Arr.get cast(u64) as [char]
+            
+                110 char == if { // \n
+                    10 cast(u8) escaped Stack.push
+                } else 48 char == if {
+                    0 cast(u8) escaped Stack.push
+                } else {
+                    "Unsupported escaped character: `" puts 2 unescaped::data i ptr+ cast(Str) putlns
+                    1 exit 
+                }
+                i 2 +
+            } else {
+                "Unescaping Failed..." putlns
+                1 exit
+                i 1 +
+            }
+        } else {
+            c cast(u8) escaped Stack.push
+            i 1 + 
+        } 
+    
+    } drop
+
+    escaped @ as [stk]
+    stk::len stk::slice::data cast(Str)
+
+}
+
 fn peek_token_kind(*Stack<Token>: tokens TokenKind: kind) -> [bool] {
     
     tokens Stack.peek Opt.is_some if {
@@ -509,7 +549,7 @@ fn parse_while_block(
     *Stack<Token>: tokens
     *Stack<Op>: ops
     *Map<*Type>: types
-    // TODO: init_data
+    *Map<InitData>: init_data
 ){
 
     token Keyword::While Op.Nop ops Stack.push
@@ -517,7 +557,7 @@ fn parse_while_block(
 
     Stack.new::<TokenKind> as [break_on] {
         Marker::OpenBrace TokenKind.from_marker break_on Stack.push
-        token tokens ops types break_on parse_tokens_until_tokenkind 
+        token tokens ops types init_data break_on parse_tokens_until_tokenkind 
         break_on Stack.destroy
     } as [open_tok]
     
@@ -527,7 +567,7 @@ fn parse_while_block(
 
     Stack.new::<TokenKind> as [break_on] {
         Marker::CloseBrace TokenKind.from_marker break_on Stack.push
-        token tokens ops types break_on parse_tokens_until_tokenkind 
+        token tokens ops types init_data break_on parse_tokens_until_tokenkind 
         break_on Stack.destroy
     } as [close_tok]
 
@@ -572,7 +612,7 @@ fn parse_as(
     *Stack<Token>: tokens
     *Stack<Op>: ops
     *Map<*Type>: types
-    // TODO: init data
+    *Map<InitData>: init_data
 ) {
 
     start_tok 
@@ -603,7 +643,7 @@ fn parse_as(
 
         Stack.new::<TokenKind> as [break_on] {
             Marker::CloseBrace TokenKind.from_marker break_on Stack.push
-            tok tokens ops types break_on parse_tokens_until_tokenkind
+            tok tokens ops types init_data break_on parse_tokens_until_tokenkind
             break_on Stack.destroy
         } as [close_tok]
     
@@ -648,13 +688,13 @@ fn if_block_to_ops(
     *Stack<Token>: tokens
     *Stack<Op>: ops
     *Map<*Type>: types
-    // TODO: init data
+    *Map<InitData>: init_data
 ) -> [Token u64] {
     start_tok ops start_if_ops as [if_idx]
     start_tok tokens Marker::OpenBrace TokenKind.from_marker expect_token_kind
     Stack.new::<TokenKind> as [break_on] {
         Marker::CloseBrace TokenKind.from_marker break_on Stack.push
-        tokens ops types break_on parse_tokens_until_tokenkind
+        tokens ops types init_data break_on parse_tokens_until_tokenkind
         break_on Stack.destroy
     } as [tok]
 
@@ -667,13 +707,13 @@ fn parse_if_block(
     *Stack<Token>: tokens
     *Stack<Op>: ops
     *Map<*Type>: types
-    // TODO: init data
+    *Map<InitData>: init_data
 ) -> [Token] {
     var u64: jump_dest
     ops @ as [ops_] { ops_::len } as [start_ip]
 
     
-    token tokens ops types if_block_to_ops jump_dest !
+    token tokens ops types init_data if_block_to_ops jump_dest !
     true
     while tokens Keyword::Else TokenKind.from_keyword peek_token_kind land {
 
@@ -687,7 +727,7 @@ fn parse_if_block(
 
             Stack.new::<TokenKind> as [break_on] {
                 Marker::CloseBrace TokenKind.from_marker break_on Stack.push
-                open_tok tokens ops types break_on parse_tokens_until_tokenkind
+                open_tok tokens ops types init_data break_on parse_tokens_until_tokenkind
                 break_on Stack.destroy
             } as [close_tok]
 
@@ -705,7 +745,7 @@ fn parse_if_block(
 
             Stack.new::<TokenKind> as [break_on] {
                 Keyword::If TokenKind.from_keyword break_on Stack.push
-                else_tok tokens ops types break_on parse_tokens_until_tokenkind
+                else_tok tokens ops types init_data break_on parse_tokens_until_tokenkind
                 break_on Stack.destroy
             } as [if_tok]
 
@@ -714,7 +754,7 @@ fn parse_if_block(
             
             Stack.new::<TokenKind> as [break_on] {
                 Marker::CloseBrace TokenKind.from_marker break_on Stack.push
-                if_tok tokens ops types break_on parse_tokens_until_tokenkind
+                if_tok tokens ops types init_data break_on parse_tokens_until_tokenkind
                 break_on Stack.destroy
             } as [close_tok]
 
@@ -764,7 +804,7 @@ fn parse_tokens_until_tokenkind(
     *Stack<Token>: tokens
     *Stack<Op>: ops
     *Map<*Type>: types
-    // TODO: init data
+    *Map<InitData>: init_data
     // TODO: locals
     *Stack<TokenKind>: break_on
 ) -> [Token] {
@@ -801,11 +841,11 @@ fn parse_tokens_until_tokenkind(
                 } else kw Keyword::SizeOf == if {
                     tok tokens types parse_size_of ops Stack.push
                 } else kw Keyword::While == if {
-                    tok tokens ops types parse_while_block
+                    tok tokens ops types init_data parse_while_block
                 } else kw Keyword::As == if {
-                    tok tokens ops types parse_as
+                    tok tokens ops types init_data parse_as
                 } else kw Keyword::If == if {
-                    tok tokens ops types parse_if_block drop
+                    tok tokens ops types init_data parse_if_block drop
                 } else kw Keyword::Include == if {
                     "Include keyword cannot be converted into ops" putlns
                     1 exit  
@@ -862,9 +902,26 @@ fn parse_tokens_until_tokenkind(
             } else tok Token.literal Opt.is_some if {
                 
                 tok Token.literal Opt.unwrap as [lit]
-                lit::tag LiteralTag::Str == if {
-                    "Parsing string literal isn't implemented yet" putlns
-                    1 exit 
+                lit Literal.Str Opt.is_some if {
+                    
+                    20 malloc::<u8> as [u64_buffer]
+                    init_data Map.len as [len]
+                    len u64_buffer u64.to_str as [len_str]
+                    "str_" as [ident_prefix]
+                
+                    ident_prefix::size len_str::size + malloc::<u8> split cast(Str) as [ident_str]
+                    ident_prefix split ident_str::data memcpy
+                    len_str split ident_str::data ident_prefix::size ptr+ memcpy 
+                    u64_buffer free
+
+                    ident_str 
+                    lit Literal.Str Opt.unwrap escape_string InitData.String 
+                    init_data Map.insert Opt.is_some if {
+                        "Somehow created a duplicate string identifier" putlns
+                        1 exit
+                    }
+
+                    tok ident_str Op.PushString ops Stack.push
                 } else {
                     tok Op.from_literal_tok ops Stack.push
                 }
@@ -892,7 +949,7 @@ fn parse_function(
     Token: start_tok 
     *Stack<Token>: tokens
     *Map<*Type>: types
-    // TODO: init data
+    *Map<InitData>: init_data
 ) -> [*Function] {
 
     start_tok tokens expect_word as [name_tok name]
@@ -950,7 +1007,7 @@ fn parse_function(
 
     Stack.new::<TokenKind> as [break_on]
     Marker::CloseBrace TokenKind.from_marker break_on Stack.push
-    sig_tok tokens ops types break_on parse_tokens_until_tokenkind as [end_tok]
+    sig_tok tokens ops types init_data break_on parse_tokens_until_tokenkind as [end_tok]
     break_on Stack.destroy
 
     end_tok Op.Return ops Stack.push
@@ -1167,7 +1224,7 @@ fn hay_into_ir(Str: path *Program: program_p *Map<Str>: included_files) {
             token Token.keyword Opt.unwrap as [kw]
 
             kw Keyword::Function == if {
-                token tokens program::types parse_function program::functions Stack.push
+                token tokens program::types program::init_data parse_function program::functions Stack.push
             } else kw Keyword::Include == if {
                 token tokens expect_literal Literal.Str as [path_tok maybe_include_path]
                 maybe_include_path Opt.is_none if {

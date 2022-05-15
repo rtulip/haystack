@@ -50,23 +50,7 @@ fn exit(u64) {
 
 fn fputu(u64: u u64: fd) {
     var u8[20]: buffer
-    buffer @ as [chars]
-
-    0 u == if {
-        "0" fd fputs
-    }
-
-
-    19 u while dup 0 != {
-        as [i x]
-        x 10 % 48 + cast(u8) chars::data i ptr+ !
-        
-        i 1 -
-        x 10 /
-    } drop
-    
-    as [i]
-    19 i - chars::data i 1 + ptr+ cast(Str) fd fputs
+    u buffer @ u64.to_str fd fputs
 }
 
 fn putu(u64) {
@@ -114,4 +98,29 @@ fn Str.substr(u64: start u64: len Str: s) -> [Str] {
 fn Str.split_left(u64: n Str: s) -> [Str Str] {
     n s::data cast(Str)
     s::size n - s::data n ptr+ cast(Str)
+}
+
+fn u64.to_str(u64: u Arr<u8>: chars) -> [Str] {
+
+    chars::size 20 < if {
+        "Must provide at least 20 chars of buffer to copy u64" putlns
+        1 exit 
+    }
+
+    0 u == if {
+        "0" split chars::data memcpy
+        1 chars::data cast(Str) 
+    } else {
+        19 u while dup 0 != {
+            as [i x]
+            x 10 % 48 + cast(u8) chars::data i ptr+ !
+            
+            i 1 -
+            x 10 /
+        } drop
+        
+        as [i]
+        19 i - chars::data i 1 + ptr+ cast(Str)
+    }    
+
 }

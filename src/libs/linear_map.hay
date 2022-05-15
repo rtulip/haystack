@@ -104,3 +104,9 @@ fn Map.reverse_lookup<T>(*T: value_p *Map<T>: map_p) -> [Str] {
     value_p values::arr::data ptr-diff  // Find the index of the type in the values
     ptr+ @                              // Offset to the same key and read
 }
+
+fn Map.len<T>(*Map<T>: map_p) -> [u64] {
+    map_p @ as [map]
+    map::keys @ as [keys]
+    keys::slice::size
+}

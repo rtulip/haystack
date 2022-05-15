@@ -61,14 +61,14 @@ fn Operator.try_from_str(Str: maybe_op) -> [Opt<Operator>] {
         Operator::Mul Opt.Some
     } else "/" maybe_op Str.starts_with if {
         Operator::Div Opt.Some 
-    } else "<" maybe_op Str.starts_with if {
-        Operator::LessThan Opt.Some
     } else "<=" maybe_op Str.starts_with if {
         Operator::LessEqual Opt.Some
-    } else ">" maybe_op Str.starts_with if {
-        Operator::GreaterThan Opt.Some
+    } else "<" maybe_op Str.starts_with if {
+        Operator::LessThan Opt.Some
     } else ">=" maybe_op Str.starts_with if {
         Operator::GreaterEqual Opt.Some 
+    } else ">" maybe_op Str.starts_with if {
+        Operator::GreaterThan Opt.Some
     } else "==" maybe_op Str.starts_with if {
         Operator::Equals Opt.Some
     } else "!=" maybe_op Str.starts_with if {

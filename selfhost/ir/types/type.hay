@@ -1,5 +1,6 @@
 include "stack.hay"
 include "linear_map.hay"
+include "selfhost/ir/tokens/token.hay"
 
 struct EnumType {
     Str: name
@@ -411,4 +412,114 @@ fn Type.shallow_check_generics(
 
     stk
 
+}
+
+fn Type.size (*Type: typ_p Token: token *Map<*Type>: types) -> [u64] {
+    typ_p @ as [typ]
+    typ::tag TypeKind::U64     == 
+    typ::tag TypeKind::U8      == lor
+    typ::tag TypeKind::Bool    == lor
+    typ::tag TypeKind::Pointer == lor
+    typ::tag TypeKind::Enum    == lor if {
+        1
+    } else typ::tag TypeKind::Struct == 
+           typ::tag TypeKind::ResolvedStruct == lor if {
+        
+        typ::tag TypeKind::Struct == if {
+            typ::type::Struct::members
+        } else typ::tag TypeKind::ResolvedStruct == if {
+            typ::type::ResolvedStruct::instance::members
+        } else {
+            typ::type::Struct::members
+            "Unreachable branch in Type.size" putlns
+            1 exit
+        } @ as [map] { map::values @ as [values] values::slice } as [members] 
+
+        0 0 while dup members::size < {
+            as [sum i]
+
+            i members Arr.get token types Type.size sum +
+            i 1 +
+        } drop
+    } else typ::tag TypeKind::Union == 
+           typ::tag TypeKind::ResolvedUnion == lor if {
+        
+        typ::tag TypeKind::Union == if {
+            typ::type::Union::members
+        } else typ::tag TypeKind::ResolvedUnion == if {
+            typ::type::ResolvedUnion::instance::members
+        } else {
+            typ::type::Union::members
+            "Unreachable branch in Type.size" putlns
+            1 exit
+        } @ as [map] { map::values @ as [values] values::slice } as [members] 
+
+        0 members Arr.get token types Type.size
+        1 while dup members::size < {
+            as [max i]
+
+            i members Arr.get token types Type.size as [size] 
+            
+            size max > if {
+                size
+            } else {
+                max
+            }
+
+            i 1 +
+        } drop
+    } else typ::tag TypeKind::GenericUnionBase == if {
+        token::loc Loc.puts
+        ": Size of generic union base is unknown" putlns
+        "   * Trying to take size of: " puts typ_p Type.name as [name] 
+        name putlns
+        name split cast(Arr) free
+        1 exit
+        0
+    } else typ::tag TypeKind::GenericUnionInstance == if {
+        token::loc Loc.puts
+        ": Size of generic union instance is unknown" putlns
+        "   * Trying to take size of: " puts typ_p Type.name as [name] 
+        name putlns
+        name split cast(Arr) free
+        1 exit
+        0
+    } else typ::tag TypeKind::GenericStructBase == if {
+        token::loc Loc.puts
+        ": Size of generic struct base is unknown" putlns
+        "   * Trying to take size of: " puts typ_p Type.name as [name] 
+        name putlns
+        name split cast(Arr) free
+        1 exit
+        0
+    } else typ::tag TypeKind::GenericStructInstance == if {
+        token::loc Loc.puts
+        ": Size of generic union base is unknown" putlns
+        "   * Trying to take size of: " puts typ_p Type.name as [name] 
+        name putlns
+        name split cast(Arr) free
+        1 exit
+        0
+    } else typ::tag TypeKind::Placeholder == if {
+        token::loc Loc.puts
+        ": Size of placeholder types is unknown" putlns
+        "   * Trying to take size of: " puts typ_p Type.name as [name] 
+        name putlns
+        name split cast(Arr) free
+        1 exit
+        0
+    } else {
+        "Unrecognized type tag in Type.size" putlns
+        1 exit 
+        0
+    }
+}
+
+fn Type.width(*Type: typ_p) -> [u64] {
+    typ_p @ as [typ]
+    typ::tag TypeKind::U8 == if {
+        1
+    } else {
+        8
+    }
 }

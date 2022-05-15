@@ -1,7 +1,15 @@
+include "opt.hay"
 include "stack.hay"
 include "./selfhost/ir/tokens/token.hay"
 include "./selfhost/ir/types/signature.hay"
 include "./selfhost/ir/op.hay"
+include "./selfhost/ir/data.hay"
+
+struct LocalVar {
+    *Type: type
+    u64: size
+    Opt<InitData>: value
+}
 
 struct Function {
     Str: name
@@ -9,13 +17,16 @@ struct Function {
     Signature: sig
     *Stack<Op>: ops
     // TODO: Generics
-    // TODO: Locals
+    *Map<LocalVar>: locals
 }
 
 fn Function.new(Str: name Token: token) -> [*Function] {
     malloc_obj::<Function> as [fn_p]
     
-    name token Stack.new::<*Type> Stack.new::<*Type> cast(Signature) Stack.new::<Op> 
+    name token 
+    Stack.new::<*Type> Stack.new::<*Type> cast(Signature) 
+    Stack.new::<Op>
+    Map.new::<LocalVar> 
     cast(Function) fn_p !
 
     fn_p

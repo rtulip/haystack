@@ -440,17 +440,18 @@ fn parse_partial_type(
         start_tok tokens Operator::Mul TokenKind.from_operator expect_token_kind
         tokens types parse_partial_type as [typ_tok ptr_typ]
 
-        ptr_typ Type.Pointer as [ptr] // leaked
-        ptr Type.name as [ptr_name] // leaked
+        ptr_typ Type.Pointer as [ptr] {
+            ptr Type.name as [ptr_name]
 
-        ptr_name types Map.contains lnot if {
-            ptr_name ptr types Map.insert drop
-            ptr
-        } else {
-            ptr_name types Map.get Opt.unwrap
-        }
-
-        as [typ]
+            ptr_name types Map.contains lnot if {
+                ptr_name ptr types Map.insert drop
+                ptr
+            } else {
+                ptr_name types Map.get Opt.unwrap
+                ptr free_obj
+                ptr_name split cast(Arr) free
+            }
+        } as [typ]
         
         typ_tok typ
 
@@ -557,7 +558,7 @@ fn parse_while_block(
 
     Stack.new::<TokenKind> as [break_on] {
         Marker::OpenBrace TokenKind.from_marker break_on Stack.push
-        token tokens ops types init_data break_on parse_tokens_until_tokenkind 
+        token tokens ops types init_data Opt.None::<*Map<LocalVar>> break_on parse_tokens_until_tokenkind 
         break_on Stack.destroy
     } as [open_tok]
     
@@ -567,7 +568,7 @@ fn parse_while_block(
 
     Stack.new::<TokenKind> as [break_on] {
         Marker::CloseBrace TokenKind.from_marker break_on Stack.push
-        token tokens ops types init_data break_on parse_tokens_until_tokenkind 
+        token tokens ops types init_data Opt.None::<*Map<LocalVar>> break_on parse_tokens_until_tokenkind 
         break_on Stack.destroy
     } as [close_tok]
 
@@ -643,7 +644,7 @@ fn parse_as(
 
         Stack.new::<TokenKind> as [break_on] {
             Marker::CloseBrace TokenKind.from_marker break_on Stack.push
-            tok tokens ops types init_data break_on parse_tokens_until_tokenkind
+            tok tokens ops types init_data Opt.None::<*Map<LocalVar>> break_on parse_tokens_until_tokenkind
             break_on Stack.destroy
         } as [close_tok]
     
@@ -694,7 +695,7 @@ fn if_block_to_ops(
     start_tok tokens Marker::OpenBrace TokenKind.from_marker expect_token_kind
     Stack.new::<TokenKind> as [break_on] {
         Marker::CloseBrace TokenKind.from_marker break_on Stack.push
-        tokens ops types init_data break_on parse_tokens_until_tokenkind
+        tokens ops types init_data Opt.None::<*Map<LocalVar>> break_on parse_tokens_until_tokenkind
         break_on Stack.destroy
     } as [tok]
 
@@ -727,7 +728,7 @@ fn parse_if_block(
 
             Stack.new::<TokenKind> as [break_on] {
                 Marker::CloseBrace TokenKind.from_marker break_on Stack.push
-                open_tok tokens ops types init_data break_on parse_tokens_until_tokenkind
+                open_tok tokens ops types init_data Opt.None::<*Map<LocalVar>> break_on parse_tokens_until_tokenkind
                 break_on Stack.destroy
             } as [close_tok]
 
@@ -745,7 +746,7 @@ fn parse_if_block(
 
             Stack.new::<TokenKind> as [break_on] {
                 Keyword::If TokenKind.from_keyword break_on Stack.push
-                else_tok tokens ops types init_data break_on parse_tokens_until_tokenkind
+                else_tok tokens ops types init_data Opt.None::<*Map<LocalVar>> break_on parse_tokens_until_tokenkind
                 break_on Stack.destroy
             } as [if_tok]
 
@@ -754,7 +755,7 @@ fn parse_if_block(
             
             Stack.new::<TokenKind> as [break_on] {
                 Marker::CloseBrace TokenKind.from_marker break_on Stack.push
-                if_tok tokens ops types init_data break_on parse_tokens_until_tokenkind
+                if_tok tokens ops types init_data Opt.None::<*Map<LocalVar>> break_on parse_tokens_until_tokenkind
                 break_on Stack.destroy
             } as [close_tok]
 
@@ -799,13 +800,94 @@ fn parse_syscall(Token: start_tok *Stack<Token>: tokens) -> [Op] {
 
 }
 
+fn parse_local_var(
+    Token: token
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+    *Map<LocalVar>: locals
+) {
+    
+    token tokens types parse_tagged_type as [maybe_tok maybe_ident maybe_typ dimension]
+    maybe_tok   Opt.is_some 
+    maybe_ident Opt.is_some land
+    maybe_typ   Opt.is_some land if {
+
+        maybe_tok   Opt.unwrap
+        maybe_ident Opt.unwrap
+        maybe_typ   Opt.unwrap
+        as [tok ident typ]
+
+        dimension Opt.is_some if {
+
+            dimension Opt.unwrap as [n]
+
+            typ Type.Pointer as [data_typ] {
+                data_typ Type.name as [data_typ_name]
+
+                data_typ_name types Map.contains lnot if {
+                    data_typ_name data_typ types Map.insert drop
+                    data_typ
+                } else {
+                    data_typ_name types Map.get Opt.unwrap
+                    data_typ_name split cast(Arr) free
+                    data_typ free_obj
+                }
+            } as [data_typ]
+            
+
+            data_typ
+            data_typ token types Type.size
+                data_typ Type.width *
+                n *
+            Opt.None::<InitData>
+            cast(LocalVar) as [data_local]
+
+
+            tok::loc Loc.puts
+            ": Type Resolution isn't implemented yet" putlns
+            1 exit
+
+        } else {
+
+            typ Type.Pointer as [pointer_typ] {
+            pointer_typ Type.name as [pointer_typ_name]
+                pointer_typ_name types Map.contains lnot if {
+                    pointer_typ_name pointer_typ types Map.insert drop
+                    pointer_typ
+                } else {
+                    pointer_typ_name types Map.get Opt.unwrap
+                    pointer_typ_name split cast(Arr) free
+                    pointer_typ free_obj
+                }
+            } as [pointer_typ]
+
+            pointer_typ
+            pointer_typ token types Type.size
+                pointer_typ Type.width *
+            Opt.None::<InitData>
+            cast(LocalVar) as [local]
+
+            ident local locals Map.insert Opt.is_some if {
+                tok::loc Loc.puts
+                ": Local var `" puts ident puts "` has already been declared" putlns
+                1 exit 
+            }
+        }
+
+    }
+
+    "Parsing local var isn't finished yet" putlns
+    1 exit
+
+}
+
 fn parse_tokens_until_tokenkind(
     Token: start_tok
     *Stack<Token>: tokens
     *Stack<Op>: ops
     *Map<*Type>: types
     *Map<InitData>: init_data
-    // TODO: locals
+    Opt<*Map<LocalVar>>: maybe_locals
     *Stack<TokenKind>: break_on
 ) -> [Token] {
 
@@ -856,6 +938,18 @@ fn parse_tokens_until_tokenkind(
                     1 exit
                 } else kw Keyword::Split == if {
                     tok Op.Split ops Stack.push
+                } else kw Keyword::Var == if {
+                    
+                    maybe_locals Opt.is_some if {
+                        tok tokens types maybe_locals Opt.unwrap parse_local_var
+                    } else {
+                        start_tok::loc Loc.puts
+                        ": Local variable aren't supported within this context!" putlns
+                        1 exit 
+                    }
+                    
+                    "Parsing var isn't finished yet" putlns
+                    1 exit 
                 } else {
                     "  Parsing " puts kw Keyword.puts " isn't implemented yet" putlns
                     1 exit
@@ -1009,13 +1103,14 @@ fn parse_function(
 
     Stack.new::<TokenKind> as [break_on]
     Marker::CloseBrace TokenKind.from_marker break_on Stack.push
-    sig_tok tokens ops types init_data break_on parse_tokens_until_tokenkind as [end_tok]
+    Map.new::<LocalVar> as [locals]
+    sig_tok tokens ops types init_data locals Opt.Some break_on parse_tokens_until_tokenkind as [end_tok]
     break_on Stack.destroy
 
     end_tok Op.Return ops Stack.push
 
-    name start_tok Function.new as [func]
-    name start_tok sig ops cast(Function) func !
+    malloc_obj::<Function> as [func]
+    name start_tok sig ops locals cast(Function) func !
     func
 
 }
@@ -1059,12 +1154,19 @@ fn parse_type(
             1 exit
         }
 
-        inner Type.Pointer as [typ]
-        typ Type.name as [name]
+        inner Type.Pointer as [typ] {
+            typ Type.name as [name]
 
-        name types Map.contains lnot if {
-            typ Type.name typ types Map.insert drop
-        }
+            name types Map.contains lnot if {
+                typ Type.name typ types Map.insert drop
+                typ
+            } else {
+                name types Map.get Opt.unwrap
+                name split cast(Arr) free
+                typ free_obj
+            }
+        } as [typ]
+        
 
         tok typ dimension
 
@@ -1093,9 +1195,18 @@ fn parse_type(
 
         } else {
             
-            name Type.Placeholder as [typ]
-            typ Type.name typ types Map.insert drop
-            typ
+            name Type.Placeholder as [typ] {
+                typ Type.name as [typ_name]
+                typ_name types Map.contains lnot if {
+                    typ_name typ types Map.insert drop
+                    typ
+                } else {
+                    typ_name types Map.get Opt.unwrap
+                    typ free_obj
+                    typ_name split cast(Arr) free
+                }
+            }
+            
 
         } as [typ]
 

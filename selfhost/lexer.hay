@@ -842,6 +842,19 @@ fn parse_local_var(
             Opt.None::<InitData>
             cast(LocalVar) as [data_local]
 
+            Stack.new::<*Type> as [stk]{
+                tok
+                "Arr" types Map.get Opt.unwrap
+                stk
+                    "u64" types Map.get Opt.unwrap stk Stack.push
+                    data_typ                       stk Stack.push
+                types
+                Type.resolve_struct
+                stk Stack.destroy                
+            } as [arr_typ]
+            
+            
+
 
             tok::loc Loc.puts
             ": Type Resolution isn't implemented yet" putlns
@@ -1173,7 +1186,7 @@ fn parse_type(
     } else {
 
         start_tok tokens expect_word as [name_tok name]
-        name_tok tokens types parse_annotation_list as [tok annotations]
+        name_tok tokens types parse_annotation_list as [tok maybe_annotations]
 
         name types Map.get as [maybe_typ]
 
@@ -1182,9 +1195,48 @@ fn parse_type(
             maybe_typ Opt.unwrap as [typ_p]
             typ_p @ as [typ]
             typ::tag TypeKind::GenericStructBase == if {
-                typ_p
-                "Parsing Generic Structs isn't implemented yet..." putlns
-                1 exit 
+                maybe_annotations Opt.is_none if {
+                    tok::loc Loc.puts
+                    ": No type annotation provided for generic struct: `" puts
+                    typ::type::GenericStructBase::base::name puts
+                    "`" putlns 
+                }
+
+                maybe_annotations Opt.unwrap as [annotations]
+                typ::type::GenericStructBase::base::name
+                typ::type::GenericStructBase::base::members 
+                typ::type::GenericStructBase::generics
+                as [base members generics]
+
+                generics Stack.len annotations Stack.len != if {
+                    tok::loc Loc.puts
+                    ": Incorrect number of generic parameters provided for " puts base putlns
+                    "    * Expected: " puts generics    Stack.len putlnu
+                    "    * Found:    " puts annotations Stack.len putlnu
+                }
+
+                false 0 while dup annotations Stack.len < {
+                    annotations @ as [ann] {ann::slice} as [i slice]
+                    i slice Arr.get Type.is_generic lor
+                    i 1 +
+                } drop if {
+                    
+                    typ_p annotations Type.GenericStructInstance as [t]
+
+                    t Type.name as [t_name] {
+                        t_name types Map.contains lnot if {
+                            t_name t types Map.insert drop
+                            t
+                        } else {
+                            t_name types Map.get Opt.unwrap
+                            t free_obj
+                            t_name split cast(Arr) free
+                        }
+                    }
+                } else {
+                    start_tok typ_p generics annotations types Type.assign_generics
+                }
+
             } else typ::tag TypeKind::GenericUnionBase == if {
                 typ_p
                 "Parsing Generic Unions isn't implemented yet..." putlns

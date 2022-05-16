@@ -22,14 +22,14 @@ struct GenericStructBaseType<T> {
 }
 
 struct GenericStructInstanceType<T> {
-    *GenericStructBaseType<T>: base
+    *T: base
     StructType<T>: instance
     *Stack<*T>: alias_list
 }
 
 struct ResolvedStructType<T> {
-    *StructType<T>: base
     StructType<T>: instance
+    *T: base
 }
 
 struct UnionType<T> {
@@ -49,8 +49,8 @@ struct GenericUnionInstanceType<T> {
 }
 
 struct ResolvedUnionType<T> {
-    *UnionType<T>: base
     UnionType<T>: instance 
+    *T: base
 }
 
 enum TypeKind {
@@ -232,9 +232,42 @@ fn Type.GenericStructBase(Str: name *Map<*Type>: members *Stack<*Type>: generics
 
     malloc_obj::<Type> as [type_p]
     name members cast(StructType) generics cast(GenericStructBaseType)
-        cast(TypeValue<Type>) TypeKind::Struct cast(Type) type_p !
+        cast(TypeValue<Type>) TypeKind::GenericStructBase cast(Type) type_p !
     type_p
 
+}
+
+fn Type.GenericStructInstance(*Type: base_p *Stack<*Type>: alias_list) -> [*Type] {
+
+    base_p @ as [base]
+    base::tag TypeKind::GenericStructBase == lnot if {
+        "Type.GenericStructInstance Assertion failed" putlns
+        "    * Expected base_p to be of Kind GenericStructBase" putlns 
+        1 exit
+    }
+
+    malloc_obj::<Type> as [type_p]
+
+    base_p
+    base::type::GenericStructBase::base
+    alias_list
+    cast(GenericStructInstanceType) cast(TypeValue<Type>)
+    TypeKind::GenericStructInstance cast(Type) type_p !
+
+    type_p
+
+}
+
+fn Type.ResolvedStruct(Str: name *Map<*Type>: members *Type: base) -> [*Type] {
+    malloc_obj::<Type> as [type_p]
+    name members cast(StructType) base cast(ResolvedStructType) cast(TypeValue<Type>) TypeKind::ResolvedStruct cast(Type) type_p !
+    type_p
+}
+
+fn Type.ResolvedUnion(Str: name *Map<*Type>: members *Type: base) -> [*Type] {
+    malloc_obj::<Type> as [type_p]
+    name members cast(UnionType) base cast(ResolvedUnionType) cast(TypeValue<Type>) TypeKind::ResolvedUnion cast(Type) type_p !
+    type_p
 }
 
 fn Type.name(*Type: typ_p) -> [Str] {
@@ -261,6 +294,67 @@ fn Type.name(*Type: typ_p) -> [Str] {
 
     } else typ::tag TypeKind::Struct == if {
         typ::type::Struct::name
+    } else typ::tag TypeKind::GenericStructInstance == if {
+        
+        Stack.new::<u8> as [new_str]
+        typ::type::GenericStructInstance::base @ as [base]
+        
+        base::tag TypeKind::GenericStructBase == lnot if {
+            "Asserition failed in Type.name" putlns
+            1 exit
+        }
+
+        0 while dup base::type::GenericStructBase::base::name::size < {
+            as [i]
+
+            i base::type::GenericStructBase::base::name split cast(Arr) Arr.get
+            new_str Stack.push
+            i 1 + 
+        } drop
+
+        0 "<" split cast(Arr) Arr.get new_str Stack.push
+
+        base::type::GenericStructBase::generics @ as [gen] {gen::slice} as [generics]
+        typ::type::GenericStructInstance::alias_list @ as [alias] {alias::slice} as [assignments]
+        0 while dup base::type::GenericStructBase::generics Stack.len < {
+            as [i]
+
+            i 0 != if {
+                0 " " split cast(Arr) Arr.get new_str Stack.push
+            }
+
+            i generics Arr.get Type.name split cast(Arr) as [gen_name]
+            0 while dup gen_name::size < {
+                as [j]
+
+                j gen_name Arr.get new_str Stack.push
+
+                j 1 +
+            } drop
+
+            0 "=" split cast(Arr) Arr.get new_str Stack.push
+
+            i assignments Arr.get Type.name split cast(Arr) as [assn_name]
+            0 while dup assn_name::size < {
+                as [j]
+                j assn_name Arr.get new_str Stack.push
+                j 1 +
+            } drop 
+
+            i 1 +
+        } drop
+
+        0 ">" split cast(Arr) Arr.get new_str Stack.push
+
+        new_str Stack.len malloc::<u8> as [dest]
+        new_str @ as [tmp] {
+            tmp::len tmp::slice::data dest::data memcpy
+        }
+
+        new_str Stack.destroy
+
+        dest split cast(Str)
+
     } else {
         "NotImplementedYet"
         "Getting names of " puts typ::tag TypeKind.puts " isn't implemented yet" putlns
@@ -522,4 +616,195 @@ fn Type.width(*Type: typ_p) -> [u64] {
     } else {
         8
     }
+}
+
+fn Type.resolve_struct(
+    Token: token
+    *Type: gen_struct_t
+    *Stack<*Type>: stack
+    *Map<*Type>: types
+) -> [*Type] {
+
+    gen_struct_t @ as [typ]
+    typ::tag TypeKind::GenericStructBase == lnot if {
+
+        gen_struct_t
+        "Type.resolve_struct should only be unse on GeneircStructBaseTypes..." putlns
+        "    * Type: " puts Type.name as [name] {
+            name putlns
+            name split cast(Arr) free
+        }
+        "    * Stack: [" puts
+        while stack Stack.peek Opt.is_some {
+            stack Stack.pop Opt.unwrap as [t]
+            " " puts
+            t Type.name as [name] {
+                name puts
+                name split cast(Arr) free
+            }
+        }
+        " ]" putlns
+        1 exit
+
+    }
+
+    stack Stack.len typ::type::GenericStructBase::base::members @ as [tmp] {tmp::values} Stack.len >= lnot if {
+        token::loc Loc.puts
+        ": Insufficient number of elements on the stack." putlns
+        1 exit 
+    }
+
+    
+    "Resolve Struct isn't finished yet" putlns
+    1 exit
+    gen_struct_t
+
+}
+
+fn Type.is_generic(*Type: typ_p) -> [bool] {
+
+    typ_p @ as [typ]
+    typ::tag TypeKind::Pointer == if {
+        typ::type::Pointer::inner Type.is_generic
+    } else typ::tag TypeKind::Placeholder           ==
+           typ::tag TypeKind::GenericStructBase     == lor
+           typ::tag TypeKind::GenericStructInstance == lor
+           typ::tag TypeKind::GenericUnionBase      == lor
+           typ::tag TypeKind::GenericUnionInstance  == lor if {
+        true
+    } else {
+        false
+    }
+
+}
+
+fn Type.assign_generics(
+    Token: token
+    *Type: typ_p
+    *Stack<*Type>: generics
+    *Stack<*Type>: assignments
+    *Map<*Type>: types 
+) -> [*Type] {
+
+    typ_p @ as [typ]
+
+    typ::tag TypeKind::Placeholder == if {
+        typ_p generics Stack.find Opt.is_none if {
+            token::loc Loc.puts
+            ": Unrecognized generic: " puts typ_p Type.name putlns
+            1 exit
+        }
+
+        typ_p generics Stack.find Opt.unwrap
+        assignments Stack.slice Arr.get
+    } else typ::tag TypeKind::GenericStructBase ==
+           typ::tag TypeKind::GenericUnionBase  == lor if {
+
+        typ::tag TypeKind::GenericStructBase == if {
+            typ::type::GenericStructBase::base::name
+            typ::type::GenericStructBase::base::members
+        } else typ::tag TypeKind::GenericUnionBase == if  {
+            typ::type::GenericUnionBase::base::name
+            typ::type::GenericUnionBase::base::members
+        } else {
+            typ::type::GenericStructBase::base::name
+            typ::type::GenericStructBase::base::members
+            "Unreachable state in Type.assign_generics" putlns
+            1 exit 
+        } as [base_name members]
+        members @ split as [idents member_types] {
+            idents Stack.slice member_types Stack.slice 
+        } as [idents member_types]
+
+        Map.new::<*Type> as [resolved_members]
+
+        0 while dup idents::size < {
+            as [i]
+            i idents Arr.get
+            token i member_types Arr.get generics assignments types Type.assign_generics
+            resolved_members Map.insert drop
+            i 1 +
+        } drop
+
+        Stack.new::<u8> as [name_builder]
+        0 while dup base_name::size < {
+            as [i]
+
+            i base_name split cast(Arr) Arr.get name_builder Stack.push
+            i 1 +
+        } drop
+
+        0 "<" split cast(Arr) Arr.get name_builder Stack.push
+
+        0 while dup assignments Stack.len < {
+            as [i]
+            
+            i 0 != if {
+                0 " " split cast(Arr) Arr.get name_builder Stack.push
+            }
+
+            i assignments Stack.slice Arr.get Type.name split cast(Arr) as [typ_name]
+            0 while dup typ_name::size < {
+                as [j]
+                j typ_name Arr.get name_builder Stack.push
+                j 1 +
+            } drop
+            i 1 +
+        } drop
+        
+        0 ">" split cast(Arr) Arr.get name_builder Stack.push
+
+        name_builder Stack.len malloc::<u8> split cast(Str) as [name]
+        name_builder Stack.slice split name::data memcpy
+        name_builder Stack.destroy
+
+        name types Map.contains if {
+            name types Map.get Opt.unwrap
+            resolved_members Map.destroy
+            name split cast(Arr) free
+        } else {
+            name resolved_members typ_p
+            typ::tag TypeKind::GenericStructBase == if {
+                Type.ResolvedStruct
+            } else typ::tag TypeKind::GenericUnionBase == if {
+                Type.ResolvedUnion
+            } else {
+                "Unreachable state when buiding resolved Union/Struct" putlns
+                1 exit
+                Type.ResolvedStruct
+            } as [new_t]
+
+            name new_t types Map.insert drop
+            new_t
+        }
+
+    } else typ::tag TypeKind::Pointer == if {
+        token typ::type::Pointer::inner generics assignments types Type.assign_generics
+        Type.Pointer as [t]
+
+        t Type.name as [name] {
+            name types Map.contains if {
+                name types Map.get Opt.unwrap
+                name split cast(Arr) free 
+            } else {
+                name t types Map.insert drop
+                t
+            }
+        }
+
+    } else typ::tag TypeKind::U64 == 
+           typ::tag TypeKind::U8 == lor
+           typ::tag TypeKind::Bool == lor
+           typ::tag TypeKind::Enum == lor
+           typ::tag TypeKind::Struct == lor
+           typ::tag TypeKind::ResolvedStruct == lor
+           typ::tag TypeKind::Union == lor
+           typ::tag TypeKind::ResolvedUnion == lor if {
+        typ_p
+    } else {
+        "Assigning generics to " puts typ::tag TypeKind.puts " isn't implemented yet" putlns
+        1 exit
+        typ_p
+    }
+
 }

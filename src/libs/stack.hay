@@ -13,9 +13,9 @@ fn Stack.new<T>() -> [*Stack<T>] {
     stk_p
 }
 
-fn Stack.slice<T>(Stack<T>: stk_p) -> [*Arr<T>] {
+fn Stack.slice<T>(*Stack<T>: stk_p) -> [Arr<T>] {
     stk_p @ as [stk]
-    stk::slice
+    stk::len stk::slice::data cast(Arr)
 }
 
 fn Stack.init<T>(*Stack<T>: stk_p) {
@@ -68,4 +68,35 @@ fn Stack.destroy<T>(*Stack<T>: stk_p) {
 fn Stack.is_empty<T>(*Stack<T>: stk_p) -> [bool] {
     stk_p @ as [stk]
     stk::len 0 == 
+}
+
+fn Stack.len<T>(*Stack<T>: stk_p) -> [u64] {
+    stk_p @ as [stk]
+    stk::len
+}
+
+// Note this will only work for types which can be converted to u64
+fn Stack.find<T>(T: t *Stack<T>: stk_p) -> [Opt<u64>] {
+
+    var Opt<u64>: idx
+    Opt.None::<u64> idx ! 
+
+    stk_p @ as [stk]
+    false 0 while as [break i]{ break i
+        break lnot
+        i stk::len < land
+    }{
+        as [_ i]
+        i stk::slice Arr.get cast(u64) t cast(u64) == if {
+            i Opt.Some idx !
+            true
+        } else {
+            false
+        }
+        
+        i 1 +
+    } drop drop
+
+     idx @ 
+
 }

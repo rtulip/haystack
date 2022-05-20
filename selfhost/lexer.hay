@@ -1237,7 +1237,7 @@ fn parse_type(
                 }
 
                 false 0 while dup annotations Stack.len < {
-                    annotations @ as [ann] {ann::slice} as [i slice]
+                    annotations Stack.slice as [i slice]
                     i slice Arr.get Type.is_generic lor
                     i 1 +
                 } drop if {
@@ -1259,9 +1259,48 @@ fn parse_type(
                 }
 
             } else typ::tag TypeKind::GenericUnionBase == if {
-                typ_p
-                "Parsing Generic Unions isn't implemented yet..." putlns
-                1 exit 
+                maybe_annotations Opt.is_none if {
+                    tok::loc Loc.puts
+                    ": No type annotations provided for generic union " puts
+                    typ::type::GenericUnionBase::base::name putlns
+                    1 exit
+                }
+
+                maybe_annotations Opt.unwrap as [annotations]
+                typ::type::GenericUnionBase::base::name
+                typ::type::GenericUnionBase::base::members 
+                typ::type::GenericUnionBase::generics
+                as [base members generics]
+
+
+                generics Stack.len annotations Stack.len != if {
+                    tok::loc Loc.puts
+                    ": Incorrect number of generic parameters provided for " puts base putlns
+                    "    * Expected: " puts generics    Stack.len putlnu
+                    "    * Found:    " puts annotations Stack.len putlnu
+                }
+
+                false 0 while dup annotations Stack.len < {
+                    annotations Stack.slice as [i slice]
+                    i slice Arr.get Type.is_generic lor
+                    i 1 +
+                } drop if {
+                    
+                    typ_p annotations Type.GenericUnionInstance as [t]
+
+                    t Type.name as [t_name] {
+                        t_name types Map.contains lnot if {
+                            t_name t types Map.insert drop
+                            t
+                        } else {
+                            t_name types Map.get Opt.unwrap
+                            t free_obj
+                            t_name split cast(Arr) free
+                        }
+                    }
+                } else {
+                    start_tok typ_p generics annotations types Type.assign_generics
+                }
             } else {
                 typ_p
             }

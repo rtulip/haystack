@@ -43,7 +43,7 @@ struct GenericUnionBaseType<T> {
 }
 
 struct GenericUnionInstanceType<T> {
-    *GenericUnionBaseType<T>: base
+    *T: base
     UnionType<T>: instance 
     *Stack<*T>: alias_list
 }
@@ -258,6 +258,28 @@ fn Type.GenericStructInstance(*Type: base_p *Stack<*Type>: alias_list) -> [*Type
 
 }
 
+fn Type.GenericUnionInstance(*Type: base_p *Stack<*Type>: alias_list) -> [*Type] {
+
+    base_p @ as [base]
+    base::tag TypeKind::GenericUnionBase == lnot if {
+        "Type.GenericUnionInstance Assertion failed" putlns
+        "    * Expected base_p to be of Kind GenericUnionBase" putlns 
+        1 exit
+    }
+
+    malloc_obj::<Type> as [type_p]
+
+    base_p
+    base::type::GenericUnionBase::base
+    alias_list
+    cast(GenericUnionInstanceType)
+    cast(TypeValue<Type>)
+    TypeKind::GenericUnionInstance cast(Type) type_p !
+
+    type_p
+
+}
+
 fn Type.Enum(Str: name Arr<Str>: variants) -> [*Type] {
     malloc_obj::<Type> as [type_p]
     name variants cast(EnumType) cast(TypeValue<Type>) TypeKind::Enum cast(Type) type_p !
@@ -377,6 +399,67 @@ fn Type.name(*Type: typ_p) -> [Str] {
         
         typ::type::ResolvedStruct::instance::name
     
+    } else typ::tag TypeKind::GenericUnionInstance == if {
+        
+        Stack.new::<u8> as [new_str]
+        typ::type::GenericUnionInstance::base @ as [base]
+        
+        base::tag TypeKind::GenericUnionBase == lnot if {
+            "Asserition failed in Type.name" putlns
+            1 exit
+        }
+
+        0 while dup base::type::GenericUnionBase::base::name::size < {
+            as [i]
+
+            i base::type::GenericUnionBase::base::name split cast(Arr) Arr.get
+            new_str Stack.push
+            i 1 + 
+        } drop
+
+        0 "<" split cast(Arr) Arr.get new_str Stack.push
+
+        base::type::GenericUnionBase::generics @ as [gen] {gen::slice} as [generics]
+        typ::type::GenericUnionInstance::alias_list @ as [alias] {alias::slice} as [assignments]
+        0 while dup base::type::GenericUnionBase::generics Stack.len < {
+            as [i]
+
+            i 0 != if {
+                0 " " split cast(Arr) Arr.get new_str Stack.push
+            }
+
+            i generics Arr.get Type.name split cast(Arr) as [gen_name]
+            0 while dup gen_name::size < {
+                as [j]
+
+                j gen_name Arr.get new_str Stack.push
+
+                j 1 +
+            } drop
+
+            0 "=" split cast(Arr) Arr.get new_str Stack.push
+
+            i assignments Arr.get Type.name split cast(Arr) as [assn_name]
+            0 while dup assn_name::size < {
+                as [j]
+                j assn_name Arr.get new_str Stack.push
+                j 1 +
+            } drop 
+
+            i 1 +
+        } drop
+
+        0 ">" split cast(Arr) Arr.get new_str Stack.push
+
+        new_str Stack.len malloc::<u8> as [dest]
+        new_str @ as [tmp] {
+            tmp::len tmp::slice::data dest::data memcpy
+        }
+
+        new_str Stack.destroy
+
+        dest split cast(Str)
+
     } else {
         "NotImplementedYet"
         "Getting names of " puts typ::tag TypeKind.puts " isn't implemented yet" putlns

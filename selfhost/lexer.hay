@@ -489,15 +489,9 @@ fn parse_cast(
     typ_tok tokens types parse_annotation_list as [ann_tok annotations]
     ann_tok tokens Marker::CloseParen TokenKind.from_marker expect_token_kind drop
 
-    annotations Opt.is_some if {
-        start_tok Op.Return
-        
-        "Assigning parsed annotations isn't implemented yet..." putlns
-        1 exit
-    } else {
-
-        start_tok typ Op.Cast
-    }
+    start_tok
+    start_tok typ_tok typ annotations types Type.assign_parsed_annotations
+    Op.Cast
 
 }
 

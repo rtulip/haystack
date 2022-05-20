@@ -1094,3 +1094,79 @@ fn Type.assign_generics(
     }
 
 }
+
+fn Type.assign_parsed_annotations(
+    Token: start_tok
+    Token: typ_tok
+    *Type: typ_p
+    Opt<*Stack<*Type>>: annotations
+    *Map<*Type>: types
+) -> [*Type]{
+
+    typ_p @ as [typ]
+
+    typ::tag TypeKind::GenericUnionBase == if {
+        annotations Opt.is_none if {
+            start_tok::loc Loc.puts
+            ": Casting to generic union `" puts
+            typ::type::GenericUnionBase::base::name puts
+            "` requires type annotations" putlns
+            1 exit  
+        }
+        typ::type::GenericUnionBase::base::members
+        typ::type::GenericUnionBase::generics
+        annotations Opt.unwrap as [members generics ann]
+
+        ann Stack.len generics Stack.len != if {
+            typ_tok::loc Loc.puts
+            "Incorrect number of generic annotations provided" putlns
+            1 exit
+        }
+
+        false 0 while as [cont i] { cont i
+            i ann Stack.len <
+            cont lnot land
+        } {
+            as [_ i]
+            i ann Stack.slice Arr.get @ as [t]
+            t::tag TypeKind::Placeholder ==
+            i 1 + 
+        } drop if {
+            typ_p ann Type.GenericUnionInstance
+        } else {
+            start_tok typ_p generics ann types Type.assign_generics
+        }
+    } else typ::tag TypeKind::GenericStructBase == annotations Opt.is_some land if {
+        typ::type::GenericStructBase::base::members
+        typ::type::GenericStructBase::generics
+        annotations Opt.unwrap as [members generics ann]
+
+        ann Stack.len generics Stack.len != if {
+            typ_tok::loc Loc.puts
+            "Incorrect number of generic annotations provided" putlns
+            1 exit
+        }
+
+        false 0 while as [cont i] { cont i
+            i ann Stack.len <
+            cont lnot land
+        } {
+            as [_ i]
+            i ann Stack.slice Arr.get @ as [t]
+            t::tag TypeKind::Placeholder ==
+            i 1 + 
+        } drop if {
+            typ_p ann Type.GenericStructInstance
+        } else {
+            start_tok typ_p generics ann types Type.assign_generics
+        }
+    } else typ::tag TypeKind::Pointer == annotations Opt.is_some land if {
+        
+        start_tok typ_tok typ::type::Pointer::inner annotations types
+        Type.assign_parsed_annotations Type.Pointer 
+
+    } else {
+        typ_p
+    }
+
+}

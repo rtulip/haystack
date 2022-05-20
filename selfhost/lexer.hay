@@ -1391,6 +1391,44 @@ fn parse_struct(
 
 }
 
+fn parse_enum(Token: start_tok *Stack<Token>: tokens) -> [Str *Type] {
+
+    start_tok tokens expect_word as [name_tok name]
+    name_tok 
+        tokens
+        Marker::OpenBrace TokenKind.from_marker
+        Marker::CloseBrace TokenKind.from_marker
+        parse_word_list as [tok var_tokens variants]
+    
+    name
+    name variants Stack.slice Type.Enum 
+
+}
+
+fn parse_union(
+    Token: start_tok 
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+) -> [Str *Type] {
+    start_tok tokens expect_word as [name_tok name]
+    name_tok tokens types parse_annotation_list as [ann_tok generics]
+    ann_tok tokens Marker::OpenBrace TokenKind.from_marker expect_token_kind as [open_tok]
+    open_tok tokens types generics parse_tagged_type_list as [members]
+    name_tok tokens Marker::CloseBrace TokenKind.from_marker expect_token_kind drop
+
+    name
+    generics Opt.is_some if{
+        name
+        members
+        generics Opt.unwrap
+        Type.GenericUnionBase
+    } else {
+        name
+        members
+        Type.Union
+    }
+}
+
 fn hay_into_ir(Str: path *Program: program_p *Map<Str>: included_files) {
 
     program_p @ as [program]
@@ -1449,7 +1487,11 @@ fn hay_into_ir(Str: path *Program: program_p *Map<Str>: included_files) {
                 token tokens program::types parse_struct as [name typ]
                 name typ program::types Map.insert drop
 
-            } else {
+            } else kw Keyword::Enum == if {
+                token tokens parse_enum program::types Map.insert drop
+            } else kw Keyword::Union == if {
+                token tokens program::types parse_union program::types Map.insert drop
+            }else {
                 "Lexing keyword `" puts kw Keyword.puts "` isn't implemented yet" putlns
                 1 exit  
             }

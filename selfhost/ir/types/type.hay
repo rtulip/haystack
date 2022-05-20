@@ -4,7 +4,7 @@ include "selfhost/ir/tokens/token.hay"
 
 struct EnumType {
     Str: name
-    Stack<Str>: Variants
+    Arr<Str>: Variants
 }
 
 struct PointerType<T> {
@@ -256,6 +256,24 @@ fn Type.GenericStructInstance(*Type: base_p *Stack<*Type>: alias_list) -> [*Type
 
     type_p
 
+}
+
+fn Type.Enum(Str: name Arr<Str>: variants) -> [*Type] {
+    malloc_obj::<Type> as [type_p]
+    name variants cast(EnumType) cast(TypeValue<Type>) TypeKind::Enum cast(Type) type_p !
+    type_p
+}
+
+fn Type.Union(Str: name *Map<*Type>: variants) -> [*Type] {
+    malloc_obj::<Type> as [type_p]
+    name variants cast(UnionType) cast(TypeValue<Type>) TypeKind::Union cast(Type) type_p !
+    type_p
+}
+
+fn Type.GenericUnionBase(Str: name *Map<*Type>: variants *Stack<*Type>: generics) -> [*Type] {
+    malloc_obj::<Type> as [type_p]
+    name variants cast(UnionType) generics cast(GenericUnionBaseType) cast(TypeValue<Type>) TypeKind::GenericUnionBase cast(Type) type_p !
+    type_p
 }
 
 fn Type.ResolvedStruct(Str: name *Map<*Type>: members *Type: base) -> [*Type] {

@@ -355,6 +355,10 @@ fn Type.name(*Type: typ_p) -> [Str] {
 
         dest split cast(Str)
 
+    } else typ::tag TypeKind::ResolvedStruct == if {
+        
+        typ::type::ResolvedStruct::instance::name
+    
     } else {
         "NotImplementedYet"
         "Getting names of " puts typ::tag TypeKind.puts " isn't implemented yet" putlns
@@ -618,6 +622,73 @@ fn Type.width(*Type: typ_p) -> [u64] {
     }
 }
 
+fn Type.free_puts(*Type: t){
+    t Type.name as [name]
+    name puts
+    name split cast(Arr) free
+} 
+
+fn Type.resolve_type(
+    Token: token
+    *Type: maybe_generic_t
+    *Type: concrete_t
+    *Map<*Type>: generic_map
+    *Map<*Type>: types
+) -> [*Type] {
+    
+    maybe_generic_t @ concrete_t @ as [gen_t con_t]
+
+    gen_t::tag TypeKind::U64 == con_t::tag TypeKind::U64 == land if {
+        concrete_t
+    } else gen_t::tag TypeKind::U8 == con_t::tag TypeKind::U8 == land if {
+        concrete_t
+    } else gen_t::tag TypeKind::Bool == con_t::tag TypeKind::Bool == land if {
+        concrete_t
+    } else gen_t::tag TypeKind::Pointer == con_t::tag TypeKind::Pointer == land if {
+        token
+        gen_t::type::Pointer::inner
+        con_t::type::Pointer::inner
+        generic_map
+        types
+        Type.resolve_type Type.Pointer as [ptr_typ]
+        ptr_typ Type.name as [name] {
+            name types Map.contains if {
+                name types Map.get Opt.unwrap
+                name split cast(Arr) free
+            } else {
+                name ptr_typ types Map.insert drop
+                ptr_typ
+            }
+        }
+    } else gen_t::tag TypeKind::Placeholder == if {
+        con_t::tag TypeKind::GenericStructBase ==
+        con_t::tag TypeKind::GenericUnionBase == lor if {
+            "This should be unreachable. Cannot assign a placeholder to generic base" putlns
+            1 exit
+        }
+
+        gen_t::type::Placeholder concrete_t generic_map Map.insert as [maybe_prev_assignment] 
+        maybe_prev_assignment Opt.is_some if {
+            maybe_prev_assignment Opt.unwrap cast(u64)
+            concrete_t cast(u64) != if {
+                token::loc Loc.puts
+                ": Type Error - Failed Type Resolution" puts
+                "    * Type `" puts maybe_generic_t Type.name puts 
+                "` cannot be assigned to `" puts
+                concrete_t Type.name puts "` as it was previously assigned to `" puts
+                maybe_prev_assignment Opt.unwrap Type.name puts "`" putlns
+            }
+        }
+
+        concrete_t
+
+    } else {
+        "Resolving types for " puts gen_t::tag TypeKind.puts " isn't implemented yet" putlns
+        1 exit
+        maybe_generic_t
+    }
+}
+
 fn Type.resolve_struct(
     Token: token
     *Type: gen_struct_t
@@ -635,29 +706,143 @@ fn Type.resolve_struct(
             name split cast(Arr) free
         }
         "    * Stack: [" puts
-        while stack Stack.peek Opt.is_some {
-            stack Stack.pop Opt.unwrap as [t]
+        0 while dup stack Stack.len < {
+            as [i]
+            i stack Stack.slice Arr.get as [t]
             " " puts
             t Type.name as [name] {
                 name puts
                 name split cast(Arr) free
             }
-        }
+            i 1 + 
+        } drop
         " ]" putlns
         1 exit
-
     }
 
-    stack Stack.len typ::type::GenericStructBase::base::members @ as [tmp] {tmp::values} Stack.len >= lnot if {
+    stack Stack.len typ::type::GenericStructBase::base::members Map.len >= lnot if {
         token::loc Loc.puts
         ": Insufficient number of elements on the stack." putlns
         1 exit 
     }
 
+    typ::type::GenericStructBase::base::members @ split as [idents members]
+
+    Map.new::<*Type> as [map]
+    Map.new::<*Type> as [resolved_members]
+
+    stack Stack.slice as [stk_slice] {
+        
+        typ::type::GenericStructBase::base::members Map.len
+        stk_slice::data
+        stk_slice::size typ::type::GenericStructBase::base::members Map.len -
+        ptr+
+        cast(Arr)
+    } as [stk]
     
-    "Resolve Struct isn't finished yet" putlns
-    1 exit
-    gen_struct_t
+    0 while dup members Stack.len < {
+        as [i]
+
+        i members Stack.slice Arr.get
+        i stk Arr.get 
+        Map.new::<*Type>
+        as [member concrete m]
+
+        token member concrete m types Type.resolve_type as [t]
+
+        m @ split as [m_ident m_concrete]
+        0 while dup m_ident Stack.len < {
+            as [j]
+            j m_ident    Stack.slice Arr.get as [placeholder]
+            j m_concrete Stack.slice Arr.get as [con_t]
+            placeholder con_t map Map.insert as [maybe_t]
+
+            maybe_t Opt.is_some if {
+                maybe_t Opt.unwrap cast(u64) con_t cast(u64) != if {
+                    token::loc Loc.puts
+                    ": Type resolution failure in generic struct resolution" putlns
+                    "    * Type `" puts placeholder puts "` cannot be assigned to `" puts
+                    con_t Type.name puts "` as it was previously assigned to `" puts
+                    maybe_t Opt.unwrap Type.name puts "`" putlns 
+                }
+            }
+            j 1 +
+        } drop
+
+        m Map.destroy
+
+        i 1 + 
+    } drop
+
+    gen_struct_t @ as [tmp_t] {
+        tmp_t::type::GenericStructBase::base::name split cast(Arr)
+        tmp_t::type::GenericStructBase::generics
+    }  as [base_name generics]
+    Stack.new::<u8> as [new_name_buffer]
+
+    0 while dup base_name::size < {
+        as [i]
+        i base_name Arr.get
+        new_name_buffer Stack.push
+        i 1 +
+    } drop
+
+    0 "<" split cast(Arr) Arr.get new_name_buffer Stack.push
+
+    0 while dup generics Stack.len < {
+        as [i]
+
+        i 0 != if {
+            0 " " split cast(Arr) Arr.get new_name_buffer Stack.push
+        }
+
+        i generics Stack.slice Arr.get @ as [gen_t]
+        
+        gen_t::tag TypeKind::Placeholder == lnot if {
+            "Assertion failed in Type.resolve_struct. Expected all generics to be Placeholders" putlns
+            1 exit 
+        }
+        
+        gen_t::type::Placeholder map Map.get as [maybe_assn_t]
+
+        maybe_assn_t Opt.is_none if {
+            token::loc Loc.puts
+            ": Some types were not resoled during cast: " puts
+            gen_t::type::Placeholder putlns
+            1 exit
+        }
+        maybe_assn_t Opt.unwrap as [assn_t]
+        assn_t Type.name as [assn_t_name]        
+        0 while dup assn_t_name::size < {
+            as [j]
+            j assn_t_name split cast(Arr) Arr.get new_name_buffer Stack.push
+            j 1 + 
+        } drop
+
+        i 1 + 
+
+    } drop
+
+    0 ">" split cast(Arr) Arr.get new_name_buffer Stack.push
+
+    new_name_buffer Stack.len malloc::<u8> split cast(Str) as [resolved_name]
+    new_name_buffer Stack.slice split resolved_name::data memcpy
+    new_name_buffer Stack.destroy
+
+    resolved_name types Map.contains if {
+        resolved_name types Map.get Opt.unwrap
+        resolved_name split cast(Arr) free
+        map Map.destroy
+        resolved_members Map.destroy
+    } else {
+        resolved_name
+        resolved_members 
+        gen_struct_t
+        Type.ResolvedStruct as [resolved_t]
+        
+        resolved_name resolved_t types Map.insert drop
+        resolved_t
+    }
 
 }
 

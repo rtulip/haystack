@@ -853,12 +853,39 @@ fn parse_local_var(
                 stk Stack.destroy                
             } as [arr_typ]
             
-            
+            arr_typ Type.Pointer as [arr_ptr_typ] {
+                arr_ptr_typ Type.name as [arr_ptr_typ_name]
+                arr_ptr_typ_name types Map.contains if {
+                    arr_ptr_typ_name types Map.get Opt.unwrap
+                    arr_ptr_typ_name split cast(Arr) free
+                } else {
+                    arr_ptr_typ_name arr_ptr_typ types Map.insert drop
+                    arr_ptr_typ
+                }
+            } as [arr_ptr_typ]
 
+            ident::size 5 + malloc::<u8> split cast(Str) as [ptr_name]
+            ident split ptr_name::data memcpy
+            "_data" split ptr_name::data ident::size ptr+ memcpy
 
-            tok::loc Loc.puts
-            ": Type Resolution isn't implemented yet" putlns
-            1 exit
+            arr_ptr_typ
+            arr_ptr_typ token types Type.size
+                data_typ Type.width *
+            n ptr_name InitData.Slice Opt.Some
+            cast(LocalVar) as [arr_local]
+
+            ptr_name data_local locals Map.insert Opt.is_some if {
+                tok::loc Loc.puts
+                ": Local var " puts ptr_name puts " has already been defined" putlns
+                "    * This was automatically generated with the local array " puts ident putlns
+                1 exit 
+            }
+
+            ident arr_local locals Map.insert Opt.is_some if {
+                tok::loc Loc.puts
+                ": Local var " puts ident puts " has already been defined" putlns
+                1 exit 
+            }
 
         } else {
 
@@ -888,9 +915,6 @@ fn parse_local_var(
         }
 
     }
-
-    "Parsing local var isn't finished yet" putlns
-    1 exit
 
 }
 
@@ -960,9 +984,6 @@ fn parse_tokens_until_tokenkind(
                         ": Local variable aren't supported within this context!" putlns
                         1 exit 
                     }
-                    
-                    "Parsing var isn't finished yet" putlns
-                    1 exit 
                 } else {
                     "  Parsing " puts kw Keyword.puts " isn't implemented yet" putlns
                     1 exit

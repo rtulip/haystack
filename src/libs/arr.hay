@@ -2,7 +2,7 @@ include "str.hay"
 fn Arr.set<T>(T: value u64: idx Arr<T>: arr) {
 
     idx arr::size >= if {
-        "Index out of bounds: " puts
+        "Cannot Set: Index out of bounds: " puts
         idx putlnu
         1 exit
     }
@@ -11,7 +11,7 @@ fn Arr.set<T>(T: value u64: idx Arr<T>: arr) {
 
 fn Arr.get_ref<T>(u64: idx Arr<T>: arr) -> [*T] {
     idx arr::size >= if {
-        "Index out of bounds: " puts
+        "Cannot Get Ref: Index out of bounds: " puts
         idx putlnu
         1 exit
     }
@@ -20,7 +20,7 @@ fn Arr.get_ref<T>(u64: idx Arr<T>: arr) -> [*T] {
 
 fn Arr.get<T>(u64: idx Arr<T>: arr) -> [T] {
     idx arr::size >= if {
-        "Index out of bounds: " puts
+        "Cannot Get: Index out of bounds: " puts
         idx putlnu
         1 exit
     }

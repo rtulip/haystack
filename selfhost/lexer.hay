@@ -9,6 +9,46 @@ include "selfhost/ir/types/type.hay"
 include "selfhost/ir/function.hay"
 include "selfhost/ir/op.hay"
 
+fn escape_string(Str: unescaped_str) -> [Str] {
+    unescaped_str split cast(Arr) as [unescaped]
+    Stack.new::<u8> as [escaped]
+
+    0 while dup unescaped::size < {
+        as [i]
+        
+        i unescaped Arr.get cast(u64) as [c]
+        
+        92 c == if { // check for `\`
+
+            i 1 + unescaped::size < if {
+                i 1 + unescaped Arr.get cast(u64) as [char]
+            
+                110 char == if { // \n
+                    10 cast(u8) escaped Stack.push
+                } else 48 char == if {
+                    0 cast(u8) escaped Stack.push
+                } else {
+                    "Unsupported escaped character: `" puts 2 unescaped::data i ptr+ cast(Str) putlns
+                    1 exit 
+                }
+                i 2 +
+            } else {
+                "Unescaping Failed..." putlns
+                1 exit
+                i 1 +
+            }
+        } else {
+            c cast(u8) escaped Stack.push
+            i 1 + 
+        } 
+    
+    } drop
+
+    escaped @ as [stk]
+    stk::len stk::slice::data cast(Str)
+
+}
+
 fn peek_token_kind(*Stack<Token>: tokens TokenKind: kind) -> [bool] {
     
     tokens Stack.peek Opt.is_some if {
@@ -63,6 +103,32 @@ fn expect_token_kind(Token: token *Stack<Token>: tokens TokenKind: kind) -> [Tok
     }
 
     
+
+}
+
+fn expect_literal(Token: prev_tok *Stack<Token>: tokens) -> [Token Literal] {
+
+    tokens Stack.pop as [maybe_tok]
+    maybe_tok Opt.is_some if {
+
+        maybe_tok Opt.unwrap as [tok]
+        tok Token.Literal Opt.is_some if {
+
+            tok tok Token.Literal Opt.unwrap
+
+        } else {
+            tok 0 Literal.from_u64 
+            tok::loc Loc.puts
+            ": Expected a Literal, but found " puts tok Token.puts " instead." putlns
+            1 exit
+        }
+
+    } else {
+        prev_tok 0 Literal.from_u64
+        prev_tok::loc Loc.puts
+        ": Expected a Literal, but token stack was empty instead." putlns
+        1 exit
+    }
 
 }
 
@@ -192,6 +258,125 @@ fn parse_maybe_tagged_type_list(
 
 }
 
+fn parse_tagged_type_list(
+    Token: token
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+    Opt<*Stack<*Type>>: maybe_generics
+) -> [*Map<*Type>] {
+
+    Map.new::<*Type> as [type_list]
+
+    token while tokens types parse_tagged_type as [maybe_tok maybe_ident maybe_typ dimension] {
+        maybe_tok maybe_ident maybe_typ dimension
+        maybe_tok   Opt.is_some
+        maybe_ident Opt.is_some land 
+        maybe_typ   Opt.is_some land 
+    } {
+
+        as [maybe_tok maybe_ident maybe_typ dimension]
+        maybe_tok Opt.unwrap maybe_ident Opt.unwrap maybe_typ Opt.unwrap as [tok ident typ]
+
+        dimension Opt.is_some if {
+            tok::loc Loc.puts
+            ": Cannot have array types in type lists" putlns
+            1 exit
+        }
+
+        Stack.new::<*Type> as [visited] {
+            typ types visited Type.deep_check_generics
+            visited Stack.destroy
+        } as [generics]
+
+        generics Stack.is_empty lnot if {
+
+            maybe_generics Opt.is_none if { 
+
+                tok::loc Loc.puts
+                ": Unrecognized generic types: [" puts
+                while generics Stack.peek Opt.is_some {
+                    generics Stack.pop Opt.unwrap Type.name as [gen_name]
+                    " " puts gen_name puts
+                    gen_name split cast(Arr) free
+                }
+                " ]" putlns
+                "    * No generics were expected within this context" putlns
+                "    * Consider adding a type annotation list" putlns
+                1 exit 
+
+            } else {
+
+                while generics Stack.peek Opt.is_some {
+                    
+                    generics Stack.pop Opt.unwrap as [gen_t]
+                    Stack.new::<*Type> as [all_known_generics_p]
+
+                    maybe_generics Opt.unwrap as [known_generics_p]
+                    known_generics_p @ as [known_generics]
+
+                    0 while dup known_generics::slice::size < {
+                        as [i]
+
+                        i known_generics::slice Arr.get all_known_generics_p Stack.push
+                        i 1 +
+                    } drop
+
+                    gen_t types Type.shallow_check_generics as [shallow] {
+                        while shallow Stack.peek Opt.is_some {
+                            shallow Stack.pop Opt.unwrap all_known_generics_p Stack.push
+                        }
+                    }
+
+                    all_known_generics_p @ as [all_known_generics]
+                    false 0 while dup all_known_generics::slice::size < {
+                        as [i]
+                        
+                        i all_known_generics::slice Arr.get cast(u64)
+                        gen_t cast(u64) == lor
+
+                        i 1 +
+                    } drop lnot if {
+
+                        tok::loc Loc.puts
+                        ": Unrecognized generic types: [" puts
+                        while generics Stack.peek Opt.is_some {
+                            generics Stack.pop Opt.unwrap Type.name as [gen_name]
+                            " " puts gen_name puts
+                            gen_name split cast(Arr) free
+                        }
+                        " ]" putlns
+                        "    * Only these generics are known in this context: [" puts 
+                            while known_generics_p Stack.peek Opt.is_some {
+                                known_generics_p Stack.pop Opt.unwrap Type.name as [gen_name]
+                                " " puts gen_name puts
+                                gen_name split cast(Arr) free
+                            }
+                            " ]" putlns
+                        "    * Consider adding a type annotation list" putlns
+                        1 exit 
+
+                    }
+
+                    
+                }                
+
+            }
+        } 
+
+        ident typ type_list Map.insert as [already_in_map]
+
+        already_in_map Opt.is_some if {
+            "Duplicate identifier: " puts ident putlns
+            1 exit 
+        }
+        tok
+
+    } drop drop drop drop
+
+    type_list
+
+}
+
 fn parse_untagged_type_list(
     Token: start_tok
     *Stack<Token>: tokens
@@ -255,17 +440,18 @@ fn parse_partial_type(
         start_tok tokens Operator::Mul TokenKind.from_operator expect_token_kind
         tokens types parse_partial_type as [typ_tok ptr_typ]
 
-        ptr_typ Type.Pointer as [ptr] // leaked
-        ptr Type.name as [ptr_name] // leaked
+        ptr_typ Type.Pointer as [ptr] {
+            ptr Type.name as [ptr_name]
 
-        ptr_name types Map.contains lnot if {
-            ptr_name ptr types Map.insert drop
-            ptr
-        } else {
-            ptr_name types Map.get Opt.unwrap
-        }
-
-        as [typ]
+            ptr_name types Map.contains lnot if {
+                ptr_name ptr types Map.insert drop
+                ptr
+            } else {
+                ptr_name types Map.get Opt.unwrap
+                ptr free_obj
+                ptr_name split cast(Arr) free
+            }
+        } as [typ]
         
         typ_tok typ
 
@@ -303,15 +489,9 @@ fn parse_cast(
     typ_tok tokens types parse_annotation_list as [ann_tok annotations]
     ann_tok tokens Marker::CloseParen TokenKind.from_marker expect_token_kind drop
 
-    annotations Opt.is_some if {
-        start_tok Op.Return
-        
-        "Assigning parsed annotations isn't implemented yet..." putlns
-        1 exit
-    } else {
-
-        start_tok typ Op.Cast
-    }
+    start_tok
+    start_tok typ_tok typ annotations types Type.assign_parsed_annotations
+    Op.Cast
 
 }
 
@@ -364,7 +544,7 @@ fn parse_while_block(
     *Stack<Token>: tokens
     *Stack<Op>: ops
     *Map<*Type>: types
-    // TODO: init_data
+    *Map<InitData>: init_data
 ){
 
     token Keyword::While Op.Nop ops Stack.push
@@ -372,31 +552,362 @@ fn parse_while_block(
 
     Stack.new::<TokenKind> as [break_on] {
         Marker::OpenBrace TokenKind.from_marker break_on Stack.push
-        token tokens ops types break_on parse_tokens_until_tokenkind 
+        token tokens ops types init_data Opt.None::<*Map<LocalVar>> break_on parse_tokens_until_tokenkind 
         break_on Stack.destroy
     } as [open_tok]
     
     ops @ as [ops_] { ops_::len } as [cond_jump_loc]
-    open_tok Op.JumpCondNone ops Stack.push
+    open_tok Opt.None::<u64> Op.JumpCond ops Stack.push
     open_tok Op.StartBlock ops Stack.push
 
     Stack.new::<TokenKind> as [break_on] {
         Marker::CloseBrace TokenKind.from_marker break_on Stack.push
-        token tokens ops types break_on parse_tokens_until_tokenkind 
+        token tokens ops types init_data Opt.None::<*Map<LocalVar>> break_on parse_tokens_until_tokenkind 
         break_on Stack.destroy
     } as [close_tok]
 
     ops cond_jump_loc 1 + make_ident_count as [var_count]
     close_tok var_count Op.EndBlock ops Stack.push
-    close_tok loop_dest Op.JumpSome ops Stack.push
+    close_tok loop_dest Opt.Some Op.Jump ops Stack.push
     ops @ as [ops_] { ops_::len } as [end_loc]
     close_tok end_loc Op.JumpDest ops Stack.push
     
     ops @ as [ops_] { 
         cond_jump_loc ops_::slice Arr.get as [op]
-        op::token end_loc Op.JumpCondSome 
-
+        op::token end_loc Opt.Some Op.JumpCond 
         cond_jump_loc ops_::slice Arr.set
+    }
+
+}
+
+fn parse_word_list(
+    Token: start_tok
+    *Stack<Token>: tokens
+    TokenKind: open
+    TokenKind: close
+) -> [Token *Stack<Token> *Stack<Str>] {
+
+    Stack.new::<Token> Stack.new::<Str> as [word_toks words]
+
+    start_tok tokens open expect_token_kind
+    while tokens "" TokenKind.from_word peek_token_kind {
+        tokens expect_word as [word_tok word]
+        word_tok word_toks Stack.push
+        word     words     Stack.push
+        word_tok 
+    }
+
+    tokens close expect_token_kind
+    word_toks words
+
+}
+
+fn parse_as(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Stack<Op>: ops
+    *Map<*Type>: types
+    *Map<InitData>: init_data
+) {
+
+    start_tok 
+    tokens 
+    Marker::OpenBracket TokenKind.from_marker 
+    Marker::CloseBracket TokenKind.from_marker
+    parse_word_list as [list_end_tok word_toks_p words_p]
+    word_toks_p @ words_p @ as [word_toks words]
+
+    ops @ as [ops_] { ops_::len } as [start_idx]
+
+    0 while dup words::len < {
+        as [i]
+
+        i word_toks::slice Arr.get
+        i words::slice Arr.get
+        Opt.None::<u64>
+        Op.MakeIdent
+        ops Stack.push
+
+        i 1 +
+    } drop
+
+    tokens Marker::OpenBrace TokenKind.from_marker peek_token_kind if {
+
+        list_end_tok tokens Marker::OpenBrace TokenKind.from_marker expect_token_kind as [tok]
+        tok Op.StartBlock ops Stack.push
+
+        Stack.new::<TokenKind> as [break_on] {
+            Marker::CloseBrace TokenKind.from_marker break_on Stack.push
+            tok tokens ops types init_data Opt.None::<*Map<LocalVar>> break_on parse_tokens_until_tokenkind
+            break_on Stack.destroy
+        } as [close_tok]
+    
+        close_tok ops start_idx make_ident_count Op.EndBlock ops Stack.push    
+
+    }
+
+}
+
+fn start_if_ops(Token: tok *Stack<Op>: ops) -> [u64] {
+    ops @ as [stk] { stk::len }
+    tok Keyword::If Op.Nop          ops Stack.push
+    tok Opt.None::<u64> Op.JumpCond ops Stack.push
+    tok Op.StartBlock               ops Stack.push
+}
+
+fn close_if_block(Token: tok *Stack<Op>: ops u64: if_idx) -> [u64] {
+    ops if_idx make_ident_count as [var_count]
+    tok var_count Op.EndBlock   ops Stack.push
+    tok Opt.None::<u64> Op.Jump ops Stack.push
+
+    ops @ as [stk]  
+    stk::len as [jump_dest]
+
+    if_idx 1 + stk::slice Arr.get as [jump_cond]
+    jump_cond::kind::tag OpKindTag::JumpCond ==
+    jump_cond::kind::value::Jump::tag OptTag::None == land lnot if {
+        "Expected JumpCond(None), but found something else instead." putlns
+        "  * Not Op.puts isn't implemented yet..." putlns
+        1 exit
+    }
+    jump_cond::token jump_dest Opt.Some Op.JumpCond if_idx 1+ stk::slice Arr.set
+
+    tok jump_dest Op.JumpDest ops Stack.push
+
+    jump_dest
+    
+} 
+
+fn if_block_to_ops(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Stack<Op>: ops
+    *Map<*Type>: types
+    *Map<InitData>: init_data
+) -> [Token u64] {
+    start_tok ops start_if_ops as [if_idx]
+    start_tok tokens Marker::OpenBrace TokenKind.from_marker expect_token_kind
+    Stack.new::<TokenKind> as [break_on] {
+        Marker::CloseBrace TokenKind.from_marker break_on Stack.push
+        tokens ops types init_data Opt.None::<*Map<LocalVar>> break_on parse_tokens_until_tokenkind
+        break_on Stack.destroy
+    } as [tok]
+
+    tok tok ops if_idx close_if_block
+    
+}
+
+fn parse_if_block(
+    Token: token
+    *Stack<Token>: tokens
+    *Stack<Op>: ops
+    *Map<*Type>: types
+    *Map<InitData>: init_data
+) -> [Token] {
+    var u64: jump_dest
+    ops @ as [ops_] { ops_::len } as [start_ip]
+
+    
+    token tokens ops types init_data if_block_to_ops jump_dest !
+    true
+    while tokens Keyword::Else TokenKind.from_keyword peek_token_kind land {
+
+        tokens Keyword::Else TokenKind.from_keyword expect_token_kind as [else_tok]
+        else_tok Keyword::Else Op.Nop ops Stack.push
+
+        tokens Marker::OpenBrace TokenKind.from_marker peek_token_kind if {
+            else_tok tokens Marker::OpenBrace TokenKind.from_marker expect_token_kind as [open_tok]
+            ops @ as [ops_] { ops_::len } as [block_idx]
+            open_tok Op.StartBlock ops Stack.push
+
+            Stack.new::<TokenKind> as [break_on] {
+                Marker::CloseBrace TokenKind.from_marker break_on Stack.push
+                open_tok tokens ops types init_data Opt.None::<*Map<LocalVar>> break_on parse_tokens_until_tokenkind
+                break_on Stack.destroy
+            } as [close_tok]
+
+            ops block_idx make_ident_count as [var_count] 
+        
+            close_tok var_count Op.EndBlock ops Stack.push
+
+            close_tok ops @ as [ops_] { 
+                ops_::len jump_dest !
+                ops_::len
+            }  Op.JumpDest ops Stack.push
+
+            close_tok false
+        } else {
+
+            Stack.new::<TokenKind> as [break_on] {
+                Keyword::If TokenKind.from_keyword break_on Stack.push
+                else_tok tokens ops types init_data Opt.None::<*Map<LocalVar>> break_on parse_tokens_until_tokenkind
+                break_on Stack.destroy
+            } as [if_tok]
+
+            if_tok ops start_if_ops as [if_idx]
+            if_tok tokens Marker::OpenBrace TokenKind.from_marker expect_token_kind as [open_tok]
+            
+            Stack.new::<TokenKind> as [break_on] {
+                Marker::CloseBrace TokenKind.from_marker break_on Stack.push
+                if_tok tokens ops types init_data Opt.None::<*Map<LocalVar>> break_on parse_tokens_until_tokenkind
+                break_on Stack.destroy
+            } as [close_tok]
+
+            close_tok ops if_idx close_if_block jump_dest !
+
+            close_tok true 
+        }
+
+    } as [tok]
+
+
+    start_ip while dup ops @ as [stk] { stk::len } < {
+        ops @ as [i stk]
+        i stk::slice Arr.get as [op]
+
+        op::kind::tag OpKindTag::Jump ==
+        op::kind::value::Jump::tag OptTag::None == land if {
+            op::token jump_dest @ Opt.Some Op.Jump i stk::slice Arr.set
+        }
+ 
+        i 1 +
+
+    } drop
+
+    tok
+
+}
+
+fn parse_syscall(Token: start_tok *Stack<Token>: tokens) -> [Op] {
+    start_tok tokens Marker::OpenParen TokenKind.from_marker expect_token_kind
+    tokens expect_u64 as [tok n]
+
+    n 6 > if {
+        tok::loc Loc.puts
+        ": Syscall's can only accept up to 6 arguments" putlns
+        1 exit
+    }
+
+    tok tokens Marker::CloseParen TokenKind.from_marker expect_token_kind drop
+
+    tok n Op.Syscall
+
+}
+
+fn parse_local_var(
+    Token: token
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+    *Map<LocalVar>: locals
+) {
+    
+    token tokens types parse_tagged_type as [maybe_tok maybe_ident maybe_typ dimension]
+    maybe_tok   Opt.is_some 
+    maybe_ident Opt.is_some land
+    maybe_typ   Opt.is_some land if {
+
+        maybe_tok   Opt.unwrap
+        maybe_ident Opt.unwrap
+        maybe_typ   Opt.unwrap
+        as [tok ident typ]
+
+        dimension Opt.is_some if {
+
+            dimension Opt.unwrap as [n]
+
+            typ Type.Pointer as [data_typ] {
+                data_typ Type.name as [data_typ_name]
+
+                data_typ_name types Map.contains lnot if {
+                    data_typ_name data_typ types Map.insert drop
+                    data_typ
+                } else {
+                    data_typ_name types Map.get Opt.unwrap
+                    data_typ_name split cast(Arr) free
+                    data_typ free_obj
+                }
+            } as [data_typ]
+            
+
+            data_typ
+            data_typ token types Type.size
+                data_typ Type.width *
+                n *
+            Opt.None::<InitData>
+            cast(LocalVar) as [data_local]
+
+            Stack.new::<*Type> as [stk]{
+                tok
+                "Arr" types Map.get Opt.unwrap
+                stk
+                    "u64" types Map.get Opt.unwrap stk Stack.push
+                    data_typ                       stk Stack.push
+                types
+                Type.resolve_struct
+                stk Stack.destroy                
+            } as [arr_typ]
+            
+            arr_typ Type.Pointer as [arr_ptr_typ] {
+                arr_ptr_typ Type.name as [arr_ptr_typ_name]
+                arr_ptr_typ_name types Map.contains if {
+                    arr_ptr_typ_name types Map.get Opt.unwrap
+                    arr_ptr_typ_name split cast(Arr) free
+                } else {
+                    arr_ptr_typ_name arr_ptr_typ types Map.insert drop
+                    arr_ptr_typ
+                }
+            } as [arr_ptr_typ]
+
+            ident::size 5 + malloc::<u8> split cast(Str) as [ptr_name]
+            ident split ptr_name::data memcpy
+            "_data" split ptr_name::data ident::size ptr+ memcpy
+
+            arr_ptr_typ
+            arr_ptr_typ token types Type.size
+                data_typ Type.width *
+            n ptr_name InitData.Slice Opt.Some
+            cast(LocalVar) as [arr_local]
+
+            ptr_name data_local locals Map.insert Opt.is_some if {
+                tok::loc Loc.puts
+                ": Local var " puts ptr_name puts " has already been defined" putlns
+                "    * This was automatically generated with the local array " puts ident putlns
+                1 exit 
+            }
+
+            ident arr_local locals Map.insert Opt.is_some if {
+                tok::loc Loc.puts
+                ": Local var " puts ident puts " has already been defined" putlns
+                1 exit 
+            }
+
+        } else {
+
+            typ Type.Pointer as [pointer_typ] {
+            pointer_typ Type.name as [pointer_typ_name]
+                pointer_typ_name types Map.contains lnot if {
+                    pointer_typ_name pointer_typ types Map.insert drop
+                    pointer_typ
+                } else {
+                    pointer_typ_name types Map.get Opt.unwrap
+                    pointer_typ_name split cast(Arr) free
+                    pointer_typ free_obj
+                }
+            } as [pointer_typ]
+
+            pointer_typ
+            pointer_typ token types Type.size
+                pointer_typ Type.width *
+            Opt.None::<InitData>
+            cast(LocalVar) as [local]
+
+            ident local locals Map.insert Opt.is_some if {
+                tok::loc Loc.puts
+                ": Local var `" puts ident puts "` has already been declared" putlns
+                1 exit 
+            }
+        }
+
     }
 
 }
@@ -406,12 +917,13 @@ fn parse_tokens_until_tokenkind(
     *Stack<Token>: tokens
     *Stack<Op>: ops
     *Map<*Type>: types
-    // TODO: init data
-    // TODO: locals
+    *Map<InitData>: init_data
+    Opt<*Map<LocalVar>>: maybe_locals
     *Stack<TokenKind>: break_on
 ) -> [Token] {
 
     var Opt<*Stack<*Type>>: annotations
+    Opt.None::<*Stack<*Type>> annotations !
 
     false tokens Stack.pop while as [brk maybe_tok] { brk maybe_tok
         maybe_tok Opt.is_some brk lnot land
@@ -433,6 +945,7 @@ fn parse_tokens_until_tokenkind(
 
             "  Parsing Token: " puts tok Token.puts "\n" puts
 
+            // Check for keywords
             tok Token.keyword Opt.is_some if {
                 tok Token.keyword Opt.unwrap as [kw]
 
@@ -441,7 +954,30 @@ fn parse_tokens_until_tokenkind(
                 } else kw Keyword::SizeOf == if {
                     tok tokens types parse_size_of ops Stack.push
                 } else kw Keyword::While == if {
-                    tok tokens ops types parse_while_block
+                    tok tokens ops types init_data parse_while_block
+                } else kw Keyword::As == if {
+                    tok tokens ops types init_data parse_as
+                } else kw Keyword::If == if {
+                    tok tokens ops types init_data parse_if_block drop
+                } else kw Keyword::Include == if {
+                    "Include keyword cannot be converted into ops" putlns
+                    1 exit  
+                } else kw Keyword::Syscall == if {
+                    tok tokens parse_syscall ops Stack.push
+                } else kw Keyword::Struct == if {
+                    "Struct keyword cannot be converted into ops" putlns
+                    1 exit
+                } else kw Keyword::Split == if {
+                    tok Op.Split ops Stack.push
+                } else kw Keyword::Var == if {
+                    
+                    maybe_locals Opt.is_some if {
+                        tok tokens types maybe_locals Opt.unwrap parse_local_var
+                    } else {
+                        start_tok::loc Loc.puts
+                        ": Local variable aren't supported within this context!" putlns
+                        1 exit 
+                    }
                 } else {
                     "  Parsing " puts kw Keyword.puts " isn't implemented yet" putlns
                     1 exit
@@ -454,10 +990,25 @@ fn parse_tokens_until_tokenkind(
 
                 tok Token.word Opt.unwrap as [word]
 
-                while tokens Marker::DoubleColon TokenKind.from_marker peek_token_kind  {
-                    "Parsing fields isn't implemented yet" putlns 
-                    1 exit
-                } 
+                tok while tokens Marker::DoubleColon TokenKind.from_marker peek_token_kind  {
+                    as [tmp_tok]
+                    tmp_tok tokens Marker::DoubleColon TokenKind.from_marker expect_token_kind as [marker_tok]
+                    tokens Operator::LessThan TokenKind.from_operator peek_token_kind if {
+
+                        marker_tok tokens types parse_annotation_list as [_ ann]
+                        ann annotations !
+                        inner Stack.is_empty lnot if {
+                            "Cannot have both ann and inner types" putlns
+                            1 exit 
+                        }
+                        marker_tok
+                    } else {
+                        marker_tok tokens expect_word as [inner_tok field]
+                        inner_tok
+                        field inner Stack.push
+                    }
+
+                } drop
                 
                 annotations @ Opt.is_some if {
                     "  Parsing annotated function calls isn't implemented yet" putlns
@@ -475,9 +1026,26 @@ fn parse_tokens_until_tokenkind(
             } else tok Token.literal Opt.is_some if {
                 
                 tok Token.literal Opt.unwrap as [lit]
-                lit::tag LiteralTag::Str == if {
-                    "Parsing string literal isn't implemented yet" putlns
-                    1 exit 
+                lit Literal.Str Opt.is_some if {
+                    
+                    20 malloc::<u8> as [u64_buffer]
+                    init_data Map.len as [len]
+                    len u64_buffer u64.to_str as [len_str]
+                    "str_" as [ident_prefix]
+                
+                    ident_prefix::size len_str::size + malloc::<u8> split cast(Str) as [ident_str]
+                    ident_prefix split ident_str::data memcpy
+                    len_str split ident_str::data ident_prefix::size ptr+ memcpy 
+                    u64_buffer free
+
+                    ident_str
+                    lit Literal.Str Opt.unwrap escape_string InitData.String 
+                    init_data Map.insert Opt.is_some if {
+                        "Somehow created a duplicate string identifier" putlns
+                        1 exit
+                    }
+
+                    tok ident_str Op.PushString ops Stack.push
                 } else {
                     tok Op.from_literal_tok ops Stack.push
                 }
@@ -493,7 +1061,6 @@ fn parse_tokens_until_tokenkind(
             false tokens Stack.pop
 
         } else {
-            "  Breaking..." putlns
             break maybe_tok
         }
     } as [_ tok]
@@ -506,7 +1073,7 @@ fn parse_function(
     Token: start_tok 
     *Stack<Token>: tokens
     *Map<*Type>: types
-    // TODO: init data
+    *Map<InitData>: init_data
 ) -> [*Function] {
 
     start_tok tokens expect_word as [name_tok name]
@@ -564,14 +1131,36 @@ fn parse_function(
 
     Stack.new::<TokenKind> as [break_on]
     Marker::CloseBrace TokenKind.from_marker break_on Stack.push
-    sig_tok tokens ops types break_on parse_tokens_until_tokenkind as [end_tok]
+    Map.new::<LocalVar> as [locals]
+    sig_tok tokens ops types init_data locals Opt.Some break_on parse_tokens_until_tokenkind as [end_tok]
     break_on Stack.destroy
 
     end_tok Op.Return ops Stack.push
 
-    name start_tok Function.new as [func]
-    name start_tok sig ops cast(Function) func !
+    malloc_obj::<Function> as [func]
+    name start_tok sig ops locals cast(Function) func !
     func
+
+}
+
+fn parse_tagged_type(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+) -> [Opt<Token> Opt<Str> Opt<*Type> Opt<u64>] {
+
+    tokens "" TokenKind.from_word peek_token_kind
+    tokens Operator::Mul TokenKind.from_operator peek_token_kind lor if {
+
+        start_tok tokens types parse_type as [typ_tok typ dimension]
+        typ_tok tokens Marker::Colon TokenKind.from_marker expect_token_kind 
+        tokens expect_word as [ident_tok ident]
+
+        ident_tok Opt.Some ident Opt.Some typ Opt.Some dimension
+
+    } else {
+        Opt.None::<Token> Opt.None::<Str> Opt.None::<*Type> Opt.None::<u64> 
+    }
 
 }
 
@@ -593,19 +1182,26 @@ fn parse_type(
             1 exit
         }
 
-        inner Type.Pointer as [typ]
-        typ Type.name as [name]
+        inner Type.Pointer as [typ] {
+            typ Type.name as [name]
 
-        name types Map.contains lnot if {
-            typ Type.name typ types Map.insert drop
-        }
+            name types Map.contains lnot if {
+                typ Type.name typ types Map.insert drop
+                typ
+            } else {
+                name types Map.get Opt.unwrap
+                name split cast(Arr) free
+                typ free_obj
+            }
+        } as [typ]
+        
 
         tok typ dimension
 
     } else {
 
         start_tok tokens expect_word as [name_tok name]
-        name_tok tokens types parse_annotation_list as [tok annotations]
+        name_tok tokens types parse_annotation_list as [tok maybe_annotations]
 
         name types Map.get as [maybe_typ]
 
@@ -614,22 +1210,109 @@ fn parse_type(
             maybe_typ Opt.unwrap as [typ_p]
             typ_p @ as [typ]
             typ::tag TypeKind::GenericStructBase == if {
-                typ_p
-                "Parsing Generic Structs isn't implemented yet..." putlns
-                1 exit 
+                maybe_annotations Opt.is_none if {
+                    tok::loc Loc.puts
+                    ": No type annotation provided for generic struct: `" puts
+                    typ::type::GenericStructBase::base::name puts
+                    "`" putlns 
+                }
+
+                maybe_annotations Opt.unwrap as [annotations]
+                typ::type::GenericStructBase::base::name
+                typ::type::GenericStructBase::base::members 
+                typ::type::GenericStructBase::generics
+                as [base members generics]
+
+                generics Stack.len annotations Stack.len != if {
+                    tok::loc Loc.puts
+                    ": Incorrect number of generic parameters provided for " puts base putlns
+                    "    * Expected: " puts generics    Stack.len putlnu
+                    "    * Found:    " puts annotations Stack.len putlnu
+                }
+
+                false 0 while dup annotations Stack.len < {
+                    annotations Stack.slice as [i slice]
+                    i slice Arr.get Type.is_generic lor
+                    i 1 +
+                } drop if {
+                    
+                    typ_p annotations Type.GenericStructInstance as [t]
+
+                    t Type.name as [t_name] {
+                        t_name types Map.contains lnot if {
+                            t_name t types Map.insert drop
+                            t
+                        } else {
+                            t_name types Map.get Opt.unwrap
+                            t free_obj
+                            t_name split cast(Arr) free
+                        }
+                    }
+                } else {
+                    start_tok typ_p generics annotations types Type.assign_generics
+                }
+
             } else typ::tag TypeKind::GenericUnionBase == if {
-                typ_p
-                "Parsing Generic Unions isn't implemented yet..." putlns
-                1 exit 
+                maybe_annotations Opt.is_none if {
+                    tok::loc Loc.puts
+                    ": No type annotations provided for generic union " puts
+                    typ::type::GenericUnionBase::base::name putlns
+                    1 exit
+                }
+
+                maybe_annotations Opt.unwrap as [annotations]
+                typ::type::GenericUnionBase::base::name
+                typ::type::GenericUnionBase::base::members 
+                typ::type::GenericUnionBase::generics
+                as [base members generics]
+
+
+                generics Stack.len annotations Stack.len != if {
+                    tok::loc Loc.puts
+                    ": Incorrect number of generic parameters provided for " puts base putlns
+                    "    * Expected: " puts generics    Stack.len putlnu
+                    "    * Found:    " puts annotations Stack.len putlnu
+                }
+
+                false 0 while dup annotations Stack.len < {
+                    annotations Stack.slice as [i slice]
+                    i slice Arr.get Type.is_generic lor
+                    i 1 +
+                } drop if {
+                    
+                    typ_p annotations Type.GenericUnionInstance as [t]
+
+                    t Type.name as [t_name] {
+                        t_name types Map.contains lnot if {
+                            t_name t types Map.insert drop
+                            t
+                        } else {
+                            t_name types Map.get Opt.unwrap
+                            t free_obj
+                            t_name split cast(Arr) free
+                        }
+                    }
+                } else {
+                    start_tok typ_p generics annotations types Type.assign_generics
+                }
             } else {
                 typ_p
             }
 
         } else {
             
-            name Type.Placeholder as [typ]
-            typ Type.name typ types Map.insert drop
-            typ
+            name Type.Placeholder as [typ] {
+                typ Type.name as [typ_name]
+                typ_name types Map.contains lnot if {
+                    typ_name typ types Map.insert drop
+                    typ
+                } else {
+                    typ_name types Map.get Opt.unwrap
+                    typ free_obj
+                    typ_name split cast(Arr) free
+                }
+            }
+            
 
         } as [typ]
 
@@ -707,7 +1390,79 @@ fn parse_annotation_list(
 
 }
 
-fn hay_into_ir(Str: path *Program: program_p *Stack<Str>: included_files) {
+fn parse_struct(
+    Token: start_tok
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+) -> [Str *Type] {
+
+    start_tok tokens expect_word as [name_tok name]
+    name_tok tokens types parse_annotation_list as [ann_tok generics]
+
+    malloc_obj::<Type> as [t]
+
+    name t types Map.insert Opt.is_some if {
+        name_tok::loc Loc.puts
+        ": Redefinition of type: `" puts name puts "`" putlns
+        1 exit 
+    }
+
+    ann_tok tokens Marker::OpenBrace TokenKind.from_marker expect_token_kind
+    tokens types generics parse_tagged_type_list as [members]
+    name_tok tokens Marker::CloseBrace TokenKind.from_marker expect_token_kind drop
+
+    generics Opt.is_some if {
+        name members generics Opt.unwrap Type.GenericStructBase as [tmp]
+        tmp @ t !
+        tmp free_obj
+    } else {
+        name members Type.Struct as [tmp]
+        tmp @ t !
+        tmp free_obj
+    }
+    name t
+
+}
+
+fn parse_enum(Token: start_tok *Stack<Token>: tokens) -> [Str *Type] {
+
+    start_tok tokens expect_word as [name_tok name]
+    name_tok 
+        tokens
+        Marker::OpenBrace TokenKind.from_marker
+        Marker::CloseBrace TokenKind.from_marker
+        parse_word_list as [tok var_tokens variants]
+    
+    name
+    name variants Stack.slice Type.Enum 
+
+}
+
+fn parse_union(
+    Token: start_tok 
+    *Stack<Token>: tokens
+    *Map<*Type>: types
+) -> [Str *Type] {
+    start_tok tokens expect_word as [name_tok name]
+    name_tok tokens types parse_annotation_list as [ann_tok generics]
+    ann_tok tokens Marker::OpenBrace TokenKind.from_marker expect_token_kind as [open_tok]
+    open_tok tokens types generics parse_tagged_type_list as [members]
+    name_tok tokens Marker::CloseBrace TokenKind.from_marker expect_token_kind drop
+
+    name
+    generics Opt.is_some if{
+        name
+        members
+        generics Opt.unwrap
+        Type.GenericUnionBase
+    } else {
+        name
+        members
+        Type.Union
+    }
+}
+
+fn hay_into_ir(Str: path *Program: program_p *Map<Str>: included_files) {
 
     program_p @ as [program]
     path File.str_from_path as [file_str]
@@ -726,8 +1481,50 @@ fn hay_into_ir(Str: path *Program: program_p *Stack<Str>: included_files) {
             token Token.keyword Opt.unwrap as [kw]
 
             kw Keyword::Function == if {
-                token tokens program::types parse_function program::functions Stack.push
-            } else {
+                token tokens program::types program::init_data parse_function program::functions Stack.push
+            } else kw Keyword::Include == if {
+                token tokens expect_literal Literal.Str as [path_tok maybe_include_path]
+                maybe_include_path Opt.is_none if {
+                    path_tok::loc Loc.puts
+                    ": Expected a string literal as include path" putlns
+                    1 exit 
+                }
+
+
+                maybe_include_path Opt.unwrap "./src/libs/" as [base_include_path libs_path]
+                base_include_path::size libs_path::size + 1 + malloc::<u8> as [buffer]
+
+                libs_path split buffer::data memcpy
+                base_include_path split buffer::data libs_path::size ptr+ memcpy
+                
+                buffer split cast(Str) as [libs_include_path]
+
+                base_include_path File.exists if {
+                    base_include_path
+                } else libs_include_path File.exists if {
+                    libs_include_path
+                } else {
+                    "error_path"
+                    token::loc Loc.puts
+                    ": Cannot find file: " puts base_include_path putlns
+                    1 exit                    
+                } as [include_path]
+
+                include_path included_files Map.contains lnot if {
+                    include_path include_path included_files Map.insert drop
+                    include_path program_p included_files hay_into_ir
+                }
+
+            } else kw Keyword::Struct == if {
+                
+                token tokens program::types parse_struct as [name typ]
+                name typ program::types Map.insert drop
+
+            } else kw Keyword::Enum == if {
+                token tokens parse_enum program::types Map.insert drop
+            } else kw Keyword::Union == if {
+                token tokens program::types parse_union program::types Map.insert drop
+            }else {
                 "Lexing keyword `" puts kw Keyword.puts "` isn't implemented yet" putlns
                 1 exit  
             }
@@ -739,6 +1536,4 @@ fn hay_into_ir(Str: path *Program: program_p *Stack<Str>: included_files) {
 
     } drop
     
-    "converting .hay files into intermediate representation isn't finished yet..." putlns
-    1 exit 
 }

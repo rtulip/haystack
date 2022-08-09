@@ -2,13 +2,14 @@ include "stack.hay"
 include "linear_map.hay"
 include "selfhost/ir/types/type.hay"
 include "selfhost/ir/function.hay"
+include "selfhost/ir/data.hay"
 
 struct Program {
     *Map<*Type>: types 
     *Stack<*Function>: functions
+    *Map<InitData>: init_data
 
     // todo: global vars
-    // todo: init data
     // todo: uninit data
 }
 
@@ -45,6 +46,7 @@ fn Program.new() -> [*Program] {
 
     types_p
     Stack.new::<*Function> 
+    Map.new::<InitData>
     cast(Program) as [program]
 
     malloc_obj::<Program> as [program_p] program program_p !

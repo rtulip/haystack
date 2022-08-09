@@ -68,3 +68,11 @@ fn Literal.u64(Literal: lit) -> [Opt<u64>] {
         Opt.None::<u64>
     }
 }
+
+fn Literal.Str(Literal: lit) -> [Opt<Str>] {
+    lit::tag LiteralTag::Str == if {
+        lit::value::Str Opt.Some
+    } else {
+        Opt.None::<Str>
+    }
+}

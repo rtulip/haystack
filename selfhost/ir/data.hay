@@ -1,0 +1,28 @@
+
+enum InitDataTag{
+    String
+    Slice
+}
+
+struct InitDataSlice {
+    u64: size
+    Str: pointer
+}
+
+union InitDataValue {
+    Str: String
+    InitDataSlice: Slice
+}
+
+struct InitData {
+    InitDataTag: tag
+    InitDataValue: value
+}
+
+fn InitData.String(Str: s)  -> [InitData] {
+    InitDataTag::String s cast(InitDataValue) cast(InitData)
+}
+
+fn InitData.Slice(u64: size Str: pointer)  -> [InitData] {
+    InitDataTag::Slice size pointer cast(InitDataSlice) cast(InitDataValue) cast(InitData)
+}

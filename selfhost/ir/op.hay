@@ -60,7 +60,7 @@ struct IdentVariant {
 
 struct MakeIdentVariant {
     Str: ident
-    u64: size
+    Opt<u64>: size
 }
 
 struct PushFramedVariant {
@@ -162,10 +162,13 @@ fn Op.from_oper_tok(Token: tok) -> [Op] {
     } else oper Operator::Mod == if {
         OpKindTag::Mod 0 cast(OpKindValue) cast(OpKind) tok cast(Op)
     } else oper Operator::Read == if {
+        OpKindTag::Read 0 cast(OpKindValue) cast(OpKind) tok cast(Op)
+    } else oper Operator::Write == if {
         OpKindTag::Write 0 cast(OpKindValue) cast(OpKind) tok cast(Op)
     } else {
         OpKindTag::Add 0 cast(OpKindValue) cast(OpKind) tok cast(Op)
-        "Unrecognized Operator" putlns
+        tok::loc Loc.puts
+        ": Unrecognized Operator" putlns
         1 exit
     }
 
@@ -195,16 +198,12 @@ fn Op.Nop(Token: token Keyword: kw) -> [Op] {
     OpKindTag::Nop kw cast(OpKindValue) cast(OpKind) token cast(Op)
 }
 
-fn Op.JumpCondNone(Token: token) -> [Op] {
-    OpKindTag::JumpCond Opt.None::<u64> cast(OpKindValue) cast(OpKind) token cast(Op)
+fn Op.JumpCond(Token: token Opt<u64>: dest) -> [Op] {
+    OpKindTag::JumpCond dest cast(OpKindValue) cast(OpKind) token cast(Op)
 }
 
-fn Op.JumpCondSome(Token: token u64: dest) -> [Op] {
-    OpKindTag::JumpCond dest Opt.Some cast(OpKindValue) cast(OpKind) token cast(Op)
-}
-
-fn Op.JumpSome(Token: token u64: dest) -> [Op] {
-    OpKindTag::Jump dest Opt.Some cast(OpKindValue) cast(OpKind) token cast(Op)
+fn Op.Jump(Token: token Opt<u64>: dest) -> [Op] {
+    OpKindTag::Jump dest cast(OpKindValue) cast(OpKind) token cast(Op)
 }
 
 fn Op.JumpDest(Token: token u64: dest) -> [Op] {
@@ -217,4 +216,20 @@ fn Op.StartBlock(Token: token) -> [Op] {
 
 fn Op.EndBlock(Token: token u64: var_count) -> [Op] {
     OpKindTag::EndBlock var_count cast(OpKindValue) cast(OpKind) token cast(Op)
+}
+
+fn Op.MakeIdent(Token: token Str: ident Opt<u64>: size) -> [Op] {
+    OpKindTag::MakeIdent ident size cast(MakeIdentVariant) cast(OpKindValue) cast(OpKind) token cast(Op)
+}
+
+fn Op.Syscall(Token: token u64: n) -> [Op] {
+    OpKindTag::Syscall n cast(OpKindValue) cast(OpKind) token cast(Op)
+}
+
+fn Op.PushString(Token: token Str: str) -> [Op] {
+    OpKindTag::PushString str cast(OpKindValue) cast(OpKind) token cast(Op)
+}
+
+fn Op.Split(Token: token) -> [Op] {
+    OpKindTag::Split 0 cast(OpKindValue) cast(OpKind) token cast(Op)
 }

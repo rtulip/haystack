@@ -16,7 +16,8 @@ struct TwoPairs<A B> {
 
 fn main() {
 
-    "World" "Hello" cast(Pair) 
-    split putlns putlns
+    "World" "Hello" cast(Pair) as [p]
+    p::first  putlns 
+    p::second putlns
 
 }

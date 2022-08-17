@@ -37,7 +37,7 @@ fn File.str_from_path(Str: path) -> [Str] {
     size buffer::data file::fd sys_read drop
     file File.close
 
-    buffer split cast(Str)
+    buffer::size buffer::data cast(Str)
 
 }
 

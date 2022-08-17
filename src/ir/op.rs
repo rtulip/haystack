@@ -33,7 +33,6 @@ pub enum OpKind {
     Cast(TypeName),
     Pad(usize),
     SizeOf(TypeName),
-    Split,
     Global(String),
     Word(String),
     Ident(String, Vec<String>),
@@ -80,7 +79,6 @@ impl std::fmt::Debug for OpKind {
             OpKind::Cast(typ) => write!(f, "Cast({typ})"),
             OpKind::Pad(n) => write!(f, "Pad({n})"),
             OpKind::SizeOf(typ) => write!(f, "SizeOf({typ})"),
-            OpKind::Split => write!(f, "Split"),
             OpKind::Global(s) => write!(f, "Global({s})"),
             OpKind::Word(s) => write!(f, "Word({s})"),
             OpKind::Ident(s, fs) => write!(f, "Ident({s}::{:?}", fs),
@@ -742,40 +740,6 @@ impl Op {
                 "{}: {:?} shouldn't be type checked.",
                 self.token.loc, self.kind
             ),
-            OpKind::Split => {
-                let (struct_t, members) = if let Some(t) = stack.last() {
-                    match type_map.get(t).unwrap() {
-                        Type::Struct {
-                            name: _, members, ..
-                        } => (stack.last().unwrap().clone(), members.clone()),
-                        Type::ResolvedStruct {
-                            name: _, members, ..
-                        } => (stack.last().unwrap().clone(), members.clone()),
-                        _ => compiler_error(
-                            &self.token,
-                            "Split requires a struct on top of the stack.",
-                            vec![format!("Stack: {:?}", stack).as_str()],
-                        ),
-                    }
-                } else {
-                    compiler_error(
-                        &self.token,
-                        "Split requires a struct on top of the stack.",
-                        vec![format!("Stack: {:?}", stack).as_str()],
-                    )
-                };
-
-                evaluate_signature(
-                    self,
-                    &Signature {
-                        inputs: vec![struct_t],
-                        outputs: members,
-                    },
-                    stack,
-                );
-
-                None
-            }
             OpKind::PushString { .. } => {
                 evaluate_signature(
                     self,

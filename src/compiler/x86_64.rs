@@ -212,7 +212,6 @@ fn compile_op(
                 writeln!(file, "  push 0").unwrap();
             }
         }
-        OpKind::Split => (),
         OpKind::Global(s) => write!(file, "  push {s}").unwrap(),
         OpKind::Word(_) => unreachable!("Words shouldn't be compiled."),
         OpKind::Ident(_, _) => unreachable!("Idents shouldn't be compiled."),

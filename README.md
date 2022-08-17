@@ -55,7 +55,7 @@ fn main() {
 }
 ```
 
-Because manipulating items solely on the stack can become very tedious (not to mention adds a significant mental burden), you are able to create scoped variables using the `as [ident ..]` syntax. Variables will last for the duration of their scope, and are cosumed from the top of the stack. 
+Because manipulating items solely on the stack can become very tedious and can add a significant mental burden, you are able to create scoped variables using the `as [ident ..]` syntax. Variables will last for the duration of their scope, and are cosumed from the top of the stack. 
 
 ```
 include "std.hay"
@@ -181,17 +181,6 @@ fn main() {
 
     1 2 cast(Pair)              // creates a Pair<u64>
     "Hello" "World" cast(Pair)  // creates a Pair<Str>
-    // ...
-}
-```
- 
-You can destructure a `struct` using the `split` operation.
-
-``` 
-fn main() {
-    // ... 
-    "Hello" "World" cast(Pair)  // creates a Pair<Str>
-    split                       // two strings are now on the stack
     // ...
 }
 ```

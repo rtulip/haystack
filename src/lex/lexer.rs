@@ -80,10 +80,6 @@ fn parse_tokens_until_tokenkind(
             TokenKind::Keyword(Keyword::SizeOf) => {
                 ops.push(parse_size_of(&token, tokens, type_map));
             }
-            TokenKind::Keyword(Keyword::Split) => ops.push(Op {
-                kind: OpKind::Split,
-                token: token.clone(),
-            }),
             TokenKind::Keyword(Keyword::If) => {
                 let _tok = parse_if_block(&token, tokens, ops, type_map, init_data);
             }

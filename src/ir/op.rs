@@ -5,7 +5,7 @@ use crate::ir::{
     literal::Literal,
     operator::Operator,
     token::{Token, TokenKind},
-    types::{Signature, Type, TypeName},
+    types::{Signature, Type, TypeName, Visibility},
     FnTable, Frame, Stack,
 };
 use serde::{Deserialize, Serialize};
@@ -134,18 +134,26 @@ impl Op {
                 Type::Struct {
                     name,
                     ref members,
-                    visibility: _,
+                    ref visibility,
                     ref idents,
                 }
                 | Type::ResolvedStruct {
                     name,
                     ref members,
-                    visibility: _,
+                    ref visibility,
                     ref idents,
                     ..
                 } => {
                     if idents.contains(&field.clone()) {
                         let idx = idents.iter().position(|s| s == &field.clone()).unwrap();
+                        if matches!(visibility[idx], Visibility::Private) {
+                            compiler_error(
+                                &self.token,
+                                format!("Struct member `{field}` is private and cannot accessed")
+                                    .as_str(),
+                                vec!["Private members can only be accessed inside an impl block"],
+                            )
+                        }
                         (
                             members[idx].clone(),
                             members[idx + 1..]
@@ -174,18 +182,26 @@ impl Op {
                 Type::Union {
                     name,
                     ref members,
-                    visibility: _,
+                    ref visibility,
                     ref idents,
                 }
                 | Type::ResolvedUnion {
                     name,
                     ref members,
-                    visibility: _,
+                    ref visibility,
                     ref idents,
                     ..
                 } => {
                     if idents.contains(&field.clone()) {
                         let idx = idents.iter().position(|s| s == &field.clone()).unwrap();
+                        if matches!(visibility[idx], Visibility::Private) {
+                            compiler_error(
+                                &self.token,
+                                format!("Union member `{field}` is private and cannot accessed")
+                                    .as_str(),
+                                vec!["Private members can only be accessed inside an impl block"],
+                            )
+                        }
                         let delta = type_map.get(&t).unwrap().size(&self.token, type_map)
                             * type_map.get(&t).unwrap().width()
                             - type_map

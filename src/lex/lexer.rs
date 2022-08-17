@@ -107,6 +107,9 @@ fn parse_tokens_until_tokenkind(
             TokenKind::Keyword(Keyword::Include) => {
                 panic!("Include keyword can't be converted into ops")
             }
+            TokenKind::Keyword(Keyword::Pub) => {
+                panic!("Pub keyword can't be converted into ops")
+            }
             TokenKind::Comment(_) => (),
             TokenKind::Operator(_) => ops.push(Op::from(token.clone())),
             TokenKind::Literal(Literal::String(ref s)) => {
@@ -488,12 +491,18 @@ fn parse_tagged_type(
     start_tok: &Token,
     tokens: &mut Vec<Token>,
     type_map: &mut HashMap<String, Type>,
-) -> Option<(Token, String, TypeName, Option<u64>)> {
+) -> Option<(Token, String, TypeName, Option<Visibility>, Option<u64>)> {
+    let visibility = if peek_token_kind(tokens, TokenKind::Keyword(Keyword::Pub)) {
+        tokens.pop();
+        Some(Visibility::Public)
+    } else {
+        None
+    };
     if peek_word(tokens) || peek_token_kind(tokens, TokenKind::Operator(Operator::Mul)) {
         let (tok, typ, array_n) = parse_type(start_tok, tokens, type_map);
         let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::Colon));
         let (tok, ident) = expect_word(&tok, tokens);
-        Some((tok, ident, typ, array_n))
+        Some((tok, ident, typ, visibility, array_n))
     } else {
         None
     }
@@ -535,14 +544,17 @@ fn parse_tagged_type_list(
     tokens: &mut Vec<Token>,
     type_map: &mut HashMap<String, Type>,
     maybe_generics: &Option<Vec<TypeName>>,
-) -> (Vec<TypeName>, Vec<String>) {
+) -> (Vec<TypeName>, Vec<Visibility>, Vec<String>) {
     let mut tok = token.clone();
     let mut inputs = vec![];
     let mut idents = vec![];
-    while let Some((typ_tok, ident, typ, array_n)) = parse_tagged_type(&tok, tokens, type_map) {
+    let mut visibility = vec![];
+    while let Some((typ_tok, ident, typ, vis, array_n)) = parse_tagged_type(&tok, tokens, type_map)
+    {
         if array_n.is_some() {
             compiler_error(&typ_tok, "Cannot have array types in type list", vec![]);
         }
+        visibility.push(vis.unwrap_or(Visibility::Private));
         let generics = type_map
             .get(&typ)
             .unwrap()
@@ -581,7 +593,7 @@ fn parse_tagged_type_list(
         idents.push(ident);
         tok = typ_tok;
     }
-    (inputs, idents)
+    (inputs, visibility, idents)
 }
 
 fn parse_maybe_tagged_type_list(
@@ -1115,9 +1127,16 @@ fn parse_union(
     let (name_tok, name) = expect_word(&tok, tokens);
     let (tok, generics) = parse_annotation_list(&name_tok, tokens, type_map);
     let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
-    let (members, idents) = parse_tagged_type_list(&tok, tokens, type_map, &generics);
-    let n_members = members.len();
+    let (members, visibility, idents) = parse_tagged_type_list(&tok, tokens, type_map, &generics);
     let _tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
+
+    println!(
+        "Parsed Union {name}: {:?}",
+        idents
+            .iter()
+            .zip(&visibility)
+            .collect::<Vec<(&String, &Visibility)>>()
+    );
 
     if let Some(generics) = generics {
         (
@@ -1125,7 +1144,7 @@ fn parse_union(
             Type::GenericUnionBase {
                 name,
                 members,
-                visibility: (0..n_members).map(|_| Visibility::Private).collect(),
+                visibility,
                 idents,
                 generics,
             },
@@ -1136,7 +1155,7 @@ fn parse_union(
             Type::Union {
                 name,
                 members,
-                visibility: (0..n_members).map(|_| Visibility::Private).collect(),
+                visibility,
                 idents,
             },
         )
@@ -1177,8 +1196,7 @@ fn parse_struct(
         );
     }
     let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
-    let (members, idents) = parse_tagged_type_list(&tok, tokens, type_map, &generics);
-    let n_members = members.len();
+    let (members, visibility, idents) = parse_tagged_type_list(&tok, tokens, type_map, &generics);
     let _tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
 
     if let Some(gen) = generics {
@@ -1188,7 +1206,7 @@ fn parse_struct(
             Type::GenericStructBase {
                 name,
                 members,
-                visibility: (0..n_members).map(|_| Visibility::Private).collect(),
+                visibility,
                 idents,
                 generics: gen,
             },
@@ -1200,7 +1218,7 @@ fn parse_struct(
             Type::Struct {
                 name,
                 members,
-                visibility: (0..n_members).map(|_| Visibility::Private).collect(),
+                visibility,
                 idents,
             },
         )
@@ -1213,7 +1231,10 @@ fn parse_local_var(
     type_map: &mut HashMap<String, Type>,
     locals: &mut BTreeMap<String, LocalVar>,
 ) {
-    if let Some((tok, ident, typ, array_n)) = parse_tagged_type(token, tokens, type_map) {
+    if let Some((tok, ident, typ, vis, array_n)) = parse_tagged_type(token, tokens, type_map) {
+        if vis.is_some() {
+            compiler_error(&tok, "Unexpected Keyword `pub`", vec![]);
+        }
         if let Some(n) = array_n {
             let data_typ = Type::Pointer { typ: typ.clone() };
             type_map.insert(data_typ.name(), data_typ.clone());
@@ -1294,7 +1315,10 @@ fn parse_global_var(
     uninit_data: &mut BTreeMap<String, UninitData>,
 ) {
     let tok = expect_token_kind(token, tokens, TokenKind::Keyword(Keyword::Var));
-    if let Some((tok, ident, typ, array_n)) = parse_tagged_type(&tok, tokens, type_map) {
+    if let Some((tok, ident, typ, vis, array_n)) = parse_tagged_type(&tok, tokens, type_map) {
+        if vis.is_some() {
+            compiler_error(&tok, "Unexpected Keyword `pub`", vec![]);
+        }
         let global_ident = format!("global_{}", globals.len());
         let typ = if let Some(n) = array_n {
             let data_ptr = format!("data_{}", uninit_data.len());

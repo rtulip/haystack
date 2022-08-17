@@ -15,4 +15,5 @@ pub enum Keyword {
     Syscall,
     Include,
     SizeOf,
+    Pub,
 }

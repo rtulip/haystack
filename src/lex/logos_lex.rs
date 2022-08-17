@@ -49,8 +49,6 @@ pub enum LogosToken {
     EnumKeyword,
     #[token("cast")]
     CastKeyword,
-    #[token("split")]
-    SplitKeyword,
     #[token("syscall")]
     SyscallKeyword,
     #[token("include")]

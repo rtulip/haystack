@@ -12,7 +12,6 @@ pub enum Keyword {
     Union,
     Enum,
     Cast,
-    Split,
     Syscall,
     Include,
     SizeOf,

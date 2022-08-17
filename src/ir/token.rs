@@ -63,7 +63,6 @@ impl From<(LogosToken, &str)> for TokenKind {
             (LogosToken::UnionKeyword, _) => TokenKind::Keyword(Keyword::Union),
             (LogosToken::EnumKeyword, _) => TokenKind::Keyword(Keyword::Enum),
             (LogosToken::CastKeyword, _) => TokenKind::Keyword(Keyword::Cast),
-            (LogosToken::SplitKeyword, _) => TokenKind::Keyword(Keyword::Split),
             (LogosToken::SyscallKeyword, _) => TokenKind::Keyword(Keyword::Syscall),
             (LogosToken::IncludeKeyword, _) => TokenKind::Keyword(Keyword::Include),
             (LogosToken::SizeOfKeyword, _) => TokenKind::Keyword(Keyword::SizeOf),

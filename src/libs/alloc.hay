@@ -183,9 +183,9 @@ fn mmap_new_chunk(u64: n) -> [*Chunk] {
 
 }
 
-fn arr_convert<T>(Arr<u8>) -> [Arr<T>] {
+fn arr_convert<T>(Arr<u8>: a) -> [Arr<T>] {
 
-    split as [bytes ptr]
+    a::size a::data as [bytes ptr]
     bytes sizeOf(T) /
     ptr cast(u64) cast(*T)
     cast(Arr)

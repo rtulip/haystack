@@ -27,10 +27,13 @@ fn main() {
 
     "World" "Hello" cast(Pair)
 
-    into_quad
+    into_quad as [quad]
 
-    split 
-    split putlns putlns 
-    split putlnu putlnu
+    quad::b as [pair] {
+        pair::first pair::second
+    } putlns putlns
+    quad::a as [pair] {
+        pair::first pair::second
+    } putlnu putlnu
 
 }

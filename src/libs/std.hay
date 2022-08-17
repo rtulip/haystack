@@ -5,8 +5,8 @@ fn Str.equals(Str: s1 Str:s2) -> [bool] {
 
     var bool: equal
 
-    s1 split cast(Arr)
-    s2 split cast(Arr)
+    s1 as [str] { str::size str::data } cast(Arr)
+    s2 as [str] { str::size str::data } cast(Arr)
     as [arr1 arr2]
 
     arr1::size arr2::size == if {

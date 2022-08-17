@@ -1,5 +1,5 @@
 {
   "exit_code": 0,
-  "stdout": "include \"std.hay\"\ninclude \"file.hay\"\n\nfn cat(Str: path) {\n    path File.str_from_path as [file_str]\n    file_str putlns \n    file_str split cast(Arr) free \n}\n\nfn main() {\n    \"./src/tests/cat.hay\" cat\n}\n",
+  "stdout": "include \"std.hay\"\ninclude \"file.hay\"\n\nfn cat(Str: path) {\n    path File.str_from_path as [file_str]\n    file_str putlns \n    file_str::size file_str::data cast(Arr) free \n}\n\nfn main() {\n    \"./src/tests/cat.hay\" cat\n}\n",
   "stderr": ""
 }

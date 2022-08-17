@@ -11,10 +11,14 @@ fn cStr.to_Str(cStr: cs) -> [Str] {
 fn Str.to_cStr(Str: s Arr<u8>: buffer) -> [cStr bool] {
     s::size 1 + buffer::size >= if {
         "Buffer is too small to null terminate string" putlns
-        s split cast(cStr) false
+        s as [str] {
+            str::size str::data 
+        } cast(cStr) false
     } else {
         // null terminate the string.
-        s split buffer::data memcpy
+        s as [str] {
+            str::size str::data 
+        } buffer::data memcpy
         0 cast(u8) buffer::data s::size ptr+ !
         s::size 1 + buffer::data cast(cStr) true
     }
@@ -25,14 +29,14 @@ fn Str.concat(Str: s1 Str: s2 Arr<u8>: buffer) -> [Str] {
         "Buffer is to small to concatinate strings" putlns
         1 exit
     }
-    s1 split buffer::data memcpy
-    s2 split buffer::data s1::size ptr+ memcpy
+    s1 as [str] { str::size str::data } buffer::data memcpy
+    s2 as [str] { str::size str::data } buffer::data s1::size ptr+ memcpy
     s1::size s2::size + buffer::data cast(Str)
 
 }
 
 fn fputs(Str: s u64: fd) {
-    s split fd sys_write drop
+    s as [str] { str::size str::data } fd sys_write drop
 }
 
 // TODO: replace `1` with a constant for stdout
@@ -108,7 +112,7 @@ fn u64.to_str(u64: u Arr<u8>: chars) -> [Str] {
     }
 
     0 u == if {
-        "0" split chars::data memcpy
+        "0" as [str] { str::size str::data } chars::data memcpy
         1 chars::data cast(Str) 
     } else {
         19 u while dup 0 != {

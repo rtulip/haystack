@@ -16,7 +16,7 @@ fn main() {
         i 1 + 
     } drop
     
-    "aaaaabbbbbccccc" split cast(Arr)
+    "aaaaabbbbbccccc" as [s] { s::size s::data } cast(Arr)
     as [str_arr]
 
     0 while dup str_arr::size < {

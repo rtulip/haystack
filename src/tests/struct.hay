@@ -8,9 +8,15 @@ fn main() {
     1 2 cast(pair)
     3 4 cast(pair)
 
-    swap
+    swap 
 
-    split putlnu putlnu
-    split putlnu putlnu
-
+    as [p] {
+        p::first
+        p::second
+    } putlnu putlnu
+    
+    as [p] {
+        p::first
+        p::second
+    } putlnu putlnu
 }

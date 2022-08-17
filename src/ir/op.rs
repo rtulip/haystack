@@ -134,11 +134,13 @@ impl Op {
                 Type::Struct {
                     name,
                     ref members,
+                    visibility: _,
                     ref idents,
                 }
                 | Type::ResolvedStruct {
                     name,
                     ref members,
+                    visibility: _,
                     ref idents,
                     ..
                 } => {
@@ -172,11 +174,13 @@ impl Op {
                 Type::Union {
                     name,
                     ref members,
+                    visibility: _,
                     ref idents,
                 }
                 | Type::ResolvedUnion {
                     name,
                     ref members,
+                    visibility: _,
                     ref idents,
                     ..
                 } => {

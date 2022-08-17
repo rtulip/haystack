@@ -9,7 +9,7 @@ use crate::ir::{
     operator::Operator,
     program::Program,
     token::{Loc, Token, TokenKind},
-    types::{Signature, Type, TypeName},
+    types::{Signature, Type, TypeName, Visibility},
 };
 use crate::lex::logos_lex::{into_token, LogosToken};
 use logos::Logos;
@@ -328,6 +328,7 @@ fn parse_type(
         Some(Type::GenericStructBase {
             name: base,
             members,
+            visibility,
             idents,
             generics,
         }) => {
@@ -358,6 +359,7 @@ fn parse_type(
                 let t = Type::GenericStructInstance {
                     base: name.clone(),
                     members: members.clone(),
+                    visibility: visibility.clone(),
                     idents: idents.clone(),
                     alias_list: annotations,
                     base_generics: generics.clone(),
@@ -377,6 +379,7 @@ fn parse_type(
         Some(Type::GenericUnionBase {
             name: base,
             members,
+            visibility,
             idents,
             generics,
         }) => {
@@ -407,6 +410,7 @@ fn parse_type(
                 let t = Type::GenericUnionInstance {
                     base: name.clone(),
                     members: members.clone(),
+                    visibility: visibility.clone(),
                     idents: idents.clone(),
                     alias_list: annotations,
                     base_generics: generics.clone(),
@@ -1112,6 +1116,7 @@ fn parse_union(
     let (tok, generics) = parse_annotation_list(&name_tok, tokens, type_map);
     let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
     let (members, idents) = parse_tagged_type_list(&tok, tokens, type_map, &generics);
+    let n_members = members.len();
     let _tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
 
     if let Some(generics) = generics {
@@ -1120,6 +1125,7 @@ fn parse_union(
             Type::GenericUnionBase {
                 name,
                 members,
+                visibility: (0..n_members).map(|_| Visibility::Private).collect(),
                 idents,
                 generics,
             },
@@ -1130,6 +1136,7 @@ fn parse_union(
             Type::Union {
                 name,
                 members,
+                visibility: (0..n_members).map(|_| Visibility::Private).collect(),
                 idents,
             },
         )
@@ -1150,6 +1157,7 @@ fn parse_struct(
             Type::GenericStructBase {
                 name: name.clone(),
                 members: vec![],
+                visibility: vec![],
                 idents: vec![],
                 generics: vec![],
             }
@@ -1157,6 +1165,7 @@ fn parse_struct(
             Type::Struct {
                 name: name.clone(),
                 members: vec![],
+                visibility: vec![],
                 idents: vec![],
             }
         },
@@ -1169,6 +1178,7 @@ fn parse_struct(
     }
     let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
     let (members, idents) = parse_tagged_type_list(&tok, tokens, type_map, &generics);
+    let n_members = members.len();
     let _tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
 
     if let Some(gen) = generics {
@@ -1178,6 +1188,7 @@ fn parse_struct(
             Type::GenericStructBase {
                 name,
                 members,
+                visibility: (0..n_members).map(|_| Visibility::Private).collect(),
                 idents,
                 generics: gen,
             },
@@ -1189,6 +1200,7 @@ fn parse_struct(
             Type::Struct {
                 name,
                 members,
+                visibility: (0..n_members).map(|_| Visibility::Private).collect(),
                 idents,
             },
         )

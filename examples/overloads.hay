@@ -1,0 +1,87 @@
+include "std.hay"
+
+struct Box<T> {
+    *T: ptr
+    *u64: rc
+}
+
+impl Box<T> {
+
+    fn onDrop<T>(self) {
+        self::rc @ 1 - as [count]
+        self::rc count !
+
+        count 0 == if { self Box.free }
+    }
+
+    fn onCopy<T>(self) -> [Self] { 
+        self::rc self::rc @ 1 + !
+        self
+    }
+
+    pub fn get<T>(self) -> [T] {
+        self::ptr @
+    }
+
+    pub fn get_offset<T>(u64: n self) -> [T] {
+        self::ptr n ptr+ @
+    }
+
+    pub fn will_drop<T>(self) -> [bool] {
+        self::rc 1 ==
+    }
+
+}
+
+struct Vec<T> {
+    Box<Arr<T>>: ptr
+    u64: cap
+}
+
+impl Vec<T> {
+
+    fn resize<T>(self) -> [Self] {
+        ...
+    }
+
+    pub fn push<T>(T: t self) {
+        
+        self::ptr @ as [arr] {
+            arr::size cap == if {
+                self self::resize
+            } else {
+                self
+            }
+        } as [vec] {
+            vec::ptr @
+        } as [arr]
+
+        t arr::size arr Arr.set
+
+    }
+
+    pub fn get<T>(u64: idx self) -> [T] {
+        idx self::ptr @ Arr.get
+    }
+
+    pub fn onDrop<T>(self) {
+
+        self::ptr Box.will_drop if {
+
+            self::ptr @ as [arr] 
+            arr::size   as [n]
+
+            n while dup 0 > {
+                as [i]
+                i 1- arr Arr.get drop
+                i 1 + 
+            } drop
+
+        }
+    }
+
+}
+
+fn malloc<T>(u64: n) -> [Box<Arr<T>>] {
+
+}

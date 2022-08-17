@@ -544,8 +544,9 @@ fn parse_tagged_type_list(
     tokens: &mut Vec<Token>,
     type_map: &mut HashMap<String, Type>,
     maybe_generics: &Option<Vec<TypeName>>,
-) -> (Vec<TypeName>, Vec<Visibility>, Vec<String>) {
+) -> (Vec<Token>, Vec<TypeName>, Vec<Visibility>, Vec<String>) {
     let mut tok = token.clone();
+    let mut typ_toks = vec![];
     let mut inputs = vec![];
     let mut idents = vec![];
     let mut visibility = vec![];
@@ -554,6 +555,7 @@ fn parse_tagged_type_list(
         if array_n.is_some() {
             compiler_error(&typ_tok, "Cannot have array types in type list", vec![]);
         }
+        typ_toks.push(typ_tok.clone());
         visibility.push(vis.unwrap_or(Visibility::Private));
         let generics = type_map
             .get(&typ)
@@ -593,7 +595,7 @@ fn parse_tagged_type_list(
         idents.push(ident);
         tok = typ_tok;
     }
-    (inputs, visibility, idents)
+    (typ_toks, inputs, visibility, idents)
 }
 
 fn parse_maybe_tagged_type_list(
@@ -1127,16 +1129,21 @@ fn parse_union(
     let (name_tok, name) = expect_word(&tok, tokens);
     let (tok, generics) = parse_annotation_list(&name_tok, tokens, type_map);
     let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
-    let (members, visibility, idents) = parse_tagged_type_list(&tok, tokens, type_map, &generics);
+    let (typ_toks, members, mut visibility, idents) =
+        parse_tagged_type_list(&tok, tokens, type_map, &generics);
     let _tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
 
-    println!(
-        "Parsed Union {name}: {:?}",
-        idents
-            .iter()
-            .zip(&visibility)
-            .collect::<Vec<(&String, &Visibility)>>()
-    );
+    visibility.iter().zip(typ_toks).for_each(|(v, tok)| {
+        if matches!(v, Visibility::Public) {
+            compiler_error(
+                &tok,
+                "Unexpected token `pub` in union definition",
+                vec!["Union members are always public"],
+            );
+        }
+    });
+
+    visibility.iter_mut().for_each(|v| *v = Visibility::Public);
 
     if let Some(generics) = generics {
         (
@@ -1196,7 +1203,8 @@ fn parse_struct(
         );
     }
     let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
-    let (members, visibility, idents) = parse_tagged_type_list(&tok, tokens, type_map, &generics);
+    let (_, members, visibility, idents) =
+        parse_tagged_type_list(&tok, tokens, type_map, &generics);
     let _tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
 
     if let Some(gen) = generics {

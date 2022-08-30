@@ -25,6 +25,7 @@ pub struct Function {
     pub ops: Vec<Op>,
     pub generics_map: HashMap<String, TypeName>,
     pub locals: BTreeMap<String, LocalVar>,
+    pub type_visibility: Option<TypeName>,
 }
 
 impl Function {
@@ -72,6 +73,7 @@ impl Function {
             &self.locals,
             globals,
             vec![],
+            &self.type_visibility,
         );
         self.check_output(&stack);
 
@@ -204,6 +206,7 @@ impl Function {
             ops: new_ops,
             generics_map,
             locals: self.locals.clone(),
+            type_visibility: self.type_visibility.clone(),
         }
     }
 
@@ -290,6 +293,7 @@ impl Function {
             ops: new_ops,
             generics_map: map,
             locals: self.locals.clone(),
+            type_visibility: self.type_visibility.clone(),
         }
     }
 }

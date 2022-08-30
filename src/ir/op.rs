@@ -123,6 +123,7 @@ impl Op {
         index: usize,
         inner: &[String],
         type_map: &HashMap<TypeName, Type>,
+        type_visibility: &Option<TypeName>,
     ) -> (TypeName, usize) {
         let mut t = frame[index].clone();
         let mut t_offset: usize = frame[0..index]
@@ -147,12 +148,37 @@ impl Op {
                     if idents.contains(&field.clone()) {
                         let idx = idents.iter().position(|s| s == &field.clone()).unwrap();
                         if matches!(visibility[idx], Visibility::Private) {
-                            compiler_error(
-                                &self.token,
-                                format!("Struct member `{field}` is private and cannot accessed")
+                            let cmp_type_name = match type_map.get(&t).unwrap() {
+                                Type::Struct { name, .. } => name,
+                                Type::ResolvedStruct { base, .. } => base,
+                                _ => unreachable!(),
+                            };
+
+                            if let Some(ref vis_name) = type_visibility {
+                                if cmp_type_name != vis_name {
+                                    compiler_error(
+                                        &self.token,
+                                        format!(
+                                            "Struct member `{field}` is private and cannot accessed"
+                                        )
+                                        .as_str(),
+                                        vec![
+                                            "Private members can only be accessed inside an impl block",
+                                        ],
+                                    )
+                                }
+                            } else {
+                                compiler_error(
+                                    &self.token,
+                                    format!(
+                                        "Struct member `{field}` is private and cannot accessed"
+                                    )
                                     .as_str(),
-                                vec!["Private members can only be accessed inside an impl block"],
-                            )
+                                    vec![
+                                        "Private members can only be accessed inside an impl block",
+                                    ],
+                                )
+                            }
                         }
                         (
                             members[idx].clone(),
@@ -255,6 +281,7 @@ impl Op {
         gen_map: &HashMap<TypeName, TypeName>,
         locals: &BTreeMap<String, LocalVar>,
         globals: &BTreeMap<String, (TypeName, String)>,
+        type_visibility: &Option<TypeName>,
     ) -> Option<Function> {
         let op: Option<(OpKind, Function)> = match &self.kind {
             OpKind::Add => {
@@ -739,7 +766,16 @@ impl Op {
                     Type::Placeholder { name } => {
                         let concrete_t = gen_map.get(&name).unwrap();
                         self.kind = OpKind::Cast(concrete_t.clone());
-                        self.type_check(stack, frame, fn_table, type_map, gen_map, locals, globals);
+                        self.type_check(
+                            stack,
+                            frame,
+                            fn_table,
+                            type_map,
+                            gen_map,
+                            locals,
+                            globals,
+                            type_visibility,
+                        );
                     }
                     Type::GenericStructInstance { .. } => unreachable!(
                         "{}: Casting to instance of generic struct should be unreachable",
@@ -823,7 +859,8 @@ impl Op {
                 None
             }
             OpKind::PushIdent { index, inner } => {
-                let (t, offset) = self.get_type_from_frame(frame, *index, inner, type_map);
+                let (t, offset) =
+                    self.get_type_from_frame(frame, *index, inner, type_map, type_visibility);
                 let size = type_map.get(&t).unwrap().size(&self.token, type_map);
                 evaluate_signature(
                     self,

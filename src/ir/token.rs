@@ -67,6 +67,7 @@ impl From<(LogosToken, &str)> for TokenKind {
             (LogosToken::IncludeKeyword, _) => TokenKind::Keyword(Keyword::Include),
             (LogosToken::SizeOfKeyword, _) => TokenKind::Keyword(Keyword::SizeOf),
             (LogosToken::PubKeyword, _) => TokenKind::Keyword(Keyword::Pub),
+            (LogosToken::ImplKeyword, _) => TokenKind::Keyword(Keyword::Impl),
             // Markers
             (LogosToken::OpenBrace, _) => TokenKind::Marker(Marker::OpenBrace),
             (LogosToken::CloseBrace, _) => TokenKind::Marker(Marker::CloseBrace),

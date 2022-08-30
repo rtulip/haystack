@@ -16,4 +16,5 @@ pub enum Keyword {
     Include,
     SizeOf,
     Pub,
+    Impl,
 }

@@ -2,7 +2,7 @@ include "str.hay"
 include "alloc.hay"
 
 struct File {
-    u64: fd
+    pub u64: fd
 }
 
 fn File.exists(Str: file_name) -> [bool] {

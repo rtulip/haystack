@@ -55,6 +55,10 @@ pub enum LogosToken {
     IncludeKeyword,
     #[token("sizeOf")]
     SizeOfKeyword,
+    #[token("pub")]
+    PubKeyword,
+    #[token("impl")]
+    ImplKeyword,
 
     // Markers
     #[token("{")]

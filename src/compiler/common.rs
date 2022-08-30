@@ -13,20 +13,35 @@ pub fn simplify_ir<P: AsRef<std::path::Path> + std::clone::Clone>(program: &Prog
         writeln!(&mut file, "{t}").unwrap();
         match t {
             Type::GenericStructBase {
-                members, idents, ..
+                members,
+                idents,
+                visibility,
+                ..
             }
             | Type::Struct {
-                members, idents, ..
+                members,
+                idents,
+                visibility,
+                ..
             }
             | Type::GenericStructInstance {
-                members, idents, ..
+                members,
+                idents,
+                visibility,
+                ..
             }
             | Type::ResolvedStruct {
-                members, idents, ..
+                members,
+                idents,
+                visibility,
+                ..
             } => members
                 .iter()
                 .zip(idents)
-                .for_each(|(t, ident)| writeln!(&mut file, " -- {:?}: {ident}", t).unwrap()),
+                .zip(visibility)
+                .for_each(|((t, ident), vis)| {
+                    writeln!(&mut file, " -- {:?} {:?}: {ident}", vis, t).unwrap()
+                }),
             _ => (),
         }
     });

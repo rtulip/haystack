@@ -67,6 +67,7 @@ fn type_check_if_block(
     gen_map: &HashMap<TypeName, TypeName>,
     locals: &BTreeMap<String, LocalVar>,
     globals: &BTreeMap<String, (TypeName, String)>,
+    type_visibility: &Option<TypeName>,
 ) -> (usize, Vec<Function>) {
     assert!(matches!(ops[start_ip].kind, OpKind::Nop(Keyword::If)));
     assert!(
@@ -75,7 +76,16 @@ fn type_check_if_block(
         ops[start_ip + 1].kind
     );
 
-    ops[start_ip + 1].type_check(stack, frame, fn_table, type_map, gen_map, locals, globals);
+    ops[start_ip + 1].type_check(
+        stack,
+        frame,
+        fn_table,
+        type_map,
+        gen_map,
+        locals,
+        globals,
+        type_visibility,
+    );
 
     let jump_dest = match ops[start_ip + 1].kind {
         OpKind::JumpCond(Some(n)) => n,
@@ -99,6 +109,7 @@ fn type_check_if_block(
             OpKind::JumpDest(n) => n >= jump_dest,
             _ => false,
         })],
+        type_visibility,
     );
 
     new_fns.append(&mut new_fns_if_true);
@@ -123,6 +134,7 @@ fn type_check_if_block(
             OpKind::JumpDest(n) => n == true_end_ip,
             _ => false,
         })],
+        type_visibility,
     );
 
     new_fns.append(&mut new_fns_if_false);
@@ -157,6 +169,7 @@ pub fn type_check_while_block(
     gen_map: &HashMap<TypeName, TypeName>,
     locals: &BTreeMap<String, LocalVar>,
     globals: &BTreeMap<String, (TypeName, String)>,
+    type_visibility: &Option<TypeName>,
 ) -> (usize, Vec<Function>) {
     let initial_stack = stack.clone();
     let initial_frame = frame.clone();
@@ -171,9 +184,19 @@ pub fn type_check_while_block(
         locals,
         globals,
         vec![Box::new(|op| matches!(op.kind, OpKind::JumpCond(Some(_))))],
+        type_visibility,
     );
 
-    ops[jump_cond_ip].type_check(stack, frame, fn_table, type_map, gen_map, locals, globals);
+    ops[jump_cond_ip].type_check(
+        stack,
+        frame,
+        fn_table,
+        type_map,
+        gen_map,
+        locals,
+        globals,
+        type_visibility,
+    );
     assert!(matches!(ops[jump_cond_ip].kind, OpKind::JumpCond(Some(_))));
     let jump_cond_dest = match ops[jump_cond_ip].kind {
         OpKind::JumpCond(Some(n)) => n,
@@ -193,6 +216,7 @@ pub fn type_check_while_block(
         locals,
         globals,
         vec![Box::new(move |op| matches!(op.kind, OpKind::Jump(Some(_))))],
+        type_visibility,
     );
     assert!(matches!(ops[jump_ip].kind, OpKind::Jump(Some(_))));
     let jump_dest = match ops[jump_ip].kind {
@@ -229,6 +253,7 @@ pub fn type_check_ops_list(
     locals: &BTreeMap<String, LocalVar>,
     globals: &BTreeMap<String, (TypeName, String)>,
     break_on: Vec<Box<dyn Fn(&Op) -> bool>>,
+    type_visibility: &Option<TypeName>,
 ) -> (usize, Vec<Function>) {
     let mut ip = start_ip;
     let mut new_fns = vec![];
@@ -239,14 +264,32 @@ pub fn type_check_ops_list(
         match ops[ip].kind {
             OpKind::Nop(Keyword::If) => {
                 let (end_ip, mut if_new_fns) = type_check_if_block(
-                    ops, ip, stack, frame, fn_table, type_map, gen_map, locals, globals,
+                    ops,
+                    ip,
+                    stack,
+                    frame,
+                    fn_table,
+                    type_map,
+                    gen_map,
+                    locals,
+                    globals,
+                    type_visibility,
                 );
                 ip = end_ip;
                 new_fns.append(&mut if_new_fns);
             }
             OpKind::Nop(Keyword::While) => {
                 let (end_ip, mut whlie_new_fns) = type_check_while_block(
-                    ops, ip, stack, frame, fn_table, type_map, gen_map, locals, globals,
+                    ops,
+                    ip,
+                    stack,
+                    frame,
+                    fn_table,
+                    type_map,
+                    gen_map,
+                    locals,
+                    globals,
+                    type_visibility,
                 );
                 ip = end_ip;
                 new_fns.append(&mut whlie_new_fns);
@@ -255,9 +298,16 @@ pub fn type_check_ops_list(
                 ip = n;
             }
             _ => {
-                if let Some(f) =
-                    ops[ip].type_check(stack, frame, fn_table, type_map, gen_map, locals, globals)
-                {
+                if let Some(f) = ops[ip].type_check(
+                    stack,
+                    frame,
+                    fn_table,
+                    type_map,
+                    gen_map,
+                    locals,
+                    globals,
+                    type_visibility,
+                ) {
                     new_fns.push(f);
                 }
                 ip += 1;

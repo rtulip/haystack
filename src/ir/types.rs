@@ -4,6 +4,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 pub type TypeName = String;
 
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
+pub enum Visibility {
+    Public,
+    Private,
+}
+
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
     U64,
@@ -22,17 +28,20 @@ pub enum Type {
     Struct {
         name: TypeName,
         members: Vec<TypeName>,
+        visibility: Vec<Visibility>,
         idents: Vec<String>,
     },
     GenericStructBase {
         name: TypeName,
         members: Vec<TypeName>,
+        visibility: Vec<Visibility>,
         idents: Vec<String>,
         generics: Vec<TypeName>,
     },
     GenericStructInstance {
         base: TypeName,
         members: Vec<TypeName>,
+        visibility: Vec<Visibility>,
         idents: Vec<String>,
         alias_list: Vec<TypeName>,
         base_generics: Vec<TypeName>,
@@ -40,23 +49,27 @@ pub enum Type {
     ResolvedStruct {
         name: TypeName,
         members: Vec<TypeName>,
+        visibility: Vec<Visibility>,
         idents: Vec<String>,
         base: TypeName,
     },
     Union {
         name: TypeName,
         members: Vec<TypeName>,
+        visibility: Vec<Visibility>,
         idents: Vec<String>,
     },
     GenericUnionBase {
         name: TypeName,
         members: Vec<TypeName>,
+        visibility: Vec<Visibility>,
         idents: Vec<String>,
         generics: Vec<TypeName>,
     },
     GenericUnionInstance {
         base: TypeName,
         members: Vec<TypeName>,
+        visibility: Vec<Visibility>,
         idents: Vec<String>,
         alias_list: Vec<TypeName>,
         base_generics: Vec<TypeName>,
@@ -64,6 +77,7 @@ pub enum Type {
     ResolvedUnion {
         name: TypeName,
         members: Vec<TypeName>,
+        visibility: Vec<Visibility>,
         idents: Vec<String>,
         base: TypeName,
     },
@@ -218,6 +232,7 @@ impl Type {
                 }
                 .name(),
             ],
+            visibility: vec![Visibility::Public, Visibility::Public],
             idents: vec![String::from("size"), String::from("data")],
         }
     }
@@ -235,6 +250,7 @@ impl Type {
                 }
                 .name(),
             ],
+            visibility: vec![Visibility::Public, Visibility::Public],
             idents: vec![String::from("size"), String::from("data")],
             generics: vec![String::from("T")],
         }
@@ -246,10 +262,11 @@ impl Type {
         stack: &Stack,
         type_map: &mut HashMap<TypeName, Type>,
     ) -> TypeName {
-        let (pairs, base, idents, generics) = match type_map.get(gen_struct_t).unwrap().clone() {
+        let (pairs, base, visibility, idents, generics) = match type_map.get(gen_struct_t).unwrap().clone() {
             Type::GenericStructBase {
                 name,
                 members,
+                visibility,
                 idents,
                 generics,
             } => {
@@ -258,7 +275,7 @@ impl Type {
                     .zip(stack[stack.len() - members.len()..].iter())
                     .map(|(t1, t2)| (t1.clone(), t2.clone()))
                     .collect();
-                (pairs, name, idents.clone(), generics.clone())
+                (pairs, name, visibility, idents.clone(), generics.clone())
             }
             _ => panic!("Resolve struct should only be run on Base Generic Structs...\n{}: Type: {:?} Stack: {:?}", token.loc, gen_struct_t, stack),
         };
@@ -309,6 +326,7 @@ impl Type {
         let t = Type::ResolvedStruct {
             name,
             members: resolved_members,
+            visibility,
             idents,
             base: base.clone(),
         };
@@ -399,6 +417,7 @@ impl Type {
                 Type::GenericStructInstance {
                     base: instance_base,
                     members,
+                    visibility: _,
                     idents: _,
                     alias_list,
                     base_generics,
@@ -406,6 +425,7 @@ impl Type {
                 Type::ResolvedStruct {
                     name: _,
                     members: resolved_members,
+                    visibility: _,
                     idents: _,
                     base: resolved_base,
                 },
@@ -603,6 +623,7 @@ impl Type {
             Type::GenericUnionInstance {
                 base,
                 members,
+                visibility,
                 idents,
                 alias_list,
                 base_generics,
@@ -610,6 +631,7 @@ impl Type {
             | Type::GenericStructInstance {
                 base,
                 members,
+                visibility,
                 idents,
                 alias_list,
                 base_generics,
@@ -670,6 +692,7 @@ impl Type {
                     Type::ResolvedStruct {
                         name,
                         members: resolved_members,
+                        visibility: visibility.clone(),
                         idents: idents.clone(),
                         base: base.clone(),
                     }
@@ -680,6 +703,7 @@ impl Type {
                     Type::ResolvedUnion {
                         name,
                         members: resolved_members,
+                        visibility: visibility.clone(),
                         idents: idents.clone(),
                         base: base.clone(),
                     }
@@ -693,12 +717,14 @@ impl Type {
             Type::GenericUnionBase {
                 name: base,
                 members,
+                visibility,
                 idents,
                 generics,
             }
             | Type::GenericStructBase {
                 name: base,
                 members,
+                visibility,
                 idents,
                 generics,
             } => {
@@ -727,6 +753,7 @@ impl Type {
                     Type::ResolvedStruct {
                         name,
                         members: resolved_members,
+                        visibility: visibility.clone(),
                         idents: idents.clone(),
                         base: base.clone(),
                     }
@@ -734,6 +761,7 @@ impl Type {
                     Type::ResolvedUnion {
                         name,
                         members: resolved_members,
+                        visibility: visibility.clone(),
                         idents: idents.clone(),
                         base: base.clone(),
                     }
@@ -777,6 +805,7 @@ impl Type {
                 Type::GenericUnionBase {
                     name,
                     members,
+                    visibility,
                     idents,
                     generics,
                 },
@@ -799,6 +828,7 @@ impl Type {
                     let t = Type::GenericUnionInstance {
                         base: name.clone(),
                         members: members.clone(),
+                        visibility: visibility.clone(),
                         idents: idents.clone(),
                         alias_list: annotations.to_vec(),
                         base_generics: generics.clone(),
@@ -824,6 +854,7 @@ impl Type {
                 Type::GenericStructBase {
                     name,
                     members,
+                    visibility,
                     idents,
                     generics,
                 },
@@ -846,6 +877,7 @@ impl Type {
                     let t = Type::GenericStructInstance {
                         base: name.clone(),
                         members: members.clone(),
+                        visibility: visibility.clone(),
                         idents: idents.clone(),
                         alias_list: annotations.to_vec(),
                         base_generics: generics.clone(),

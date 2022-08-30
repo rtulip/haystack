@@ -9,7 +9,7 @@ use crate::ir::{
     operator::Operator,
     program::Program,
     token::{Loc, Token, TokenKind},
-    types::{Signature, Type, TypeName},
+    types::{Signature, Type, TypeName, Visibility},
 };
 use crate::lex::logos_lex::{into_token, LogosToken};
 use logos::Logos;
@@ -107,6 +107,12 @@ fn parse_tokens_until_tokenkind(
             TokenKind::Keyword(Keyword::Include) => {
                 panic!("Include keyword can't be converted into ops")
             }
+            TokenKind::Keyword(Keyword::Pub) => {
+                panic!("Pub keyword can't be converted into ops")
+            }
+            TokenKind::Keyword(Keyword::Impl) => {
+                panic!("Impl keyword can't be converted into ops")
+            }
             TokenKind::Comment(_) => (),
             TokenKind::Operator(_) => ops.push(Op::from(token.clone())),
             TokenKind::Literal(Literal::String(ref s)) => {
@@ -160,7 +166,6 @@ fn parse_tokens_until_tokenkind(
                 }
             }
             TokenKind::EndOfFile => panic!("End of file shouldn't be converted into an op."),
-            // _ => ops.push(Op::from(token.clone())),
         }
     }
     compiler_error(
@@ -328,6 +333,7 @@ fn parse_type(
         Some(Type::GenericStructBase {
             name: base,
             members,
+            visibility,
             idents,
             generics,
         }) => {
@@ -358,6 +364,7 @@ fn parse_type(
                 let t = Type::GenericStructInstance {
                     base: name.clone(),
                     members: members.clone(),
+                    visibility: visibility.clone(),
                     idents: idents.clone(),
                     alias_list: annotations,
                     base_generics: generics.clone(),
@@ -377,6 +384,7 @@ fn parse_type(
         Some(Type::GenericUnionBase {
             name: base,
             members,
+            visibility,
             idents,
             generics,
         }) => {
@@ -407,6 +415,7 @@ fn parse_type(
                 let t = Type::GenericUnionInstance {
                     base: name.clone(),
                     members: members.clone(),
+                    visibility: visibility.clone(),
                     idents: idents.clone(),
                     alias_list: annotations,
                     base_generics: generics.clone(),
@@ -484,12 +493,18 @@ fn parse_tagged_type(
     start_tok: &Token,
     tokens: &mut Vec<Token>,
     type_map: &mut HashMap<String, Type>,
-) -> Option<(Token, String, TypeName, Option<u64>)> {
+) -> Option<(Token, String, TypeName, Option<Visibility>, Option<u64>)> {
+    let visibility = if peek_token_kind(tokens, TokenKind::Keyword(Keyword::Pub)) {
+        tokens.pop();
+        Some(Visibility::Public)
+    } else {
+        None
+    };
     if peek_word(tokens) || peek_token_kind(tokens, TokenKind::Operator(Operator::Mul)) {
         let (tok, typ, array_n) = parse_type(start_tok, tokens, type_map);
         let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::Colon));
         let (tok, ident) = expect_word(&tok, tokens);
-        Some((tok, ident, typ, array_n))
+        Some((tok, ident, typ, visibility, array_n))
     } else {
         None
     }
@@ -531,14 +546,19 @@ fn parse_tagged_type_list(
     tokens: &mut Vec<Token>,
     type_map: &mut HashMap<String, Type>,
     maybe_generics: &Option<Vec<TypeName>>,
-) -> (Vec<TypeName>, Vec<String>) {
+) -> (Vec<Token>, Vec<TypeName>, Vec<Visibility>, Vec<String>) {
     let mut tok = token.clone();
+    let mut typ_toks = vec![];
     let mut inputs = vec![];
     let mut idents = vec![];
-    while let Some((typ_tok, ident, typ, array_n)) = parse_tagged_type(&tok, tokens, type_map) {
+    let mut visibility = vec![];
+    while let Some((typ_tok, ident, typ, vis, array_n)) = parse_tagged_type(&tok, tokens, type_map)
+    {
         if array_n.is_some() {
             compiler_error(&typ_tok, "Cannot have array types in type list", vec![]);
         }
+        typ_toks.push(typ_tok.clone());
+        visibility.push(vis.unwrap_or(Visibility::Private));
         let generics = type_map
             .get(&typ)
             .unwrap()
@@ -577,7 +597,7 @@ fn parse_tagged_type_list(
         idents.push(ident);
         tok = typ_tok;
     }
-    (inputs, idents)
+    (typ_toks, inputs, visibility, idents)
 }
 
 fn parse_maybe_tagged_type_list(
@@ -787,6 +807,7 @@ fn parse_function(
     tokens: &mut Vec<Token>,
     type_map: &mut HashMap<String, Type>,
     init_data: &mut BTreeMap<String, InitData>,
+    private_visibility: Option<TypeName>,
 ) -> Function {
     let t = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Function));
     let (name_tok, name) = expect_word(&t, tokens);
@@ -848,6 +869,7 @@ fn parse_function(
         ops,
         generics_map: HashMap::new(),
         locals,
+        type_visibility: private_visibility,
     }
 }
 
@@ -1111,8 +1133,21 @@ fn parse_union(
     let (name_tok, name) = expect_word(&tok, tokens);
     let (tok, generics) = parse_annotation_list(&name_tok, tokens, type_map);
     let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
-    let (members, idents) = parse_tagged_type_list(&tok, tokens, type_map, &generics);
+    let (typ_toks, members, mut visibility, idents) =
+        parse_tagged_type_list(&tok, tokens, type_map, &generics);
     let _tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
+
+    visibility.iter().zip(typ_toks).for_each(|(v, tok)| {
+        if matches!(v, Visibility::Public) {
+            compiler_error(
+                &tok,
+                "Unexpected token `pub` in union definition",
+                vec!["Union members are always public"],
+            );
+        }
+    });
+
+    visibility.iter_mut().for_each(|v| *v = Visibility::Public);
 
     if let Some(generics) = generics {
         (
@@ -1120,6 +1155,7 @@ fn parse_union(
             Type::GenericUnionBase {
                 name,
                 members,
+                visibility,
                 idents,
                 generics,
             },
@@ -1130,6 +1166,7 @@ fn parse_union(
             Type::Union {
                 name,
                 members,
+                visibility,
                 idents,
             },
         )
@@ -1140,7 +1177,8 @@ fn parse_struct(
     start_tok: &Token,
     tokens: &mut Vec<Token>,
     type_map: &mut HashMap<String, Type>,
-) -> (Token, String, Type) {
+    init_data: &mut BTreeMap<String, InitData>,
+) -> (Token, Option<Vec<Function>>) {
     let tok = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Struct));
     let (name_tok, name) = expect_word(&tok, tokens);
     let (tok, generics) = parse_annotation_list(&name_tok, tokens, type_map);
@@ -1150,6 +1188,7 @@ fn parse_struct(
             Type::GenericStructBase {
                 name: name.clone(),
                 members: vec![],
+                visibility: vec![],
                 idents: vec![],
                 generics: vec![],
             }
@@ -1157,6 +1196,7 @@ fn parse_struct(
             Type::Struct {
                 name: name.clone(),
                 members: vec![],
+                visibility: vec![],
                 idents: vec![],
             }
         },
@@ -1168,30 +1208,51 @@ fn parse_struct(
         );
     }
     let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::OpenBrace));
-    let (members, idents) = parse_tagged_type_list(&tok, tokens, type_map, &generics);
-    let _tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
+    let (_, members, visibility, idents) =
+        parse_tagged_type_list(&tok, tokens, type_map, &generics);
 
     if let Some(gen) = generics {
-        (
-            name_tok,
+        type_map.insert(
             name.clone(),
             Type::GenericStructBase {
-                name,
+                name: name.clone(),
                 members,
+                visibility,
                 idents,
                 generics: gen,
             },
-        )
+        );
     } else {
-        (
-            name_tok,
+        type_map.insert(
             name.clone(),
             Type::Struct {
-                name,
+                name: name.clone(),
                 members,
+                visibility,
                 idents,
             },
-        )
+        );
+    }
+    let mut fns: Vec<Function> = vec![];
+    if peek_token_kind(tokens, TokenKind::Keyword(Keyword::Impl)) {
+        let tok = expect_token_kind(&tok, tokens, TokenKind::Keyword(Keyword::Impl));
+        let tok = expect_token_kind(&tok, tokens, TokenKind::Marker(Marker::Colon));
+        while peek_token_kind(tokens, TokenKind::Keyword(Keyword::Function)) {
+            fns.push(parse_function(
+                &tok,
+                tokens,
+                type_map,
+                init_data,
+                Some(name.clone()),
+            ))
+        }
+    }
+
+    let tok = expect_token_kind(&name_tok, tokens, TokenKind::Marker(Marker::CloseBrace));
+    if fns.is_empty() {
+        (tok, None)
+    } else {
+        (tok, Some(fns))
     }
 }
 
@@ -1201,7 +1262,10 @@ fn parse_local_var(
     type_map: &mut HashMap<String, Type>,
     locals: &mut BTreeMap<String, LocalVar>,
 ) {
-    if let Some((tok, ident, typ, array_n)) = parse_tagged_type(token, tokens, type_map) {
+    if let Some((tok, ident, typ, vis, array_n)) = parse_tagged_type(token, tokens, type_map) {
+        if vis.is_some() {
+            compiler_error(&tok, "Unexpected Keyword `pub`", vec![]);
+        }
         if let Some(n) = array_n {
             let data_typ = Type::Pointer { typ: typ.clone() };
             type_map.insert(data_typ.name(), data_typ.clone());
@@ -1282,7 +1346,10 @@ fn parse_global_var(
     uninit_data: &mut BTreeMap<String, UninitData>,
 ) {
     let tok = expect_token_kind(token, tokens, TokenKind::Keyword(Keyword::Var));
-    if let Some((tok, ident, typ, array_n)) = parse_tagged_type(&tok, tokens, type_map) {
+    if let Some((tok, ident, typ, vis, array_n)) = parse_tagged_type(&tok, tokens, type_map) {
+        if vis.is_some() {
+            compiler_error(&tok, "Unexpected Keyword `pub`", vec![]);
+        }
         let global_ident = format!("global_{}", globals.len());
         let typ = if let Some(n) = array_n {
             let data_ptr = format!("data_{}", uninit_data.len());
@@ -1373,6 +1440,7 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
                 &mut tokens,
                 &mut program.types,
                 &mut program.init_data,
+                None,
             )),
             Some(Token {
                 kind: TokenKind::Keyword(Keyword::Include),
@@ -1408,9 +1476,18 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
                 kind: TokenKind::Keyword(Keyword::Struct),
                 ..
             }) => {
-                let (_tok, name, typ) =
-                    parse_struct(&maybe_tok.unwrap().clone(), &mut tokens, &mut program.types);
-                program.types.insert(name, typ);
+                let (_tok, maybe_fns) = parse_struct(
+                    &maybe_tok.unwrap().clone(),
+                    &mut tokens,
+                    &mut program.types,
+                    &mut program.init_data,
+                );
+
+                if let Some(fns) = maybe_fns {
+                    for f in fns {
+                        program.functions.push(f);
+                    }
+                }
             }
             Some(Token {
                 kind: TokenKind::Keyword(Keyword::Union),

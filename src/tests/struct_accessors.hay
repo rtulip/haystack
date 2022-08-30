@@ -2,8 +2,8 @@
 include "std.hay"
 
 struct Words {
-    Str: hello
-    Str: world
+    pub Str: hello
+    pub Str: world
 }
 
 fn main() {

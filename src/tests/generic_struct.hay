@@ -1,17 +1,17 @@
 include "std.hay"
 
 struct Foo {
-    u64: bar
+    pub u64: bar
 }
 
 struct Pair<T> {
-    T: first 
-    T: second
+    pub T: first 
+    pub T: second
 }
 
 struct Quad<A B> {
-    Pair<A>: a
-    Pair<B>: b
+    pub Pair<A>: a
+    pub Pair<B>: b
 }
 
 fn into_quad<A B>(Pair<A>: a Pair<B>: b) -> [Quad<A B>] {

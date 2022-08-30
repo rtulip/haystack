@@ -1,6 +1,7 @@
 include "std.hay"
 struct pair {
-    u64: first u64: second
+    pub u64: first 
+    pub u64: second
 }
 
 fn main() {

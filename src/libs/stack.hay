@@ -4,99 +4,116 @@ include "alloc.hay"
 
 struct Stack<T> {
     Arr<T>: slice
-    u64: len
-}
+    pub u64: len
 
-fn Stack.new<T>() -> [*Stack<T>] {
-    malloc_obj::<Stack<T>> as [stk_p]
-    stk_p Stack.init
-    stk_p
-}
-
-fn Stack.slice<T>(*Stack<T>: stk_p) -> [Arr<T>] {
-    stk_p @ as [stk]
-    stk::len stk::slice::data cast(Arr)
-}
-
-fn Stack.init<T>(*Stack<T>: stk_p) {
-    8 malloc::<T> 0 cast(Stack) stk_p !
-}
-
-fn Stack.push<T>(T: value *Stack<T>: stk_p) {
-    stk_p @ as [stk] {
-        stk::len stk::slice::size == if {
-            stk::slice::size 2 * stk::slice realloc stk::len cast(Stack) stk_p !  
-        }    
+impl:
+    fn Stack.new<T>() -> [*Stack<T>] {
+        malloc_obj::<Stack<T>> as [stk_p]
+        stk_p Stack.init
+        stk_p
     }
 
-    stk_p @ as [stk]
-    {
-        value stk::len stk::slice Arr.set
-        stk::slice stk::len 1 + cast(Stack) stk_p !
+    fn Stack.slice<T>(*Stack<T>: stk_p) -> [Arr<T>] {
+        stk_p @ as [stk]
+        stk::len stk::slice::data cast(Arr)
     }
-}
 
-fn Stack.pop<T>(*Stack<T>: stk_p) -> [Opt<T>] {
-    stk_p @ as [stk]
-    stk::len 0 == if {
-        Opt.None::<T>
-    } else {
-        stk::slice stk::len 1 - cast(Stack) stk_p !
-        stk::len 1 - stk::slice Arr.get Opt.Some
+    fn Stack.init<T>(*Stack<T>: stk_p) {
+        8 malloc::<T> 0 cast(Stack) stk_p !
     }
-}
 
-fn Stack.peek<T>(*Stack<T>: stk_p) -> [Opt<T>] {
-    stk_p @ as [stk]
-    stk::len 0 == if {
-        Opt.None::<T>
-    } else {
-        stk::len 1 - stk::slice Arr.get Opt.Some
-    }
-}
-
-fn Stack.rev<T>(*Stack<T>: stk_p) {
-    stk_p @ as [stk]
-    stk::len stk::slice::data cast(Arr) Arr.rev
-}
-
-fn Stack.destroy<T>(*Stack<T>: stk_p) {
-    stk_p @ as [stk]
-    stk::slice free
-}
-
-fn Stack.is_empty<T>(*Stack<T>: stk_p) -> [bool] {
-    stk_p @ as [stk]
-    stk::len 0 == 
-}
-
-fn Stack.len<T>(*Stack<T>: stk_p) -> [u64] {
-    stk_p @ as [stk]
-    stk::len
-}
-
-// Note this will only work for types which can be converted to u64
-fn Stack.find<T>(T: t *Stack<T>: stk_p) -> [Opt<u64>] {
-
-    var Opt<u64>: idx
-    Opt.None::<u64> idx ! 
-
-    stk_p @ as [stk]
-    false 0 while as [break i]{ break i
-        break lnot
-        i stk::len < land
-    }{
-        as [_ i]
-        i stk::slice Arr.get cast(u64) t cast(u64) == if {
-            i Opt.Some idx !
-            true
-        } else {
-            false
+    fn Stack.push<T>(T: value *Stack<T>: stk_p) {
+        stk_p @ as [stk] {
+            stk::len stk::slice::size == if {
+                stk::slice::size 2 * stk::slice realloc stk::len cast(Stack) stk_p !  
+            }    
         }
+
+        stk_p @ as [stk]
+        {
+            value stk::len stk::slice Arr.set
+            stk::slice stk::len 1 + cast(Stack) stk_p !
+        }
+    }
+
+    fn Stack.pop<T>(*Stack<T>: stk_p) -> [Opt<T>] {
+        stk_p @ as [stk]
+        stk::len 0 == if {
+            Opt.None::<T>
+        } else {
+            stk::slice stk::len 1 - cast(Stack) stk_p !
+            stk::len 1 - stk::slice Arr.get Opt.Some
+        }
+    }
+
+    fn Stack.peek<T>(*Stack<T>: stk_p) -> [Opt<T>] {
+        stk_p @ as [stk]
+        stk::len 0 == if {
+            Opt.None::<T>
+        } else {
+            stk::len 1 - stk::slice Arr.get Opt.Some
+        }
+    }
+
+    fn Stack.rev<T>(*Stack<T>: stk_p) {
+        stk_p @ as [stk]
+        stk::len stk::slice::data cast(Arr) Arr.rev
+    }
+
+    fn Stack.destroy<T>(*Stack<T>: stk_p) {
+        stk_p @ as [stk]
+        stk::slice free
+    }
+
+    fn Stack.is_empty<T>(*Stack<T>: stk_p) -> [bool] {
+        stk_p @ as [stk]
+        stk::len 0 == 
+    }
+
+    fn Stack.len<T>(*Stack<T>: stk_p) -> [u64] {
+        stk_p @ as [stk]
+        stk::len
+    }
+
+    // Note this will only work for types which can be converted to u64
+    fn Stack.find<T>(T: t *Stack<T>: stk_p) -> [Opt<u64>] {
+
+        var Opt<u64>: idx
+        Opt.None::<u64> idx ! 
+
+        stk_p @ as [stk]
+        false 0 while as [break i]{ break i
+            break lnot
+            i stk::len < land
+        }{
+            as [_ i]
+            i stk::slice Arr.get cast(u64) t cast(u64) == if {
+                i Opt.Some idx !
+                true
+            } else {
+                false
+            }
+            
+            i 1 +
+        } drop drop
+
+        idx @ 
+
+    }
+
+    fn Stack.get<T>(u64: idx *Stack<T>: stk_p) -> [Opt<T>] {
+        stk_p @ as [stk]
         
-        i 1 +
-    } drop drop
+        idx stk::len < if {
+            idx stk::slice Arr.get Opt.Some
+        } else {
+            Opt.None::<T>
+        }
+    }
 
-     idx @ 
-
+    fn Stack.set<T>(T: value u64: idx *Stack<T>: stk_p) {
+        stk_p @ as [stk]
+        value idx stk::slice Arr.set
+    }
 }
+

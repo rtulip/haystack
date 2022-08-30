@@ -4,14 +4,14 @@ include "sys_x86_64.hay"
 
 // Doesn't need to be aligned to page size
 struct Block {
-    Arr<u8>: arr
-    bool: allocated
+    pub Arr<u8>: arr
+    pub bool: allocated
 }
 
 // Always aligned to page size
 struct Chunk {
-    u64: cap
-    *Block: start
+    pub u64: cap
+    pub *Block: start
 }
 
 fn Chunk.next(*Block: blk_p) -> [*Block] {

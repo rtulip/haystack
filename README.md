@@ -164,8 +164,8 @@ Again, the type checker is your friend, and will help make sure that each functi
 Sometimes, it's useful to group data together into logical components. For example, strings in `Haystack` are represented internally as the following structure:
 ```
 struct Str {
-    u64: size
-    *u8: data
+    pub u64: size
+    pub *u8: data
 }
 ```
 Structured items are considered as one element on the stack. Here's how you can create a structure in `Haystack` using the `cast({type})` operation.
@@ -185,24 +185,24 @@ fn main() {
 }
 ```
 
-You can access struct members directly if the struct has been bound with an `as` block:
+You can access public struct members directly from an `as` block:
 
 ```
 include "std.hay"
 struct Pair<T> {
-    T: first
-    T: second
+    pub T: first
+    pub T: second
 }
 
 fn main() {
 
-    "Hello\n" "World\n" cast(Pair)
+    "Hello" "World" cast(Pair)
     as [pair]
 
     pair::first::size putlnu
 
     // the Write function is defined in "std.hay" and prints a Str to stdout.
-    pair::second      write 
+    pair::second      putlns 
 }
 ```
 

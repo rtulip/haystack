@@ -821,7 +821,6 @@ fn parse_function(
 ) -> Function {
     let t = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Function));
     let (name_tok, name) = expect_word(&t, tokens);
-    println!("Fn name: {name}");
     let (tok, generics) = parse_annotation_list(&name_tok, tokens, type_map);
     let generics = generics.unwrap_or_default();
     let (tok, sig, sig_idents) = parse_signature(&tok, tokens, type_map);
@@ -866,7 +865,22 @@ fn parse_function(
         Some(&mut locals),
         vec![TokenKind::Marker(Marker::CloseBrace)],
     );
-
+    if !name.starts_with("-") {
+        let var_count = make_ident_count(&ops, 0);
+        (0..var_count).rev().for_each(|_| {
+            ops.push(Op {
+                kind: OpKind::DestroyFramed {
+                    type_width: None,
+                    destructor: None,
+                },
+                token: tok.clone(),
+            })
+        });
+        ops.push(Op {
+            kind: OpKind::EndBlock,
+            token: tok.clone(),
+        });
+    }
     ops.push(Op {
         kind: OpKind::Return,
         token: tok,
@@ -1445,9 +1459,6 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
     included_files: &mut HashSet<String>,
 ) {
     let file = fs::read_to_string(input_path.clone()).unwrap();
-
-    println!(" -------------------  {input_path} -----------");
-
     let mut loc = Loc {
         file: input_path.to_string(),
         row: 1,
@@ -1467,10 +1478,6 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
         }
     }
     tokens.reverse();
-
-    for token in &tokens {
-        println!("{}", token);
-    }
 
     loop {
         let maybe_tok = tokens.last();

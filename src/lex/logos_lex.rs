@@ -12,13 +12,10 @@ pub fn into_token(lex: &mut Lexer<LogosToken>, loc: &mut Loc) -> Option<Token> {
             _ => loc.col += 1,
         });
         match kind {
-            LogosToken::Error => {
-                println!("Error: {slice}");
-                Some(Token {
-                    kind: TokenKind::Comment(slice.to_string()),
-                    loc: loc.clone(),
-                })
-            }
+            LogosToken::Error => Some(Token {
+                kind: TokenKind::Comment(slice.to_string()),
+                loc: loc.clone(),
+            }),
             _ => Some(Token {
                 kind: TokenKind::from((kind, slice)),
                 loc: loc.clone(),

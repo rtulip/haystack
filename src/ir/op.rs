@@ -940,12 +940,8 @@ impl Op {
                 };
 
                 let destructor_lookup_name = format!("-{destructor_lookup_name}");
-                println!("Fn to lookup: {destructor_lookup_name}");
                 let destructor = match fn_table.get(&destructor_lookup_name) {
-                    Some(func) => {
-                        println!("Found the function!");
-                        Some(func.name.clone())
-                    }
+                    Some(func) => Some(func.name.clone()),
                     None => None,
                 };
 

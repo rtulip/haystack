@@ -795,8 +795,18 @@ fn parse_as(
             vec![TokenKind::Marker(Marker::CloseBrace)],
         );
 
+        let var_count = make_ident_count(&ops, start_idx);
+        (0..var_count).rev().for_each(|_| {
+            ops.push(Op {
+                kind: OpKind::DestroyFramed {
+                    type_width: None,
+                    destructor: None,
+                },
+                token: tok.clone(),
+            })
+        });
         ops.push(Op {
-            kind: OpKind::EndBlock(make_ident_count(&ops, start_idx)),
+            kind: OpKind::EndBlock,
             token: tok.clone(),
         });
     }
@@ -811,6 +821,7 @@ fn parse_function(
 ) -> Function {
     let t = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Function));
     let (name_tok, name) = expect_word(&t, tokens);
+    println!("Fn name: {name}");
     let (tok, generics) = parse_annotation_list(&name_tok, tokens, type_map);
     let generics = generics.unwrap_or_default();
     let (tok, sig, sig_idents) = parse_signature(&tok, tokens, type_map);
@@ -900,8 +911,8 @@ fn make_ident_count(ops: &[Op], start_ip: usize) -> usize {
                 var_count += 1;
                 ip += 1
             }
-            OpKind::EndBlock(n) => {
-                var_count -= n;
+            OpKind::DestroyFramed { .. } => {
+                var_count -= 1;
                 ip += 1
             }
             OpKind::JumpCond(Some(n)) => ip = n,
@@ -914,8 +925,17 @@ fn make_ident_count(ops: &[Op], start_ip: usize) -> usize {
 
 fn close_if_block(token: &Token, ops: &mut Vec<Op>, if_idx: usize) -> usize {
     let var_count = make_ident_count(ops, if_idx);
+    (0..var_count).rev().for_each(|_| {
+        ops.push(Op {
+            kind: OpKind::DestroyFramed {
+                type_width: None,
+                destructor: None,
+            },
+            token: token.clone(),
+        })
+    });
     ops.push(Op {
-        kind: OpKind::EndBlock(var_count),
+        kind: OpKind::EndBlock,
         token: token.clone(),
     });
     ops.push(Op {
@@ -994,12 +1014,20 @@ pub fn parse_if_block(
                 vec![TokenKind::Marker(Marker::CloseBrace)],
             );
             let var_count = make_ident_count(ops, block_idx);
-            // ops.append(&mut block_ops);
+
+            (0..var_count).rev().for_each(|_| {
+                ops.push(Op {
+                    kind: OpKind::DestroyFramed {
+                        type_width: None,
+                        destructor: None,
+                    },
+                    token: tok.clone(),
+                })
+            });
             ops.push(Op {
-                kind: OpKind::EndBlock(var_count),
+                kind: OpKind::EndBlock,
                 token: tok.clone(),
             });
-
             jump_dest = ops.len();
 
             ops.push(Op {
@@ -1088,8 +1116,17 @@ pub fn parse_while_block(
     );
 
     let var_count = make_ident_count(ops, cond_jump_loc + 1);
+    (0..var_count).for_each(|_| {
+        ops.push(Op {
+            kind: OpKind::DestroyFramed {
+                type_width: None,
+                destructor: None,
+            },
+            token: tok.clone(),
+        })
+    });
     ops.push(Op {
-        kind: OpKind::EndBlock(var_count),
+        kind: OpKind::EndBlock,
         token: tok.clone(),
     });
     ops.push(Op {
@@ -1409,6 +1446,8 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
 ) {
     let file = fs::read_to_string(input_path.clone()).unwrap();
 
+    println!(" -------------------  {input_path} -----------");
+
     let mut loc = Loc {
         file: input_path.to_string(),
         row: 1,
@@ -1428,6 +1467,10 @@ pub fn hay_into_ir<P: AsRef<std::path::Path> + std::fmt::Display + Clone>(
         }
     }
     tokens.reverse();
+
+    for token in &tokens {
+        println!("{}", token);
+    }
 
     loop {
         let maybe_tok = tokens.last();

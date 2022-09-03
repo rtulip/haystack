@@ -175,11 +175,9 @@ impl Program {
                         )
                     }
                 }
-                OpKind::EndBlock(n) => {
-                    for _ in 0..*n {
-                        let s = vars.pop().unwrap();
-                        name_map.remove(&s).unwrap();
-                    }
+                OpKind::DestroyFramed { .. } => {
+                    let s = vars.pop().unwrap();
+                    name_map.remove(&s).unwrap();
                 }
                 OpKind::Return => vars.drain(..).for_each(|s| {
                     name_map.remove(&s).unwrap();
@@ -206,10 +204,8 @@ impl Program {
                     OpKind::MakeIdent { ident: s, .. } => {
                         scope.push(s.clone());
                     }
-                    OpKind::EndBlock(n) => {
-                        for _ in 0..*n {
-                            scope.pop();
-                        }
+                    OpKind::DestroyFramed { .. } => {
+                        scope.pop();
                     }
                     OpKind::Ident(s, fields) => {
                         if let Some(idx) = &scope.iter().position(|ident| ident == s) {

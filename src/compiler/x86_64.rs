@@ -262,7 +262,12 @@ fn compile_op(
             writeln!(file, "{}_jmp_dest_{}:", func.unwrap().name, n).unwrap();
         }
         OpKind::StartBlock => (),
-        OpKind::EndBlock(width) => frame_pop_n(file, width),
+        OpKind::EndBlock => (),
+        OpKind::DestroyFramed {
+            type_width: Some(width),
+            ..
+        } => frame_pop_n(file, width),
+        OpKind::DestroyFramed { .. } => unreachable!(),
         OpKind::Syscall(n) => {
             let order = ["rax", "rdi", "rsi", "rdx", "r10", "r8", "r9"];
             for i in 0..=*n {

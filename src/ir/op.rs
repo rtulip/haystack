@@ -16,7 +16,10 @@ pub enum OpKind {
     PushInt(u64),
     PushBool(bool),
     PushString(String),
-    PushEnum { typ: TypeName, idx: usize },
+    PushEnum {
+        typ: TypeName,
+        idx: usize,
+    },
     Add,
     Sub,
     Mul,
@@ -36,9 +39,18 @@ pub enum OpKind {
     Global(String),
     Word(String),
     Ident(String, Vec<String>),
-    MakeIdent { ident: String, size: Option<usize> },
-    PushFramed { offset: usize, size: usize },
-    PushIdent { index: usize, inner: Vec<String> },
+    MakeIdent {
+        ident: String,
+        size: Option<usize>,
+    },
+    PushFramed {
+        offset: usize,
+        size: usize,
+    },
+    PushIdent {
+        index: usize,
+        inner: Vec<String>,
+    },
     PushLocal(String),
     PushLocalPtr(usize),
     Syscall(u64),
@@ -48,7 +60,11 @@ pub enum OpKind {
     Jump(Option<usize>),
     JumpDest(usize),
     StartBlock,
-    EndBlock(usize),
+    EndBlock,
+    DestroyFramed {
+        type_width: Option<usize>,
+        destructor: Option<String>,
+    },
     Return,
     Default,
     Nop(Keyword),
@@ -96,7 +112,11 @@ impl std::fmt::Debug for OpKind {
             OpKind::Jump(None) => unreachable!(),
             OpKind::JumpDest(dest) => write!(f, "JumpDest({dest})"),
             OpKind::StartBlock => write!(f, "StartBlock"),
-            OpKind::EndBlock(n) => write!(f, "EndBlock({n})"),
+            OpKind::EndBlock => write!(f, "EndBlock()"),
+            OpKind::DestroyFramed {
+                type_width,
+                destructor,
+            } => write!(f, "DestroyFramed( {:?} : {:?})", type_width, destructor),
             OpKind::Return => write!(f, "Return"),
             OpKind::Default => write!(f, "Default"),
             OpKind::Nop(kw) => write!(f, "Marker({:?})", kw),
@@ -910,23 +930,32 @@ impl Op {
             OpKind::Jump(_) => None,
             OpKind::JumpDest(_) => None,
             OpKind::StartBlock => None,
-            OpKind::EndBlock(n) => {
-                if *n > frame.len() {
-                    panic!(
-                        "Logic error - Frame doesn't have enough items! N: {} len: {}",
-                        n,
-                        frame.len()
-                    );
-                }
-                let mut frame_width = 0;
-                for _ in 0..*n {
-                    let t = frame.pop().unwrap();
-                    frame_width += type_map.get(&t).unwrap().size(&self.token, type_map)
-                        * type_map.get(&t).unwrap().width()
-                }
+            OpKind::EndBlock => None,
+            OpKind::DestroyFramed { .. } => {
+                let t = frame.pop().unwrap();
 
-                self.kind = OpKind::EndBlock(frame_width);
+                let destructor_lookup_name = match type_map.get(&t).unwrap() {
+                    Type::ResolvedStruct { base, .. } => base.clone(),
+                    _ => t.clone(),
+                };
 
+                let destructor_lookup_name = format!("-{destructor_lookup_name}");
+                println!("Fn to lookup: {destructor_lookup_name}");
+                let destructor = match fn_table.get(&destructor_lookup_name) {
+                    Some(func) => {
+                        println!("Found the function!");
+                        Some(func.name.clone())
+                    }
+                    None => None,
+                };
+
+                self.kind = OpKind::DestroyFramed {
+                    type_width: Some(
+                        type_map.get(&t).unwrap().size(&self.token, type_map)
+                            * type_map.get(&t).unwrap().width(),
+                    ),
+                    destructor,
+                };
                 None
             }
             OpKind::Return => {

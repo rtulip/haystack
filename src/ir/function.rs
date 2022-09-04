@@ -274,7 +274,7 @@ impl Function {
 
         let assignments_strs = map
             .iter()
-            .map(|(k, v)| format!("{}={:?}", k, v))
+            .map(|(_k, v)| format!("{}", v))
             .collect::<Vec<String>>();
 
         new_name.push_str(assignments_strs[0].as_str());

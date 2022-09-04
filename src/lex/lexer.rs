@@ -799,8 +799,10 @@ fn parse_as(
         (0..var_count).rev().for_each(|_| {
             ops.push(Op {
                 kind: OpKind::DestroyFramed {
+                    type_name: None,
                     type_width: None,
-                    destructor: None,
+                    frame_offset: None,
+                    destructors: None,
                 },
                 token: tok.clone(),
             })
@@ -870,8 +872,10 @@ fn parse_function(
         (0..var_count).rev().for_each(|_| {
             ops.push(Op {
                 kind: OpKind::DestroyFramed {
+                    type_name: None,
                     type_width: None,
-                    destructor: None,
+                    frame_offset: None,
+                    destructors: None,
                 },
                 token: tok.clone(),
             })
@@ -942,8 +946,10 @@ fn close_if_block(token: &Token, ops: &mut Vec<Op>, if_idx: usize) -> usize {
     (0..var_count).rev().for_each(|_| {
         ops.push(Op {
             kind: OpKind::DestroyFramed {
+                type_name: None,
                 type_width: None,
-                destructor: None,
+                frame_offset: None,
+                destructors: None,
             },
             token: token.clone(),
         })
@@ -1032,8 +1038,10 @@ pub fn parse_if_block(
             (0..var_count).rev().for_each(|_| {
                 ops.push(Op {
                     kind: OpKind::DestroyFramed {
+                        type_name: None,
                         type_width: None,
-                        destructor: None,
+                        frame_offset: None,
+                        destructors: None,
                     },
                     token: tok.clone(),
                 })
@@ -1133,8 +1141,10 @@ pub fn parse_while_block(
     (0..var_count).for_each(|_| {
         ops.push(Op {
             kind: OpKind::DestroyFramed {
+                type_name: None,
                 type_width: None,
-                destructor: None,
+                frame_offset: None,
+                destructors: None,
             },
             token: tok.clone(),
         })

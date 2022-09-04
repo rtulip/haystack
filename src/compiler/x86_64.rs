@@ -264,9 +264,14 @@ fn compile_op(
         OpKind::StartBlock => (),
         OpKind::EndBlock => (),
         OpKind::DestroyFramed {
+            type_name: Some(_typ),
             type_width: Some(width),
-            ..
-        } => frame_pop_n(file, width),
+            frame_offset: Some(_offset),
+            destructors: Some(_ds),
+        } => {
+            // println!("ds: {:?}", ds);
+            frame_pop_n(file, width);
+        }
         OpKind::DestroyFramed { .. } => unreachable!(),
         OpKind::Syscall(n) => {
             let order = ["rax", "rdi", "rsi", "rdx", "r10", "r8", "r9"];
@@ -363,7 +368,7 @@ fn nasm_close(
         .for_each(|(k, v)| uninit_data_to_x86_64(file, k, v));
 }
 
-pub fn compile_program<P: AsRef<std::path::Path>>(program: &Program, out_path: P) {
+pub fn compile_program<P: AsRef<std::path::Path>>(program: &mut Program, out_path: P) {
     let mut file = std::fs::File::create(out_path).unwrap();
     nasm_prelude(&mut file);
     program.functions.iter().for_each(|f| {

@@ -140,13 +140,32 @@ impl Program {
 
         self.functions.iter_mut().for_each(|f| {
             f.name = fn_name_map.get(&f.name).unwrap().clone();
-            f.ops.iter_mut().for_each(|op| {
-                if let OpKind::Call(fn_name, annotations) = &op.kind {
+            f.ops.iter_mut().for_each(|op| match &op.kind {
+                OpKind::Call(fn_name, annotations) => {
                     op.kind = OpKind::Call(
                         fn_name_map.get(fn_name).unwrap().clone(),
                         annotations.clone(),
                     );
                 }
+                OpKind::DestroyFramed {
+                    type_name,
+                    type_width,
+                    frame_offset,
+                    destructors: Some(dtors),
+                } => {
+                    let new_dtors = dtors
+                        .iter()
+                        .filter(|(_, func)| fn_name_map.contains_key(func))
+                        .map(|(n, func)| (*n, fn_name_map.get(func).unwrap().clone()))
+                        .collect::<Vec<(usize, String)>>();
+                    op.kind = OpKind::DestroyFramed {
+                        type_name: type_name.clone(),
+                        type_width: type_width.clone(),
+                        frame_offset: frame_offset.clone(),
+                        destructors: Some(new_dtors),
+                    };
+                }
+                _ => (),
             })
         });
     }

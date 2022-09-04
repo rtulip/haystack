@@ -1,5 +1,5 @@
 use crate::compiler::compiler_error;
-use crate::ir::{token::Token, Stack};
+use crate::ir::{function::Function, token::Token, Stack};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 pub type TypeName = String;
@@ -51,6 +51,7 @@ pub enum Type {
         members: Vec<TypeName>,
         visibility: Vec<Visibility>,
         idents: Vec<String>,
+        resolved_generics: Vec<TypeName>,
         base: TypeName,
     },
     Union {
@@ -328,6 +329,10 @@ impl Type {
             members: resolved_members,
             visibility,
             idents,
+            resolved_generics: generics
+                .iter()
+                .map(|g| map.get(g).unwrap().clone())
+                .collect(),
             base: base.clone(),
         };
 
@@ -423,11 +428,9 @@ impl Type {
                     base_generics,
                 },
                 Type::ResolvedStruct {
-                    name: _,
                     members: resolved_members,
-                    visibility: _,
-                    idents: _,
                     base: resolved_base,
+                    ..
                 },
             ) => {
                 if instance_base != resolved_base {
@@ -656,10 +659,12 @@ impl Type {
                 // Use the aliased generics to resolve inner types
                 let resolved_members = members
                     .iter()
-                    .map(|t| {
-                        let _ = 0;
-                        Type::assign_generics(token, t, &aliased_generics, type_map)
-                    })
+                    .map(|t| Type::assign_generics(token, t, &aliased_generics, type_map))
+                    .collect::<Vec<TypeName>>();
+
+                let resolved_generics = base_generics
+                    .iter()
+                    .map(|t| Type::assign_generics(token, t, &aliased_generics, type_map))
                     .collect::<Vec<TypeName>>();
                 let mut name = base.clone();
                 name.push('<');
@@ -685,30 +690,23 @@ impl Type {
                 }
                 name.push('>');
 
-                let t = if matches!(
-                    type_map.get(typ).unwrap(),
-                    Type::GenericStructInstance { .. }
-                ) {
-                    Type::ResolvedStruct {
+                let t = match type_map.get(typ).unwrap() {
+                    Type::GenericStructInstance { .. } => Type::ResolvedStruct {
+                        name,
+                        members: resolved_members,
+                        visibility: visibility.clone(),
+                        idents: idents.clone(),
+                        resolved_generics,
+                        base: base.clone(),
+                    },
+                    Type::GenericUnionInstance { .. } => Type::ResolvedUnion {
                         name,
                         members: resolved_members,
                         visibility: visibility.clone(),
                         idents: idents.clone(),
                         base: base.clone(),
-                    }
-                } else if matches!(
-                    type_map.get(typ).unwrap(),
-                    Type::GenericUnionInstance { .. }
-                ) {
-                    Type::ResolvedUnion {
-                        name,
-                        members: resolved_members,
-                        visibility: visibility.clone(),
-                        idents: idents.clone(),
-                        base: base.clone(),
-                    }
-                } else {
-                    unreachable!()
+                    },
+                    _ => unreachable!(),
                 };
 
                 type_map.insert(t.name(), t.clone());
@@ -729,6 +727,10 @@ impl Type {
                 generics,
             } => {
                 let resolved_members = members
+                    .iter()
+                    .map(|t| Type::assign_generics(token, t, generic_map, type_map))
+                    .collect::<Vec<TypeName>>();
+                let resolved_generics = generics
                     .iter()
                     .map(|t| Type::assign_generics(token, t, generic_map, type_map))
                     .collect::<Vec<TypeName>>();
@@ -755,6 +757,7 @@ impl Type {
                         members: resolved_members,
                         visibility: visibility.clone(),
                         idents: idents.clone(),
+                        resolved_generics,
                         base: base.clone(),
                     }
                 } else {
@@ -906,6 +909,111 @@ impl Type {
             .name(),
             _ => typ.clone(),
         }
+    }
+
+    pub fn destructor_name(&self) -> String {
+        match self {
+            Type::ResolvedStruct {
+                base,
+                resolved_generics,
+                ..
+            } => {
+                let mut d = format!("-{base}");
+                d.push('<');
+                d.push_str(resolved_generics[0].as_str());
+                for s in resolved_generics[1..].iter() {
+                    d.push(' ');
+                    d.push_str(s.as_str());
+                }
+                d.push('>');
+
+                d
+            }
+            _ => {
+                format!("-{}", self.name())
+            }
+        }
+    }
+
+    fn get_destructors_with_offsets(
+        &self,
+        token: &Token,
+        offset: usize,
+        type_map: &HashMap<TypeName, Type>,
+    ) -> Vec<(usize, String)> {
+        let mut ds = vec![(offset, self.destructor_name())];
+
+        match self {
+            Type::ResolvedStruct { members, .. } | Type::Struct { members, .. } => {
+                let mut member_offset = 0;
+                for m in members {
+                    let t = type_map.get(m).unwrap().clone();
+                    let t_offset = t.size(token, type_map) * t.width();
+                    let mut m_ds =
+                        t.get_destructors_with_offsets(token, offset + member_offset, type_map);
+                    ds.append(&mut m_ds);
+                    member_offset += t_offset;
+                }
+            }
+            _ => (),
+        }
+
+        ds
+    }
+
+    pub fn get_destructors(
+        &self,
+        token: &Token,
+        type_map: &HashMap<TypeName, Type>,
+    ) -> Vec<(usize, String)> {
+        self.get_destructors_with_offsets(token, 0, type_map)
+    }
+
+    pub fn get_new_destructors(
+        &self,
+        token: &Token,
+        type_map: &mut HashMap<TypeName, Type>,
+        fn_map: &HashMap<String, Function>,
+    ) -> Vec<Function> {
+        let mut new_fns = vec![];
+
+        match self {
+            Type::ResolvedStruct { members, base, .. } => {
+                if let Some(func) = fn_map.get(&format!("-{base}")) {
+                    assert!(func.is_generic());
+                    new_fns.push(func.resolve_generic_function(
+                        token,
+                        &vec![self.name()],
+                        type_map,
+                    ));
+                }
+
+                for member in members {
+                    let t = type_map.get(member).unwrap().clone();
+                    let mut n = t.get_new_destructors(token, type_map, fn_map);
+                    new_fns.append(&mut n);
+                }
+            }
+            Type::ResolvedUnion { base, .. } => {
+                if let Some(func) = fn_map.get(&format!("-{base}")) {
+                    assert!(func.is_generic());
+                    new_fns.push(func.resolve_generic_function(
+                        token,
+                        &vec![self.name()],
+                        type_map,
+                    ));
+                }
+            }
+            Type::GenericStructBase { .. }
+            | Type::GenericStructInstance { .. }
+            | Type::GenericUnionBase { .. }
+            | Type::GenericUnionInstance { .. } => {
+                unreachable!("This should happen: {}", self.name())
+            }
+            _ => (),
+        }
+
+        new_fns
     }
 }
 

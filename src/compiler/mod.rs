@@ -28,7 +28,7 @@ pub fn compile_haystack(input_path: String, run: bool, ir: bool, simple: bool) -
     }
     program.normalize_function_names();
     program.normalize_global_names();
-    x86_64::compile_program(&program, &path.with_extension("asm").to_str().unwrap());
+    x86_64::compile_program(&mut program, &path.with_extension("asm").to_str().unwrap());
 
     assert!(run_command(
         "nasm",

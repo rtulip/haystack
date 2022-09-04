@@ -62,8 +62,10 @@ pub enum OpKind {
     StartBlock,
     EndBlock,
     DestroyFramed {
+        type_name: Option<TypeName>,
         type_width: Option<usize>,
-        destructor: Option<String>,
+        frame_offset: Option<usize>,
+        destructors: Option<Vec<(usize, String)>>,
     },
     Return,
     Default,
@@ -113,10 +115,7 @@ impl std::fmt::Debug for OpKind {
             OpKind::JumpDest(dest) => write!(f, "JumpDest({dest})"),
             OpKind::StartBlock => write!(f, "StartBlock"),
             OpKind::EndBlock => write!(f, "EndBlock()"),
-            OpKind::DestroyFramed {
-                type_width,
-                destructor,
-            } => write!(f, "DestroyFramed( {:?} : {:?})", type_width, destructor),
+            OpKind::DestroyFramed { type_name, .. } => write!(f, "DestroyFramed({:?})", type_name),
             OpKind::Return => write!(f, "Return"),
             OpKind::Default => write!(f, "Default"),
             OpKind::Nop(kw) => write!(f, "Marker({:?})", kw),
@@ -302,8 +301,8 @@ impl Op {
         locals: &BTreeMap<String, LocalVar>,
         globals: &BTreeMap<String, (TypeName, String)>,
         type_visibility: &Option<TypeName>,
-    ) -> Option<Function> {
-        let op: Option<(OpKind, Function)> = match &self.kind {
+    ) -> Option<Vec<Function>> {
+        let op: Option<(OpKind, Vec<Function>)> = match &self.kind {
             OpKind::Add => {
                 evaluate_signature(
                     self,
@@ -934,25 +933,44 @@ impl Op {
             OpKind::DestroyFramed { .. } => {
                 let t = frame.pop().unwrap();
 
-                let destructor_lookup_name = match type_map.get(&t).unwrap() {
-                    Type::ResolvedStruct { base, .. } => base.clone(),
-                    _ => t.clone(),
-                };
-
-                let destructor_lookup_name = format!("-{destructor_lookup_name}");
-                let destructor = match fn_table.get(&destructor_lookup_name) {
-                    Some(func) => Some(func.name.clone()),
-                    None => None,
-                };
-
+                let frame_offset = frame
+                    .iter()
+                    .map(|t| {
+                        type_map.get(t).unwrap().size(&self.token, type_map)
+                            * type_map.get(t).unwrap().width()
+                    })
+                    .sum::<usize>();
+                let new_fns = type_map.get(&t).unwrap().clone().get_new_destructors(
+                    &self.token,
+                    type_map,
+                    fn_table,
+                );
+                let dtors = type_map
+                    .get(&t)
+                    .unwrap()
+                    .get_destructors(&self.token, type_map);
+                let t_width = type_map.get(&t).unwrap().size(&self.token, type_map)
+                    * type_map.get(&t).unwrap().width();
                 self.kind = OpKind::DestroyFramed {
-                    type_width: Some(
-                        type_map.get(&t).unwrap().size(&self.token, type_map)
-                            * type_map.get(&t).unwrap().width(),
-                    ),
-                    destructor,
+                    type_name: Some(t.clone()),
+                    type_width: Some(t_width),
+                    frame_offset: Some(frame_offset),
+                    destructors: Some(dtors.clone()),
                 };
-                None
+
+                if new_fns.is_empty() {
+                    None
+                } else {
+                    Some((
+                        OpKind::DestroyFramed {
+                            type_name: Some(t.clone()),
+                            type_width: Some(t_width),
+                            frame_offset: Some(frame_offset),
+                            destructors: Some(dtors),
+                        },
+                        new_fns,
+                    ))
+                }
             }
             OpKind::Return => {
                 *frame = Vec::<TypeName>::new();
@@ -1011,7 +1029,7 @@ impl Op {
                     };
 
                     evaluate_signature(self, &new_fn.sig, stack);
-                    Some((OpKind::Call(new_fn.name.clone(), vec![]), new_fn))
+                    Some((OpKind::Call(new_fn.name.clone(), vec![]), vec![new_fn]))
                 } else {
                     evaluate_signature(self, &f.sig, stack);
                     None

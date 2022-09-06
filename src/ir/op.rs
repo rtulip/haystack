@@ -100,8 +100,12 @@ impl std::fmt::Debug for OpKind {
             OpKind::Global(s) => write!(f, "Global({s})"),
             OpKind::Word(s) => write!(f, "Word({s})"),
             OpKind::Ident(s, fs) => write!(f, "Ident({s}::{:?}", fs),
-            OpKind::MakeIdent { ident: s, .. } => write!(f, "MakeIdent({s})"),
-            OpKind::PushIdent { index: i, .. } => write!(f, "PushIdent({i})"),
+            OpKind::MakeIdent { ident: s, size } => write!(f, "MakeIdent({s}, {:?})", size),
+            OpKind::PushIdent { index: i, inner } => {
+                write!(f, "PushIdent({i}")?;
+                inner.iter().for_each(|x| write!(f, "::{x}").unwrap());
+                write!(f, ")")
+            }
             OpKind::PushFramed { offset, size } => write!(f, "PushFrame({offset}:{size})"),
             OpKind::PushLocal(ident) => write!(f, "PushLocal({ident})"),
             OpKind::PushLocalPtr(offset) => write!(f, "PushLocalPtr({offset})"),

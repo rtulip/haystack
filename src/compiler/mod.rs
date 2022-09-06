@@ -20,11 +20,11 @@ pub fn compile_haystack(input_path: String, run: bool, ir: bool, simple: bool) -
     program.check_for_name_conflicts();
     program.assign_words();
     program.type_check();
-    if ir {
-        program_to_json(&ir_path, &program);
-    }
     if simple {
         simplify_ir(&program, &path.with_extension("simple"));
+    }
+    if ir {
+        program_to_json(&ir_path, &program);
     }
     program.normalize_function_names();
     program.normalize_global_names();

@@ -17,6 +17,13 @@ pub struct LocalVar {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub enum FunctionKind {
+    Normal,
+    OnDestroy,
+    OnCopy,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Function {
     pub name: String,
     pub token: Token,
@@ -26,6 +33,7 @@ pub struct Function {
     pub generics_map: HashMap<String, TypeName>,
     pub locals: BTreeMap<String, LocalVar>,
     pub type_visibility: Option<TypeName>,
+    pub kind: FunctionKind,
 }
 
 impl Function {
@@ -207,6 +215,7 @@ impl Function {
             generics_map,
             locals: self.locals.clone(),
             type_visibility: self.type_visibility.clone(),
+            kind: self.kind.clone(),
         }
     }
 
@@ -294,6 +303,15 @@ impl Function {
             generics_map: map,
             locals: self.locals.clone(),
             type_visibility: self.type_visibility.clone(),
+            kind: self.kind.clone(),
+        }
+    }
+
+    pub fn kind_from_name(name: &String) -> FunctionKind {
+        match name.chars().next().unwrap() {
+            '-' => FunctionKind::OnDestroy,
+            '+' => FunctionKind::OnCopy,
+            _ => FunctionKind::Normal,
         }
     }
 }

@@ -823,6 +823,7 @@ fn parse_function(
 ) -> Function {
     let t = expect_token_kind(start_tok, tokens, TokenKind::Keyword(Keyword::Function));
     let (name_tok, name) = expect_word(&t, tokens);
+    let fn_kind = Function::kind_from_name(&name);
     let (tok, generics) = parse_annotation_list(&name_tok, tokens, type_map);
     let generics = generics.unwrap_or_default();
     let (tok, sig, sig_idents) = parse_signature(&tok, tokens, type_map);
@@ -899,6 +900,7 @@ fn parse_function(
         generics_map: HashMap::new(),
         locals,
         type_visibility: private_visibility,
+        kind: fn_kind,
     }
 }
 

@@ -899,7 +899,7 @@ fn parse_function(
             {
                 compiler_error(
                     &name_tok,
-                    "Destructors must be implemented inside the type's impl block",
+                    "OnCopy functions must be implemented inside the type's impl block",
                     vec![],
                 );
             }

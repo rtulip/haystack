@@ -1,7 +1,7 @@
 use crate::compiler::{compiler_error, type_check_ops_list};
 use crate::ir::{
     data::InitData,
-    op::Op,
+    op::{Op, OpKind},
     token::Token,
     types::{Signature, Type, TypeName},
     FnTable, Stack,
@@ -17,6 +17,13 @@ pub struct LocalVar {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub enum FunctionKind {
+    Normal,
+    OnDestroy,
+    OnCopy,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Function {
     pub name: String,
     pub token: Token,
@@ -26,6 +33,7 @@ pub struct Function {
     pub generics_map: HashMap<String, TypeName>,
     pub locals: BTreeMap<String, LocalVar>,
     pub type_visibility: Option<TypeName>,
+    pub kind: FunctionKind,
 }
 
 impl Function {
@@ -207,6 +215,7 @@ impl Function {
             generics_map,
             locals: self.locals.clone(),
             type_visibility: self.type_visibility.clone(),
+            kind: self.kind.clone(),
         }
     }
 
@@ -274,7 +283,7 @@ impl Function {
 
         let assignments_strs = map
             .iter()
-            .map(|(k, v)| format!("{}={:?}", k, v))
+            .map(|(_k, v)| format!("{}", v))
             .collect::<Vec<String>>();
 
         new_name.push_str(assignments_strs[0].as_str());
@@ -294,6 +303,78 @@ impl Function {
             generics_map: map,
             locals: self.locals.clone(),
             type_visibility: self.type_visibility.clone(),
+            kind: self.kind.clone(),
         }
+    }
+
+    pub fn kind_from_name(name: &String) -> FunctionKind {
+        match name.chars().next().unwrap() {
+            '-' => FunctionKind::OnDestroy,
+            '+' => FunctionKind::OnCopy,
+            _ => FunctionKind::Normal,
+        }
+    }
+
+    pub fn finish_destructor(&mut self, type_map: &HashMap<String, Type>) -> (usize, TypeName) {
+        if !matches!(self.kind, FunctionKind::OnDestroy) {
+            panic!("Can't finish a destructor for a non Destructor function!");
+        }
+
+        assert!(self.sig.inputs.len() == 1);
+        assert!(matches!(self.ops.last().unwrap().kind, OpKind::Return));
+
+        let ret_op = self.ops.pop().unwrap();
+        let idx = self.ops.len();
+
+        self.ops.push(Op {
+            token: ret_op.token.clone(),
+            kind: OpKind::NoCopy,
+        });
+
+        match type_map.get(&self.sig.inputs[0]).unwrap() {
+            Type::Struct {
+                members, idents, ..
+            }
+            | Type::ResolvedStruct {
+                members, idents, ..
+            } => {
+                members.iter().enumerate().for_each(|(i, _)| {
+                    self.ops.push(Op {
+                        kind: OpKind::PushIdent {
+                            index: 0,
+                            inner: vec![idents[i].clone()],
+                        },
+                        token: ret_op.token.clone(),
+                    });
+                    self.ops.push(Op {
+                        kind: OpKind::MakeIdent {
+                            ident: String::from("_"),
+                            size: None,
+                        },
+                        token: ret_op.token.clone(),
+                    });
+                    self.ops.push(Op {
+                        kind: OpKind::StartBlock,
+                        token: ret_op.token.clone(),
+                    });
+                    self.ops.push(Op {
+                        kind: OpKind::DestroyFramed { type_name: None },
+                        token: ret_op.token.clone(),
+                    });
+                    self.ops.push(Op {
+                        kind: OpKind::ReleaseFramed(None),
+                        token: ret_op.token.clone(),
+                    });
+                    self.ops.push(Op {
+                        kind: OpKind::EndBlock,
+                        token: ret_op.token.clone(),
+                    });
+                });
+            }
+            _ => (),
+        };
+
+        self.ops.push(ret_op);
+        (idx, self.sig.inputs[0].clone())
     }
 }

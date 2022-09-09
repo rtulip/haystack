@@ -37,7 +37,9 @@ pub enum OpKind {
     Word(String),
     Ident(String, Vec<String>),
     MakeIdent { ident: String, size: Option<usize> },
-    PushFramed { offset: usize, size: usize },
+    PushFramed { offset: isize, size: usize },
+    PushFramedMany { ops: Vec<Op> },
+    Copy(TypeName),
     PushIdent { index: usize, inner: Vec<String> },
     PushLocal(String),
     PushLocalPtr(usize),
@@ -48,7 +50,10 @@ pub enum OpKind {
     Jump(Option<usize>),
     JumpDest(usize),
     StartBlock,
-    EndBlock(usize),
+    EndBlock,
+    NoCopy,
+    DestroyFramed { type_name: Option<TypeName> },
+    ReleaseFramed(Option<usize>),
     Return,
     Default,
     Nop(Keyword),
@@ -82,9 +87,19 @@ impl std::fmt::Debug for OpKind {
             OpKind::Global(s) => write!(f, "Global({s})"),
             OpKind::Word(s) => write!(f, "Word({s})"),
             OpKind::Ident(s, fs) => write!(f, "Ident({s}::{:?}", fs),
-            OpKind::MakeIdent { ident: s, .. } => write!(f, "MakeIdent({s})"),
-            OpKind::PushIdent { index: i, .. } => write!(f, "PushIdent({i})"),
-            OpKind::PushFramed { offset, size } => write!(f, "PushFrame({offset}:{size})"),
+            OpKind::MakeIdent { ident: s, size } => write!(f, "MakeIdent({s}, {:?})", size),
+            OpKind::PushIdent { index: i, inner } => {
+                write!(f, "PushIdent({i}")?;
+                inner.iter().for_each(|x| write!(f, "::{x}").unwrap());
+                write!(f, ")")
+            }
+            OpKind::PushFramed { offset, size } => write!(f, "PushFramed({offset}:{size})"),
+            OpKind::PushFramedMany { ops } => write!(
+                f,
+                "PushFramedMany: {:?}",
+                ops.iter().map(|op| &op.kind).collect::<Vec<&OpKind>>()
+            ),
+            OpKind::Copy(name) => write!(f, "Copy({name})"),
             OpKind::PushLocal(ident) => write!(f, "PushLocal({ident})"),
             OpKind::PushLocalPtr(offset) => write!(f, "PushLocalPtr({offset})"),
             OpKind::Syscall(n) => write!(f, "Syscall({n})"),
@@ -96,7 +111,10 @@ impl std::fmt::Debug for OpKind {
             OpKind::Jump(None) => unreachable!(),
             OpKind::JumpDest(dest) => write!(f, "JumpDest({dest})"),
             OpKind::StartBlock => write!(f, "StartBlock"),
-            OpKind::EndBlock(n) => write!(f, "EndBlock({n})"),
+            OpKind::EndBlock => write!(f, "EndBlock"),
+            OpKind::NoCopy => write!(f, "NoCopy"),
+            OpKind::DestroyFramed { type_name, .. } => write!(f, "DestroyFramed({:?})", type_name),
+            OpKind::ReleaseFramed(width) => write!(f, "ReleaseFramed({:?})", width),
             OpKind::Return => write!(f, "Return"),
             OpKind::Default => write!(f, "Default"),
             OpKind::Nop(kw) => write!(f, "Marker({:?})", kw),
@@ -124,6 +142,7 @@ impl Op {
         inner: &[String],
         type_map: &HashMap<TypeName, Type>,
         type_visibility: &Option<TypeName>,
+        ignore_visibility: bool,
     ) -> (TypeName, usize) {
         let mut t = frame[index].clone();
         let mut t_offset: usize = frame[0..index]
@@ -154,8 +173,21 @@ impl Op {
                                 _ => unreachable!(),
                             };
 
-                            if let Some(ref vis_name) = type_visibility {
-                                if cmp_type_name != vis_name {
+                            if !ignore_visibility {
+                                if let Some(ref vis_name) = type_visibility {
+                                    if cmp_type_name != vis_name {
+                                        compiler_error(
+                                            &self.token,
+                                            format!(
+                                                "Struct member `{field}` is private and cannot accessed"
+                                            )
+                                            .as_str(),
+                                            vec![
+                                                "Private members can only be accessed inside an impl block",
+                                            ],
+                                        )
+                                    }
+                                } else {
                                     compiler_error(
                                         &self.token,
                                         format!(
@@ -167,17 +199,6 @@ impl Op {
                                         ],
                                     )
                                 }
-                            } else {
-                                compiler_error(
-                                    &self.token,
-                                    format!(
-                                        "Struct member `{field}` is private and cannot accessed"
-                                    )
-                                    .as_str(),
-                                    vec![
-                                        "Private members can only be accessed inside an impl block",
-                                    ],
-                                )
                             }
                         }
                         (
@@ -283,7 +304,7 @@ impl Op {
         globals: &BTreeMap<String, (TypeName, String)>,
         type_visibility: &Option<TypeName>,
     ) -> Option<Function> {
-        let op: Option<(OpKind, Function)> = match &self.kind {
+        match &self.kind {
             OpKind::Add => {
                 evaluate_signature(
                     self,
@@ -859,9 +880,23 @@ impl Op {
                 None
             }
             OpKind::PushIdent { index, inner } => {
-                let (t, offset) =
-                    self.get_type_from_frame(frame, *index, inner, type_map, type_visibility);
+                let (t, offset) = self.get_type_from_frame(
+                    frame,
+                    *index,
+                    inner,
+                    type_map,
+                    type_visibility,
+                    false,
+                );
                 let size = type_map.get(&t).unwrap().size(&self.token, type_map);
+                let mut expansion = type_map.get(&t).unwrap().push_ident_expansion(
+                    &self.token,
+                    *index,
+                    inner.clone(),
+                    type_map,
+                );
+                // println!("{:?} -> {:?}", self.kind, expansion);
+
                 evaluate_signature(
                     self,
                     &Signature {
@@ -871,10 +906,39 @@ impl Op {
                     stack,
                 );
 
-                self.kind = OpKind::PushFramed { offset, size };
+                if expansion.len() == 1 {
+                    self.kind = OpKind::PushFramed {
+                        offset: offset as isize,
+                        size,
+                    };
+                } else {
+                    expansion.iter_mut().for_each(|op| match &op.kind {
+                        OpKind::PushIdent { index, inner } => {
+                            let (t, offset) = self.get_type_from_frame(
+                                frame,
+                                *index,
+                                inner,
+                                type_map,
+                                type_visibility,
+                                true,
+                            );
+                            let size = type_map.get(&t).unwrap().size(&self.token, type_map);
+                            op.kind = OpKind::PushFramed {
+                                offset: offset as isize,
+                                size,
+                            };
+                        }
+                        _ => (),
+                    });
+                    self.kind = OpKind::PushFramedMany { ops: expansion }
+                }
 
                 None
             }
+            OpKind::PushFramedMany { .. } => {
+                panic!("Sholdn't need to type check PushFramedMany.")
+            }
+            OpKind::Copy(_) => panic!("Shouldn't need to type check {:?}", self.kind),
             OpKind::PushFramed { .. } => {
                 panic!("OpKind::PushFramed shouldn't be generated before type checking...");
             }
@@ -910,25 +974,68 @@ impl Op {
             OpKind::Jump(_) => None,
             OpKind::JumpDest(_) => None,
             OpKind::StartBlock => None,
-            OpKind::EndBlock(n) => {
-                if *n > frame.len() {
-                    panic!(
-                        "Logic error - Frame doesn't have enough items! N: {} len: {}",
-                        n,
-                        frame.len()
-                    );
+            OpKind::EndBlock => None,
+            OpKind::DestroyFramed { .. } => {
+                let t = frame.last().unwrap();
+                match type_map.get(t).unwrap() {
+                    Type::ResolvedStruct { base, .. } => {
+                        let dtor_name = format!("-{base}");
+                        if let Some(f) = fn_table.get(&dtor_name) {
+                            let new_f =
+                                f.resolve_generic_function(&self.token, &vec![t.clone()], type_map);
+                            self.kind = OpKind::Call(new_f.name.clone(), vec![]);
+                            Some(new_f)
+                        } else {
+                            let new_dtor = type_map
+                                .get(t)
+                                .unwrap()
+                                .generate_empty_destructor(&self.token, type_map);
+                            self.kind = OpKind::Call(new_dtor.name.clone(), vec![]);
+                            Some(new_dtor)
+                        }
+                    }
+                    Type::GenericStructBase { .. }
+                    | Type::GenericStructInstance { .. }
+                    | Type::GenericUnionBase { .. }
+                    | Type::GenericUnionInstance { .. } => unreachable!(),
+                    Type::Union { .. }
+                    | Type::ResolvedUnion { .. }
+                    | Type::U64
+                    | Type::U8
+                    | Type::Pointer { .. }
+                    | Type::Bool => {
+                        self.kind = OpKind::Nop(Keyword::Function);
+                        None
+                    }
+                    _ => {
+                        let dtor_name = format!("-{}", type_map.get(t).unwrap().name());
+                        if let Some(_) = fn_table.get(&dtor_name) {
+                            self.kind = OpKind::Call(dtor_name, vec![]);
+                            None
+                        } else {
+                            self.kind = OpKind::Call(dtor_name, vec![]);
+                            Some(
+                                type_map
+                                    .get(t)
+                                    .unwrap()
+                                    .generate_empty_destructor(&self.token, type_map),
+                            )
+                        }
+                    }
                 }
-                let mut frame_width = 0;
-                for _ in 0..*n {
-                    let t = frame.pop().unwrap();
-                    frame_width += type_map.get(&t).unwrap().size(&self.token, type_map)
-                        * type_map.get(&t).unwrap().width()
-                }
-
-                self.kind = OpKind::EndBlock(frame_width);
-
+            }
+            OpKind::ReleaseFramed(None) => {
+                let t = frame.pop().unwrap();
+                self.kind = OpKind::ReleaseFramed(Some(
+                    type_map.get(&t).unwrap().size(&self.token, type_map)
+                        * type_map.get(&t).unwrap().width(),
+                ));
                 None
             }
+            OpKind::ReleaseFramed(Some(_)) => {
+                panic!("Release Framed Intrinsic should be unreachable")
+            }
+            OpKind::NoCopy => None,
             OpKind::Return => {
                 *frame = Vec::<TypeName>::new();
                 None
@@ -986,7 +1093,8 @@ impl Op {
                     };
 
                     evaluate_signature(self, &new_fn.sig, stack);
-                    Some((OpKind::Call(new_fn.name.clone(), vec![]), new_fn))
+                    self.kind = OpKind::Call(new_fn.name.clone(), vec![]);
+                    Some(new_fn)
                 } else {
                     evaluate_signature(self, &f.sig, stack);
                     None
@@ -1010,14 +1118,7 @@ impl Op {
             OpKind::Ident(_, _) => unreachable!("Shouldn't have any idents left to type check"),
             OpKind::PrepareFunc => None,
             OpKind::Default => unreachable!("Default op shouldn't be compiled"),
-        };
-
-        if let Some((new_op, new_fn)) = op {
-            self.kind = new_op;
-            return Some(new_fn);
         }
-
-        None
     }
 }
 

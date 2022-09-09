@@ -242,12 +242,22 @@ fn compile_op(
         OpKind::PushFramed { offset, size } => {
             let locals_offset = Function::locals_offset(&func.unwrap().locals);
             for delta in 0..*size {
-                let x = offset + (size - delta) * 8;
+                let x = offset + (size - delta - 1) as isize * 8;
                 writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
-                writeln!(file, "  mov  rax, [rax - {x} - {locals_offset} - 8]",).unwrap();
+                if *offset >= 0 {
+                    writeln!(file, "  mov  rax, [rax - {x} - {locals_offset} - 16]",).unwrap();
+                } else {
+                    writeln!(file, "  mov  rax, [rax + {}]", x.abs()).unwrap();
+                }
                 writeln!(file, "  push rax").unwrap();
             }
         }
+        OpKind::PushFramedMany { ops } => {
+            ops.iter()
+                .for_each(|op| compile_op(op, func, init_data, file));
+        }
+        OpKind::Copy(_) => (),
+        OpKind::NoCopy => (),
         OpKind::Jump(Some(n)) => {
             writeln!(file, "  jmp {}_jmp_dest_{}", func.unwrap().name, n).unwrap();
         }
@@ -262,7 +272,10 @@ fn compile_op(
             writeln!(file, "{}_jmp_dest_{}:", func.unwrap().name, n).unwrap();
         }
         OpKind::StartBlock => (),
-        OpKind::EndBlock(width) => frame_pop_n(file, width),
+        OpKind::EndBlock => (),
+        OpKind::DestroyFramed { .. } => unreachable!(),
+        OpKind::ReleaseFramed(Some(width)) => frame_pop_n(file, width),
+        OpKind::ReleaseFramed(None) => unreachable!(),
         OpKind::Syscall(n) => {
             let order = ["rax", "rdi", "rsi", "rdx", "r10", "r8", "r9"];
             for i in 0..=*n {

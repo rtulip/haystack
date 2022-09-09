@@ -970,6 +970,61 @@ impl Type {
             kind: FunctionKind::OnDestroy,
         }
     }
+
+    pub fn push_ident_expansion(
+        &self,
+        token: &Token,
+        index: usize,
+        inner: Vec<String>,
+        type_map: &HashMap<TypeName, Type>,
+    ) -> Vec<Op> {
+        match self {
+            Type::U64
+            | Type::U8
+            | Type::Bool
+            | Type::Pointer { .. }
+            | Type::Union { .. }
+            | Type::ResolvedUnion { .. }
+            | Type::Enum { .. } => {
+                vec![Op {
+                    token: token.clone(),
+                    kind: OpKind::PushIdent { index, inner },
+                }]
+            }
+            Type::Struct {
+                members, idents, ..
+            }
+            | Type::ResolvedStruct {
+                members, idents, ..
+            } => {
+                let mut expansion = vec![];
+                members.iter().zip(idents).for_each(|(m, i)| {
+                    let mut new_inner = inner.clone();
+                    new_inner.push(i.clone());
+                    expansion.append(
+                        &mut type_map
+                            .get(m)
+                            .unwrap()
+                            .push_ident_expansion(token, index, new_inner, type_map),
+                    );
+                });
+                expansion.push(Op {
+                    token: token.clone(),
+                    kind: OpKind::Cast(self.name()),
+                });
+                expansion.push(Op {
+                    token: token.clone(),
+                    kind: OpKind::Copy(self.name()),
+                });
+                expansion
+            }
+            Type::Placeholder { .. }
+            | Type::GenericStructBase { .. }
+            | Type::GenericStructInstance { .. }
+            | Type::GenericUnionBase { .. }
+            | Type::GenericUnionInstance { .. } => unreachable!(),
+        }
+    }
 }
 
 impl std::fmt::Display for Type {

@@ -330,6 +330,11 @@ impl Function {
         let ret_op = self.ops.pop().unwrap();
         let idx = self.ops.len();
 
+        self.ops.push(Op {
+            token: ret_op.token.clone(),
+            kind: OpKind::NoCopy,
+        });
+
         match type_map.get(&self.sig.inputs[0]).unwrap() {
             Type::Struct {
                 members, idents, ..

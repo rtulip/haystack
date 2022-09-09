@@ -244,9 +244,9 @@ fn compile_op(
             // println!("{}: PushFramed({offset}, {size})", func.unwrap().name);
             if *offset >= 0 {
                 for delta in 0..*size {
-                    let x = offset + (size - delta) as isize * 8;
+                    let x = offset + (size - delta - 1) as isize * 8;
                     writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
-                    writeln!(file, "  mov  rax, [rax - {x} - {locals_offset} - 8]",).unwrap();
+                    writeln!(file, "  mov  rax, [rax - {x} - {locals_offset} - 16]",).unwrap();
                     writeln!(file, "  push rax").unwrap();
                 }
             } else {
@@ -258,6 +258,12 @@ fn compile_op(
                 }
             }
         }
+        OpKind::PushFramedMany { ops } => {
+            ops.iter()
+                .for_each(|op| compile_op(op, func, init_data, file));
+        }
+        OpKind::Copy(_) => (),
+        OpKind::NoCopy => (),
         OpKind::Jump(Some(n)) => {
             writeln!(file, "  jmp {}_jmp_dest_{}", func.unwrap().name, n).unwrap();
         }

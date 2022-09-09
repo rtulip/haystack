@@ -2,7 +2,7 @@ use crate::compiler::{compiler_error, type_check_ops_list};
 use crate::ir::{
     data::{InitData, UninitData},
     function::{Function, FunctionKind},
-    op::OpKind,
+    op::{Op, OpKind},
     token::Token,
     types::{Type, TypeName},
 };
@@ -134,6 +134,21 @@ impl Program {
                             vec![],
                             &vis,
                         );
+                        let mut no_copy = false;
+                        f.ops.iter_mut().for_each(|op| match &mut op.kind {
+                            OpKind::PushFramedMany { ref mut ops } => {
+                                if no_copy {
+                                    *ops = (*ops
+                                        .iter()
+                                        .filter(|op| !matches!(op.kind, OpKind::Copy(_)))
+                                        .map(|op| op.clone())
+                                        .collect::<Vec<Op>>())
+                                    .to_vec();
+                                }
+                            }
+                            OpKind::NoCopy => no_copy = true,
+                            _ => (),
+                        });
                         checked.insert(f.name.clone());
 
                         new_fns.append(&mut fs);
@@ -161,23 +176,101 @@ impl Program {
                     size: Some(t_size), ..
                 } = op
                 {
-                    f.ops
-                        .iter_mut()
-                        .filter(|op| matches!(op.kind, OpKind::PushFramed { .. }))
-                        .for_each(|op| {
-                            let kind = op.kind.clone();
-                            if let OpKind::PushFramed { offset, size } = kind {
-                                let new_offset = offset - (t_size * 8) as isize;
-                                op.kind = OpKind::PushFramed {
-                                    offset: new_offset,
-                                    size,
-                                }
+                    f.ops.iter_mut().for_each(|op| match &mut op.kind {
+                        OpKind::PushFramed { offset, size } => {
+                            let new_offset = *offset - (t_size * 8) as isize;
+                            op.kind = OpKind::PushFramed {
+                                offset: new_offset,
+                                size: *size,
                             }
-                        });
+                        }
+                        OpKind::PushFramedMany { ref mut ops } => {
+                            ops.iter_mut().for_each(|op| match &op.kind {
+                                OpKind::PushFramed { offset, size } => {
+                                    let new_offset = offset - (t_size * 8) as isize;
+                                    op.kind = OpKind::PushFramed {
+                                        offset: new_offset,
+                                        size: *size,
+                                    }
+                                }
+                                _ => (),
+                            });
+                        }
+                        _ => (),
+                    });
                 } else {
                     unreachable!("{}: {:?}", f.name, op);
                 }
             })
+    }
+
+    pub fn convert_opkind_copy_into_calls(&mut self) {
+        let mut fn_table: HashMap<String, Function> = HashMap::new();
+        let mut checked: HashSet<String> = HashSet::new();
+        self.functions.iter().for_each(|f| {
+            fn_table.insert(f.name.clone(), f.clone());
+        });
+        let mut new_fns: Vec<Function> = vec![];
+
+        loop {
+            self.functions.iter_mut().for_each(|f| {
+                if !checked.contains(&f.name) {
+                    f.ops.iter_mut().for_each(|op| match op.kind {
+                        OpKind::PushFramedMany { ref mut ops } => {
+                            ops.iter_mut().for_each(|op| match &op.kind {
+                                OpKind::Copy(type_name) => {
+                                    let typ = self.types.get(type_name).unwrap();
+                                    let maybe_ctor = match typ {
+                                        Type::ResolvedStruct { base, .. }
+                                        | Type::ResolvedUnion { base, .. } => {
+                                            let base_copy_ctor = format!("+{base}");
+                                            if let Some(f) = fn_table.get(&base_copy_ctor) {
+                                                let new_f = f.assign_generics(
+                                                    &op.token,
+                                                    &mut vec![type_name.clone()],
+                                                    &mut self.types,
+                                                );
+                                                let new_ctor = f.name.clone();
+                                                new_fns.push(new_f);
+                                                Some(new_ctor)
+                                            } else {
+                                                None
+                                            }
+                                        }
+                                        _ => {
+                                            if let Some(f) = fn_table.get(&format!("+{type_name}"))
+                                            {
+                                                Some(f.name.clone())
+                                            } else {
+                                                None
+                                            }
+                                        }
+                                    };
+
+                                    if let Some(ctor) = maybe_ctor {
+                                        op.kind = OpKind::Call(ctor, vec![]);
+                                    }
+                                }
+                                _ => (),
+                            })
+                        }
+                        _ => (),
+                    });
+
+                    checked.insert(f.name.clone());
+                }
+            });
+
+            if new_fns.is_empty() {
+                break;
+            } else {
+                new_fns.drain(..).for_each(|f| {
+                    if fn_table.insert(f.name.clone(), f.clone()).is_none() {
+                        self.functions.push(f);
+                    }
+                });
+            }
+        }
     }
 
     pub fn normalize_global_names(&mut self) {
@@ -219,12 +312,23 @@ impl Program {
 
         self.functions.iter_mut().for_each(|f| {
             f.name = fn_name_map.get(&f.name).unwrap().clone();
-            f.ops.iter_mut().for_each(|op| match &op.kind {
+            f.ops.iter_mut().for_each(|op| match &mut op.kind {
                 OpKind::Call(fn_name, annotations) => {
                     op.kind = OpKind::Call(
                         fn_name_map.get(fn_name).unwrap().clone(),
                         annotations.clone(),
                     );
+                }
+                OpKind::PushFramedMany { ref mut ops } => {
+                    ops.iter_mut().for_each(|op| match &op.kind {
+                        OpKind::Call(fn_name, annotations) => {
+                            op.kind = OpKind::Call(
+                                fn_name_map.get(fn_name).unwrap().clone(),
+                                annotations.clone(),
+                            );
+                        }
+                        _ => (),
+                    })
                 }
                 _ => (),
             })

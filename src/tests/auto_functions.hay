@@ -1,0 +1,56 @@
+include "std.hay"
+
+var u64: FOO_COUNT
+
+struct Foo {
+  u64: one
+  u64: two
+
+impl:
+  fn Foo.new(u64 u64) -> [Foo] {
+    cast(Foo)
+    FOO_COUNT @ 1 + FOO_COUNT !
+  }
+
+  fn Foo.print(Foo: f) {
+    "Foo(" puts f::one putu "," puts f::two putu ")" putlns
+  }
+
+  fn -Foo(Foo: f) {
+    "Destroying Foo(" puts f::one putu "," puts f::two putu ")" putlns
+    FOO_COUNT @ 1 - as [count]
+    "  Foo Count: " puts count putlnu
+    count FOO_COUNT !
+  }
+
+  fn +Foo(Foo) -> [Foo] {
+    "Copying a foo!" putlns
+    FOO_COUNT @ 1 + as [count]
+
+    "  Foo Count: " puts count putlnu
+    count FOO_COUNT !
+  }
+}
+
+struct Bar {
+  Foo: foo1
+  Foo: foo2
+impl:
+  fn -Bar(Bar: b) {
+    "Destroying bar" putlns
+    " Foo1: " puts b::foo1 Foo.print
+    " Foo2: " puts b::foo2 Foo.print
+  }
+}
+
+fn main() {
+  0 FOO_COUNT !
+
+  100 105 Foo.new
+  200 205 Foo.new
+  cast(Bar) as [b] {}
+
+  "Final Foo Count: " puts FOO_COUNT @ putlnu
+
+}
+

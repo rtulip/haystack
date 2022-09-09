@@ -868,7 +868,7 @@ fn parse_function(
         vec![TokenKind::Marker(Marker::CloseBrace)],
     );
     match fn_kind {
-        FunctionKind::Normal => {
+        FunctionKind::Normal | FunctionKind::OnCopy => {
             let var_count = make_ident_count(&ops, 0);
             (0..var_count).for_each(|_| {
                 ops.push(Op {
@@ -885,7 +885,6 @@ fn parse_function(
                 token: tok.clone(),
             });
         }
-        FunctionKind::OnCopy => todo!(),
         FunctionKind::OnDestroy => {
             if sig.inputs.len() != 1 || sig.outputs.len() != 0 || sig_idents[0].is_none() {
                 compiler_error(

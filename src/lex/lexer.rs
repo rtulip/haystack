@@ -868,7 +868,42 @@ fn parse_function(
         vec![TokenKind::Marker(Marker::CloseBrace)],
     );
     match fn_kind {
-        FunctionKind::Normal | FunctionKind::OnCopy => {
+        FunctionKind::Normal => {
+            let var_count = make_ident_count(&ops, 0);
+            (0..var_count).for_each(|_| {
+                ops.push(Op {
+                    kind: OpKind::DestroyFramed { type_name: None },
+                    token: tok.clone(),
+                });
+                ops.push(Op {
+                    kind: OpKind::ReleaseFramed(None),
+                    token: tok.clone(),
+                });
+            });
+            ops.push(Op {
+                kind: OpKind::EndBlock,
+                token: tok.clone(),
+            });
+        }
+        FunctionKind::OnCopy => {
+            if sig.inputs.len() != 1 || sig.outputs.len() != 1 || sig.inputs[0] != sig.outputs[0] {
+                compiler_error(
+                    &name_tok,
+                    "Invalid OnCopy signature",
+                    vec!["Expected signature of kind: `fn +TypeName(TypeName) -> [TypeName] { ... }` "],
+                );
+            }
+
+            if private_visibility.is_none()
+                || private_visibility.as_ref().unwrap() != &sig.inputs[0]
+            {
+                compiler_error(
+                    &name_tok,
+                    "Destructors must be implemented inside the type's impl block",
+                    vec![],
+                );
+            }
+
             let var_count = make_ident_count(&ops, 0);
             (0..var_count).for_each(|_| {
                 ops.push(Op {

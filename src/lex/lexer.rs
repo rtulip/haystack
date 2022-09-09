@@ -1,7 +1,7 @@
 use crate::compiler::compiler_error;
 use crate::ir::{
     data::{InitData, UninitData},
-    function::{Function, LocalVar},
+    function::{Function, FunctionKind, LocalVar},
     keyword::Keyword,
     literal::Literal,
     marker::Marker,
@@ -867,22 +867,44 @@ fn parse_function(
         Some(&mut locals),
         vec![TokenKind::Marker(Marker::CloseBrace)],
     );
-    if !name.starts_with("-") {
-        let var_count = make_ident_count(&ops, 0);
-        (0..var_count).for_each(|_| {
-            ops.push(Op {
-                kind: OpKind::DestroyFramed { type_name: None },
-                token: tok.clone(),
+    match fn_kind {
+        FunctionKind::Normal => {
+            let var_count = make_ident_count(&ops, 0);
+            (0..var_count).for_each(|_| {
+                ops.push(Op {
+                    kind: OpKind::DestroyFramed { type_name: None },
+                    token: tok.clone(),
+                });
+                ops.push(Op {
+                    kind: OpKind::ReleaseFramed(None),
+                    token: tok.clone(),
+                });
             });
             ops.push(Op {
-                kind: OpKind::ReleaseFramed(None),
+                kind: OpKind::EndBlock,
                 token: tok.clone(),
             });
-        });
-        ops.push(Op {
-            kind: OpKind::EndBlock,
-            token: tok.clone(),
-        });
+        }
+        FunctionKind::OnCopy => todo!(),
+        FunctionKind::OnDestroy => {
+            if sig.inputs.len() != 1 || sig.outputs.len() != 0 || sig_idents[0].is_none() {
+                compiler_error(
+                    &name_tok,
+                    "Invalid Destructor signature",
+                    vec!["Expected signature of kind: `fn -TypeName(TypeName: ident) { ... }` "],
+                );
+            }
+
+            if private_visibility.is_none()
+                || private_visibility.as_ref().unwrap() != &sig.inputs[0]
+            {
+                compiler_error(
+                    &name_tok,
+                    "Destructors must be implemented inside the type's impl block",
+                    vec![],
+                );
+            }
+        }
     }
     ops.push(Op {
         kind: OpKind::Return,

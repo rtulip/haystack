@@ -119,7 +119,7 @@ pub enum LogosToken {
     #[token("!")]
     Write,
 
-    #[regex(r"[_a-zA-Z+-][^ \n\t:{}\[\]()<>]*")]
+    #[regex(r"[+-]?[_a-zA-Z][^ \n\t:{}\[\]()<>]*")]
     Word,
 
     #[regex(r"//[^\n]*")]

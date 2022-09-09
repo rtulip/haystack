@@ -241,21 +241,15 @@ fn compile_op(
         }
         OpKind::PushFramed { offset, size } => {
             let locals_offset = Function::locals_offset(&func.unwrap().locals);
-            // println!("{}: PushFramed({offset}, {size})", func.unwrap().name);
-            if *offset >= 0 {
-                for delta in 0..*size {
-                    let x = offset + (size - delta - 1) as isize * 8;
-                    writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
+            for delta in 0..*size {
+                let x = offset + (size - delta - 1) as isize * 8;
+                writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
+                if *offset >= 0 {
                     writeln!(file, "  mov  rax, [rax - {x} - {locals_offset} - 16]",).unwrap();
-                    writeln!(file, "  push rax").unwrap();
-                }
-            } else {
-                for delta in 0..*size {
-                    let x = offset + (size - delta - 1) as isize * 8;
-                    writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
+                } else {
                     writeln!(file, "  mov  rax, [rax + {}]", x.abs()).unwrap();
-                    writeln!(file, "  push rax").unwrap();
                 }
+                writeln!(file, "  push rax").unwrap();
             }
         }
         OpKind::PushFramedMany { ops } => {
@@ -377,7 +371,7 @@ fn nasm_close(
         .for_each(|(k, v)| uninit_data_to_x86_64(file, k, v));
 }
 
-pub fn compile_program<P: AsRef<std::path::Path>>(program: &mut Program, out_path: P) {
+pub fn compile_program<P: AsRef<std::path::Path>>(program: &Program, out_path: P) {
     let mut file = std::fs::File::create(out_path).unwrap();
     nasm_prelude(&mut file);
     program.functions.iter().for_each(|f| {

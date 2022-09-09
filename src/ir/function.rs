@@ -85,10 +85,6 @@ impl Function {
         );
         self.check_output(&stack);
 
-        // for op in &self.ops {
-        //     println!("  {:?}", op.kind);
-        // }
-
         if new_fns.is_empty() {
             None
         } else {

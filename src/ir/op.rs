@@ -16,10 +16,7 @@ pub enum OpKind {
     PushInt(u64),
     PushBool(bool),
     PushString(String),
-    PushEnum {
-        typ: TypeName,
-        idx: usize,
-    },
+    PushEnum { typ: TypeName, idx: usize },
     Add,
     Sub,
     Mul,
@@ -39,18 +36,9 @@ pub enum OpKind {
     Global(String),
     Word(String),
     Ident(String, Vec<String>),
-    MakeIdent {
-        ident: String,
-        size: Option<usize>,
-    },
-    PushFramed {
-        offset: usize,
-        size: usize,
-    },
-    PushIdent {
-        index: usize,
-        inner: Vec<String>,
-    },
+    MakeIdent { ident: String, size: Option<usize> },
+    PushFramed { offset: isize, size: usize },
+    PushIdent { index: usize, inner: Vec<String> },
     PushLocal(String),
     PushLocalPtr(usize),
     Syscall(u64),
@@ -61,12 +49,8 @@ pub enum OpKind {
     JumpDest(usize),
     StartBlock,
     EndBlock,
-    DestroyFramed {
-        type_name: Option<TypeName>,
-        type_width: Option<usize>,
-        frame_offset: Option<usize>,
-        destructors: Option<Vec<(usize, String)>>,
-    },
+    DestroyFramed { type_name: Option<TypeName> },
+    ReleaseFramed(Option<usize>),
     Return,
     Default,
     Nop(Keyword),
@@ -120,6 +104,7 @@ impl std::fmt::Debug for OpKind {
             OpKind::StartBlock => write!(f, "StartBlock"),
             OpKind::EndBlock => write!(f, "EndBlock()"),
             OpKind::DestroyFramed { type_name, .. } => write!(f, "DestroyFramed({:?})", type_name),
+            OpKind::ReleaseFramed(width) => write!(f, "ReleaseFramed({:?})", width),
             OpKind::Return => write!(f, "Return"),
             OpKind::Default => write!(f, "Default"),
             OpKind::Nop(kw) => write!(f, "Marker({:?})", kw),
@@ -187,6 +172,7 @@ impl Op {
                                         .as_str(),
                                         vec![
                                             "Private members can only be accessed inside an impl block",
+                                            format!("{cmp_type_name} {vis_name}").as_str()
                                         ],
                                     )
                                 }
@@ -305,8 +291,8 @@ impl Op {
         locals: &BTreeMap<String, LocalVar>,
         globals: &BTreeMap<String, (TypeName, String)>,
         type_visibility: &Option<TypeName>,
-    ) -> Option<Vec<Function>> {
-        let op: Option<(OpKind, Vec<Function>)> = match &self.kind {
+    ) -> Option<Function> {
+        let op: Option<(OpKind, Function)> = match &self.kind {
             OpKind::Add => {
                 evaluate_signature(
                     self,
@@ -894,7 +880,10 @@ impl Op {
                     stack,
                 );
 
-                self.kind = OpKind::PushFramed { offset, size };
+                self.kind = OpKind::PushFramed {
+                    offset: offset as isize,
+                    size,
+                };
 
                 None
             }
@@ -935,46 +924,62 @@ impl Op {
             OpKind::StartBlock => None,
             OpKind::EndBlock => None,
             OpKind::DestroyFramed { .. } => {
-                let t = frame.pop().unwrap();
-
-                let frame_offset = frame
-                    .iter()
-                    .map(|t| {
-                        type_map.get(t).unwrap().size(&self.token, type_map)
-                            * type_map.get(t).unwrap().width()
-                    })
-                    .sum::<usize>();
-                let new_fns = type_map.get(&t).unwrap().clone().get_new_destructors(
-                    &self.token,
-                    type_map,
-                    fn_table,
-                );
-                let dtors = type_map
-                    .get(&t)
-                    .unwrap()
-                    .get_destructors(&self.token, type_map);
-                let t_width = type_map.get(&t).unwrap().size(&self.token, type_map)
-                    * type_map.get(&t).unwrap().width();
-                self.kind = OpKind::DestroyFramed {
-                    type_name: Some(t.clone()),
-                    type_width: Some(t_width),
-                    frame_offset: Some(frame_offset),
-                    destructors: Some(dtors.clone()),
-                };
-
-                if new_fns.is_empty() {
-                    None
-                } else {
-                    Some((
-                        OpKind::DestroyFramed {
-                            type_name: Some(t.clone()),
-                            type_width: Some(t_width),
-                            frame_offset: Some(frame_offset),
-                            destructors: Some(dtors),
-                        },
-                        new_fns,
-                    ))
+                let t = frame.last().unwrap();
+                match type_map.get(t).unwrap() {
+                    Type::ResolvedStruct { base, .. } => {
+                        let dtor_name = format!("-{base}");
+                        if let Some(f) = fn_table.get(&dtor_name) {
+                            let new_f =
+                                f.resolve_generic_function(&self.token, &vec![t.clone()], type_map);
+                            Some((OpKind::Call(new_f.name.clone(), vec![]), new_f))
+                        } else {
+                            let new_dtor = type_map
+                                .get(t)
+                                .unwrap()
+                                .generate_empty_destructor(&self.token, type_map);
+                            Some((OpKind::Call(new_dtor.name.clone(), vec![]), new_dtor))
+                        }
+                    }
+                    Type::GenericStructBase { .. }
+                    | Type::GenericStructInstance { .. }
+                    | Type::GenericUnionBase { .. }
+                    | Type::GenericUnionInstance { .. } => unreachable!(),
+                    Type::Union { .. }
+                    | Type::ResolvedUnion { .. }
+                    | Type::U64
+                    | Type::U8
+                    | Type::Pointer { .. }
+                    | Type::Bool => {
+                        self.kind = OpKind::Nop(Keyword::Function);
+                        None
+                    }
+                    _ => {
+                        let dtor_name = format!("-{}", type_map.get(t).unwrap().name());
+                        if let Some(_) = fn_table.get(&dtor_name) {
+                            self.kind = OpKind::Call(dtor_name, vec![]);
+                            None
+                        } else {
+                            Some((
+                                OpKind::Call(dtor_name, vec![]),
+                                type_map
+                                    .get(t)
+                                    .unwrap()
+                                    .generate_empty_destructor(&self.token, type_map),
+                            ))
+                        }
+                    }
                 }
+            }
+            OpKind::ReleaseFramed(None) => {
+                let t = frame.pop().unwrap();
+                self.kind = OpKind::ReleaseFramed(Some(
+                    type_map.get(&t).unwrap().size(&self.token, type_map)
+                        * type_map.get(&t).unwrap().width(),
+                ));
+                None
+            }
+            OpKind::ReleaseFramed(Some(_)) => {
+                panic!("Release Framed Intrinsic should be unreachable")
             }
             OpKind::Return => {
                 *frame = Vec::<TypeName>::new();
@@ -1033,7 +1038,7 @@ impl Op {
                     };
 
                     evaluate_signature(self, &new_fn.sig, stack);
-                    Some((OpKind::Call(new_fn.name.clone(), vec![]), vec![new_fn]))
+                    Some((OpKind::Call(new_fn.name.clone(), vec![]), new_fn))
                 } else {
                     evaluate_signature(self, &f.sig, stack);
                     None

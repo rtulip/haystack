@@ -1,7 +1,12 @@
 use crate::compiler::compiler_error;
-use crate::ir::{function::Function, token::Token, Stack};
+use crate::ir::{
+    function::{Function, FunctionKind},
+    op::{Op, OpKind},
+    token::Token,
+    Stack,
+};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 pub type TypeName = String;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
@@ -911,109 +916,59 @@ impl Type {
         }
     }
 
-    pub fn destructor_name(&self) -> String {
-        match self {
-            Type::ResolvedStruct {
-                base,
-                resolved_generics,
-                ..
-            } => {
-                let mut d = format!("-{base}");
-                d.push('<');
-                d.push_str(resolved_generics[0].as_str());
-                for s in resolved_generics[1..].iter() {
-                    d.push(' ');
-                    d.push_str(s.as_str());
-                }
-                d.push('>');
-
-                d
-            }
-            _ => {
-                format!("-{}", self.name())
-            }
-        }
-    }
-
-    fn get_destructors_with_offsets(
-        &self,
-        token: &Token,
-        offset: usize,
-        type_map: &HashMap<TypeName, Type>,
-    ) -> Vec<(usize, String)> {
-        let mut ds = vec![(offset, self.destructor_name())];
-
-        match self {
-            Type::ResolvedStruct { members, .. } | Type::Struct { members, .. } => {
-                let mut member_offset = 0;
-                for m in members {
-                    let t = type_map.get(m).unwrap().clone();
-                    let t_offset = t.size(token, type_map) * t.width();
-                    let mut m_ds =
-                        t.get_destructors_with_offsets(token, offset + member_offset, type_map);
-                    ds.append(&mut m_ds);
-                    member_offset += t_offset;
-                }
-            }
-            _ => (),
-        }
-
-        ds
-    }
-
-    pub fn get_destructors(
+    pub fn generate_empty_destructor(
         &self,
         token: &Token,
         type_map: &HashMap<TypeName, Type>,
-    ) -> Vec<(usize, String)> {
-        self.get_destructors_with_offsets(token, 0, type_map)
-    }
-
-    pub fn get_new_destructors(
-        &self,
-        token: &Token,
-        type_map: &mut HashMap<TypeName, Type>,
-        fn_map: &HashMap<String, Function>,
-    ) -> Vec<Function> {
-        let mut new_fns = vec![];
-
-        match self {
-            Type::ResolvedStruct { members, base, .. } => {
-                if let Some(func) = fn_map.get(&format!("-{base}")) {
-                    assert!(func.is_generic());
-                    new_fns.push(func.resolve_generic_function(
-                        token,
-                        &vec![self.name()],
-                        type_map,
-                    ));
-                }
-
-                for member in members {
-                    let t = type_map.get(member).unwrap().clone();
-                    let mut n = t.get_new_destructors(token, type_map, fn_map);
-                    new_fns.append(&mut n);
-                }
-            }
-            Type::ResolvedUnion { base, .. } => {
-                if let Some(func) = fn_map.get(&format!("-{base}")) {
-                    assert!(func.is_generic());
-                    new_fns.push(func.resolve_generic_function(
-                        token,
-                        &vec![self.name()],
-                        type_map,
-                    ));
-                }
-            }
+    ) -> Function {
+        assert!(!matches!(
+            &self,
             Type::GenericStructBase { .. }
-            | Type::GenericStructInstance { .. }
-            | Type::GenericUnionBase { .. }
-            | Type::GenericUnionInstance { .. } => {
-                unreachable!("This should happen: {}", self.name())
-            }
-            _ => (),
-        }
+                | Type::GenericStructInstance { .. }
+                | Type::GenericUnionBase { .. }
+                | Type::GenericUnionInstance { .. }
+                | Type::Union { .. }
+                | Type::U64
+                | Type::U8
+                | Type::Bool
+                | Type::Pointer { .. }
+        ));
 
-        new_fns
+        let ops = vec![
+            Op {
+                kind: OpKind::PrepareFunc,
+                token: token.clone(),
+            },
+            Op {
+                kind: OpKind::MakeIdent {
+                    ident: String::from("x"),
+                    size: Some(type_map.get(&self.name()).unwrap().size(token, type_map)),
+                },
+                token: token.clone(),
+            },
+            Op {
+                kind: OpKind::EndBlock,
+                token: token.clone(),
+            },
+            Op {
+                kind: OpKind::Return,
+                token: token.clone(),
+            },
+        ];
+        Function {
+            name: format!("-{}", self.name()),
+            token: token.clone(),
+            generics: vec![],
+            sig: Signature {
+                inputs: vec![self.name()],
+                outputs: vec![],
+            },
+            ops,
+            generics_map: HashMap::new(),
+            locals: BTreeMap::new(),
+            type_visibility: Some(self.name()),
+            kind: FunctionKind::OnDestroy,
+        }
     }
 }
 

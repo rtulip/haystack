@@ -1,7 +1,7 @@
 use crate::compiler::{compiler_error, type_check_ops_list};
 use crate::ir::{
     data::InitData,
-    op::Op,
+    op::{Op, OpKind},
     token::Token,
     types::{Signature, Type, TypeName},
     FnTable, Stack,
@@ -84,6 +84,10 @@ impl Function {
             &self.type_visibility,
         );
         self.check_output(&stack);
+
+        // for op in &self.ops {
+        //     println!("  {:?}", op.kind);
+        // }
 
         if new_fns.is_empty() {
             None
@@ -313,5 +317,63 @@ impl Function {
             '+' => FunctionKind::OnCopy,
             _ => FunctionKind::Normal,
         }
+    }
+
+    pub fn finish_destructor(&mut self, type_map: &HashMap<String, Type>) -> (usize, TypeName) {
+        if !matches!(self.kind, FunctionKind::OnDestroy) {
+            panic!("Can't finish a destructor for a non Destructor function!");
+        }
+
+        assert!(self.sig.inputs.len() == 1);
+        assert!(matches!(self.ops.last().unwrap().kind, OpKind::Return));
+
+        let ret_op = self.ops.pop().unwrap();
+        let idx = self.ops.len();
+
+        match type_map.get(&self.sig.inputs[0]).unwrap() {
+            Type::Struct {
+                members, idents, ..
+            }
+            | Type::ResolvedStruct {
+                members, idents, ..
+            } => {
+                members.iter().enumerate().for_each(|(i, _)| {
+                    self.ops.push(Op {
+                        kind: OpKind::PushIdent {
+                            index: 0,
+                            inner: vec![idents[i].clone()],
+                        },
+                        token: ret_op.token.clone(),
+                    });
+                    self.ops.push(Op {
+                        kind: OpKind::MakeIdent {
+                            ident: String::from("_"),
+                            size: None,
+                        },
+                        token: ret_op.token.clone(),
+                    });
+                    self.ops.push(Op {
+                        kind: OpKind::StartBlock,
+                        token: ret_op.token.clone(),
+                    });
+                    self.ops.push(Op {
+                        kind: OpKind::DestroyFramed { type_name: None },
+                        token: ret_op.token.clone(),
+                    });
+                    self.ops.push(Op {
+                        kind: OpKind::ReleaseFramed(None),
+                        token: ret_op.token.clone(),
+                    });
+                    self.ops.push(Op {
+                        kind: OpKind::EndBlock,
+                        token: ret_op.token.clone(),
+                    });
+                });
+            }
+            _ => (),
+        };
+
+        self.ops.push(ret_op);
+        (idx, self.sig.inputs[0].clone())
     }
 }

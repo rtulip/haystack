@@ -1,7 +1,7 @@
-use crate::compiler::compiler_error;
+use crate::compiler::{compiler_error, type_check_ops_list};
 use crate::ir::{
     data::{InitData, UninitData},
-    function::Function,
+    function::{Function, FunctionKind},
     op::OpKind,
     token::Token,
     types::{Type, TypeName},
@@ -101,6 +101,85 @@ impl Program {
         }
     }
 
+    pub fn finish_building_destructors(&mut self) {
+        let mut fn_table: HashMap<String, Function> = HashMap::new();
+        let mut checked: HashSet<String> = HashSet::new();
+        self.functions.iter().for_each(|f| {
+            fn_table.insert(f.name.clone(), f.clone());
+        });
+        let mut new_fns: Vec<Function> = vec![];
+
+        loop {
+            self.functions
+                .iter_mut()
+                .filter(|f| matches!(f.kind, FunctionKind::OnDestroy))
+                .for_each(|f| {
+                    if !checked.contains(&f.name) {
+                        let (idx, t_name) = f.finish_destructor(&self.types);
+                        let vis = match self.types.get(&t_name).unwrap() {
+                            Type::Struct { name, .. } => Some(name.clone()),
+                            Type::ResolvedStruct { base, .. } => Some(base.clone()),
+                            _ => None,
+                        };
+                        let (_, mut fs) = type_check_ops_list(
+                            &mut f.ops,
+                            idx,
+                            &mut vec![],
+                            &mut vec![t_name.clone()],
+                            &fn_table,
+                            &mut self.types,
+                            &HashMap::new(),
+                            &f.locals,
+                            &self.global_vars,
+                            vec![],
+                            &vis,
+                        );
+                        checked.insert(f.name.clone());
+
+                        new_fns.append(&mut fs);
+                    }
+                });
+
+            if new_fns.is_empty() {
+                break;
+            } else {
+                new_fns.drain(..).for_each(|f| {
+                    if fn_table.insert(f.name.clone(), f.clone()).is_none() {
+                        self.functions.push(f);
+                    }
+                });
+            }
+        }
+
+        self.functions
+            .iter_mut()
+            .filter(|f| matches!(f.kind, FunctionKind::OnDestroy) && !f.is_generic())
+            .for_each(|f| {
+                assert!(matches!(f.ops[1].kind, OpKind::MakeIdent { .. }));
+                let op = f.ops.remove(1).kind;
+                if let OpKind::MakeIdent {
+                    size: Some(t_size), ..
+                } = op
+                {
+                    f.ops
+                        .iter_mut()
+                        .filter(|op| matches!(op.kind, OpKind::PushFramed { .. }))
+                        .for_each(|op| {
+                            let kind = op.kind.clone();
+                            if let OpKind::PushFramed { offset, size } = kind {
+                                let new_offset = offset - (t_size * 8) as isize;
+                                op.kind = OpKind::PushFramed {
+                                    offset: new_offset,
+                                    size,
+                                }
+                            }
+                        });
+                } else {
+                    unreachable!("{}: {:?}", f.name, op);
+                }
+            })
+    }
+
     pub fn normalize_global_names(&mut self) {
         let global_names: BTreeMap<String, String> = BTreeMap::from_iter(
             self.global_vars
@@ -146,24 +225,6 @@ impl Program {
                         fn_name_map.get(fn_name).unwrap().clone(),
                         annotations.clone(),
                     );
-                }
-                OpKind::DestroyFramed {
-                    type_name,
-                    type_width,
-                    frame_offset,
-                    destructors: Some(dtors),
-                } => {
-                    let new_dtors = dtors
-                        .iter()
-                        .filter(|(_, func)| fn_name_map.contains_key(func))
-                        .map(|(n, func)| (*n, fn_name_map.get(func).unwrap().clone()))
-                        .collect::<Vec<(usize, String)>>();
-                    op.kind = OpKind::DestroyFramed {
-                        type_name: type_name.clone(),
-                        type_width: type_width.clone(),
-                        frame_offset: frame_offset.clone(),
-                        destructors: Some(new_dtors),
-                    };
                 }
                 _ => (),
             })

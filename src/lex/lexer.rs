@@ -796,16 +796,15 @@ fn parse_as(
         );
 
         let var_count = make_ident_count(&ops, start_idx);
-        (0..var_count).rev().for_each(|_| {
+        (0..var_count).for_each(|_| {
             ops.push(Op {
-                kind: OpKind::DestroyFramed {
-                    type_name: None,
-                    type_width: None,
-                    frame_offset: None,
-                    destructors: None,
-                },
+                kind: OpKind::DestroyFramed { type_name: None },
                 token: tok.clone(),
-            })
+            });
+            ops.push(Op {
+                kind: OpKind::ReleaseFramed(None),
+                token: tok.clone(),
+            });
         });
         ops.push(Op {
             kind: OpKind::EndBlock,
@@ -870,16 +869,15 @@ fn parse_function(
     );
     if !name.starts_with("-") {
         let var_count = make_ident_count(&ops, 0);
-        (0..var_count).rev().for_each(|_| {
+        (0..var_count).for_each(|_| {
             ops.push(Op {
-                kind: OpKind::DestroyFramed {
-                    type_name: None,
-                    type_width: None,
-                    frame_offset: None,
-                    destructors: None,
-                },
+                kind: OpKind::DestroyFramed { type_name: None },
                 token: tok.clone(),
-            })
+            });
+            ops.push(Op {
+                kind: OpKind::ReleaseFramed(None),
+                token: tok.clone(),
+            });
         });
         ops.push(Op {
             kind: OpKind::EndBlock,
@@ -931,7 +929,7 @@ fn make_ident_count(ops: &[Op], start_ip: usize) -> usize {
                 var_count += 1;
                 ip += 1
             }
-            OpKind::DestroyFramed { .. } => {
+            OpKind::ReleaseFramed { .. } => {
                 var_count -= 1;
                 ip += 1
             }
@@ -947,14 +945,13 @@ fn close_if_block(token: &Token, ops: &mut Vec<Op>, if_idx: usize) -> usize {
     let var_count = make_ident_count(ops, if_idx);
     (0..var_count).rev().for_each(|_| {
         ops.push(Op {
-            kind: OpKind::DestroyFramed {
-                type_name: None,
-                type_width: None,
-                frame_offset: None,
-                destructors: None,
-            },
+            kind: OpKind::DestroyFramed { type_name: None },
             token: token.clone(),
-        })
+        });
+        ops.push(Op {
+            kind: OpKind::ReleaseFramed(None),
+            token: token.clone(),
+        });
     });
     ops.push(Op {
         kind: OpKind::EndBlock,
@@ -1039,14 +1036,13 @@ pub fn parse_if_block(
 
             (0..var_count).rev().for_each(|_| {
                 ops.push(Op {
-                    kind: OpKind::DestroyFramed {
-                        type_name: None,
-                        type_width: None,
-                        frame_offset: None,
-                        destructors: None,
-                    },
+                    kind: OpKind::DestroyFramed { type_name: None },
                     token: tok.clone(),
-                })
+                });
+                ops.push(Op {
+                    kind: OpKind::ReleaseFramed(None),
+                    token: tok.clone(),
+                });
             });
             ops.push(Op {
                 kind: OpKind::EndBlock,
@@ -1142,14 +1138,13 @@ pub fn parse_while_block(
     let var_count = make_ident_count(ops, cond_jump_loc + 1);
     (0..var_count).for_each(|_| {
         ops.push(Op {
-            kind: OpKind::DestroyFramed {
-                type_name: None,
-                type_width: None,
-                frame_offset: None,
-                destructors: None,
-            },
+            kind: OpKind::DestroyFramed { type_name: None },
             token: tok.clone(),
-        })
+        });
+        ops.push(Op {
+            kind: OpKind::ReleaseFramed(None),
+            token: tok.clone(),
+        });
     });
     ops.push(Op {
         kind: OpKind::EndBlock,

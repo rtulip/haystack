@@ -241,11 +241,21 @@ fn compile_op(
         }
         OpKind::PushFramed { offset, size } => {
             let locals_offset = Function::locals_offset(&func.unwrap().locals);
-            for delta in 0..*size {
-                let x = offset + (size - delta) * 8;
-                writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
-                writeln!(file, "  mov  rax, [rax - {x} - {locals_offset} - 8]",).unwrap();
-                writeln!(file, "  push rax").unwrap();
+            // println!("{}: PushFramed({offset}, {size})", func.unwrap().name);
+            if *offset >= 0 {
+                for delta in 0..*size {
+                    let x = offset + (size - delta) as isize * 8;
+                    writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
+                    writeln!(file, "  mov  rax, [rax - {x} - {locals_offset} - 8]",).unwrap();
+                    writeln!(file, "  push rax").unwrap();
+                }
+            } else {
+                for delta in 0..*size {
+                    let x = offset + (size - delta - 1) as isize * 8;
+                    writeln!(file, "  mov  rax, [frame_start_ptr]").unwrap();
+                    writeln!(file, "  mov  rax, [rax + {}]", x.abs()).unwrap();
+                    writeln!(file, "  push rax").unwrap();
+                }
             }
         }
         OpKind::Jump(Some(n)) => {
@@ -263,16 +273,9 @@ fn compile_op(
         }
         OpKind::StartBlock => (),
         OpKind::EndBlock => (),
-        OpKind::DestroyFramed {
-            type_name: Some(_typ),
-            type_width: Some(width),
-            frame_offset: Some(_offset),
-            destructors: Some(_ds),
-        } => {
-            // println!("ds: {:?}", ds);
-            frame_pop_n(file, width);
-        }
         OpKind::DestroyFramed { .. } => unreachable!(),
+        OpKind::ReleaseFramed(Some(width)) => frame_pop_n(file, width),
+        OpKind::ReleaseFramed(None) => unreachable!(),
         OpKind::Syscall(n) => {
             let order = ["rax", "rdi", "rsi", "rdx", "r10", "r8", "r9"];
             for i in 0..=*n {

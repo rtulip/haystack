@@ -298,7 +298,7 @@ pub fn type_check_ops_list(
                 ip = n;
             }
             _ => {
-                if let Some(fns) = ops[ip].type_check(
+                if let Some(f) = ops[ip].type_check(
                     stack,
                     frame,
                     fn_table,
@@ -308,7 +308,7 @@ pub fn type_check_ops_list(
                     globals,
                     type_visibility,
                 ) {
-                    fns.iter().for_each(|f| new_fns.push(f.clone()));
+                    new_fns.push(f);
                 }
                 ip += 1;
             }

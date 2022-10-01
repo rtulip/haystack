@@ -1,6 +1,4 @@
 mod compiler;
-mod ir;
-mod lex;
 use clap::Parser;
 use compiler::compile_haystack;
 

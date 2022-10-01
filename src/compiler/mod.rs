@@ -1,61 +1,13 @@
-mod common;
-mod type_check;
-pub mod x86_64;
-use crate::ir::program::Program;
-use crate::lex;
-pub use common::{compiler_error, program_to_json, simplify_ir};
-use std::collections::HashSet;
 use std::io::{self, Write};
 use std::process::{Command, Output};
-pub use type_check::{evaluate_signature, type_check_ops_list};
 
-pub fn compile_haystack(input_path: String, run: bool, ir: bool, simple: bool) -> Option<Output> {
-    let path = std::path::Path::new(&input_path);
-    let ir_path = path.with_extension("json");
-    let mut program = Program::new();
-    let mut included_files: HashSet<String> = HashSet::new();
-    lex::hay_into_ir("src/libs/prelude.hay", &mut program, &mut included_files);
-    lex::hay_into_ir(&input_path, &mut program, &mut included_files);
-    program.check_for_entry_point();
-    program.check_for_name_conflicts();
-    program.assign_words();
-    program.type_check();
-    program.finish_building_destructors();
-    program.convert_opkind_copy_into_calls();
-    if ir {
-        program_to_json(&ir_path, &program);
-    }
-    if simple {
-        simplify_ir(&program, &path.with_extension("simple"));
-    }
-    program.normalize_function_names();
-    program.normalize_global_names();
-    x86_64::compile_program(&program, &path.with_extension("asm").to_str().unwrap());
-
-    assert!(run_command(
-        "nasm",
-        vec!["-felf64", path.with_extension("asm").to_str().unwrap()],
-    )
-    .status
-    .success());
-    assert!(run_command(
-        "ld",
-        vec![
-            "-o",
-            path.file_stem().unwrap().to_str().unwrap(),
-            path.with_extension("o").to_str().unwrap(),
-        ],
-    )
-    .status
-    .success());
-    if run {
-        return Some(run_command(
-            format!("./{}", &path.file_stem().unwrap().to_str().unwrap()).as_str(),
-            vec![],
-        ));
-    }
-
-    None
+pub fn compile_haystack(
+    _input_path: String,
+    _run: bool,
+    _ir: bool,
+    _simple: bool,
+) -> Option<Output> {
+    todo!();
 }
 
 pub fn run_command(cmd: &str, args: Vec<&str>) -> Output {
@@ -97,8 +49,11 @@ mod tests {
             }
         }
         let file = format!("src/tests/{file_base}");
-        
-        let output = run_command("cargo", vec!["r", "-q", "--", format!("{file}.hay").as_str()]);
+
+        let output = run_command(
+            "cargo",
+            vec!["r", "-q", "--", format!("{file}.hay").as_str()],
+        );
         let compilation_summary = summarize_output(&output);
         let com_path = format!("{file}.try_com");
 
@@ -114,10 +69,7 @@ mod tests {
         }
 
         if output.status.success() {
-            let output = summarize_output(&run_command(
-                format!("./{file_base}", ).as_str(),
-                vec![],
-            ));
+            let output = summarize_output(&run_command(format!("./{file_base}",).as_str(), vec![]));
 
             let run_path = format!("{file}.try_run");
 
@@ -129,12 +81,12 @@ mod tests {
                 std::fs::write(run_path, serde_json::to_string_pretty(&output)?)?;
             }
         }
-        
+
         Ok(())
     }
 
     #[test]
-    fn array() -> Result<(), std::io::Error>{
+    fn array() -> Result<(), std::io::Error> {
         run_test("array")
     }
 

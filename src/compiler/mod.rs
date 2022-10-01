@@ -81,10 +81,9 @@ mod tests {
         stderr: String,
     }
 
-    #[test]
-    fn run_tests() -> Result<(), std::io::Error> {
+    #[allow(dead_code)]
+    pub fn run_test(file_base: &str) -> Result<(), std::io::Error> {
         use crate::compiler::run_command;
-        use std::fs;
         use std::process::Output;
 
         fn summarize_output(output: &Output) -> OutputSummary {
@@ -97,46 +96,135 @@ mod tests {
                 stderr,
             }
         }
-        let test_dir = std::path::Path::new("src/tests");
-        for entry in fs::read_dir(test_dir)? {
-            let entry = entry?;
-            let path = entry.path();
+        let file = format!("src/tests/{file_base}");
+        
+        let output = run_command("cargo", vec!["r", "-q", "--", format!("{file}.hay").as_str()]);
+        let compilation_summary = summarize_output(&output);
+        let com_path = format!("{file}.try_com");
 
-            if path.extension().unwrap() == "hay" {
-                let output = run_command("cargo", vec!["r", "-q", "--", path.to_str().unwrap()]);
-                let compilation_summary = summarize_output(&output);
-                let com_path = path.with_extension("try_com");
-
-                if com_path.exists() {
-                    let prev_output: OutputSummary =
-                        serde_json::from_str(&std::fs::read_to_string(&com_path)?.as_str())?;
-                    assert_eq!(prev_output, compilation_summary);
-                } else {
-                    std::fs::write(
-                        com_path,
-                        serde_json::to_string_pretty(&compilation_summary)?,
-                    )?;
-                }
-
-                if output.status.success() {
-                    let output = summarize_output(&run_command(
-                        format!("./{}", &path.file_stem().unwrap().to_str().unwrap()).as_str(),
-                        vec![],
-                    ));
-
-                    let run_path = path.with_extension("try_run");
-
-                    if run_path.exists() {
-                        let prev_output: OutputSummary =
-                            serde_json::from_str(&std::fs::read_to_string(&run_path)?.as_str())?;
-                        assert_eq!(prev_output, output);
-                    } else {
-                        std::fs::write(run_path, serde_json::to_string_pretty(&output)?)?;
-                    }
-                }
-            }
+        if std::path::Path::new(&com_path).exists() {
+            let prev_output: OutputSummary =
+                serde_json::from_str(&std::fs::read_to_string(&com_path)?.as_str())?;
+            assert_eq!(prev_output, compilation_summary);
+        } else {
+            std::fs::write(
+                com_path,
+                serde_json::to_string_pretty(&compilation_summary)?,
+            )?;
         }
 
+        if output.status.success() {
+            let output = summarize_output(&run_command(
+                format!("./{file_base}", ).as_str(),
+                vec![],
+            ));
+
+            let run_path = format!("{file}.try_run");
+
+            if std::path::Path::new(&run_path).exists() {
+                let prev_output: OutputSummary =
+                    serde_json::from_str(&std::fs::read_to_string(&run_path)?.as_str())?;
+                assert_eq!(prev_output, output);
+            } else {
+                std::fs::write(run_path, serde_json::to_string_pretty(&output)?)?;
+            }
+        }
+        
         Ok(())
+    }
+
+    #[test]
+    fn array() -> Result<(), std::io::Error>{
+        run_test("array")
+    }
+
+    #[test]
+    fn auto_functions() -> Result<(), std::io::Error> {
+        run_test("auto_functions")
+    }
+
+    #[test]
+    fn cat() -> Result<(), std::io::Error> {
+        run_test("cat")
+    }
+
+    #[test]
+    fn r#enum() -> Result<(), std::io::Error> {
+        run_test("enum")
+    }
+
+    #[test]
+    fn generic_struct() -> Result<(), std::io::Error> {
+        run_test("generic_struct")
+    }
+
+    #[test]
+    fn hello_world() -> Result<(), std::io::Error> {
+        run_test("hello_world")
+    }
+
+    #[test]
+    fn if_else() -> Result<(), std::io::Error> {
+        run_test("if_else")
+    }
+
+    #[test]
+    fn r#impl() -> Result<(), std::io::Error> {
+        run_test("impl")
+    }
+
+    #[test]
+    fn linear_map() -> Result<(), std::io::Error> {
+        run_test("linear_map")
+    }
+
+    #[test]
+    fn local() -> Result<(), std::io::Error> {
+        run_test("local")
+    }
+
+    #[test]
+    fn math() -> Result<(), std::io::Error> {
+        run_test("math")
+    }
+
+    #[test]
+    fn nested_ident() -> Result<(), std::io::Error> {
+        run_test("nested_ident")
+    }
+
+    #[test]
+    fn option() -> Result<(), std::io::Error> {
+        run_test("option")
+    }
+
+    #[test]
+    fn pointer() -> Result<(), std::io::Error> {
+        run_test("pointer")
+    }
+
+    #[test]
+    fn scoped_as() -> Result<(), std::io::Error> {
+        run_test("scoped_as")
+    }
+
+    #[test]
+    fn stacks() -> Result<(), std::io::Error> {
+        run_test("stacks")
+    }
+
+    #[test]
+    fn struct_accessors() -> Result<(), std::io::Error> {
+        run_test("struct_accessors")
+    }
+
+    #[test]
+    fn r#struct() -> Result<(), std::io::Error> {
+        run_test("struct")
+    }
+
+    #[test]
+    fn r#union() -> Result<(), std::io::Error> {
+        run_test("union")
     }
 }

@@ -1,13 +1,38 @@
+use crate::error::HayError;
+use crate::lex::scanner::Scanner;
 use std::io::{self, Write};
 use std::process::{Command, Output};
 
 pub fn compile_haystack(
-    _input_path: String,
+    input_path: String,
     _run: bool,
     _ir: bool,
     _simple: bool,
-) -> Option<Output> {
-    todo!();
+) -> Result<(), HayError> {
+    if let Ok(source) = std::fs::read_to_string(&input_path) {
+        let scanner = Scanner::new(&input_path, &source);
+        let tokens = scanner.scan_tokens()?;
+
+        for token in tokens {
+            println!("{token}");
+        }
+
+        HayError::new(
+            format!("compile_haystack isn't finished."),
+            input_path,
+            0,
+            0,
+            0,
+        )
+    } else {
+        HayError::new(
+            format!("Failed to read from file: {input_path}"),
+            input_path,
+            0,
+            0,
+            0,
+        )
+    }
 }
 
 pub fn run_command(cmd: &str, args: Vec<&str>) -> Output {

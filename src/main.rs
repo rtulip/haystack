@@ -1,4 +1,6 @@
 mod compiler;
+mod error;
+mod lex;
 use clap::Parser;
 use compiler::compile_haystack;
 
@@ -15,5 +17,8 @@ struct Cli {
 
 fn main() {
     let cli = Cli::parse();
-    compile_haystack(cli.file, cli.run, cli.json, cli.simple);
+    if let Err(e) = compile_haystack(cli.file, cli.run, cli.json, cli.simple) {
+        e.report();
+        std::process::exit(1);
+    }
 }

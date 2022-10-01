@@ -1,5 +1,8 @@
+use crate::ast::parser::Parser;
+use crate::ast::stmt::Stmt;
 use crate::error::HayError;
 use crate::lex::scanner::Scanner;
+use crate::lex::token::Loc;
 use std::io::{self, Write};
 use std::process::{Command, Output};
 
@@ -8,29 +11,18 @@ pub fn compile_haystack(
     _run: bool,
     _ir: bool,
     _simple: bool,
-) -> Result<(), HayError> {
+) -> Result<Vec<Box<Stmt>>, HayError> {
     if let Ok(source) = std::fs::read_to_string(&input_path) {
         let scanner = Scanner::new(&input_path, &source);
         let tokens = scanner.scan_tokens()?;
+        let parser = Parser::new(tokens);
+        let stmts = parser.parse()?;
 
-        for token in tokens {
-            println!("{token}");
-        }
-
-        HayError::new(
-            format!("compile_haystack isn't finished."),
-            input_path,
-            0,
-            0,
-            0,
-        )
+        Ok(stmts)
     } else {
         HayError::new(
             format!("Failed to read from file: {input_path}"),
-            input_path,
-            0,
-            0,
-            0,
+            Loc::new(input_path, 0, 0, 0),
         )
     }
 }
@@ -203,5 +195,35 @@ mod tests {
     #[test]
     fn r#union() -> Result<(), std::io::Error> {
         run_test("union")
+    }
+
+    #[test]
+    fn scan_unexpected_char() -> Result<(), std::io::Error> {
+        run_test("scan_unexpected_char")
+    }
+
+    #[test]
+    fn scan_bad_number_literal() -> Result<(), std::io::Error> {
+        run_test("scan_bad_number_literal")
+    }
+
+    #[test]
+    fn scan_bad_u8() -> Result<(), std::io::Error> {
+        run_test("scan_bad_u8")
+    }
+
+    #[test]
+    fn scan_unterminated_char() -> Result<(), std::io::Error> {
+        run_test("scan_unterminated_char")
+    }
+
+    #[test]
+    fn scan_unterminated_string() -> Result<(), std::io::Error> {
+        run_test("scan_unterminated_string")
+    }
+
+    #[test]
+    fn scan_bad_escaped_char() -> Result<(), std::io::Error> {
+        run_test("scan_bad_escaped_char")
     }
 }

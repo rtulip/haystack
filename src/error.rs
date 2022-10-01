@@ -18,25 +18,14 @@ pub struct HayError {
 }
 
 impl HayError {
-    pub fn new<T, S1, S2>(
-        message: S1,
-        file: S2,
-        line: usize,
-        start: usize,
-        end: usize,
-    ) -> Result<T, HayError>
+    pub fn new<T, S>(message: S, loc: Loc) -> Result<T, HayError>
     where
-        S1: Into<String>,
-        S2: Into<String>,
+        S: Into<String>,
     {
         Err(HayError {
             message: message.into(),
             kind: ErrorKind::Error,
-            loc: Loc {
-                file: file.into(),
-                line,
-                span: std::ops::Range { start, end },
-            },
+            loc,
         })
     }
 

@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/scan_bad_u8.hay:1:1] Error: Failed to convert 256 into a `u8` literal\n"
+}

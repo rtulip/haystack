@@ -1,3 +1,4 @@
+use crate::error::HayError;
 use std::collections::HashMap;
 use std::ops::Range;
 
@@ -8,13 +9,26 @@ pub struct Loc {
     pub span: Range<usize>,
 }
 
+impl Loc {
+    pub fn new<S>(file: S, line: usize, start: usize, end: usize) -> Self
+    where
+        S: Into<String>,
+    {
+        Loc {
+            file: file.into(),
+            line: line,
+            span: Range { start, end },
+        }
+    }
+}
+
 impl std::fmt::Display for Loc {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{}:{}", self.file, self.line, self.span.start)
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Marker {
     LeftBrace,
     RightBrace,
@@ -33,7 +47,7 @@ impl std::fmt::Display for Marker {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Operator {
     Plus,
     Minus,
@@ -56,7 +70,7 @@ impl std::fmt::Display for Operator {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Keyword {
     Function,
     Var,
@@ -116,7 +130,7 @@ pub enum Literal {
 
 #[derive(Debug, Clone)]
 pub enum TokenKind {
-    Identifier(String),
+    Ident(String),
     Marker(Marker),
     Operator(Operator),
     Keyword(Keyword),
@@ -124,11 +138,42 @@ pub enum TokenKind {
     EoF,
 }
 
+impl TokenKind {
+    pub fn string() -> Self {
+        TokenKind::Literal(Literal::String(String::from("")))
+    }
+
+    pub fn ident() -> Self {
+        TokenKind::Ident(String::from(""))
+    }
+}
+
+impl std::cmp::PartialEq for TokenKind {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (TokenKind::Ident(_), TokenKind::Ident(_)) => true,
+            (TokenKind::Marker(m), TokenKind::Marker(o)) => m == o,
+            (TokenKind::Operator(op), TokenKind::Operator(o)) => op == o,
+            (TokenKind::Keyword(kw), TokenKind::Keyword(o)) => kw == o,
+            (TokenKind::Literal(l), TokenKind::Literal(o)) => match (l, o) {
+                (Literal::Bool(_), Literal::Bool(_)) => true,
+                (Literal::Char(_), Literal::Char(_)) => true,
+                (Literal::String(_), Literal::String(_)) => true,
+                (Literal::U64(_), Literal::U64(_)) => true,
+                (Literal::U8(_), Literal::U8(_)) => true,
+                _ => false,
+            },
+            (TokenKind::EoF, TokenKind::EoF) => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Token {
-    kind: TokenKind,
-    lexeme: String,
-    loc: Loc,
+    pub kind: TokenKind,
+    pub lexeme: String,
+    pub loc: Loc,
 }
 
 impl Token {
@@ -154,6 +199,16 @@ impl Token {
             },
         }
     }
+
+    pub fn string(&self) -> Result<String, HayError> {
+        match &self.kind {
+            TokenKind::Literal(Literal::String(s)) => Ok(s.clone()),
+            _ => HayError::new(
+                format!("Failed to destructure {:?} into String", self.kind),
+                self.loc.clone(),
+            ),
+        }
+    }
 }
 
 impl std::fmt::Display for Token {
@@ -161,7 +216,7 @@ impl std::fmt::Display for Token {
         write!(f, "[{}]: ", self.loc)?;
         match &self.kind {
             TokenKind::EoF => write!(f, "EOF"),
-            TokenKind::Identifier(ident) => write!(f, "{ident}"),
+            TokenKind::Ident(ident) => write!(f, "{ident}"),
             TokenKind::Keyword(kw) => write!(f, "{kw}"),
             TokenKind::Literal(literal) => match literal {
                 Literal::Bool(b) => write!(f, "{b}"),

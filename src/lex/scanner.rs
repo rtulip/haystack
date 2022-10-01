@@ -1,6 +1,6 @@
 use super::token::Keyword;
 use crate::error::HayError;
-use crate::lex::token::{Literal, Marker, Operator, Token, TokenKind};
+use crate::lex::token::{Literal, Loc, Marker, Operator, Token, TokenKind};
 
 pub struct Scanner {
     file: String,
@@ -56,6 +56,7 @@ impl Scanner {
     fn advance(&mut self) -> char {
         self.current += 1;
         self.token_end += 1;
+
         self.source.chars().nth(self.current - 1).unwrap()
     }
 
@@ -113,10 +114,18 @@ impl Scanner {
                     self.add_token(TokenKind::Marker(Marker::Colon))
                 }
             }
-            '+' => self.add_token(TokenKind::Operator(Operator::Plus)),
+            '+' => {
+                if self.peek(0).is_alphabetic() {
+                    self.identifier()
+                } else {
+                    self.add_token(TokenKind::Operator(Operator::Plus));
+                }
+            }
             '-' => {
                 if self.matches('>') {
                     self.add_token(TokenKind::Marker(Marker::Arrow))
+                } else if self.peek(0).is_alphabetic() {
+                    self.identifier()
                 } else {
                     self.add_token(TokenKind::Operator(Operator::Minus))
                 }
@@ -168,10 +177,7 @@ impl Scanner {
                 } else {
                     return HayError::new(
                         format!("Unexpected character: `{c}`"),
-                        &self.file,
-                        self.line,
-                        self.token_start,
-                        self.token_end,
+                        Loc::new(&self.file, self.line, self.token_start, self.token_end),
                     );
                 }
             }
@@ -191,10 +197,7 @@ impl Scanner {
         if self.is_at_end() {
             return HayError::new(
                 "Unterminated string",
-                &self.file,
-                self.line,
-                self.token_start,
-                self.token_end,
+                Loc::new(&self.file, self.line, self.token_start, self.token_end),
             );
         }
 
@@ -216,11 +219,8 @@ impl Scanner {
                 'r' => c = '\r',
                 c => {
                     return HayError::new(
-                        format!("Unknown escaped char: `\\{c}`"),
-                        &self.file,
-                        self.line,
-                        self.token_start,
-                        self.token_end,
+                        format!("Unknown escaped character: `\\{c}`"),
+                        Loc::new(&self.file, self.line, self.token_start, self.token_end),
                     )
                 }
             },
@@ -230,10 +230,7 @@ impl Scanner {
         if !self.matches('\'') {
             return HayError::new(
                 "Unterminated character",
-                &self.file,
-                self.line,
-                self.token_start,
-                self.token_end,
+                Loc::new(&self.file, self.line, self.token_start, self.token_end),
             );
         }
 
@@ -256,10 +253,7 @@ impl Scanner {
                 } else {
                     return HayError::new(
                         format!("Failed to convert {n} into a `u8` literal"),
-                        &self.file,
-                        self.line,
-                        self.token_start,
-                        self.token_end,
+                        Loc::new(&self.file, self.line, self.token_start, self.token_end),
                     );
                 }
             } else {
@@ -268,10 +262,7 @@ impl Scanner {
         } else {
             return HayError::new(
                 "Failed to parse number",
-                &self.file,
-                self.line,
-                self.token_start,
-                self.token_end,
+                Loc::new(&self.file, self.line, self.token_start, self.token_end),
             );
         }
 
@@ -280,7 +271,12 @@ impl Scanner {
 
     fn identifier(&mut self) {
         let keywords = Keyword::keywords();
-        while self.peek(0).is_alphanumeric() || self.peek(0) == '_' {
+        while ![
+            ' ', '\n', '\t', '\r', ':', '{', '}', '[', ']', '(', ')', '<', '>',
+        ]
+        .contains(&self.peek(0))
+            && !self.is_at_end()
+        {
             self.advance();
         }
 
@@ -288,7 +284,7 @@ impl Scanner {
         if let Some(kind) = keywords.get(ident) {
             self.add_token(kind.clone())
         } else {
-            self.add_token(TokenKind::Identifier(String::from(ident)))
+            self.add_token(TokenKind::Ident(String::from(ident)))
         }
     }
 }

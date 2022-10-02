@@ -18,6 +18,10 @@ pub fn compile_haystack(
         let parser = Parser::new(tokens);
         let stmts = parser.parse()?;
 
+        for stmt in &stmts {
+            println!("{:?}", stmt);
+        }
+
         Ok(stmts)
     } else {
         HayError::new(

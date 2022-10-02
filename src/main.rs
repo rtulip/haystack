@@ -2,6 +2,7 @@ mod ast;
 mod compiler;
 mod error;
 mod lex;
+mod types;
 use clap::Parser;
 use compiler::compile_haystack;
 

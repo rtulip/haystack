@@ -116,7 +116,7 @@ impl Scanner {
             }
             '+' => {
                 if self.peek(0).is_alphabetic() {
-                    self.identifier()
+                    self.identifier()?
                 } else {
                     self.add_token(TokenKind::Operator(Operator::Plus));
                 }
@@ -125,7 +125,7 @@ impl Scanner {
                 if self.matches('>') {
                     self.add_token(TokenKind::Marker(Marker::Arrow))
                 } else if self.peek(0).is_alphabetic() {
-                    self.identifier()
+                    self.identifier()?
                 } else {
                     self.add_token(TokenKind::Operator(Operator::Minus))
                 }
@@ -173,7 +173,7 @@ impl Scanner {
                 if c.is_ascii_digit() {
                     self.number()?
                 } else if c.is_alphabetic() {
-                    self.identifier()
+                    self.identifier()?
                 } else {
                     return HayError::new(
                         format!("Unexpected character: `{c}`"),
@@ -269,7 +269,7 @@ impl Scanner {
         Ok(())
     }
 
-    fn identifier(&mut self) {
+    fn identifier(&mut self) -> Result<(), HayError> {
         let keywords = Keyword::keywords();
         while ![
             ' ', '\n', '\t', '\r', ':', '{', '}', '[', ']', '(', ')', '<', '>',
@@ -282,9 +282,53 @@ impl Scanner {
 
         let ident = &self.source[self.start..self.current];
         if let Some(kind) = keywords.get(ident) {
-            self.add_token(kind.clone())
+            match kind {
+                TokenKind::Syscall(_) => self.syscall()?,
+                _ => self.add_token(kind.clone()),
+            }
         } else {
             self.add_token(TokenKind::Ident(String::from(ident)))
         }
+
+        Ok(())
+    }
+
+    fn syscall(&mut self) -> Result<(), HayError> {
+        if !self.matches('(') {
+            return HayError::new(
+                format!("Expected {} after `syscall`.", Marker::LeftParen),
+                Loc::new(&self.file, self.line, self.token_start, self.token_end),
+            );
+        }
+
+        let n = self.advance();
+        let n = match String::from(n).parse::<u8>() {
+            Ok(n) => {
+                if n > 0 && n < 7 {
+                    n
+                } else {
+                    return HayError::new(
+                        format!("Expected `1..6` after `syscall(`, but found {n}"),
+                        Loc::new(&self.file, self.line, self.token_start, self.token_end),
+                    );
+                }
+            }
+            Err(_) => {
+                return HayError::new(
+                    "Expected `1..6` after `syscall(`.",
+                    Loc::new(&self.file, self.line, self.token_start, self.token_end),
+                )
+            }
+        };
+
+        if !self.matches(')') {
+            return HayError::new(
+                format!("Expected {} after `syscall`.", Marker::RightParen),
+                Loc::new(&self.file, self.line, self.token_start, self.token_end),
+            );
+        }
+
+        self.add_token(TokenKind::Syscall(n));
+        Ok(())
     }
 }

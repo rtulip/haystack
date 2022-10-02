@@ -43,7 +43,20 @@ pub enum Marker {
 
 impl std::fmt::Display for Marker {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "`")?;
+        match self {
+            Marker::LeftBrace => write!(f, "{{")?,
+
+            Marker::RightBrace => write!(f, "}}")?,
+            Marker::LeftParen => write!(f, "(")?,
+            Marker::RightParen => write!(f, ")")?,
+            Marker::LeftBracket => write!(f, "[")?,
+            Marker::RightBracket => write!(f, "]")?,
+            Marker::Colon => write!(f, ":")?,
+            Marker::DoubleColon => write!(f, "::")?,
+            Marker::Arrow => write!(f, "->")?,
+        }
+        write!(f, "`")
     }
 }
 
@@ -115,6 +128,7 @@ impl Keyword {
         map.insert("impl", TokenKind::Keyword(Keyword::Impl));
         map.insert("true", TokenKind::Literal(Literal::Bool(true)));
         map.insert("false", TokenKind::Literal(Literal::Bool(false)));
+        map.insert("syscall", TokenKind::Syscall(0));
         map
     }
 }
@@ -135,6 +149,7 @@ pub enum TokenKind {
     Operator(Operator),
     Keyword(Keyword),
     Literal(Literal),
+    Syscall(u8),
     EoF,
 }
 
@@ -217,7 +232,7 @@ impl std::fmt::Display for Token {
         match &self.kind {
             TokenKind::EoF => write!(f, "EOF"),
             TokenKind::Ident(ident) => write!(f, "{ident}"),
-            TokenKind::Keyword(kw) => write!(f, "{kw}"),
+            TokenKind::Keyword(_) => write!(f, "{}", self.lexeme),
             TokenKind::Literal(literal) => match literal {
                 Literal::Bool(b) => write!(f, "{b}"),
                 Literal::String(_) => write!(f, "{}", self.lexeme),
@@ -227,6 +242,7 @@ impl std::fmt::Display for Token {
             },
             TokenKind::Marker(m) => write!(f, "{m}"),
             TokenKind::Operator(op) => write!(f, "{op}"),
+            TokenKind::Syscall(n) => write!(f, "syscall({n})"),
         }
     }
 }

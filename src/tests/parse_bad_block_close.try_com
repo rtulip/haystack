@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parse_bad_block_close.hay:1:26] Error: Expected `}` at end of block, but found end of file instead.\n"
+}

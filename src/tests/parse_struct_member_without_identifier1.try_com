@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parse_struct_member_without_identifier1.hay:3:1] Error: Expected `:` after type, but found `}` instead.\n"
+}

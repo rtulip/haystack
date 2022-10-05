@@ -77,7 +77,7 @@ impl Parser {
             Err(t) => {
                 return HayError::new(
                     format!(
-                        "Expected Str after include statement. Found {} instead",
+                        "Expected Str after include statement. Found {} instead.",
                         t.kind
                     ),
                     t.loc,
@@ -125,7 +125,7 @@ impl Parser {
             if let Err(t) = self.matches(TokenKind::Operator(Operator::GreaterThan)) {
                 return HayError::new(
                     format!(
-                        "Expected {} after function annotations, but found {} instead",
+                        "Expected {} after function annotations, but found {} instead.",
                         Operator::GreaterThan,
                         t.kind
                     ),
@@ -225,7 +225,9 @@ impl Parser {
             && !args.iter().all(|arg| arg.ident.is_none())
         {
             HayError::new(
-                format!("Either all arguments or no arguments in args list must have an identifier.\n\t{}", format!("Found: {:?}", args)),
+                format!(
+                    "Either all arguments or no arguments in args list must have an identifier."
+                ),
                 token.loc.clone(),
             )
         } else {
@@ -257,7 +259,11 @@ impl Parser {
                     }))
                 }
                 None => HayError::new(
-                    format!("Expected type after {}, but found none.", Operator::Star),
+                    format!(
+                        "Expected type after {}, but found {} instead.",
+                        Operator::Star,
+                        self.peek().kind
+                    ),
                     star.loc,
                 ),
             }
@@ -273,7 +279,7 @@ impl Parser {
                     Err(t) => {
                         return HayError::new(
                             format!(
-                                "Expected {} after type parameters, but found {} instead",
+                                "Expected {} after type parameters, but found {} instead.",
                                 Operator::GreaterThan,
                                 t.kind
                             ),
@@ -435,6 +441,12 @@ impl Parser {
                     let next = self.tokens.pop().unwrap();
                     match &next.kind {
                         TokenKind::Operator(Operator::LessThan) => {
+                            if inners.len() != 0 {
+                                return HayError::new(
+                                    format!("Cannot provide annotations within this context."),
+                                    next.loc,
+                                );
+                            }
                             let annotations = self.unnamed_args_list(&next)?;
 
                             let close =
@@ -558,7 +570,11 @@ impl Parser {
             Some(t) => t,
             None => {
                 return HayError::new(
-                    format!("Expected type after {}, but found none.", Keyword::Cast),
+                    format!(
+                        "Expected type after {}, but found {} instead.",
+                        Keyword::Cast,
+                        self.peek().kind
+                    ),
                     open.loc,
                 )
             }
@@ -616,7 +632,7 @@ impl Parser {
         if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
             return HayError::new(
                 format!(
-                    "Expected {} after enum name, but found {} instead",
+                    "Expected {} after enum name, but found {} instead.",
                     Marker::LeftBrace,
                     t.kind
                 ),
@@ -633,7 +649,7 @@ impl Parser {
         if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
             return HayError::new(
                 format!(
-                    "Expected {} after variants, but found {} instead",
+                    "Expected {} after variants, but found {} instead.",
                     Marker::RightBrace,
                     t.kind
                 ),
@@ -747,7 +763,11 @@ impl Parser {
         let token = match (&vis, self.parse_type()?) {
             (Visitiliby::Public, None) => {
                 return HayError::new(
-                    format!("Expected a type after {}, but found none.", Keyword::Pub),
+                    format!(
+                        "Expected a type after {}, but found {} instead.",
+                        Keyword::Pub,
+                        self.peek().kind
+                    ),
                     vis_tok.unwrap().loc,
                 )
             }
@@ -758,7 +778,7 @@ impl Parser {
         if let Err(t) = self.matches(TokenKind::Marker(Marker::Colon)) {
             return HayError::new(
                 format!(
-                    "Expected {} after type, but found {} instead",
+                    "Expected {} after type, but found {} instead.",
                     Marker::Colon,
                     t.kind
                 ),
@@ -860,7 +880,7 @@ impl Parser {
         if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBracket)) {
             return HayError::new(
                 format!(
-                    "Expected {} after {}, but found {} instead",
+                    "Expected {} after {}, but found {} instead.",
                     Marker::LeftBracket,
                     Keyword::As,
                     t.kind
@@ -874,7 +894,7 @@ impl Parser {
         if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBracket)) {
             return HayError::new(
                 format!(
-                    "Expected {} after {}, but found {} instead",
+                    "Expected {} after {}, but found {} instead.",
                     Marker::RightBracket,
                     Keyword::As,
                     t.kind
@@ -897,7 +917,11 @@ impl Parser {
             Some(t) => t,
             None => {
                 return HayError::new(
-                    format!("Expected a type after {}, but found none.", Keyword::Var),
+                    format!(
+                        "Expected a type after {}, but found {} instead.",
+                        Keyword::Var,
+                        self.peek().kind
+                    ),
                     token.loc,
                 )
             }
@@ -919,7 +943,7 @@ impl Parser {
             Err(t) => {
                 return HayError::new(
                     format!(
-                        "Expected an identifier after {}, but found {} instead",
+                        "Expected an identifier after {}, but found {} instead.",
                         TokenKind::ident(),
                         t.kind
                     ),

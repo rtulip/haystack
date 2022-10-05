@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parse_var_expr_bad_type.hay:2:5] Error: Expected a type after `var`, but found `u64` instead.\n"
+}

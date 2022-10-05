@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parse_as_block_bad_close.hay:3:15] Error: Expected `]` after `as`, but found `}` instead.\n"
+}

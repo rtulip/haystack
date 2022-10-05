@@ -1,0 +1,6 @@
+struct foo {
+    bar: baz
+impl
+
+    fn work() {}
+}

@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parse_bad_body_after_function_name.hay:1:8] Error: Expected `(` after function name, but found `u64` instead.\n"
+}

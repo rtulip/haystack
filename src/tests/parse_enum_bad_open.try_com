@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parse_enum_bad_open.hay:1:10] Error: Expected `{` after enum name, but found `[` instead.\n"
+}

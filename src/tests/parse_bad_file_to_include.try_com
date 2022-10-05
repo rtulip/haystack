@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parse_bad_file_to_include.hay:1:1] Error: Failed to find file to include: this_file_doesn't_exist.hay.\n"
+}

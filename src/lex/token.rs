@@ -120,7 +120,25 @@ pub enum Keyword {
 
 impl std::fmt::Display for Keyword {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "`{:?}`", self)
+        write!(f, "`")?;
+        match self {
+            Keyword::Function => write!(f, "fn")?,
+            Keyword::Var => write!(f, "var")?,
+            Keyword::As => write!(f, "as")?,
+            Keyword::If => write!(f, "if")?,
+            Keyword::Else => write!(f, "else")?,
+            Keyword::While => write!(f, "while")?,
+            Keyword::Struct => write!(f, "struct")?,
+            Keyword::Union => write!(f, "union")?,
+            Keyword::Enum => write!(f, "enum")?,
+            Keyword::Cast => write!(f, "cast")?,
+            Keyword::Syscall => write!(f, "syscall")?,
+            Keyword::Include => write!(f, "include")?,
+            Keyword::SizeOf => write!(f, "sizeOf")?,
+            Keyword::Pub => write!(f, "pub")?,
+            Keyword::Impl => write!(f, "impl")?,
+        }
+        write!(f, "`")
     }
 }
 
@@ -221,10 +239,16 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Marker(m) => write!(f, "{m}"),
             TokenKind::Operator(o) => write!(f, "{o}"),
             TokenKind::Keyword(kw) => write!(f, "{kw}"),
-            TokenKind::Literal(_)
-            | TokenKind::Ident(_)
-            | TokenKind::EoF
-            | TokenKind::Syscall(_) => write!(f, "{:?}", self),
+            TokenKind::Literal(lit) => match lit {
+                Literal::Bool(_) => write!(f, "`bool`"),
+                Literal::Char(_) => write!(f, "`char`"),
+                Literal::String(_) => write!(f, "`Str`"),
+                Literal::U64(_) => write!(f, "`u64`"),
+                Literal::U8(_) => write!(f, "`u8`"),
+            },
+            TokenKind::Ident(id) => write!(f, "an identifier ({id})"),
+            TokenKind::EoF => write!(f, "end of file"),
+            TokenKind::Syscall(_) => write!(f, "{:?}", self),
             TokenKind::Type(t) => write!(f, "{t}"),
         }
     }

@@ -11,16 +11,12 @@ pub fn compile_haystack(
     _run: bool,
     _ir: bool,
     _simple: bool,
-) -> Result<Vec<Box<Stmt>>, HayError> {
+) -> Result<Vec<Stmt>, HayError> {
     if let Ok(source) = std::fs::read_to_string(&input_path) {
         let scanner = Scanner::new(&input_path, &source);
         let tokens = scanner.scan_tokens()?;
         let parser = Parser::new(tokens);
         let stmts = parser.parse()?;
-
-        for stmt in &stmts {
-            println!("{:?}", stmt);
-        }
 
         Ok(stmts)
     } else {

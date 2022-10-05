@@ -79,7 +79,23 @@ pub enum Operator {
 
 impl std::fmt::Display for Operator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "`")?;
+        match self {
+            Operator::Plus => write!(f, "+")?,
+            Operator::Minus => write!(f, "-")?,
+            Operator::Star => write!(f, "*")?,
+            Operator::Slash => write!(f, "/")?,
+            Operator::LessThan => write!(f, "<")?,
+            Operator::LessEqual => write!(f, "<=")?,
+            Operator::GreaterThan => write!(f, ">")?,
+            Operator::GreaterEqual => write!(f, ">=")?,
+            Operator::Equal => write!(f, "=")?,
+            Operator::BangEqual => write!(f, "!=")?,
+            Operator::Modulo => write!(f, "%")?,
+            Operator::Read => write!(f, "@")?,
+            Operator::Write => write!(f, "!")?,
+        }
+        write!(f, "`")
     }
 }
 
@@ -104,7 +120,7 @@ pub enum Keyword {
 
 impl std::fmt::Display for Keyword {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "`{:?}`", self)
     }
 }
 
@@ -143,6 +159,37 @@ pub enum Literal {
 }
 
 #[derive(Debug, Clone)]
+pub enum TypeToken {
+    Pointer(Box<TypeToken>),
+    Parameterized {
+        base: String,
+        inner: Vec<Box<TypeToken>>,
+    },
+    Array {
+        base: Box<TypeToken>,
+        size: u64,
+    },
+    Base(String),
+}
+
+impl std::fmt::Display for TypeToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TypeToken::Base(s) => write!(f, "{s}"),
+            TypeToken::Pointer(p) => write!(f, "*{p}"),
+            TypeToken::Parameterized { base, inner } => {
+                write!(f, "{base}<")?;
+                for i in 0..inner.len() - 1 {
+                    write!(f, "{} ", inner[i])?;
+                }
+                write!(f, "{}>", inner.last().unwrap())
+            }
+            TypeToken::Array { base, size } => write!(f, "{base}[{size}]"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum TokenKind {
     Ident(String),
     Marker(Marker),
@@ -150,6 +197,7 @@ pub enum TokenKind {
     Keyword(Keyword),
     Literal(Literal),
     Syscall(u8),
+    Type(TypeToken),
     EoF,
 }
 
@@ -160,6 +208,25 @@ impl TokenKind {
 
     pub fn ident() -> Self {
         TokenKind::Ident(String::from(""))
+    }
+
+    pub fn u64() -> Self {
+        TokenKind::Literal(Literal::U64(0))
+    }
+}
+
+impl std::fmt::Display for TokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TokenKind::Marker(m) => write!(f, "{m}"),
+            TokenKind::Operator(o) => write!(f, "{o}"),
+            TokenKind::Keyword(kw) => write!(f, "{kw}"),
+            TokenKind::Literal(_)
+            | TokenKind::Ident(_)
+            | TokenKind::EoF
+            | TokenKind::Syscall(_) => write!(f, "{:?}", self),
+            TokenKind::Type(t) => write!(f, "{t}"),
+        }
     }
 }
 
@@ -179,6 +246,7 @@ impl std::cmp::PartialEq for TokenKind {
                 _ => false,
             },
             (TokenKind::EoF, TokenKind::EoF) => true,
+            (TokenKind::Syscall(_), TokenKind::Syscall(_)) => true,
             _ => false,
         }
     }
@@ -219,7 +287,47 @@ impl Token {
         match &self.kind {
             TokenKind::Literal(Literal::String(s)) => Ok(s.clone()),
             _ => HayError::new(
-                format!("Failed to destructure {:?} into String", self.kind),
+                format!("Failed to destructure {} into String", self.kind),
+                self.loc.clone(),
+            ),
+        }
+    }
+
+    pub fn typ(&self) -> Result<TypeToken, HayError> {
+        match &self.kind {
+            TokenKind::Type(t) => Ok(t.clone()),
+            _ => HayError::new(
+                format!("Failed to destructure {} into Type", self.kind),
+                self.loc.clone(),
+            ),
+        }
+    }
+
+    pub fn ident(&self) -> Result<String, HayError> {
+        match &self.kind {
+            TokenKind::Ident(s) => Ok(s.clone()),
+            _ => HayError::new(
+                format!("Failed to destructure {} into an identifier", self.kind),
+                self.loc.clone(),
+            ),
+        }
+    }
+
+    pub fn u64(&self) -> Result<u64, HayError> {
+        match &self.kind {
+            TokenKind::Literal(Literal::U64(n)) => Ok(*n),
+            _ => HayError::new(
+                format!("Failed to destructure {} into a u64", self.kind),
+                self.loc.clone(),
+            ),
+        }
+    }
+
+    pub fn keyword(&self) -> Result<Keyword, HayError> {
+        match &self.kind {
+            TokenKind::Keyword(kw) => Ok(*kw),
+            _ => HayError::new(
+                format!("Failed to destructure {} into a keyword", self.kind),
                 self.loc.clone(),
             ),
         }
@@ -243,6 +351,7 @@ impl std::fmt::Display for Token {
             TokenKind::Marker(m) => write!(f, "{m}"),
             TokenKind::Operator(op) => write!(f, "{op}"),
             TokenKind::Syscall(n) => write!(f, "syscall({n})"),
+            TokenKind::Type(t) => write!(f, "{t}"),
         }
     }
 }

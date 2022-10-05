@@ -172,7 +172,7 @@ impl Scanner {
             c => {
                 if c.is_ascii_digit() {
                     self.number()?
-                } else if c.is_alphabetic() {
+                } else if c.is_alphabetic() || c == '_' {
                     self.identifier()?
                 } else {
                     return HayError::new(

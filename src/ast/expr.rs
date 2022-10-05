@@ -54,6 +54,10 @@ pub enum Expr {
         base: Token,
         annotations: Vec<Arg>,
     },
+    SizeOf {
+        token: Token,
+        typ: Token,
+    },
 }
 
 impl std::fmt::Display for Expr {
@@ -71,7 +75,8 @@ impl std::fmt::Display for Expr {
             }
             | Expr::As { token, .. }
             | Expr::Var { token, .. }
-            | Expr::While { token, .. } => {
+            | Expr::While { token, .. }
+            | Expr::SizeOf { token, .. } => {
                 write!(f, "{token}")
             }
             Expr::AnnotatedCall {

@@ -543,6 +543,7 @@ impl Parser {
             TokenKind::Keyword(Keyword::As) => self.as_block(token),
             TokenKind::Keyword(Keyword::Var) => self.var(token),
             TokenKind::Keyword(Keyword::While) => self.parse_while(token),
+            TokenKind::Keyword(Keyword::SizeOf) => self.size_of(token),
             kind => HayError::new(
                 format!("Not sure how to parse expression from {} yet", kind),
                 token.loc,
@@ -968,5 +969,48 @@ impl Parser {
             cond,
             body,
         }))
+    }
+
+    fn size_of(&mut self, token: Token) -> Result<Box<Expr>, HayError> {
+        let open = match self.matches(TokenKind::Marker(Marker::LeftParen)) {
+            Ok(t) => t,
+            Err(t) => {
+                return HayError::new(
+                    format!(
+                        "Expected {} after {}, but found {} instead.",
+                        Marker::LeftParen,
+                        Keyword::SizeOf,
+                        t.kind
+                    ),
+                    t.loc,
+                )
+            }
+        };
+
+        let typ = match self.parse_type()? {
+            Some(t) => t,
+            None => {
+                return HayError::new(
+                    format!(
+                        "Expected a type identifier, but found {} instead.",
+                        self.peek().kind
+                    ),
+                    open.loc,
+                )
+            }
+        };
+
+        if let Err(t) = self.matches(TokenKind::Marker(Marker::RightParen)) {
+            return HayError::new(
+                format!(
+                    "Expected {} after type identifier, but found {} instead.",
+                    Marker::RightParen,
+                    t.kind
+                ),
+                t.loc,
+            );
+        }
+
+        Ok(Box::new(Expr::SizeOf { token, typ }))
     }
 }

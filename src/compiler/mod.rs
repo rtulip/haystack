@@ -456,4 +456,19 @@ mod tests {
     fn parse_var_expr_missing_colon() -> Result<(), std::io::Error> {
         run_test("parse_var_expr_missing_colon")
     }
+
+    #[test]
+    fn parse_bad_sizeof_open() -> Result<(), std::io::Error> {
+        run_test("parse_bad_sizeof_open")
+    }
+
+    #[test]
+    fn parse_bad_sizeof_close() -> Result<(), std::io::Error> {
+        run_test("parse_bad_sizeof_close")
+    }
+
+    #[test]
+    fn parse_bad_sizeof_param() -> Result<(), std::io::Error> {
+        run_test("parse_bad_sizeof_param")
+    }
 }

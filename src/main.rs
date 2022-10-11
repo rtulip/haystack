@@ -4,6 +4,7 @@ mod error;
 mod lex;
 mod types;
 use clap::Parser;
+mod environment;
 use compiler::compile_haystack;
 
 #[derive(Parser)]

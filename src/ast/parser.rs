@@ -1,22 +1,25 @@
 use crate::ast::arg::Arg;
 use crate::ast::expr::Expr;
 use crate::ast::stmt::{Member, Stmt};
-use crate::compiler::compile_haystack;
+use crate::compiler::parse_haystack_into_statements;
 use crate::error::HayError;
 use crate::lex::token::{Keyword, Loc, Marker, Operator, Token, TokenKind, TypeToken};
 
 use super::stmt::Visitiliby;
+use std::collections::HashSet;
 
-pub struct Parser {
+pub struct Parser<'a> {
     tokens: Vec<Token>,
     stmts: Vec<Stmt>,
+    visited: &'a mut HashSet<String>,
 }
 
-impl Parser {
-    pub fn new(mut tokens: Vec<Token>) -> Self {
+impl<'a> Parser<'a> {
+    pub fn new(mut tokens: Vec<Token>, visited: &'a mut HashSet<String>) -> Self {
         Parser {
             tokens: tokens.drain(..).rev().collect(),
             stmts: vec![],
+            visited,
         }
     }
 
@@ -87,9 +90,9 @@ impl Parser {
         let libs_path = format!("src/libs/{to_include}");
 
         if std::path::Path::new(&to_include).exists() {
-            compile_haystack(to_include, false, false, false)
+            parse_haystack_into_statements(&to_include, self.visited)
         } else if std::path::Path::new(&libs_path).exists() {
-            compile_haystack(libs_path, false, false, false)
+            parse_haystack_into_statements(&libs_path, self.visited)
         } else {
             HayError::new(
                 format!("Failed to find file to include: {to_include}."),

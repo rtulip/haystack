@@ -1,3 +1,13 @@
+struct Str {
+    pub u64: size
+    pub *u8: data
+}
+
+struct Arr<T> {
+    pub u64: size
+    pub *T: data
+}
+
 fn drop<T>(T: t) {}
 fn dup<T>(T: t) -> [T T]{ t t }
 fn swap<A B>(A: a B: b) -> [B A] { b a }

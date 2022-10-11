@@ -1,6 +1,8 @@
 use crate::ast::arg::Arg;
 use crate::lex::token::Token;
+use crate::types::Type;
 
+#[derive(Debug, Clone)]
 pub enum Expr {
     Literal {
         value: Token,

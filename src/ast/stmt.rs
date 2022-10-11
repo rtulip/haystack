@@ -9,6 +9,7 @@ pub enum Visitiliby {
     Private,
 }
 
+#[derive(Debug, Clone)]
 pub struct Member {
     pub vis: Visitiliby,
     pub token: Token,
@@ -43,6 +44,63 @@ pub enum Stmt {
     },
 }
 
+impl Stmt {
+    pub fn into_type(self) -> (String, Type) {
+        match self {
+            Stmt::Enum {
+                token,
+                name,
+                variants,
+            } => {
+                let name_s = name.lexeme.clone();
+                let typ = Type::Enum {
+                    token,
+                    name,
+                    variants,
+                };
+                (name_s, typ)
+            }
+            Stmt::Function {
+                token,
+                name,
+                inputs,
+                outputs,
+                annotations,
+                body,
+            } => {
+                let name_s = name.lexeme.clone();
+                let typ = Type::Function {
+                    token,
+                    name,
+                    inputs,
+                    outputs,
+                    annotations,
+                    body,
+                };
+                (name_s, typ)
+            }
+            Stmt::Structure {
+                token,
+                name,
+                annotations,
+                members,
+                union,
+            } => {
+                let name_s = name.lexeme.clone();
+                let typ = Type::Struct {
+                    token,
+                    name,
+                    annotations,
+                    members,
+                    union,
+                };
+                (name_s, typ)
+            }
+            Stmt::Var { token, expr } => todo!("{} {}", token, expr),
+        }
+    }
+}
+
 impl std::fmt::Debug for Stmt {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -67,7 +125,7 @@ impl std::fmt::Debug for Stmt {
                     f,
                     "[{}] {} {}:",
                     token.loc,
-                    if *union { "struct" } else { "union" },
+                    if *union { "union" } else { "struct" },
                     name.lexeme
                 )?;
                 for mem in members {

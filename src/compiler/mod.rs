@@ -1,21 +1,26 @@
 use crate::ast::parser::Parser;
 use crate::ast::stmt::Stmt;
+use crate::environment::Environment;
 use crate::error::HayError;
 use crate::lex::scanner::Scanner;
 use crate::lex::token::Loc;
+use std::collections::HashSet;
 use std::io::{self, Write};
 use std::process::{Command, Output};
 
-pub fn compile_haystack(
-    input_path: String,
-    _run: bool,
-    _ir: bool,
-    _simple: bool,
+pub fn parse_haystack_into_statements(
+    input_path: &String,
+    visited: &mut HashSet<String>,
 ) -> Result<Vec<Stmt>, HayError> {
+    if visited.contains(input_path) {
+        return Ok(vec![]);
+    }
+
     if let Ok(source) = std::fs::read_to_string(&input_path) {
-        let scanner = Scanner::new(&input_path, &source);
+        visited.insert(input_path.clone());
+        let scanner = Scanner::new(input_path, &source);
         let tokens = scanner.scan_tokens()?;
-        let parser = Parser::new(tokens);
+        let parser = Parser::new(tokens, visited);
         let stmts = parser.parse()?;
 
         Ok(stmts)
@@ -25,6 +30,23 @@ pub fn compile_haystack(
             Loc::new(input_path, 0, 0, 0),
         )
     }
+}
+
+pub fn compile_haystack(
+    input_path: String,
+    _run: bool,
+    _ir: bool,
+    _simple: bool,
+) -> Result<(), HayError> {
+    let mut visited = HashSet::new();
+    let mut stmts =
+        parse_haystack_into_statements(&String::from("src/libs/prelude.hay"), &mut visited)?;
+    stmts.append(&mut parse_haystack_into_statements(
+        &input_path,
+        &mut visited,
+    )?);
+    let _ = Environment::new(stmts);
+    Ok(())
 }
 
 pub fn run_command(cmd: &str, args: Vec<&str>) -> Output {

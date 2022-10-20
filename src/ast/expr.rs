@@ -1,9 +1,9 @@
 use crate::ast::arg::Arg;
 use crate::lex::token::Token;
-use crate::types::Type;
+use crate::types::Untyped;
 
 #[derive(Debug, Clone)]
-pub enum Expr {
+pub enum Expr<TypeState> {
     Literal {
         value: Token,
     },
@@ -27,19 +27,19 @@ pub enum Expr {
     },
     If {
         token: Token,
-        then: Vec<Box<Expr>>,
-        otherwise: Vec<Box<Expr>>,
-        finally: Option<Vec<Box<Expr>>>,
+        then: Vec<Box<Expr<TypeState>>>,
+        otherwise: Vec<Box<Expr<TypeState>>>,
+        finally: Option<Vec<Box<Expr<TypeState>>>>,
     },
     ElseIf {
         else_tok: Token,
-        condition: Vec<Box<Expr>>,
-        block: Vec<Box<Expr>>,
+        condition: Vec<Box<Expr<TypeState>>>,
+        block: Vec<Box<Expr<TypeState>>>,
     },
     As {
         token: Token,
-        args: Vec<Arg>,
-        block: Option<Vec<Box<Expr>>>,
+        args: Vec<Arg<TypeState>>,
+        block: Option<Vec<Box<Expr<TypeState>>>>,
     },
     Var {
         token: Token,
@@ -48,13 +48,13 @@ pub enum Expr {
     },
     While {
         token: Token,
-        cond: Vec<Box<Expr>>,
-        body: Vec<Box<Expr>>,
+        cond: Vec<Box<Expr<TypeState>>>,
+        body: Vec<Box<Expr<TypeState>>>,
     },
     AnnotatedCall {
         token: Token,
         base: Token,
-        annotations: Vec<Arg>,
+        annotations: Vec<Arg<TypeState>>,
     },
     SizeOf {
         token: Token,
@@ -62,7 +62,9 @@ pub enum Expr {
     },
 }
 
-impl std::fmt::Display for Expr {
+pub type UntypedExpr = Expr<Untyped>;
+
+impl<TypeState> std::fmt::Display for Expr<TypeState> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Expr::Literal { value: token }

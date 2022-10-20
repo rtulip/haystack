@@ -1,8 +1,7 @@
 use crate::lex::token::Token;
-use crate::types::Type;
 #[derive(Debug, Clone)]
-pub struct Arg {
+pub struct Arg<TypeState> {
     pub token: Token,
-    pub typ: Option<Type>,
+    pub typ: TypeState,
     pub ident: Option<Token>,
 }

@@ -1,10 +1,10 @@
 use crate::ast::parser::Parser;
 use crate::ast::stmt::Stmt;
-use crate::environment::Environment;
 use crate::error::HayError;
 use crate::lex::scanner::Scanner;
 use crate::lex::token::Loc;
-use std::collections::HashSet;
+use crate::types::{Type, TypeId};
+use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
 use std::process::{Command, Output};
 
@@ -45,7 +45,18 @@ pub fn compile_haystack(
         &input_path,
         &mut visited,
     )?);
-    let _ = Environment::new(stmts);
+
+    let mut types: HashMap<TypeId, Type> = HashMap::new();
+    types.insert(TypeId::new("u64"), Type::U64);
+    types.insert(TypeId::new("u8"), Type::U8);
+    types.insert(TypeId::new("char"), Type::Char);
+    types.insert(TypeId::new("bool"), Type::Bool);
+
+    let mut global_env = HashMap::new();
+    for s in stmts {
+        s.add_to_global_scope(&mut types, &mut global_env)?;
+    }
+
     Ok(())
 }
 

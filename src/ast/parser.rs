@@ -71,7 +71,10 @@ impl<'a> Parser<'a> {
                 let expr = self.var(token.clone())?;
                 Ok(vec![Stmt::Var { token, expr }])
             }
-            kind => HayError::new(format!("Unexpected top level token: {}", kind), token.loc),
+            kind => Err(HayError::new(
+                format!("Unexpected top level token: {}", kind),
+                token.loc,
+            )),
         }
     }
 
@@ -79,13 +82,13 @@ impl<'a> Parser<'a> {
         let to_include = match self.matches(TokenKind::string()) {
             Ok(t) => t.string()?,
             Err(t) => {
-                return HayError::new(
+                return Err(HayError::new(
                     format!(
                         "Expected Str after include statement. Found {} instead.",
                         t.kind
                     ),
                     t.loc,
-                )
+                ))
             }
         };
         let libs_path = format!("src/libs/{to_include}");
@@ -95,10 +98,10 @@ impl<'a> Parser<'a> {
         } else if std::path::Path::new(&libs_path).exists() {
             parse_haystack_into_statements(&libs_path, self.visited)
         } else {
-            HayError::new(
+            Err(HayError::new(
                 format!("Failed to find file to include: {to_include}."),
                 start.loc,
-            )
+            ))
         }
     }
 
@@ -113,28 +116,28 @@ impl<'a> Parser<'a> {
         let name = match self.matches(TokenKind::ident()) {
             Ok(t) => t,
             Err(t) => {
-                return HayError::new(
+                return Err(HayError::new(
                     format!(
                         "Expected function name after {}, but found {}",
                         Keyword::Function,
                         t.kind
                     ),
                     t.loc,
-                )
+                ))
             }
         };
 
         let annotations = if let Ok(open) = self.matches(TokenKind::Operator(Operator::LessThan)) {
             let annotations = self.unnamed_args_list(&open)?;
             if let Err(t) = self.matches(TokenKind::Operator(Operator::GreaterThan)) {
-                return HayError::new(
+                return Err(HayError::new(
                     format!(
                         "Expected {} after function annotations, but found {} instead.",
                         Operator::GreaterThan,
                         t.kind
                     ),
                     t.loc,
-                );
+                ));
             }
 
             Some(annotations)
@@ -145,28 +148,28 @@ impl<'a> Parser<'a> {
         let open = match self.matches(TokenKind::Marker(Marker::LeftParen)) {
             Ok(t) => t,
             Err(t) => {
-                return HayError::new(
+                return Err(HayError::new(
                     format!(
                         "Expected {} after function name, but found {} instead.",
                         Marker::LeftParen,
                         t.kind
                     ),
                     t.loc,
-                )
+                ))
             }
         };
 
         let inputs = self.args_list(&open)?;
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::RightParen)) {
-            return HayError::new(
+            return Err(HayError::new(
                 format!(
                     "Expected {} after inputs, but found {} instead.",
                     Marker::RightParen,
                     t.kind,
                 ),
                 t.loc,
-            );
+            ));
         }
 
         let outputs = match self.matches(TokenKind::Marker(Marker::Arrow)) {
@@ -174,7 +177,7 @@ impl<'a> Parser<'a> {
                 let tok = match self.matches(TokenKind::Marker(Marker::LeftBracket)) {
                     Ok(t) => t,
                     Err(t) => {
-                        return HayError::new(
+                        return Err(HayError::new(
                             format!(
                                 "Expected {} after {}, but found {} instead.",
                                 Marker::LeftBracket,
@@ -182,24 +185,27 @@ impl<'a> Parser<'a> {
                                 t.kind
                             ),
                             t.loc,
-                        )
+                        ))
                     }
                 };
 
                 let outputs = self.unnamed_args_list(&tok)?;
                 if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBracket)) {
-                    return HayError::new(
+                    return Err(HayError::new(
                         format!(
                             "Expected {} after return types, but found {} instead.",
                             Marker::RightBracket,
                             t.kind
                         ),
                         t.loc,
-                    );
+                    ));
                 }
 
                 if outputs.len() == 0 {
-                    return HayError::new(format!("Expected a non-empty return list."), tok.loc);
+                    return Err(HayError::new(
+                        format!("Expected a non-empty return list."),
+                        tok.loc,
+                    ));
                 }
 
                 outputs
@@ -228,12 +234,12 @@ impl<'a> Parser<'a> {
         if !args.iter().all(|arg| arg.ident.is_some())
             && !args.iter().all(|arg| arg.ident.is_none())
         {
-            HayError::new(
+            Err(HayError::new(
                 format!(
                     "Either all arguments or no arguments in args list must have an identifier."
                 ),
                 token.loc.clone(),
-            )
+            ))
         } else {
             Ok(args)
         }
@@ -242,10 +248,10 @@ impl<'a> Parser<'a> {
     fn unnamed_args_list(&mut self, token: &Token) -> Result<Vec<Arg<Untyped>>, HayError> {
         let args = self.args_list(token)?;
         if args.iter().any(|arg| arg.ident.is_some()) {
-            HayError::new(
+            Err(HayError::new(
                 "Not all arguments are unnamed",
                 args.first().unwrap().token.loc.clone(),
-            )
+            ))
         } else {
             Ok(args)
         }
@@ -262,14 +268,14 @@ impl<'a> Parser<'a> {
                         loc: typ.loc,
                     }))
                 }
-                None => HayError::new(
+                None => Err(HayError::new(
                     format!(
                         "Expected type after {}, but found {} instead.",
                         Operator::Star,
                         self.peek().kind
                     ),
                     star.loc,
-                ),
+                )),
             }
         } else if let Ok(ident) = self.matches(TokenKind::ident()) {
             let typ = if let Ok(_) = self.matches(TokenKind::Operator(Operator::LessThan)) {
@@ -281,14 +287,14 @@ impl<'a> Parser<'a> {
                 let close = match self.matches(TokenKind::Operator(Operator::GreaterThan)) {
                     Ok(t) => t,
                     Err(t) => {
-                        return HayError::new(
+                        return Err(HayError::new(
                             format!(
                                 "Expected {} after type parameters, but found {} instead.",
                                 Operator::GreaterThan,
                                 t.kind
                             ),
                             t.loc,
-                        )
+                        ))
                     }
                 };
 
@@ -320,28 +326,28 @@ impl<'a> Parser<'a> {
                 let n = match self.matches(TokenKind::u64()) {
                     Ok(n) => n.u64()?,
                     Err(t) => {
-                        return HayError::new(
+                        return Err(HayError::new(
                             format!(
                                 "Expected array size after {}, but found {}",
                                 Marker::LeftBracket,
                                 t.kind
                             ),
                             t.loc,
-                        )
+                        ))
                     }
                 };
 
                 let close = match self.matches(TokenKind::Marker(Marker::RightBracket)) {
                     Ok(t) => t,
                     Err(t) => {
-                        return HayError::new(
+                        return Err(HayError::new(
                             format!(
                                 "Expected {} after array size, but found {}",
                                 Marker::RightBracket,
                                 t.kind
                             ),
                             t.loc,
-                        )
+                        ))
                     }
                 };
 
@@ -380,14 +386,14 @@ impl<'a> Parser<'a> {
                             typ: Untyped,
                             ident: Some(ident),
                         })),
-                        Err(t) => HayError::new(
+                        Err(t) => Err(HayError::new(
                             format!(
                                 "Expected an identifier after {}, but found {} instead.",
                                 Marker::Colon,
                                 t.kind
                             ),
                             t.loc,
-                        ),
+                        )),
                     }
                 } else {
                     Ok(Some(Arg {
@@ -403,14 +409,14 @@ impl<'a> Parser<'a> {
 
     fn block(&mut self) -> Result<Vec<Box<UntypedExpr>>, HayError> {
         if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
-            return HayError::new(
+            return Err(HayError::new(
                 format!(
                     "Expected {} at start of block, but found {} instead.",
                     Marker::LeftBrace,
                     t.kind
                 ),
                 t.loc,
-            );
+            ));
         }
 
         let mut exprs = vec![];
@@ -419,14 +425,14 @@ impl<'a> Parser<'a> {
         }
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
-            return HayError::new(
+            return Err(HayError::new(
                 format!(
                     "Expected {} at end of block, but found {} instead.",
                     Marker::RightBrace,
                     t.kind
                 ),
                 t.loc,
-            );
+            ));
         }
 
         Ok(exprs)
@@ -437,7 +443,10 @@ impl<'a> Parser<'a> {
         match &token.kind {
             TokenKind::Literal(_) => Ok(Box::new(UntypedExpr::Literal { value: token })),
             TokenKind::Operator(_) => Ok(Box::new(UntypedExpr::Operator { op: token })),
-            TokenKind::Syscall(_) => Ok(Box::new(UntypedExpr::Syscall { token })),
+            TokenKind::Syscall(n) => {
+                let n = *n;
+                Ok(Box::new(UntypedExpr::Syscall { token, n }))
+            }
             TokenKind::Ident(_) => {
                 let mut new_token = token.clone();
                 let mut inners = vec![];
@@ -446,10 +455,10 @@ impl<'a> Parser<'a> {
                     match &next.kind {
                         TokenKind::Operator(Operator::LessThan) => {
                             if inners.len() != 0 {
-                                return HayError::new(
+                                return Err(HayError::new(
                                     format!("Cannot provide annotations within this context."),
                                     next.loc,
-                                );
+                                ));
                             }
                             let annotations = self.unnamed_args_list(&next)?;
 
@@ -457,22 +466,22 @@ impl<'a> Parser<'a> {
                                 match self.matches(TokenKind::Operator(Operator::GreaterThan)) {
                                     Ok(t) => t,
                                     Err(t) => {
-                                        return HayError::new(
+                                        return Err(HayError::new(
                                             format!(
                                         "Expected {} after call annotations, but found {} instead.",
                                         Operator::GreaterThan,
                                         t.kind
                                     ),
                                             t.loc,
-                                        )
+                                        ))
                                     }
                                 };
 
                             if annotations.len() == 0 {
-                                return HayError::new(
+                                return Err(HayError::new(
                                     "Expected a non-zero number of annotations",
                                     next.loc,
-                                );
+                                ));
                             }
 
                             let lexeme = {
@@ -517,16 +526,16 @@ impl<'a> Parser<'a> {
                         }
                         kind => {
                             if inners.is_empty() {
-                                return HayError::new(format!("Expected either an identifier or {} after {}, but found {} instead.", Operator::LessThan, Marker::DoubleColon, kind), next.loc);
+                                return Err(HayError::new(format!("Expected either an identifier or {} after {}, but found {} instead.", Operator::LessThan, Marker::DoubleColon, kind), next.loc));
                             } else {
-                                return HayError::new(
+                                return Err(HayError::new(
                                     format!(
                                         "Expected an identifier after {}, but found {} instead.",
                                         Marker::DoubleColon,
                                         kind
                                     ),
                                     next.loc,
-                                );
+                                ));
                             }
                         }
                     }
@@ -548,10 +557,10 @@ impl<'a> Parser<'a> {
             TokenKind::Keyword(Keyword::Var) => self.var(token),
             TokenKind::Keyword(Keyword::While) => self.parse_while(token),
             TokenKind::Keyword(Keyword::SizeOf) => self.size_of(token),
-            kind => HayError::new(
+            kind => Err(HayError::new(
                 format!("Not sure how to parse UntypedExpression from {} yet", kind),
                 token.loc,
-            ),
+            )),
         }
     }
 
@@ -559,7 +568,7 @@ impl<'a> Parser<'a> {
         let open = match self.matches(TokenKind::Marker(Marker::LeftParen)) {
             Ok(t) => t,
             Err(t) => {
-                return HayError::new(
+                return Err(HayError::new(
                     format!(
                         "Expected {} after {}, but found {}",
                         Marker::LeftParen,
@@ -567,28 +576,28 @@ impl<'a> Parser<'a> {
                         t.kind
                     ),
                     t.loc,
-                )
+                ))
             }
         };
 
         let typ = match self.parse_type()? {
             Some(t) => t,
             None => {
-                return HayError::new(
+                return Err(HayError::new(
                     format!(
                         "Expected type after {}, but found {} instead.",
                         Keyword::Cast,
                         self.peek().kind
                     ),
                     open.loc,
-                )
+                ))
             }
         };
 
         let close = match self.matches(TokenKind::Marker(Marker::RightParen)) {
             Ok(t) => t,
             Err(t) => {
-                return HayError::new(
+                return Err(HayError::new(
                     format!(
                         "Expected {} after {}, but found {}",
                         Marker::RightParen,
@@ -596,7 +605,7 @@ impl<'a> Parser<'a> {
                         t.kind
                     ),
                     t.loc,
-                )
+                ))
             }
         };
 
@@ -623,26 +632,26 @@ impl<'a> Parser<'a> {
         let name = match self.matches(TokenKind::ident()) {
             Ok(t) => t,
             Err(t) => {
-                return HayError::new(
+                return Err(HayError::new(
                     format!(
                         "Expected an identifier after {}, but found {}",
                         Keyword::Enum,
                         t.kind
                     ),
                     t.loc,
-                )
+                ))
             }
         };
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
-            return HayError::new(
+            return Err(HayError::new(
                 format!(
                     "Expected {} after enum name, but found {} instead.",
                     Marker::LeftBrace,
                     t.kind
                 ),
                 t.loc,
-            );
+            ));
         };
 
         let mut variants = vec![];
@@ -652,14 +661,14 @@ impl<'a> Parser<'a> {
         }
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
-            return HayError::new(
+            return Err(HayError::new(
                 format!(
                     "Expected {} after variants, but found {} instead.",
                     Marker::RightBrace,
                     t.kind
                 ),
                 t.loc,
-            );
+            ));
         };
 
         Ok(vec![Stmt::Enum {
@@ -676,20 +685,20 @@ impl<'a> Parser<'a> {
         let name = match self.matches(TokenKind::ident()) {
             Ok(t) => t,
             Err(t) => {
-                return HayError::new(
+                return Err(HayError::new(
                     format!(
                         "Expected an identifier after {}, but found {} instead.",
                         kw, t.kind
                     ),
                     t.loc,
-                )
+                ))
             }
         };
 
         let annotations = if let Ok(start) = self.matches(TokenKind::Operator(Operator::LessThan)) {
             let annotations = self.unnamed_args_list(&start)?;
             if let Err(t) = self.matches(TokenKind::Operator(Operator::GreaterThan)) {
-                return HayError::new(
+                return Err(HayError::new(
                     format!(
                         "Expected {} after {} generics, but found {} instead.",
                         Operator::GreaterThan,
@@ -697,7 +706,7 @@ impl<'a> Parser<'a> {
                         t.kind
                     ),
                     t.loc,
-                );
+                ));
             }
             Some(annotations)
         } else {
@@ -705,14 +714,14 @@ impl<'a> Parser<'a> {
         };
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
-            return HayError::new(
+            return Err(HayError::new(
                 format!(
                     "Expected {} after structure name, but found {} instead.",
                     Marker::LeftBrace,
                     t.kind
                 ),
                 t.loc,
-            );
+            ));
         }
 
         let members = self.members(&start)?;
@@ -720,14 +729,14 @@ impl<'a> Parser<'a> {
         let impls = self.impl_section()?;
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
-            return HayError::new(
+            return Err(HayError::new(
                 format!(
                     "Expected {} to close structure, but found {} instead.",
                     Marker::RightBrace,
                     t.kind
                 ),
                 t.loc,
-            );
+            ));
         }
 
         let mut stmts = vec![Stmt::Record {
@@ -757,7 +766,10 @@ impl<'a> Parser<'a> {
         }
 
         if members.len() == 0 {
-            HayError::new("Struct members cannot be empty.", tok.loc.clone())
+            Err(HayError::new(
+                "Struct members cannot be empty.",
+                tok.loc.clone(),
+            ))
         } else {
             Ok(members)
         }
@@ -771,37 +783,37 @@ impl<'a> Parser<'a> {
 
         let token = match (&vis, self.parse_type()?) {
             (Visitiliby::Public, None) => {
-                return HayError::new(
+                return Err(HayError::new(
                     format!(
                         "Expected a type after {}, but found {} instead.",
                         Keyword::Pub,
                         self.peek().kind
                     ),
                     vis_tok.unwrap().loc,
-                )
+                ))
             }
             (_, None) => return Ok(None),
             (_, Some(t)) => t,
         };
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::Colon)) {
-            return HayError::new(
+            return Err(HayError::new(
                 format!(
                     "Expected {} after type, but found {} instead.",
                     Marker::Colon,
                     t.kind
                 ),
                 t.loc,
-            );
+            ));
         }
 
         let ident = match self.matches(TokenKind::ident()) {
             Ok(t) => t,
             Err(t) => {
-                return HayError::new(
+                return Err(HayError::new(
                     format!("Expected an identifier, but found {} instead.", t.kind),
                     t.loc,
-                )
+                ))
             }
         };
 
@@ -816,7 +828,7 @@ impl<'a> Parser<'a> {
     fn impl_section(&mut self) -> Result<Option<Vec<Stmt>>, HayError> {
         if let Ok(_) = self.matches(TokenKind::Keyword(Keyword::Impl)) {
             if let Err(t) = self.matches(TokenKind::Marker(Marker::Colon)) {
-                return HayError::new(
+                return Err(HayError::new(
                     format!(
                         "Expected {} after {}, but found {}",
                         Marker::Colon,
@@ -824,7 +836,7 @@ impl<'a> Parser<'a> {
                         t.kind
                     ),
                     t.loc,
-                );
+                ));
             }
 
             let mut fns = vec![];
@@ -876,10 +888,10 @@ impl<'a> Parser<'a> {
         }
 
         if let Err(t) = self.matches(TokenKind::Keyword(Keyword::If)) {
-            return HayError::new(
+            return Err(HayError::new(
                 format!("Expected {}, but found {} instead.", Keyword::If, t.kind),
                 t.loc,
-            );
+            ));
         }
 
         Ok(cond)
@@ -887,7 +899,7 @@ impl<'a> Parser<'a> {
 
     fn as_block(&mut self, token: Token) -> Result<Box<UntypedExpr>, HayError> {
         if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBracket)) {
-            return HayError::new(
+            return Err(HayError::new(
                 format!(
                     "Expected {} after {}, but found {} instead.",
                     Marker::LeftBracket,
@@ -895,13 +907,13 @@ impl<'a> Parser<'a> {
                     t.kind
                 ),
                 t.loc,
-            );
+            ));
         }
 
         let args = self.unnamed_args_list(&token)?;
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBracket)) {
-            return HayError::new(
+            return Err(HayError::new(
                 format!(
                     "Expected {} after {}, but found {} instead.",
                     Marker::RightBracket,
@@ -909,7 +921,7 @@ impl<'a> Parser<'a> {
                     t.kind
                 ),
                 t.loc,
-            );
+            ));
         }
 
         let block = if self.check(TokenKind::Marker(Marker::LeftBrace)) {
@@ -925,39 +937,39 @@ impl<'a> Parser<'a> {
         let typ = match self.parse_type()? {
             Some(t) => t,
             None => {
-                return HayError::new(
+                return Err(HayError::new(
                     format!(
                         "Expected a type after {}, but found {} instead.",
                         Keyword::Var,
                         self.peek().kind
                     ),
                     token.loc,
-                )
+                ))
             }
         };
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::Colon)) {
-            return HayError::new(
+            return Err(HayError::new(
                 format!(
                     "Expected {} after type, but found {}",
                     Marker::Colon,
                     t.kind
                 ),
                 t.loc,
-            );
+            ));
         }
 
         let ident = match self.matches(TokenKind::ident()) {
             Ok(t) => t,
             Err(t) => {
-                return HayError::new(
+                return Err(HayError::new(
                     format!(
                         "Expected an identifier after {}, but found {} instead.",
                         TokenKind::ident(),
                         t.kind
                     ),
                     t.loc,
-                )
+                ))
             }
         };
 
@@ -983,7 +995,7 @@ impl<'a> Parser<'a> {
         let open = match self.matches(TokenKind::Marker(Marker::LeftParen)) {
             Ok(t) => t,
             Err(t) => {
-                return HayError::new(
+                return Err(HayError::new(
                     format!(
                         "Expected {} after {}, but found {} instead.",
                         Marker::LeftParen,
@@ -991,32 +1003,32 @@ impl<'a> Parser<'a> {
                         t.kind
                     ),
                     t.loc,
-                )
+                ))
             }
         };
 
         let typ = match self.parse_type()? {
             Some(t) => t,
             None => {
-                return HayError::new(
+                return Err(HayError::new(
                     format!(
                         "Expected a type identifier, but found {} instead.",
                         self.peek().kind
                     ),
                     open.loc,
-                )
+                ))
             }
         };
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::RightParen)) {
-            return HayError::new(
+            return Err(HayError::new(
                 format!(
                     "Expected {} after type identifier, but found {} instead.",
                     Marker::RightParen,
                     t.kind
                 ),
                 t.loc,
-            );
+            ));
         }
 
         Ok(Box::new(UntypedExpr::SizeOf { token, typ }))

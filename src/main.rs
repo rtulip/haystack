@@ -1,3 +1,5 @@
+#![feature(hash_drain_filter)]
+
 mod ast;
 mod compiler;
 mod error;

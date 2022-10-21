@@ -3,7 +3,7 @@ use super::expr::{Expr, UntypedExpr};
 use crate::error::HayError;
 use crate::lex::token::{Token, TokenKind, TypeToken};
 
-use crate::types::{ConcreteType, RecordKind, Signature, Type, TypeId, Untyped};
+use crate::types::{RecordKind, Signature, Type, TypeId, Typed, Untyped};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -34,7 +34,10 @@ pub fn type_id_from_type_token(
             {
                 Ok(TypeId(base.clone()))
             } else {
-                HayError::new(format!("Unrecognized type: {base}"), token.loc.clone())
+                Err(HayError::new(
+                    format!("Unrecognized type: {base}"),
+                    token.loc.clone(),
+                ))
             }
         }
         TypeToken::Parameterized { base, inner } => {
@@ -47,7 +50,7 @@ pub fn type_id_from_type_token(
                     ..
                 }) => {
                     if generics.len() != inner.len() {
-                        return HayError::new(format!("Incorrect number of type annotations provided. Expected annotations for {:?}", generics), token.loc.clone());
+                        return Err(HayError::new(format!("Incorrect number of type annotations provided. Expected annotations for {:?}", generics), token.loc.clone()));
                     }
 
                     let mut annotations = vec![];
@@ -74,16 +77,16 @@ pub fn type_id_from_type_token(
                     }
                 }
                 Some(_) => {
-                    return HayError::new(
+                    return Err(HayError::new(
                         format!("Type {base} cannot be annotated, because it is not generic."),
                         token.loc.clone(),
-                    );
+                    ));
                 }
                 None => {
-                    return HayError::new(
+                    return Err(HayError::new(
                         format!("Unrecognized base type: {base}"),
                         token.loc.clone(),
-                    )
+                    ));
                 }
             }
         }
@@ -124,10 +127,10 @@ fn resolve_members(
     members: Vec<Member<Untyped>>,
     types: &mut HashMap<TypeId, Type>,
     local_types: &Vec<TypeId>,
-) -> Result<Vec<Member<ConcreteType>>, HayError> {
+) -> Result<Vec<Member<Typed>>, HayError> {
     let mut out = vec![];
     for m in members {
-        let typ = ConcreteType(type_id_from_token(&m.token, types, local_types)?);
+        let typ = Typed(type_id_from_token(&m.token, types, local_types)?);
         out.push(Member {
             vis: m.vis,
             token: m.token,
@@ -143,11 +146,11 @@ fn resolve_arguments(
     args: Vec<Arg<Untyped>>,
     types: &mut HashMap<TypeId, Type>,
     local_types: &Vec<TypeId>,
-) -> Result<Vec<Arg<ConcreteType>>, HayError> {
+) -> Result<Vec<Arg<Typed>>, HayError> {
     let mut out = vec![];
 
     for arg in args {
-        let typ = ConcreteType(type_id_from_token(&arg.token, types, local_types)?);
+        let typ = Typed(type_id_from_token(&arg.token, types, local_types)?);
         out.push(Arg {
             token: arg.token,
             ident: arg.ident,
@@ -168,7 +171,7 @@ fn bulid_local_generics(
             let mut out = vec![];
             for a in annotations {
                 if types.contains_key(&TypeId::new(&a.token.lexeme)) {
-                    return HayError::new(format!("Generic type {} cannot be used as it has already been defined elsewhere.", a.token.lexeme), a.token.loc.clone());
+                    return Err(HayError::new(format!("Generic type {} cannot be used as it has already been defined elsewhere.", a.token.lexeme), a.token.loc.clone()));
                 }
                 out.push(TypeId(a.token.lexeme));
             }
@@ -247,10 +250,10 @@ impl Stmt {
                 match prev {
                     None => (),
                     Some(_) => {
-                        return HayError::new(
+                        return Err(HayError::new(
                             format!("Name conflict: `{}` defined elsewhere.", name.lexeme),
                             name.loc,
-                        )
+                        ))
                     }
                 }
             }
@@ -268,10 +271,10 @@ impl Stmt {
                 match types.insert(tid, t) {
                     None => (),
                     Some(_) => {
-                        return HayError::new(
+                        return Err(HayError::new(
                             format!("Name conflict. `{}` defined elsewhere", name.lexeme),
                             name.loc,
-                        )
+                        ))
                     }
                 }
             }
@@ -287,15 +290,15 @@ impl Stmt {
                 let inputs = resolve_arguments(inputs, types, &generics)?;
                 let outputs = resolve_arguments(outputs, types, &generics)?;
 
-                let sig = Signature {
-                    inputs: inputs.iter().map(|arg| arg.typ.0.clone()).collect(),
-                    outputs: outputs.iter().map(|arg| arg.typ.0.clone()).collect(),
-                    generics: if generics.len() == 0 {
+                let sig = Signature::new_maybe_generic(
+                    inputs.iter().map(|arg| arg.typ.0.clone()).collect(),
+                    outputs.iter().map(|arg| arg.typ.0.clone()).collect(),
+                    if generics.len() == 0 {
                         None
                     } else {
                         Some(generics.clone())
                     },
-                };
+                );
 
                 match types.insert(
                     TypeId::new(&name.lexeme),
@@ -312,13 +315,13 @@ impl Stmt {
                         global_env.insert(name.lexeme, sig);
                     }
                     Some(_) => {
-                        return HayError::new(
+                        return Err(HayError::new(
                             format!(
                                 "Function name conflict. `{}` defined elsewhere",
                                 name.lexeme
                             ),
                             name.loc,
-                        );
+                        ));
                     }
                 }
             }
@@ -329,26 +332,22 @@ impl Stmt {
                     let id = ptr.id();
                     types.insert(ptr.id(), ptr.clone());
 
-                    let sig = Signature {
-                        inputs: vec![],
-                        outputs: vec![id],
-                        generics: None,
-                    };
+                    let sig = Signature::new(vec![], vec![id]);
 
                     match global_env.insert(ident.lexeme.clone(), sig) {
                         None => (),
                         Some(_) => {
-                            return HayError::new(
+                            return Err(HayError::new(
                                 format!("Var conflict. `{}` defined elsewhere", ident.lexeme),
                                 token.loc,
-                            )
+                            ))
                         }
                     }
                 } else {
-                    return HayError::new(
+                    return Err(HayError::new(
                         format!("{}: Logic Error -- Assertion failed. Expected Expr::Var from Stmt::Var", line!()),
                         token.loc,
-                    );
+                    ));
                 }
             }
         }

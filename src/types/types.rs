@@ -2,12 +2,12 @@ use crate::ast::arg::Arg;
 use crate::ast::expr::UntypedExpr;
 use crate::ast::stmt::Member;
 use crate::error::HayError;
-use crate::lex::token::Token;
-use crate::types::ConcreteType;
+use crate::lex::token::{Loc, Token};
+use crate::types::Typed;
 use std::collections::HashMap;
 use std::hash::Hash;
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct TypeId(pub String);
 
 impl TypeId {
@@ -42,7 +42,7 @@ impl TypeId {
                             vis: m.vis,
                             token: m.token,
                             ident: m.ident,
-                            typ: ConcreteType(m.typ.0.assign(token, map, types)?),
+                            typ: Typed(m.typ.0.assign(token, map, types)?),
                         });
                     }
                     let mut resolved_generics = vec![];
@@ -93,6 +93,53 @@ impl TypeId {
             ),
         }
     }
+
+    pub fn size(&self, types: &HashMap<TypeId, Type>) -> Result<usize, HayError> {
+        match types.get(&self).unwrap() {
+            Type::Bool
+            | Type::Char
+            | Type::U64
+            | Type::U8
+            | Type::Enum { .. }
+            | Type::Pointer { .. } => Ok(1),
+            Type::Record { members, kind, .. } => match kind {
+                RecordKind::Struct => {
+                    let mut sum = 0;
+                    for member in members {
+                        sum += member.typ.0.size(types)?;
+                    }
+                    Ok(sum)
+                }
+                RecordKind::Union => {
+                    let mut max = 0;
+                    for member in members {
+                        let sz = member.typ.0.size(types)?;
+                        if sz > max {
+                            max = sz;
+                        }
+                    }
+
+                    Ok(max)
+                }
+            },
+            Type::GenericRecordBase { .. } | Type::GenericRecordInstance { .. } => {
+                Err(HayError::new(
+                    "Generic Records do not have a size known at compile time",
+                    Loc::new("", 0, 0, 0),
+                ))
+            }
+            Type::CheckedFunction { .. } | Type::UncheckedFunction { .. } => Err(HayError::new(
+                "Functions do not have a size",
+                Loc::new("", 0, 0, 0),
+            )),
+        }
+    }
+}
+
+impl std::fmt::Debug for TypeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
 
 impl std::fmt::Display for TypeId {
@@ -119,21 +166,21 @@ pub enum Type {
     Record {
         token: Token,
         name: Token,
-        members: Vec<Member<ConcreteType>>,
+        members: Vec<Member<Typed>>,
         kind: RecordKind,
     },
     GenericRecordBase {
         token: Token,
         name: Token,
         generics: Vec<TypeId>,
-        members: Vec<Member<ConcreteType>>,
+        members: Vec<Member<Typed>>,
         kind: RecordKind,
     },
     GenericRecordInstance {
         base: TypeId, //
         base_generics: Vec<TypeId>,
         alias_list: Vec<TypeId>,
-        members: Vec<Member<ConcreteType>>,
+        members: Vec<Member<Typed>>,
         kind: RecordKind,
     },
     Enum {
@@ -144,9 +191,16 @@ pub enum Type {
     UncheckedFunction {
         token: Token,
         name: Token,
-        inputs: Vec<Arg<ConcreteType>>,
-        outputs: Vec<Arg<ConcreteType>>,
+        inputs: Vec<Arg<Typed>>,
+        outputs: Vec<Arg<Typed>>,
         generics: Vec<TypeId>,
+        body: Vec<Box<UntypedExpr>>,
+    },
+    CheckedFunction {
+        token: Token,
+        name: Token,
+        inputs: Vec<Arg<Typed>>,
+        outputs: Vec<Arg<Typed>>,
         body: Vec<Box<UntypedExpr>>,
     },
 }
@@ -176,6 +230,9 @@ impl Type {
             Type::UncheckedFunction { .. } => {
                 unimplemented!("Haven't implemented name from Unchecked Functions.")
             }
+            Type::CheckedFunction { .. } => {
+                unimplemented!("Haven't implemented name from Checked Functions")
+            }
         }
     }
 }
@@ -184,7 +241,130 @@ impl Type {
 pub struct Signature {
     pub inputs: Vec<TypeId>,
     pub outputs: Vec<TypeId>,
-    pub generics: Option<Vec<TypeId>>,
+    generics: Option<Vec<TypeId>>,
+}
+
+impl Signature {
+    pub fn new(inputs: Vec<TypeId>, outputs: Vec<TypeId>) -> Self {
+        Self {
+            inputs,
+            outputs,
+            generics: None,
+        }
+    }
+
+    pub fn new_maybe_generic(
+        inputs: Vec<TypeId>,
+        outputs: Vec<TypeId>,
+        generics: Option<Vec<TypeId>>,
+    ) -> Self {
+        Self {
+            inputs,
+            outputs,
+            generics: generics,
+        }
+    }
+
+    pub fn evaluate(&self, token: &Token, stack: &mut Vec<TypeId>) -> Result<(), HayError> {
+        if stack.len() < self.inputs.len() {
+            return Err(HayError::new_type_err(
+                format!("Invalid number of inputs for {:?}", token.lexeme),
+                token.loc.clone(),
+            )
+            .with_hint(format!("Expected: {:?}", self.inputs))
+            .with_hint(format!("Found:    {:?}", stack)));
+        }
+
+        if self.generics.is_some() {
+            todo!("{token} Generic Signatures...");
+        }
+
+        for (input, stk) in self.inputs.iter().rev().zip(stack.iter().rev()) {
+            if input != stk {
+                return Err(HayError::new_type_err(
+                    format!("Type Error - Invalid inputs for `{:?}`", token.lexeme).as_str(),
+                    token.loc.clone(),
+                )
+                .with_hint(format!("Expected: {:?}", self.inputs))
+                .with_hint(format!(
+                    "Found:    {:?}",
+                    stack
+                        .iter()
+                        .rev()
+                        .take(self.inputs.len())
+                        .rev()
+                        .collect::<Vec<&TypeId>>()
+                )));
+            }
+        }
+
+        for _ in &self.inputs {
+            stack.pop();
+        }
+
+        for out in &self.outputs {
+            stack.push(out.clone());
+        }
+
+        Ok(())
+    }
+
+    pub fn evaluate_many(
+        sigs: &[Signature],
+        token: &Token,
+        stack: &mut Vec<TypeId>,
+    ) -> Result<(), HayError> {
+        println!("{token} Evaluate Many: {:?}", stack);
+        let in_len = sigs[0].inputs.len();
+        let out_len = sigs[0].outputs.len();
+        if !sigs
+            .iter()
+            .all(|sig| sig.inputs.len() == in_len && sig.outputs.len() == out_len)
+        {
+            let mut e = HayError::new(
+                "Logic Error - All signatures should have the same input and output lengths for evaluate many.",
+                token.loc.clone(),
+            ).with_hint("Found these signatures:");
+
+            for sig in sigs {
+                e = e.with_hint(format!("{:?}", sig));
+            }
+            return Err(e);
+        }
+
+        for sig in sigs {
+            println!("Checking Signature: {:?}", sig);
+            println!("Stack: {:?}", stack);
+            if let Ok(_) = sig.evaluate(token, stack) {
+                return Ok(());
+            } else {
+                println!("Continuing on i guess: {:?}", stack);
+            }
+        }
+
+        let mut e = HayError::new_type_err(
+            format!("Invalid inputs for `{}`", token.kind),
+            token.loc.clone(),
+        )
+        .with_hint(format!("Expected one of {} signatures:", sigs.len()));
+
+        for sig in sigs {
+            e = e.with_hint(format!("  {:?}", sig.inputs));
+        }
+
+        e = e.with_hint("Found:");
+        e = e.with_hint(format!(
+            "  {:?}",
+            stack
+                .iter()
+                .rev()
+                .take(in_len)
+                .rev()
+                .collect::<Vec<&TypeId>>(),
+        ));
+
+        Err(e)
+    }
 }
 
 impl std::fmt::Debug for Signature {

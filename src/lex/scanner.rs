@@ -156,7 +156,16 @@ impl Scanner {
                 }
             }
             '%' => self.add_token(TokenKind::Operator(Operator::Modulo)),
-            '=' => self.add_token(TokenKind::Operator(Operator::Equal)),
+            '=' => {
+                if self.matches('=') {
+                    self.add_token(TokenKind::Operator(Operator::Equal))
+                } else {
+                    return Err(HayError::new(
+                        format!("Unrecognized token: `={}`", self.peek(0)),
+                        Loc::new(&self.file, self.line, self.token_start, self.token_end),
+                    ));
+                }
+            }
             '!' => {
                 if self.matches('=') {
                     self.add_token(TokenKind::Operator(Operator::BangEqual))
@@ -175,10 +184,10 @@ impl Scanner {
                 } else if c.is_alphabetic() || c == '_' {
                     self.identifier()?
                 } else {
-                    return HayError::new(
+                    return Err(HayError::new(
                         format!("Unexpected character: `{c}`"),
                         Loc::new(&self.file, self.line, self.token_start, self.token_end),
-                    );
+                    ));
                 }
             }
         }
@@ -195,10 +204,10 @@ impl Scanner {
         }
 
         if self.is_at_end() {
-            return HayError::new(
+            return Err(HayError::new(
                 "Unterminated string",
                 Loc::new(&self.file, self.line, self.token_start, self.token_end),
-            );
+            ));
         }
 
         self.advance();
@@ -218,20 +227,20 @@ impl Scanner {
                 't' => c = '\t',
                 'r' => c = '\r',
                 c => {
-                    return HayError::new(
+                    return Err(HayError::new(
                         format!("Unknown escaped character: `\\{c}`"),
                         Loc::new(&self.file, self.line, self.token_start, self.token_end),
-                    )
+                    ))
                 }
             },
             _ => (),
         }
 
         if !self.matches('\'') {
-            return HayError::new(
+            return Err(HayError::new(
                 "Unterminated character",
                 Loc::new(&self.file, self.line, self.token_start, self.token_end),
-            );
+            ));
         }
 
         self.add_token(TokenKind::Literal(Literal::Char(c)));
@@ -251,19 +260,19 @@ impl Scanner {
                 if let Ok(n) = u8::try_from(n) {
                     self.add_token(TokenKind::Literal(Literal::U8(n)))
                 } else {
-                    return HayError::new(
+                    return Err(HayError::new(
                         format!("Failed to convert {n} into a `u8` literal"),
                         Loc::new(&self.file, self.line, self.token_start, self.token_end),
-                    );
+                    ));
                 }
             } else {
                 self.add_token(TokenKind::Literal(Literal::U64(n)))
             }
         } else {
-            return HayError::new(
+            return Err(HayError::new(
                 "Failed to parse number",
                 Loc::new(&self.file, self.line, self.token_start, self.token_end),
-            );
+            ));
         }
 
         Ok(())
@@ -295,37 +304,37 @@ impl Scanner {
 
     fn syscall(&mut self) -> Result<(), HayError> {
         if !self.matches('(') {
-            return HayError::new(
+            return Err(HayError::new(
                 format!("Expected {} after `syscall`.", Marker::LeftParen),
                 Loc::new(&self.file, self.line, self.token_start, self.token_end),
-            );
+            ));
         }
 
         let n = self.advance();
-        let n = match String::from(n).parse::<u8>() {
+        let n = match String::from(n).parse::<usize>() {
             Ok(n) => {
                 if n > 0 && n < 7 {
                     n
                 } else {
-                    return HayError::new(
+                    return Err(HayError::new(
                         format!("Expected `1..6` after `syscall(`, but found {n}"),
                         Loc::new(&self.file, self.line, self.token_start, self.token_end),
-                    );
+                    ));
                 }
             }
             Err(_) => {
-                return HayError::new(
+                return Err(HayError::new(
                     "Expected `1..6` after `syscall(`.",
                     Loc::new(&self.file, self.line, self.token_start, self.token_end),
-                )
+                ))
             }
         };
 
         if !self.matches(')') {
-            return HayError::new(
+            return Err(HayError::new(
                 format!("Expected {} after `syscall`.", Marker::RightParen),
                 Loc::new(&self.file, self.line, self.token_start, self.token_end),
-            );
+            ));
         }
 
         self.add_token(TokenKind::Syscall(n));

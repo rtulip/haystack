@@ -25,10 +25,10 @@ pub fn parse_haystack_into_statements(
 
         Ok(stmts)
     } else {
-        HayError::new(
+        Err(HayError::new(
             format!("Failed to read from file: {input_path}"),
             Loc::new(input_path, 0, 0, 0),
-        )
+        ))
     }
 }
 
@@ -57,9 +57,57 @@ pub fn compile_haystack(
         s.add_to_global_scope(&mut types, &mut global_env)?;
     }
 
-    println!("Global Env");
-    for (k, v) in &global_env {
-        println!("   {k}: {:?}", v);
+    while types
+        .iter()
+        .filter(|(_, v)| {
+            if let Type::UncheckedFunction { generics, .. } = &v {
+                generics.len() == 0
+            } else {
+                false
+            }
+        })
+        .count()
+        != 0
+    {
+        let fns = types
+            .drain_filter(|_, v| {
+                if let Type::UncheckedFunction { generics, .. } = v {
+                    generics.len() == 0
+                } else {
+                    false
+                }
+            })
+            .collect::<Vec<(TypeId, Type)>>();
+
+        for (tid, f) in fns {
+            if let Type::UncheckedFunction {
+                token,
+                name,
+                inputs,
+                outputs,
+                generics,
+                body,
+            } = f
+            {
+                let mut stack = vec![];
+                let mut frame = vec![];
+
+                inputs.iter().for_each(|arg| {
+                    if arg.ident.is_some() {
+                        frame.push((
+                            arg.ident.as_ref().unwrap().lexeme.clone(),
+                            arg.typ.0.clone(),
+                        ))
+                    } else {
+                        stack.push(arg.typ.0.clone())
+                    }
+                });
+
+                for expr in body {
+                    let foo = expr.type_check(&mut stack, &mut frame, &global_env, &mut types)?;
+                }
+            }
+        }
     }
 
     Ok(())

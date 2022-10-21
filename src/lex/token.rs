@@ -2,7 +2,7 @@ use crate::error::HayError;
 use std::collections::HashMap;
 use std::ops::Range;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Loc {
     pub file: String,
     pub line: usize,
@@ -89,7 +89,7 @@ impl std::fmt::Display for Operator {
             Operator::LessEqual => write!(f, "<=")?,
             Operator::GreaterThan => write!(f, ">")?,
             Operator::GreaterEqual => write!(f, ">=")?,
-            Operator::Equal => write!(f, "=")?,
+            Operator::Equal => write!(f, "==")?,
             Operator::BangEqual => write!(f, "!=")?,
             Operator::Modulo => write!(f, "%")?,
             Operator::Read => write!(f, "@")?,
@@ -214,7 +214,7 @@ pub enum TokenKind {
     Operator(Operator),
     Keyword(Keyword),
     Literal(Literal),
-    Syscall(u8),
+    Syscall(usize),
     Type(TypeToken),
     EoF,
 }
@@ -310,50 +310,50 @@ impl Token {
     pub fn string(&self) -> Result<String, HayError> {
         match &self.kind {
             TokenKind::Literal(Literal::String(s)) => Ok(s.clone()),
-            _ => HayError::new(
+            _ => Err(HayError::new(
                 format!("Failed to destructure {} into String", self.kind),
                 self.loc.clone(),
-            ),
+            )),
         }
     }
 
     pub fn typ(&self) -> Result<TypeToken, HayError> {
         match &self.kind {
             TokenKind::Type(t) => Ok(t.clone()),
-            _ => HayError::new(
+            _ => Err(HayError::new(
                 format!("Failed to destructure {} into Type", self.kind),
                 self.loc.clone(),
-            ),
+            )),
         }
     }
 
     pub fn ident(&self) -> Result<String, HayError> {
         match &self.kind {
             TokenKind::Ident(s) => Ok(s.clone()),
-            _ => HayError::new(
+            _ => Err(HayError::new(
                 format!("Failed to destructure {} into an identifier", self.kind),
                 self.loc.clone(),
-            ),
+            )),
         }
     }
 
     pub fn u64(&self) -> Result<u64, HayError> {
         match &self.kind {
             TokenKind::Literal(Literal::U64(n)) => Ok(*n),
-            _ => HayError::new(
+            _ => Err(HayError::new(
                 format!("Failed to destructure {} into a u64", self.kind),
                 self.loc.clone(),
-            ),
+            )),
         }
     }
 
     pub fn keyword(&self) -> Result<Keyword, HayError> {
         match &self.kind {
             TokenKind::Keyword(kw) => Ok(*kw),
-            _ => HayError::new(
+            _ => Err(HayError::new(
                 format!("Failed to destructure {} into a keyword", self.kind),
                 self.loc.clone(),
-            ),
+            )),
         }
     }
 }

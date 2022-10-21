@@ -15,21 +15,52 @@ pub struct HayError {
     message: String,
     kind: ErrorKind,
     loc: Loc,
+    hints: Vec<String>,
 }
 
 impl HayError {
-    pub fn new<T, S>(message: S, loc: Loc) -> Result<T, HayError>
+    pub fn new<S>(message: S, loc: Loc) -> Self
     where
         S: Into<String>,
     {
-        Err(HayError {
+        HayError {
             message: message.into(),
             kind: ErrorKind::Error,
             loc,
-        })
+            hints: vec![],
+        }
+    }
+
+    pub fn new_type_err<S>(message: S, loc: Loc) -> Self
+    where
+        S: Into<String>,
+    {
+        HayError {
+            message: format!("Type Error: {}", message.into()),
+            kind: ErrorKind::Error,
+            loc: loc,
+            hints: vec![],
+        }
+    }
+
+    pub fn with_hint<S>(self, hint: S) -> Self
+    where
+        S: Into<String>,
+    {
+        let mut hints = self.hints;
+        hints.push(hint.into());
+        HayError {
+            message: self.message,
+            kind: self.kind,
+            loc: self.loc,
+            hints,
+        }
     }
 
     pub fn report(&self) {
-        eprintln!("[{}] {}: {}", self.loc, self.kind, self.message)
+        eprintln!("[{}] {}: {}", self.loc, self.kind, self.message);
+        for hint in &self.hints {
+            eprintln!("    [Note]: {hint}");
+        }
     }
 }

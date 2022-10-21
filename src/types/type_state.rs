@@ -3,7 +3,4 @@ use crate::types::TypeId;
 pub struct Untyped;
 
 #[derive(Debug, Clone)]
-pub struct ConcreteType(pub TypeId);
-
-#[derive(Debug, Clone)]
-pub struct Typed;
+pub struct Typed(pub TypeId);

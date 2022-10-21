@@ -57,6 +57,11 @@ pub fn compile_haystack(
         s.add_to_global_scope(&mut types, &mut global_env)?;
     }
 
+    println!("Global Env");
+    for (k, v) in &global_env {
+        println!("   {k}: {:?}", v);
+    }
+
     Ok(())
 }
 

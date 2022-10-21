@@ -25,8 +25,6 @@ impl TypeId {
             return Ok(new_t.clone());
         }
 
-        println!("Trying to assign {:?} to {self}", map);
-
         let maybe_typ = types.get(&self).cloned();
         match maybe_typ {
             Some(typ) => match typ {
@@ -51,22 +49,6 @@ impl TypeId {
                     for t in generics {
                         resolved_generics.push(t.assign(token, map, types)?);
                     }
-
-                    println!(
-                        "Resolved Members: {:?}",
-                        resolved_members
-                            .iter()
-                            .map(|m| (&m.ident.lexeme, &m.typ.0 .0))
-                            .collect::<HashMap<&String, &String>>()
-                    );
-
-                    println!(
-                        "Resolved Generics: {:?}",
-                        resolved_generics
-                            .iter()
-                            .map(|t| (&t.0))
-                            .collect::<Vec<&String>>()
-                    );
 
                     let mut name = format!("{self}<");
                     for t in &resolved_generics[0..resolved_generics.len() - 1] {
@@ -198,8 +180,20 @@ impl Type {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Signature {
     pub inputs: Vec<TypeId>,
     pub outputs: Vec<TypeId>,
+    pub generics: Option<Vec<TypeId>>,
+}
+
+impl std::fmt::Debug for Signature {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "inputs: {:?} outputs: {:?}",
+            self.inputs.iter().map(|t| &t.0).collect::<Vec<&String>>(),
+            self.outputs.iter().map(|t| &t.0).collect::<Vec<&String>>(),
+        )
+    }
 }

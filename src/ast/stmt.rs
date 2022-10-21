@@ -1,5 +1,5 @@
 use super::arg::Arg;
-use super::expr::UntypedExpr;
+use super::expr::{Expr, UntypedExpr};
 use crate::error::HayError;
 use crate::lex::token::{Token, TokenKind, TypeToken};
 
@@ -70,7 +70,6 @@ pub fn type_id_from_type_token(
                     } else {
                         let map: HashMap<TypeId, TypeId> =
                             generics.into_iter().zip(annotations.into_iter()).collect();
-                        println!("{token}: Assigning {base_tid} with {:?}", map);
                         base_tid.assign(token, &map, types)
                     }
                 }
@@ -291,6 +290,11 @@ impl Stmt {
                 let sig = Signature {
                     inputs: inputs.iter().map(|arg| arg.typ.0.clone()).collect(),
                     outputs: outputs.iter().map(|arg| arg.typ.0.clone()).collect(),
+                    generics: if generics.len() == 0 {
+                        None
+                    } else {
+                        Some(generics.clone())
+                    },
                 };
 
                 match types.insert(
@@ -309,14 +313,43 @@ impl Stmt {
                     }
                     Some(_) => {
                         return HayError::new(
-                            format!("Function name conflict. `{}`", name.lexeme),
+                            format!(
+                                "Function name conflict. `{}` defined elsewhere",
+                                name.lexeme
+                            ),
                             name.loc,
                         );
                     }
                 }
             }
             Stmt::Var { token, expr } => {
-                return HayError::new("Var Statements aren't supported yet", token.loc);
+                if let Expr::Var { token, typ, ident } = *expr {
+                    let inner = type_id_from_token(&typ, types, &vec![])?;
+                    let ptr = Type::Pointer { inner };
+                    let id = ptr.id();
+                    types.insert(ptr.id(), ptr.clone());
+
+                    let sig = Signature {
+                        inputs: vec![],
+                        outputs: vec![id],
+                        generics: None,
+                    };
+
+                    match global_env.insert(ident.lexeme.clone(), sig) {
+                        None => (),
+                        Some(_) => {
+                            return HayError::new(
+                                format!("Var conflict. `{}` defined elsewhere", ident.lexeme),
+                                token.loc,
+                            )
+                        }
+                    }
+                } else {
+                    return HayError::new(
+                        format!("{}: Logic Error -- Assertion failed. Expected Expr::Var from Stmt::Var", line!()),
+                        token.loc,
+                    );
+                }
             }
         }
 

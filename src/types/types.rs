@@ -337,7 +337,8 @@ impl TypeId {
                     members: generic_members,
                     base,
                     kind,
-                    ..
+                    alias_list,
+                    base_generics,
                 }),
                 Some(Type::Record { members, name, .. }),
             ) => {
@@ -352,6 +353,17 @@ impl TypeId {
 
                 for (generic, concrete) in generic_members.iter().zip(members) {
                     generic.typ.0.resolve(token, &concrete.typ.0, map, types)?;
+                }
+
+                for (old, new) in base_generics.iter().zip(alias_list) {
+                    if let Some(tid) = map.remove(old) {
+                        map.insert(new, tid);
+                    } else {
+                        return Err(HayError::new_type_err(
+                            format!("Generic type {new}, was not defined"),
+                            token.loc.clone(),
+                        ));
+                    }
                 }
 
                 Ok(concrete.clone())

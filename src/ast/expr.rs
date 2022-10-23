@@ -1,10 +1,8 @@
 use crate::ast::arg::Arg;
 use crate::error::HayError;
-use crate::lex::token::{Literal, Loc, Operator, Token, TokenKind};
+use crate::lex::token::{Literal, Operator, Token, TokenKind};
 use crate::types::{RecordKind, Signature, Type, TypeId, Untyped};
 use std::collections::{BTreeMap, HashMap};
-
-use super::stmt::type_id_from_token;
 
 #[derive(Debug, Clone)]
 pub enum Expr<TypeState> {
@@ -90,21 +88,6 @@ impl<TS> Expr<TS> {
 }
 
 pub type UntypedExpr = Expr<Untyped>;
-pub struct TypedExpr {
-    expr: UntypedExpr,
-    stack: Signature,
-    frame: Signature,
-}
-
-impl TypedExpr {
-    pub fn new(expr: &UntypedExpr, stack: Signature, frame: Signature) -> Self {
-        Self {
-            expr: expr.clone(),
-            stack,
-            frame,
-        }
-    }
-}
 
 impl UntypedExpr {
     pub fn type_check(
@@ -159,7 +142,20 @@ impl UntypedExpr {
                 token,
                 base,
                 annotations,
-            } => todo!(),
+            } => {
+                let mut sig = global_env.get(&base.lexeme).unwrap().clone();
+
+                sig.assign(
+                    token,
+                    &annotations
+                        .iter()
+                        .map(|arg| TypeId::new(&arg.token.lexeme))
+                        .collect(),
+                    types,
+                )?;
+
+                sig.evaluate(token, stack, types)
+            }
             Expr::As { token, args, block } => {
                 if stack.len() < args.len() {
                     let e = HayError::new_type_err(
@@ -206,7 +202,18 @@ impl UntypedExpr {
                             vec![typ_id],
                         )
                         .evaluate(token, stack, types),
-                        RecordKind::Union => todo!("Casting to unions"),
+                        RecordKind::Union => {
+                            let mut sigs = vec![];
+
+                            members.iter().for_each(|m| {
+                                sigs.push(Signature::new(
+                                    vec![m.typ.0.clone()],
+                                    vec![typ_id.clone()],
+                                ));
+                            });
+
+                            Signature::evaluate_many(&sigs, token, stack, types)
+                        }
                     },
                     Type::GenericRecordInstance { .. } => {
                         unimplemented!("Casting to generic record instance is unimplemented")
@@ -238,7 +245,7 @@ impl UntypedExpr {
                         stack,
                         types,
                     ),
-                    Type::Pointer { inner } => {
+                    Type::Pointer { .. } => {
                         // TODO: check if pointer is generic
                         Signature::new(vec![Type::U64.id()], vec![typ_id])
                             .evaluate(token, stack, types)
@@ -254,11 +261,7 @@ impl UntypedExpr {
                     t => unimplemented!("casting to {:?} is unimplemented", t),
                 }
             }
-            Expr::ElseIf {
-                else_tok,
-                condition,
-                block,
-            } => todo!(),
+            Expr::ElseIf { .. } => todo!(),
             Expr::Ident { ident } => {
                 if let Some(sig) = global_env.get(&ident.lexeme) {
                     sig.evaluate(ident, stack, types)?;
@@ -395,7 +398,21 @@ impl UntypedExpr {
 
                             Signature::evaluate_many(&sigs, op_tok, stack, types)
                         }
-                        Operator::Star => todo!(),
+                        Operator::Star => Signature::evaluate_many(
+                            &vec![
+                                Signature::new(
+                                    vec![Type::U64.id(), Type::U64.id()],
+                                    vec![Type::U64.id()],
+                                ),
+                                Signature::new(
+                                    vec![Type::U8.id(), Type::U8.id()],
+                                    vec![Type::U8.id()],
+                                ),
+                            ],
+                            op_tok,
+                            stack,
+                            types,
+                        ),
                         Operator::Slash => Signature::evaluate_many(
                             &vec![
                                 Signature::new(
@@ -507,7 +524,9 @@ impl UntypedExpr {
                     ))
                 }
             },
-            Expr::SizeOf { token, typ } => todo!(),
+            Expr::SizeOf { token, .. } => {
+                Signature::new(vec![], vec![Type::U64.id()]).evaluate(token, stack, types)
+            }
             Expr::Syscall { token, n } => {
                 if stack.len() < *n as usize {
                     return Err(HayError::new_type_err(
@@ -539,8 +558,8 @@ impl UntypedExpr {
 
                 Ok(())
             }
-            Expr::Var { token, typ, ident } => {
-                let typ_id = type_id_from_token(typ, types, &vec![])?;
+            Expr::Var { typ, ident, .. } => {
+                let typ_id = TypeId::from_token(typ, types, &vec![])?;
                 if types.get(&typ_id).is_none() {
                     return Err(HayError::new(
                         format!("Unrecognized type `{typ_id}`"),

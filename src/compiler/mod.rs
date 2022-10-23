@@ -79,16 +79,8 @@ pub fn compile_haystack(
             })
             .collect::<Vec<(TypeId, Type)>>();
 
-        for (tid, f) in fns {
-            if let Type::UncheckedFunction {
-                token,
-                name,
-                inputs,
-                outputs,
-                generics,
-                body,
-            } = f
-            {
+        for (_tid, f) in fns {
+            if let Type::UncheckedFunction { inputs, body, .. } = f {
                 let mut stack = vec![];
                 let mut frame = vec![];
 
@@ -104,7 +96,7 @@ pub fn compile_haystack(
                 });
 
                 for expr in body {
-                    let foo = expr.type_check(&mut stack, &mut frame, &global_env, &mut types)?;
+                    expr.type_check(&mut stack, &mut frame, &global_env, &mut types)?;
                 }
             }
         }

@@ -2,7 +2,7 @@ use crate::ast::arg::Arg;
 use crate::ast::expr::UntypedExpr;
 use crate::ast::stmt::Member;
 use crate::error::HayError;
-use crate::lex::token::{Loc, Token};
+use crate::lex::token::{Loc, Token, TokenKind, TypeToken};
 use crate::types::Typed;
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
@@ -13,6 +13,123 @@ pub struct TypeId(pub String);
 impl TypeId {
     pub fn new<S: Into<String>>(id: S) -> Self {
         TypeId(id.into())
+    }
+
+    pub fn from_token(
+        token: &Token,
+        types: &mut BTreeMap<TypeId, Type>,
+        local_types: &Vec<TypeId>,
+    ) -> Result<TypeId, HayError> {
+        if types.contains_key(&TypeId::new(&token.lexeme))
+            || local_types.iter().find(|t| t.0 == token.lexeme).is_some()
+        {
+            return Ok(TypeId(token.lexeme.clone()));
+        }
+
+        let typ = match &token.kind {
+            TokenKind::Type(typ) => typ,
+            _ => panic!("Didn't expect this...: {:?}", token.kind),
+        };
+
+        TypeId::from_type_token(token, typ, types, local_types)
+    }
+
+    fn from_type_token(
+        token: &Token,
+        typ: &TypeToken,
+        types: &mut BTreeMap<TypeId, Type>,
+        local_types: &Vec<TypeId>,
+    ) -> Result<TypeId, HayError> {
+        match typ {
+            TypeToken::Array { base, .. } => {
+                let mut map = HashMap::new();
+                let base_tid = TypeId::from_type_token(token, base, types, local_types)?;
+
+                map.insert(TypeId::new("T"), base_tid);
+                let arr_tid = TypeId::new("Arr").assign(token, &map, types)?;
+                // TODO: figure out why this doesn't need to be a pointer type...
+                Ok(arr_tid)
+            }
+            TypeToken::Base(base) => {
+                if types.contains_key(&TypeId::new(base))
+                    || local_types.iter().find(|t| &t.0 == base).is_some()
+                {
+                    Ok(TypeId(base.clone()))
+                } else {
+                    Err(HayError::new(
+                        format!("Unrecognized type: {base}"),
+                        token.loc.clone(),
+                    ))
+                }
+            }
+            TypeToken::Parameterized { base, inner } => {
+                let base_tid = TypeId::new(base);
+                match types.get(&base_tid).cloned() {
+                    Some(Type::GenericRecordBase {
+                        generics,
+                        members,
+                        kind,
+                        ..
+                    }) => {
+                        if generics.len() != inner.len() {
+                            return Err(HayError::new(format!("Incorrect number of type annotations provided. Expected annotations for {:?}", generics), token.loc.clone()));
+                        }
+
+                        let mut annotations = vec![];
+                        for t in inner {
+                            annotations.push(TypeId::from_type_token(
+                                &token,
+                                t,
+                                types,
+                                local_types,
+                            )?);
+                        }
+
+                        if annotations.iter().any(|t| types.get(t).is_none()) {
+                            let t = Type::GenericRecordInstance {
+                                base: TypeId::new(base),
+                                base_generics: generics.clone(),
+                                alias_list: annotations,
+                                members: members.clone(),
+                                kind: kind.clone(),
+                            };
+                            let tid = t.id();
+
+                            types.insert(tid.clone(), t);
+                            Ok(tid)
+                        } else {
+                            let map: HashMap<TypeId, TypeId> =
+                                generics.into_iter().zip(annotations.into_iter()).collect();
+                            base_tid.assign(token, &map, types)
+                        }
+                    }
+                    Some(_) => {
+                        return Err(HayError::new(
+                            format!("Type {base} cannot be annotated, because it is not generic."),
+                            token.loc.clone(),
+                        ));
+                    }
+                    None => {
+                        return Err(HayError::new(
+                            format!("Unrecognized base type: {base}"),
+                            token.loc.clone(),
+                        ));
+                    }
+                }
+            }
+            TypeToken::Pointer(inner) => {
+                let inner_typ_id = TypeId::from_type_token(token, inner, types, local_types)?;
+                let t = Type::Pointer {
+                    inner: inner_typ_id,
+                };
+
+                let tid = t.id();
+
+                types.insert(tid.clone(), t);
+
+                Ok(tid)
+            }
+        }
     }
 
     pub fn assign(
@@ -70,6 +187,67 @@ impl TypeId {
 
                     types.insert(name.clone(), t);
                     Ok(name)
+                }
+                Type::GenericRecordInstance {
+                    base,
+                    base_generics,
+                    alias_list,
+                    members,
+                    kind,
+                } => {
+                    let alias_map: HashMap<TypeId, TypeId> = HashMap::from_iter(
+                        base_generics
+                            .clone()
+                            .into_iter()
+                            .zip(alias_list.into_iter()),
+                    );
+
+                    let mut aliased_generics = HashMap::new();
+                    for (k, v) in &alias_map {
+                        aliased_generics.insert(k.clone(), v.clone().assign(token, map, types)?);
+                    }
+
+                    let mut resolved_members = vec![];
+                    for member in members {
+                        resolved_members.push(Member {
+                            vis: member.vis,
+                            token: member.token,
+                            ident: member.ident,
+                            typ: Typed(member.typ.0.assign(token, &aliased_generics, types)?),
+                        });
+                    }
+
+                    let mut resolved_generics = vec![];
+                    for gen in base_generics {
+                        resolved_generics.push(gen.assign(token, &aliased_generics, types)?)
+                    }
+
+                    let mut name = format!("{base}<");
+                    for t in &resolved_generics[0..resolved_generics.len() - 1] {
+                        name = format!("{name}{t} ");
+                    }
+
+                    name = format!("{name}{}>", resolved_generics.last().unwrap());
+
+                    let t = Type::Record {
+                        token: token.clone(),
+                        name: Token::new(
+                            TokenKind::Type(TypeToken::Base(name.clone())),
+                            name.clone(),
+                            token.loc.file.clone(),
+                            token.loc.line.clone(),
+                            token.loc.span.start,
+                            token.loc.span.end,
+                        ),
+                        members: resolved_members,
+                        kind,
+                    };
+
+                    let tid = t.id();
+
+                    types.insert(tid.clone(), t);
+
+                    Ok(tid)
                 }
                 Type::Pointer { inner } => {
                     let inner = inner.assign(token, map, types)?;
@@ -178,6 +356,25 @@ impl TypeId {
 
                 Ok(concrete.clone())
             }
+            (
+                Some(Type::Enum { name, .. }),
+                Some(Type::Enum {
+                    name: concrete_name,
+                    ..
+                }),
+            ) => {
+                if name.lexeme != concrete_name.lexeme {
+                    return Err(HayError::new(
+                        format!(
+                            "Failed to resolve enum type {} from {}",
+                            name.lexeme, concrete_name.lexeme
+                        ),
+                        token.loc.clone(),
+                    ));
+                }
+
+                Ok(concrete.clone())
+            }
             (a, b) => {
                 return Err(HayError::new(
                     format!("case {:?} from {:?} is not handled yet", a, b),
@@ -221,7 +418,7 @@ impl TypeId {
                     Loc::new("", 0, 0, 0),
                 ))
             }
-            Type::CheckedFunction { .. } | Type::UncheckedFunction { .. } => Err(HayError::new(
+            Type::UncheckedFunction { .. } => Err(HayError::new(
                 "Functions do not have a size",
                 Loc::new("", 0, 0, 0),
             )),
@@ -298,13 +495,6 @@ pub enum Type {
         generics: Vec<TypeId>,
         body: Vec<Box<UntypedExpr>>,
     },
-    CheckedFunction {
-        token: Token,
-        name: Token,
-        inputs: Vec<Arg<Typed>>,
-        outputs: Vec<Arg<Typed>>,
-        body: Vec<Box<UntypedExpr>>,
-    },
 }
 
 impl Type {
@@ -332,9 +522,6 @@ impl Type {
             Type::UncheckedFunction { .. } => {
                 unimplemented!("Haven't implemented name from Unchecked Functions.")
             }
-            Type::CheckedFunction { .. } => {
-                unimplemented!("Haven't implemented name from Checked Functions")
-            }
         }
     }
 }
@@ -343,7 +530,7 @@ impl Type {
 pub struct Signature {
     pub inputs: Vec<TypeId>,
     pub outputs: Vec<TypeId>,
-    generics: Option<Vec<TypeId>>,
+    pub generics: Option<Vec<TypeId>>,
 }
 
 impl Signature {
@@ -492,6 +679,41 @@ impl Signature {
         for t in &mut self.outputs {
             *t = t.assign(token, &map, types)?;
         }
+
+        Ok(())
+    }
+
+    pub fn assign(
+        &mut self,
+        token: &Token,
+        annotations: &Vec<TypeId>,
+        types: &mut BTreeMap<TypeId, Type>,
+    ) -> Result<(), HayError> {
+        if self.generics.is_none() {
+            return Err(HayError::new_type_err(
+                "Cannot assign to non-generic signature.",
+                token.loc.clone(),
+            ));
+        }
+
+        let map: HashMap<TypeId, TypeId> = HashMap::from_iter(
+            self.generics
+                .as_ref()
+                .unwrap()
+                .clone()
+                .into_iter()
+                .zip(annotations.clone().into_iter()),
+        );
+
+        for t in &mut self.inputs {
+            *t = t.assign(token, &map, types)?;
+        }
+
+        for t in &mut self.outputs {
+            *t = t.assign(token, &map, types)?;
+        }
+
+        self.generics = None;
 
         Ok(())
     }

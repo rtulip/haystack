@@ -19,7 +19,7 @@ fn Str.to_cStr(Str: s Arr<u8>: buffer) -> [cStr bool] {
         s as [str] {
             str::size str::data 
         } buffer::data memcpy
-        0 cast(u8) buffer::data s::size ptr+ !
+        0u8 buffer::data s::size ptr+ !
         s::size 1 + buffer::data cast(cStr) true
     }
 }

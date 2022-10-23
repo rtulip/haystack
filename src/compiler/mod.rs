@@ -4,7 +4,7 @@ use crate::error::HayError;
 use crate::lex::scanner::Scanner;
 use crate::lex::token::Loc;
 use crate::types::{Type, TypeId};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::{self, Write};
 use std::process::{Command, Output};
 
@@ -46,7 +46,7 @@ pub fn compile_haystack(
         &mut visited,
     )?);
 
-    let mut types: HashMap<TypeId, Type> = HashMap::new();
+    let mut types: BTreeMap<TypeId, Type> = BTreeMap::new();
     types.insert(TypeId::new("u64"), Type::U64);
     types.insert(TypeId::new("u8"), Type::U8);
     types.insert(TypeId::new("char"), Type::Char);

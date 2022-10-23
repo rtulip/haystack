@@ -4,7 +4,7 @@ use crate::error::HayError;
 use crate::lex::token::{Token, TokenKind, TypeToken};
 
 use crate::types::{RecordKind, Signature, Type, TypeId, Typed, Untyped};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Visitiliby {
@@ -20,14 +20,22 @@ pub struct Member<TypeState> {
     pub typ: TypeState,
 }
 
-pub fn type_id_from_type_token(
+fn type_id_from_type_token(
     token: &Token,
     typ: &TypeToken,
-    types: &mut HashMap<TypeId, Type>,
+    types: &mut BTreeMap<TypeId, Type>,
     local_types: &Vec<TypeId>,
 ) -> Result<TypeId, HayError> {
     match typ {
-        TypeToken::Array { .. } => unimplemented!("Haven't implemented getting array types"),
+        TypeToken::Array { base, .. } => {
+            let mut map = HashMap::new();
+            let base_tid = type_id_from_type_token(token, base, types, local_types)?;
+
+            map.insert(TypeId::new("T"), base_tid);
+            let arr_tid = TypeId::new("Arr").assign(token, &map, types)?;
+            // TODO: figure out why this doesn't need to be a pointer type...
+            Ok(arr_tid)
+        }
         TypeToken::Base(base) => {
             if types.contains_key(&TypeId::new(base))
                 || local_types.iter().find(|t| &t.0 == base).is_some()
@@ -92,21 +100,22 @@ pub fn type_id_from_type_token(
         }
         TypeToken::Pointer(inner) => {
             let inner_typ_id = type_id_from_type_token(token, inner, types, local_types)?;
-            let ident = format!("*{}", inner_typ_id.0);
-            let typ = Type::Pointer {
+            let t = Type::Pointer {
                 inner: inner_typ_id,
             };
 
-            types.insert(TypeId::new(ident.clone()), typ);
+            let tid = t.id();
 
-            Ok(TypeId(ident))
+            types.insert(tid.clone(), t);
+
+            Ok(tid)
         }
     }
 }
 
 pub fn type_id_from_token(
     token: &Token,
-    types: &mut HashMap<TypeId, Type>,
+    types: &mut BTreeMap<TypeId, Type>,
     local_types: &Vec<TypeId>,
 ) -> Result<TypeId, HayError> {
     if types.contains_key(&TypeId::new(&token.lexeme))
@@ -125,7 +134,7 @@ pub fn type_id_from_token(
 
 fn resolve_members(
     members: Vec<Member<Untyped>>,
-    types: &mut HashMap<TypeId, Type>,
+    types: &mut BTreeMap<TypeId, Type>,
     local_types: &Vec<TypeId>,
 ) -> Result<Vec<Member<Typed>>, HayError> {
     let mut out = vec![];
@@ -144,7 +153,7 @@ fn resolve_members(
 
 fn resolve_arguments(
     args: Vec<Arg<Untyped>>,
-    types: &mut HashMap<TypeId, Type>,
+    types: &mut BTreeMap<TypeId, Type>,
     local_types: &Vec<TypeId>,
 ) -> Result<Vec<Arg<Typed>>, HayError> {
     let mut out = vec![];
@@ -163,7 +172,7 @@ fn resolve_arguments(
 
 fn bulid_local_generics(
     annotations: Option<Vec<Arg<Untyped>>>,
-    types: &HashMap<TypeId, Type>,
+    types: &BTreeMap<TypeId, Type>,
 ) -> Result<Vec<TypeId>, HayError> {
     match annotations {
         None => Ok(vec![]),
@@ -211,7 +220,7 @@ pub enum Stmt {
 impl Stmt {
     pub fn add_to_global_scope(
         self,
-        types: &mut HashMap<TypeId, Type>,
+        types: &mut BTreeMap<TypeId, Type>,
         global_env: &mut HashMap<String, Signature>,
     ) -> Result<(), HayError> {
         match self {

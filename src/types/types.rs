@@ -4,10 +4,10 @@ use crate::ast::stmt::Member;
 use crate::error::HayError;
 use crate::lex::token::{Loc, Token};
 use crate::types::Typed;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TypeId(pub String);
 
 impl TypeId {
@@ -19,7 +19,7 @@ impl TypeId {
         &self,
         token: &Token,
         map: &HashMap<TypeId, TypeId>,
-        types: &mut HashMap<TypeId, Type>,
+        types: &mut BTreeMap<TypeId, Type>,
     ) -> Result<TypeId, HayError> {
         if let Some(new_t) = map.get(&self) {
             return Ok(new_t.clone());
@@ -87,14 +87,107 @@ impl TypeId {
                 | Type::Record { .. } => Ok(self.clone()),
                 _ => unimplemented!("Havent finished working on {:?}", typ),
             },
-            None => todo!(
-                "Haven't handled none case yet. This would imply that {} a placeholder type.",
-                self.0
-            ),
+            None => {
+                assert!(
+                    map.contains_key(&self),
+                    "Expected to find {self} in {:?}",
+                    map
+                );
+
+                Ok(map.get(&self).unwrap().clone())
+            }
         }
     }
 
-    pub fn size(&self, types: &HashMap<TypeId, Type>) -> Result<usize, HayError> {
+    pub fn resolve(
+        &self,
+        token: &Token,
+        concrete: &Self,
+        map: &mut HashMap<Self, Self>,
+        types: &mut BTreeMap<Self, Type>,
+    ) -> Result<Self, HayError> {
+        match (types.get(self).cloned(), types.get(concrete).cloned()) {
+            (None, None) => {
+                if self != concrete {
+                    return Err(HayError::new(
+                        format!("Cannot resolve generic type {self} from {concrete}"),
+                        token.loc.clone(),
+                    ));
+                }
+
+                if !map.contains_key(&concrete) {
+                    return Err(HayError::new(
+                        format!("Generic type {self} has not been mapped to a concrete type."),
+                        token.loc.clone(),
+                    )
+                    .with_hint("The following types have been mapped:")
+                    .with_hint(format!("{:?}", map)));
+                }
+
+                Ok(map.get(self).unwrap().clone())
+            }
+            (None, Some(_)) => {
+                if let Some(prev) = map.insert(self.clone(), concrete.clone()) {
+                    if &prev != concrete {
+                        return Err(HayError::new_type_err(
+                            "Conflict in type resolution",
+                            token.loc.clone(),
+                        )
+                        .with_hint(format!("Failed to resolve generic type {self}"))
+                        .with_hint(format!("Tried to resolve to both {prev} and {concrete}")));
+                    }
+                }
+
+                Ok(concrete.clone())
+            }
+            (Some(Type::U64), Some(Type::U64)) => Ok(concrete.clone()),
+            (
+                Some(Type::Pointer { inner }),
+                Some(Type::Pointer {
+                    inner: inner_concrete,
+                }),
+            ) => {
+                let p = Type::Pointer {
+                    inner: inner.resolve(token, &inner_concrete, map, types)?,
+                };
+                let tid = p.id();
+                types.insert(tid.clone(), p);
+                Ok(tid)
+            }
+            (
+                Some(Type::GenericRecordInstance {
+                    members: generic_members,
+                    base,
+                    kind,
+                    ..
+                }),
+                Some(Type::Record { members, name, .. }),
+            ) => {
+                if !name.lexeme.starts_with(&base.0) {
+                    return Err(HayError::new(
+                        format!("Cannot resolve {kind} {base} from {}", name.lexeme),
+                        token.loc.clone(),
+                    ));
+                }
+
+                assert!(members.len() == generic_members.len());
+
+                for (generic, concrete) in generic_members.iter().zip(members) {
+                    generic.typ.0.resolve(token, &concrete.typ.0, map, types)?;
+                }
+
+                Ok(concrete.clone())
+            }
+            (a, b) => {
+                return Err(HayError::new(
+                    format!("case {:?} from {:?} is not handled yet", a, b),
+                    token.loc.clone(),
+                ))
+            }
+        }
+    }
+
+    pub fn size(&self, types: &BTreeMap<TypeId, Type>) -> Result<usize, HayError> {
         match types.get(&self).unwrap() {
             Type::Bool
             | Type::Char
@@ -152,6 +245,15 @@ impl std::fmt::Display for TypeId {
 pub enum RecordKind {
     Struct,
     Union,
+}
+
+impl std::fmt::Display for RecordKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RecordKind::Struct => write!(f, "struct"),
+            RecordKind::Union => write!(f, "union"),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -265,7 +367,12 @@ impl Signature {
         }
     }
 
-    pub fn evaluate(&self, token: &Token, stack: &mut Vec<TypeId>) -> Result<(), HayError> {
+    pub fn evaluate(
+        &self,
+        token: &Token,
+        stack: &mut Vec<TypeId>,
+        types: &mut BTreeMap<TypeId, Type>,
+    ) -> Result<(), HayError> {
         if stack.len() < self.inputs.len() {
             return Err(HayError::new_type_err(
                 format!("Invalid number of inputs for {:?}", token.lexeme),
@@ -275,34 +382,38 @@ impl Signature {
             .with_hint(format!("Found:    {:?}", stack)));
         }
 
-        if self.generics.is_some() {
-            todo!("{token} Generic Signatures...");
-        }
+        let mut to_resolve;
+        let sig = if self.generics.is_some() {
+            to_resolve = self.clone();
+            to_resolve.resolve(token, stack, types)?;
+            &to_resolve
+        } else {
+            &self
+        };
 
-        for (input, stk) in self.inputs.iter().rev().zip(stack.iter().rev()) {
+        for (input, stk) in sig.inputs.iter().rev().zip(stack.iter().rev()) {
             if input != stk {
                 return Err(HayError::new_type_err(
                     format!("Type Error - Invalid inputs for `{:?}`", token.lexeme).as_str(),
                     token.loc.clone(),
                 )
-                .with_hint(format!("Expected: {:?}", self.inputs))
+                .with_hint(format!("Expected: {:?}", sig.inputs))
                 .with_hint(format!(
                     "Found:    {:?}",
                     stack
                         .iter()
                         .rev()
-                        .take(self.inputs.len())
+                        .take(sig.inputs.len())
                         .rev()
                         .collect::<Vec<&TypeId>>()
                 )));
             }
         }
-
-        for _ in &self.inputs {
+        for _ in &sig.inputs {
             stack.pop();
         }
 
-        for out in &self.outputs {
+        for out in &sig.outputs {
             stack.push(out.clone());
         }
 
@@ -313,8 +424,8 @@ impl Signature {
         sigs: &[Signature],
         token: &Token,
         stack: &mut Vec<TypeId>,
+        types: &mut BTreeMap<TypeId, Type>,
     ) -> Result<(), HayError> {
-        println!("{token} Evaluate Many: {:?}", stack);
         let in_len = sigs[0].inputs.len();
         let out_len = sigs[0].outputs.len();
         if !sigs
@@ -333,12 +444,9 @@ impl Signature {
         }
 
         for sig in sigs {
-            println!("Checking Signature: {:?}", sig);
-            println!("Stack: {:?}", stack);
-            if let Ok(_) = sig.evaluate(token, stack) {
+            if let Ok(_) = sig.evaluate(token, stack, types) {
                 return Ok(());
             } else {
-                println!("Continuing on i guess: {:?}", stack);
             }
         }
 
@@ -364,6 +472,28 @@ impl Signature {
         ));
 
         Err(e)
+    }
+
+    fn resolve(
+        &mut self,
+        token: &Token,
+        stack: &mut Vec<TypeId>,
+        types: &mut BTreeMap<TypeId, Type>,
+    ) -> Result<(), HayError> {
+        let mut map = HashMap::new();
+        let len = self.inputs.len();
+        for (t, concrete) in self
+            .inputs
+            .iter_mut()
+            .zip(stack.iter().rev().take(len).rev())
+        {
+            *t = t.resolve(token, concrete, &mut map, types)?;
+        }
+        for t in &mut self.outputs {
+            *t = t.assign(token, &map, types)?;
+        }
+
+        Ok(())
     }
 }
 

@@ -643,18 +643,23 @@ impl Type {
 }
 
 #[derive(Clone)]
-pub struct Signature {
+pub struct Signature<'pred> {
     pub inputs: Vec<TypeId>,
     pub outputs: Vec<TypeId>,
     pub generics: Option<Vec<TypeId>>,
+    predicate: Option<(
+        &'pred dyn Fn(&Vec<TypeId>, &BTreeMap<TypeId, Type>) -> bool,
+        String,
+    )>,
 }
 
-impl Signature {
+impl<'pred> Signature<'pred> {
     pub fn new(inputs: Vec<TypeId>, outputs: Vec<TypeId>) -> Self {
         Self {
             inputs,
             outputs,
             generics: None,
+            predicate: None,
         }
     }
 
@@ -667,6 +672,27 @@ impl Signature {
             inputs,
             outputs,
             generics: generics,
+            predicate: None,
+        }
+    }
+
+    pub fn with_predicate<S>(
+        self,
+        predicate: &'pred dyn Fn(&Vec<TypeId>, &BTreeMap<TypeId, Type>) -> bool,
+        message: S,
+    ) -> Self
+    where
+        S: Into<String>,
+    {
+        if self.predicate.is_some() {
+            panic!("{:?} already had a predicate.", self);
+        }
+
+        Self {
+            inputs: self.inputs,
+            outputs: self.outputs,
+            generics: self.generics,
+            predicate: Some((predicate, message.into())),
         }
     }
 
@@ -702,6 +728,25 @@ impl Signature {
                     token.loc.clone(),
                 )
                 .with_hint(format!("Expected: {:?}", sig.inputs))
+                .with_hint(format!(
+                    "Found:    {:?}",
+                    stack
+                        .iter()
+                        .rev()
+                        .take(sig.inputs.len())
+                        .rev()
+                        .collect::<Vec<&TypeId>>()
+                )));
+            }
+        }
+
+        if let Some((pred, msg)) = &sig.predicate {
+            if !pred(&sig.inputs, types) {
+                return Err(HayError::new_type_err(
+                    format!("Type Error - Invalid inputs for {:?}", token.lexeme).as_str(),
+                    token.loc.clone(),
+                )
+                .with_hint(format!("Expected: {:?} where {msg}", sig.inputs))
                 .with_hint(format!(
                     "Found:    {:?}",
                     stack
@@ -760,7 +805,15 @@ impl Signature {
         .with_hint(format!("Expected one of {} signatures:", sigs.len()));
 
         for sig in sigs {
-            e = e.with_hint(format!("  {:?}", sig.inputs));
+            e = e.with_hint(format!(
+                "  {:?}{}",
+                sig.inputs,
+                if let Some((_, msg)) = &sig.predicate {
+                    format!(" where {msg}")
+                } else {
+                    String::new()
+                }
+            ));
         }
 
         e = e.with_hint("Found:");
@@ -839,13 +892,19 @@ impl Signature {
     }
 }
 
-impl std::fmt::Debug for Signature {
+impl<'pred> std::fmt::Debug for Signature<'pred> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "inputs: {:?} outputs: {:?}",
             self.inputs.iter().map(|t| &t.0).collect::<Vec<&String>>(),
             self.outputs.iter().map(|t| &t.0).collect::<Vec<&String>>(),
-        )
+        )?;
+
+        if let Some((_, msg)) = &self.predicate {
+            write!(f, " where {msg}")?;
+        }
+
+        Ok(())
     }
 }

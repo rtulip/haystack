@@ -57,19 +57,17 @@ pub fn compile_haystack(
         s.add_to_global_scope(&mut types, &mut global_env)?;
     }
 
-    let mut round = 1;
     while types
         .iter()
         .filter(|(_, v)| matches!(v, Type::UncheckedFunction { .. }))
         .count()
         != 0
     {
-        println!("Round {round}");
         let fns = types
             .drain_filter(|_, v| matches!(v, Type::UncheckedFunction { .. }))
             .collect::<Vec<(TypeId, Type)>>();
 
-        for (tid, f) in fns {
+        for (_tid, f) in fns {
             if let Type::UncheckedFunction {
                 inputs,
                 body,
@@ -91,8 +89,6 @@ pub fn compile_haystack(
                     }
                 });
 
-                println!("Checking {tid}");
-
                 for expr in body {
                     expr.type_check(
                         &mut stack,
@@ -104,8 +100,6 @@ pub fn compile_haystack(
                 }
             }
         }
-
-        round += 1;
     }
 
     Ok(())

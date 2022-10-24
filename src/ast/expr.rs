@@ -98,7 +98,6 @@ impl UntypedExpr {
         types: &mut BTreeMap<TypeId, Type>,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<(), HayError> {
-        println!("  Type checking {self} with {:?}: {:?}", generic_map, stack);
         match self {
             Expr::Accessor {
                 token,
@@ -596,6 +595,24 @@ impl UntypedExpr {
                                         vec![Type::Bool.id()],
                                         Some(vec![TypeId::new("T")]),
                                     ),
+                                    Signature::new_maybe_generic(
+                                        vec![TypeId::new("E"), TypeId::new("E")],
+                                        vec![Type::Bool.id()],
+                                        Some(vec![TypeId::new("E")]),
+                                    )
+                                    .with_predicate(
+                                        &|inputs, types| match (
+                                            types.get(&inputs[0]),
+                                            types.get(&inputs[1]),
+                                        ) {
+                                            (
+                                                Some(Type::Enum { name: left, .. }),
+                                                Some(Type::Enum { name: right, .. }),
+                                            ) => left.lexeme == right.lexeme,
+                                            _ => false,
+                                        },
+                                        "E is an enum",
+                                    ),
                                 ],
                                 op_tok,
                                 stack,
@@ -616,6 +633,29 @@ impl UntypedExpr {
                                     Signature::new(
                                         vec![Type::U8.id(), Type::U8.id()],
                                         vec![Type::Bool.id()],
+                                    ),
+                                    Signature::new_maybe_generic(
+                                        vec![TypeId::new("*T"), TypeId::new("*T")],
+                                        vec![Type::Bool.id()],
+                                        Some(vec![TypeId::new("T")]),
+                                    ),
+                                    Signature::new_maybe_generic(
+                                        vec![TypeId::new("E"), TypeId::new("E")],
+                                        vec![Type::Bool.id()],
+                                        Some(vec![TypeId::new("E")]),
+                                    )
+                                    .with_predicate(
+                                        &|inputs, types| match (
+                                            types.get(&inputs[0]),
+                                            types.get(&inputs[1]),
+                                        ) {
+                                            (
+                                                Some(Type::Enum { name: left, .. }),
+                                                Some(Type::Enum { name: right, .. }),
+                                            ) => left.lexeme == right.lexeme,
+                                            _ => false,
+                                        },
+                                        "E is an enum",
                                     ),
                                 ],
                                 op_tok,

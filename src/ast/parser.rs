@@ -558,7 +558,7 @@ impl<'a> Parser<'a> {
             TokenKind::Keyword(Keyword::While) => self.parse_while(token),
             TokenKind::Keyword(Keyword::SizeOf) => self.size_of(token),
             kind => Err(HayError::new(
-                format!("Not sure how to parse UntypedExpression from {} yet", kind),
+                format!("Not sure how to parse expression from {} yet", kind),
                 token.loc,
             )),
         }
@@ -670,6 +670,13 @@ impl<'a> Parser<'a> {
                 t.loc,
             ));
         };
+
+        if variants.len() == 0 {
+            return Err(HayError::new(
+                "Enumerations must have at least one variant.",
+                name.loc.clone(),
+            ));
+        }
 
         Ok(vec![Stmt::Enum {
             token: start,

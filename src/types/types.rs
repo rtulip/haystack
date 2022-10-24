@@ -600,7 +600,7 @@ impl Signature {
         token: &Token,
         stack: &mut Vec<TypeId>,
         types: &mut BTreeMap<TypeId, Type>,
-    ) -> Result<(), HayError> {
+    ) -> Result<Option<HashMap<TypeId, TypeId>>, HayError> {
         if stack.len() < self.inputs.len() {
             return Err(HayError::new_type_err(
                 format!("Invalid number of inputs for {:?}", token.lexeme),
@@ -610,10 +610,11 @@ impl Signature {
             .with_hint(format!("Found:    {:?}", stack)));
         }
 
+        let mut map = None;
         let mut to_resolve;
         let sig = if self.generics.is_some() {
             to_resolve = self.clone();
-            to_resolve.resolve(token, stack, types)?;
+            map = to_resolve.resolve(token, stack, types)?;
             &to_resolve
         } else {
             &self
@@ -645,7 +646,7 @@ impl Signature {
             stack.push(out.clone());
         }
 
-        Ok(())
+        Ok(map)
     }
 
     pub fn evaluate_many(
@@ -706,7 +707,7 @@ impl Signature {
         token: &Token,
         stack: &mut Vec<TypeId>,
         types: &mut BTreeMap<TypeId, Type>,
-    ) -> Result<(), HayError> {
+    ) -> Result<Option<HashMap<TypeId, TypeId>>, HayError> {
         let mut map = HashMap::new();
         let len = self.inputs.len();
         for (t, concrete) in self
@@ -720,7 +721,11 @@ impl Signature {
             *t = t.assign(token, &map, types)?;
         }
 
-        Ok(())
+        if map.len() > 0 {
+            Ok(Some(map))
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn assign(

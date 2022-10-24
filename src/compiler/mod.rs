@@ -79,6 +79,8 @@ pub fn compile_haystack(
             })
             .collect::<Vec<(TypeId, Type)>>();
 
+        let mut new_fn_info = vec![];
+
         for (_tid, f) in fns {
             if let Type::UncheckedFunction { inputs, body, .. } = f {
                 let mut stack = vec![];
@@ -96,9 +98,17 @@ pub fn compile_haystack(
                 });
 
                 for expr in body {
-                    expr.type_check(&mut stack, &mut frame, &global_env, &mut types)?;
+                    if let Some(mut fn_info) =
+                        expr.type_check(&mut stack, &mut frame, &global_env, &mut types)?
+                    {
+                        new_fn_info.append(&mut fn_info);
+                    }
                 }
             }
+        }
+
+        for (func, map) in new_fn_info {
+            println!("Need to create a copy of {func} where {:?}", map);
         }
     }
 

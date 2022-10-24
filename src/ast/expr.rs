@@ -96,7 +96,7 @@ impl UntypedExpr {
         frame: &mut Vec<(String, TypeId)>,
         global_env: &HashMap<String, Signature>,
         types: &mut BTreeMap<TypeId, Type>,
-    ) -> Result<(), HayError> {
+    ) -> Result<Option<Vec<(String, HashMap<TypeId, TypeId>)>>, HayError> {
         match self {
             Expr::Accessor {
                 token,
@@ -130,7 +130,7 @@ impl UntypedExpr {
                     }
 
                     stack.push(typ.clone());
-                    Ok(())
+                    Ok(None)
                 } else {
                     return Err(HayError::new(
                         format!("Unknown identifier `{}`", ident.lexeme),
@@ -154,7 +154,11 @@ impl UntypedExpr {
                     types,
                 )?;
 
-                sig.evaluate(token, stack, types)
+                if let Some(map) = sig.evaluate(token, stack, types)? {
+                    Ok(Some(vec![(base.lexeme.clone(), map)]))
+                } else {
+                    Ok(None)
+                }
             }
             Expr::As { token, args, block } => {
                 if stack.len() < args.len() {
@@ -179,9 +183,13 @@ impl UntypedExpr {
                     frame.push((arg.token.lexeme.clone(), t));
                 });
 
+                let mut new_fn_info = vec![];
+
                 if let Some(blk) = block {
                     for e in blk {
-                        e.type_check(stack, frame, global_env, types)?;
+                        if let Some(mut fn_info) = e.type_check(stack, frame, global_env, types)? {
+                            new_fn_info.append(&mut fn_info);
+                        }
                     }
 
                     for _ in 0..args.len() {
@@ -189,7 +197,11 @@ impl UntypedExpr {
                     }
                 }
 
-                Ok(())
+                if new_fn_info.len() == 0 {
+                    Ok(None)
+                } else {
+                    Ok(Some(new_fn_info))
+                }
             }
             Expr::Cast { token, typ } => {
                 let typ_id = TypeId::new(&typ.lexeme);
@@ -197,11 +209,14 @@ impl UntypedExpr {
 
                 match &cast_type {
                     Type::Record { members, kind, .. } => match kind {
-                        RecordKind::Struct => Signature::new(
-                            members.iter().map(|m| m.typ.0.clone()).collect(),
-                            vec![typ_id],
-                        )
-                        .evaluate(token, stack, types),
+                        RecordKind::Struct => {
+                            Signature::new(
+                                members.iter().map(|m| m.typ.0.clone()).collect(),
+                                vec![typ_id],
+                            )
+                            .evaluate(token, stack, types)?;
+                            Ok(None)
+                        }
                         RecordKind::Union => {
                             let mut sigs = vec![];
 
@@ -212,49 +227,62 @@ impl UntypedExpr {
                                 ));
                             });
 
-                            Signature::evaluate_many(&sigs, token, stack, types)
+                            Signature::evaluate_many(&sigs, token, stack, types)?;
+                            Ok(None)
                         }
                     },
                     Type::GenericRecordInstance { .. } => {
                         unimplemented!("Casting to generic record instance is unimplemented")
                     }
-                    Type::U64 => Signature::evaluate_many(
-                        &vec![
-                            Signature::new(vec![Type::U64.id()], vec![Type::U64.id()]),
-                            Signature::new(vec![Type::U8.id()], vec![Type::U64.id()]),
-                            Signature::new(vec![Type::Bool.id()], vec![Type::U64.id()]),
-                            Signature::new(vec![Type::Char.id()], vec![Type::U64.id()]),
-                            Signature::new_maybe_generic(
-                                vec![TypeId::new("*T")],
-                                vec![Type::U64.id()],
-                                Some(vec![TypeId::new("T")]),
-                            ),
-                        ],
-                        token,
-                        stack,
-                        types,
-                    ),
-                    Type::U8 => Signature::evaluate_many(
-                        &vec![
-                            Signature::new(vec![Type::U64.id()], vec![Type::U8.id()]),
-                            Signature::new(vec![Type::U8.id()], vec![Type::U8.id()]),
-                            Signature::new(vec![Type::Bool.id()], vec![Type::U8.id()]),
-                            Signature::new(vec![Type::Char.id()], vec![Type::U8.id()]),
-                        ],
-                        token,
-                        stack,
-                        types,
-                    ),
-                    Type::Pointer { .. } => Signature::new(vec![Type::U64.id()], vec![typ_id])
-                        .evaluate(token, stack, types),
+                    Type::U64 => {
+                        Signature::evaluate_many(
+                            &vec![
+                                Signature::new(vec![Type::U64.id()], vec![Type::U64.id()]),
+                                Signature::new(vec![Type::U8.id()], vec![Type::U64.id()]),
+                                Signature::new(vec![Type::Bool.id()], vec![Type::U64.id()]),
+                                Signature::new(vec![Type::Char.id()], vec![Type::U64.id()]),
+                                Signature::new_maybe_generic(
+                                    vec![TypeId::new("*T")],
+                                    vec![Type::U64.id()],
+                                    Some(vec![TypeId::new("T")]),
+                                ),
+                            ],
+                            token,
+                            stack,
+                            types,
+                        )?;
+                        Ok(None)
+                    }
+                    Type::U8 => {
+                        Signature::evaluate_many(
+                            &vec![
+                                Signature::new(vec![Type::U64.id()], vec![Type::U8.id()]),
+                                Signature::new(vec![Type::U8.id()], vec![Type::U8.id()]),
+                                Signature::new(vec![Type::Bool.id()], vec![Type::U8.id()]),
+                                Signature::new(vec![Type::Char.id()], vec![Type::U8.id()]),
+                            ],
+                            token,
+                            stack,
+                            types,
+                        )?;
+                        Ok(None)
+                    }
+                    Type::Pointer { .. } => {
+                        Signature::new(vec![Type::U64.id()], vec![typ_id])
+                            .evaluate(token, stack, types)?;
+                        Ok(None)
+                    }
                     Type::GenericRecordBase {
                         generics, members, ..
-                    } => Signature::new_maybe_generic(
-                        members.iter().map(|m| m.typ.0.clone()).collect(),
-                        vec![typ_id.clone()],
-                        Some(generics.clone()),
-                    )
-                    .evaluate(token, stack, types),
+                    } => {
+                        Signature::new_maybe_generic(
+                            members.iter().map(|m| m.typ.0.clone()).collect(),
+                            vec![typ_id.clone()],
+                            Some(generics.clone()),
+                        )
+                        .evaluate(token, stack, types)?;
+                        Ok(None)
+                    }
                     t => unimplemented!("casting to {:?} is unimplemented", t),
                 }
             }
@@ -263,31 +291,43 @@ impl UntypedExpr {
                 condition,
                 block,
             } => {
+                let mut new_fn_info = vec![];
                 for expr in condition {
-                    expr.type_check(stack, frame, global_env, types)?;
+                    if let Some(mut fn_info) = expr.type_check(stack, frame, global_env, types)? {
+                        new_fn_info.append(&mut fn_info);
+                    }
                 }
 
                 Signature::new(vec![Type::Bool.id()], vec![]).evaluate(else_tok, stack, types)?;
 
                 for expr in block {
-                    expr.type_check(stack, frame, global_env, types)?
+                    if let Some(mut fn_info) = expr.type_check(stack, frame, global_env, types)? {
+                        new_fn_info.append(&mut fn_info);
+                    }
                 }
 
-                Ok(())
+                if new_fn_info.len() == 0 {
+                    Ok(None)
+                } else {
+                    Ok(Some(new_fn_info))
+                }
             }
             Expr::Ident { ident } => {
                 if let Some(sig) = global_env.get(&ident.lexeme) {
-                    sig.evaluate(ident, stack, types)?;
-                    return Ok(());
+                    if let Some(map) = sig.evaluate(ident, stack, types)? {
+                        return Ok(Some(vec![(ident.lexeme.clone(), map)]));
+                    } else {
+                        return Ok(None);
+                    }
                 }
 
                 if let Some((_, tid)) = frame.iter().find(|(id, _)| &ident.lexeme == id) {
                     stack.push(tid.clone());
-                    return Ok(());
+                    return Ok(None);
                 }
 
                 return Err(HayError::new_type_err(
-                    format!("Unrecognized word `{:?}`", ident.lexeme),
+                    format!("Unrecognized word `{}`", ident.lexeme),
                     ident.loc.clone(),
                 ));
             }
@@ -305,8 +345,12 @@ impl UntypedExpr {
 
                 let mut end_stacks = vec![];
 
+                let mut new_fn_info = vec![];
+
                 for e in then {
-                    e.type_check(stack, frame, global_env, types)?;
+                    if let Some(mut fn_info) = e.type_check(stack, frame, global_env, types)? {
+                        new_fn_info.append(&mut fn_info);
+                    }
                 }
 
                 end_stacks.push((token.clone(), stack.clone()));
@@ -315,7 +359,9 @@ impl UntypedExpr {
                     *stack = initial_stack.clone();
                     *frame = initial_frame.clone();
 
-                    case.type_check(stack, frame, global_env, types)?;
+                    if let Some(mut fn_info) = case.type_check(stack, frame, global_env, types)? {
+                        new_fn_info.append(&mut fn_info);
+                    }
 
                     end_stacks.push((case.token().clone(), stack.clone()));
                 }
@@ -324,7 +370,9 @@ impl UntypedExpr {
                     *stack = initial_stack.clone();
                     *frame = initial_frame.clone();
                     for e in finally {
-                        e.type_check(stack, frame, global_env, types)?;
+                        if let Some(mut fn_info) = e.type_check(stack, frame, global_env, types)? {
+                            new_fn_info.append(&mut fn_info);
+                        }
                     }
 
                     end_stacks.push((finally[0].token().clone(), stack.clone()));
@@ -347,7 +395,11 @@ impl UntypedExpr {
                     return Err(err);
                 }
 
-                Ok(())
+                if new_fn_info.len() == 0 {
+                    Ok(None)
+                } else {
+                    Ok(Some(new_fn_info))
+                }
             }
             Expr::Literal { value } => {
                 if let TokenKind::Literal(lit) = &value.kind {
@@ -359,9 +411,15 @@ impl UntypedExpr {
                         Literal::String(_) => stack.push(TypeId::new("Str")),
                     }
 
-                    Ok(())
+                    Ok(None)
                 } else {
-                    return Err(HayError::new("Hey what the fuck???", value.loc.clone()));
+                    return Err(HayError::new(
+                        format!(
+                            "Logic Error -- Literal without TokenKind::Literal. Found {} instead",
+                            value.kind
+                        ),
+                        value.loc.clone(),
+                    ));
                 }
             }
             Expr::Operator { op: op_tok } => match &op_tok.kind {
@@ -391,7 +449,9 @@ impl UntypedExpr {
                                 ),
                             ];
 
-                            Signature::evaluate_many(&sigs, op_tok, stack, types)
+                            Signature::evaluate_many(&sigs, op_tok, stack, types)?;
+
+                            Ok(None)
                         }
                         Operator::Minus => {
                             let sigs = vec![
@@ -415,38 +475,48 @@ impl UntypedExpr {
 
                             // TODO: Comparison between pointers
 
-                            Signature::evaluate_many(&sigs, op_tok, stack, types)
+                            Signature::evaluate_many(&sigs, op_tok, stack, types)?;
+
+                            Ok(None)
                         }
-                        Operator::Star => Signature::evaluate_many(
-                            &vec![
-                                Signature::new(
-                                    vec![Type::U64.id(), Type::U64.id()],
-                                    vec![Type::U64.id()],
-                                ),
-                                Signature::new(
-                                    vec![Type::U8.id(), Type::U8.id()],
-                                    vec![Type::U8.id()],
-                                ),
-                            ],
-                            op_tok,
-                            stack,
-                            types,
-                        ),
-                        Operator::Slash => Signature::evaluate_many(
-                            &vec![
-                                Signature::new(
-                                    vec![Type::U64.id(), Type::U64.id()],
-                                    vec![Type::U64.id()],
-                                ),
-                                Signature::new(
-                                    vec![Type::U8.id(), Type::U8.id()],
-                                    vec![Type::U8.id()],
-                                ),
-                            ],
-                            op_tok,
-                            stack,
-                            types,
-                        ),
+                        Operator::Star => {
+                            Signature::evaluate_many(
+                                &vec![
+                                    Signature::new(
+                                        vec![Type::U64.id(), Type::U64.id()],
+                                        vec![Type::U64.id()],
+                                    ),
+                                    Signature::new(
+                                        vec![Type::U8.id(), Type::U8.id()],
+                                        vec![Type::U8.id()],
+                                    ),
+                                ],
+                                op_tok,
+                                stack,
+                                types,
+                            )?;
+
+                            Ok(None)
+                        }
+                        Operator::Slash => {
+                            Signature::evaluate_many(
+                                &vec![
+                                    Signature::new(
+                                        vec![Type::U64.id(), Type::U64.id()],
+                                        vec![Type::U64.id()],
+                                    ),
+                                    Signature::new(
+                                        vec![Type::U8.id(), Type::U8.id()],
+                                        vec![Type::U8.id()],
+                                    ),
+                                ],
+                                op_tok,
+                                stack,
+                                types,
+                            )?;
+
+                            Ok(None)
+                        }
                         Operator::LessThan
                         | Operator::LessEqual
                         | Operator::GreaterThan
@@ -466,7 +536,9 @@ impl UntypedExpr {
 
                             // TODO: Comparison between pointers
 
-                            Signature::evaluate_many(&sigs, op_tok, stack, types)
+                            Signature::evaluate_many(&sigs, op_tok, stack, types)?;
+
+                            Ok(None)
                         }
                         Operator::Equal => {
                             // TODO: equality between Enums
@@ -493,52 +565,70 @@ impl UntypedExpr {
                                 op_tok,
                                 stack,
                                 types,
-                            )
+                            )?;
+
+                            Ok(None)
                         }
-                        Operator::BangEqual => Signature::evaluate_many(
-                            &vec![
-                                // u64 == u64 -> bool
-                                Signature::new(
-                                    vec![Type::U64.id(), Type::U64.id()],
-                                    vec![Type::Bool.id()],
-                                ),
-                                // u8 == u8   -> bool
-                                Signature::new(
-                                    vec![Type::U8.id(), Type::U8.id()],
-                                    vec![Type::Bool.id()],
-                                ),
-                            ],
-                            op_tok,
-                            stack,
-                            types,
-                        ),
-                        Operator::Modulo => Signature::evaluate_many(
-                            &vec![
-                                Signature::new(
-                                    vec![Type::U64.id(), Type::U64.id()],
-                                    vec![Type::U64.id()],
-                                ),
-                                Signature::new(
-                                    vec![Type::U8.id(), Type::U8.id()],
-                                    vec![Type::U8.id()],
-                                ),
-                            ],
-                            op_tok,
-                            stack,
-                            types,
-                        ),
-                        Operator::Read => Signature::new_maybe_generic(
-                            vec![TypeId::new("*T")],
-                            vec![TypeId::new("T")],
-                            Some(vec![TypeId::new("T")]),
-                        )
-                        .evaluate(op_tok, stack, types),
-                        Operator::Write => Signature::new_maybe_generic(
-                            vec![TypeId::new("T"), TypeId::new("*T")],
-                            vec![],
-                            Some(vec![TypeId::new("T")]),
-                        )
-                        .evaluate(op_tok, stack, types),
+                        Operator::BangEqual => {
+                            Signature::evaluate_many(
+                                &vec![
+                                    // u64 == u64 -> bool
+                                    Signature::new(
+                                        vec![Type::U64.id(), Type::U64.id()],
+                                        vec![Type::Bool.id()],
+                                    ),
+                                    // u8 == u8   -> bool
+                                    Signature::new(
+                                        vec![Type::U8.id(), Type::U8.id()],
+                                        vec![Type::Bool.id()],
+                                    ),
+                                ],
+                                op_tok,
+                                stack,
+                                types,
+                            )?;
+
+                            Ok(None)
+                        }
+                        Operator::Modulo => {
+                            Signature::evaluate_many(
+                                &vec![
+                                    Signature::new(
+                                        vec![Type::U64.id(), Type::U64.id()],
+                                        vec![Type::U64.id()],
+                                    ),
+                                    Signature::new(
+                                        vec![Type::U8.id(), Type::U8.id()],
+                                        vec![Type::U8.id()],
+                                    ),
+                                ],
+                                op_tok,
+                                stack,
+                                types,
+                            )?;
+
+                            Ok(None)
+                        }
+                        Operator::Read => {
+                            Signature::new_maybe_generic(
+                                vec![TypeId::new("*T")],
+                                vec![TypeId::new("T")],
+                                Some(vec![TypeId::new("T")]),
+                            )
+                            .evaluate(op_tok, stack, types)?;
+
+                            Ok(None)
+                        }
+                        Operator::Write => {
+                            Signature::new_maybe_generic(
+                                vec![TypeId::new("T"), TypeId::new("*T")],
+                                vec![],
+                                Some(vec![TypeId::new("T")]),
+                            )
+                            .evaluate(op_tok, stack, types)?;
+
+                            Ok(None)
+                        }
                     }
                 }
                 _ => {
@@ -549,7 +639,9 @@ impl UntypedExpr {
                 }
             },
             Expr::SizeOf { token, .. } => {
-                Signature::new(vec![], vec![Type::U64.id()]).evaluate(token, stack, types)
+                Signature::new(vec![], vec![Type::U64.id()]).evaluate(token, stack, types)?;
+
+                Ok(None)
             }
             Expr::Syscall { token, n } => {
                 if stack.len() < *n as usize {
@@ -580,7 +672,7 @@ impl UntypedExpr {
 
                 stack.push(Type::U64.id());
 
-                Ok(())
+                Ok(None)
             }
             Expr::Var { typ, ident, .. } => {
                 let typ_id = TypeId::from_token(typ, types, &vec![])?;
@@ -600,20 +692,25 @@ impl UntypedExpr {
 
                 frame.push((ident.lexeme.clone(), id));
 
-                Ok(())
+                Ok(None)
             }
             Expr::While { token, cond, body } => {
                 let stack_before = stack.clone();
 
+                let mut new_fn_info = vec![];
                 // Evaluate up to the body
                 for expr in cond {
-                    expr.type_check(stack, frame, global_env, types)?;
+                    if let Some(mut fn_info) = expr.type_check(stack, frame, global_env, types)? {
+                        new_fn_info.append(&mut fn_info);
+                    }
                 }
 
                 Signature::new(vec![Type::Bool.id()], vec![]).evaluate(token, stack, types)?;
 
                 for expr in body {
-                    expr.type_check(stack, frame, global_env, types)?;
+                    if let Some(mut fn_info) = expr.type_check(stack, frame, global_env, types)? {
+                        new_fn_info.append(&mut fn_info);
+                    }
                 }
 
                 if stack.iter().zip(&stack_before).any(|(t1, t2)| t1 != t2) {
@@ -625,7 +722,11 @@ impl UntypedExpr {
                     .with_hint(format!("Stack after loop:  {:?}", stack)));
                 }
 
-                Ok(())
+                if new_fn_info.len() == 0 {
+                    Ok(None)
+                } else {
+                    Ok(Some(new_fn_info))
+                }
             }
         }
     }

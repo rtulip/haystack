@@ -318,7 +318,10 @@ impl TypeId {
 
                 Ok(concrete.clone())
             }
-            (Some(Type::U64), Some(Type::U64)) => Ok(concrete.clone()),
+            (Some(Type::U64), Some(Type::U64))
+            | (Some(Type::U8), Some(Type::U8))
+            | (Some(Type::Char), Some(Type::Char))
+            | (Some(Type::Bool), Some(Type::Bool)) => Ok(concrete.clone()),
             (
                 Some(Type::Pointer { inner }),
                 Some(Type::Pointer {
@@ -332,6 +335,20 @@ impl TypeId {
                 types.insert(tid.clone(), p);
                 Ok(tid)
             }
+            (Some(Type::Record { kind, .. }), Some(Type::Record { .. })) => {
+                if self != concrete {
+                    return Err(HayError::new_type_err(
+                        format!("Cannot resolve {kind} {self} from {concrete}."),
+                        token.loc.clone(),
+                    ));
+                }
+
+                Ok(self.clone())
+            }
+            (Some(Type::Record { .. }), Some(_)) => Err(HayError::new_type_err(
+                format!("Cannot resolve {self} from {concrete}"),
+                token.loc.clone(),
+            )),
             (
                 Some(Type::GenericRecordInstance {
                     members: generic_members,
@@ -387,11 +404,23 @@ impl TypeId {
 
                 Ok(concrete.clone())
             }
-            (a, b) => {
-                return Err(HayError::new(
-                    format!("case {:?} from {:?} is not handled yet", a, b),
-                    token.loc.clone(),
-                ))
+
+            (Some(Type::Pointer { .. }), _)
+            | (Some(Type::Bool), _)
+            | (Some(Type::Char), _)
+            | (Some(Type::U8), _)
+            | (Some(Type::U64), _)
+            | (Some(Type::Enum { .. }), _)
+            | (Some(Type::GenericRecordInstance { .. }), _)
+            | (Some(Type::Record { .. }), _) => Err(HayError::new_type_err(
+                format!("Cannot resolve {self} from {concrete}"),
+                token.loc.clone(),
+            )),
+            (Some(Type::GenericRecordBase { .. }), _) => unreachable!(
+                "Generic bases shouldn't be part of type resolution, only Generic Instances.",
+            ),
+            (Some(Type::UncheckedFunction { .. }), _) => {
+                unreachable!("Functions should never be part of type resolution.")
             }
         }
     }
@@ -593,7 +622,7 @@ impl Signature {
         for (input, stk) in sig.inputs.iter().rev().zip(stack.iter().rev()) {
             if input != stk {
                 return Err(HayError::new_type_err(
-                    format!("Type Error - Invalid inputs for `{:?}`", token.lexeme).as_str(),
+                    format!("Type Error - Invalid inputs for {:?}", token.lexeme).as_str(),
                     token.loc.clone(),
                 )
                 .with_hint(format!("Expected: {:?}", sig.inputs))
@@ -645,12 +674,11 @@ impl Signature {
         for sig in sigs {
             if let Ok(_) = sig.evaluate(token, stack, types) {
                 return Ok(());
-            } else {
             }
         }
 
         let mut e = HayError::new_type_err(
-            format!("Invalid inputs for `{}`", token.kind),
+            format!("Invalid inputs for {}", token.kind),
             token.loc.clone(),
         )
         .with_hint(format!("Expected one of {} signatures:", sigs.len()));

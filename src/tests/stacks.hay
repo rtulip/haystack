@@ -18,7 +18,7 @@ fn main()
     // Empty the stack.
     while stk_p Stack.pop dup Opt.is_some {
         "Popped: " puts Opt.unwrap putlnu
-    } drop
+    }
 
     stk_p Stack.destroy
     

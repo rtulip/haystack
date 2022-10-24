@@ -245,11 +245,8 @@ impl UntypedExpr {
                         stack,
                         types,
                     ),
-                    Type::Pointer { .. } => {
-                        // TODO: check if pointer is generic
-                        Signature::new(vec![Type::U64.id()], vec![typ_id])
-                            .evaluate(token, stack, types)
-                    }
+                    Type::Pointer { .. } => Signature::new(vec![Type::U64.id()], vec![typ_id])
+                        .evaluate(token, stack, types),
                     Type::GenericRecordBase {
                         generics, members, ..
                     } => Signature::new_maybe_generic(
@@ -261,7 +258,23 @@ impl UntypedExpr {
                     t => unimplemented!("casting to {:?} is unimplemented", t),
                 }
             }
-            Expr::ElseIf { .. } => todo!(),
+            Expr::ElseIf {
+                else_tok,
+                condition,
+                block,
+            } => {
+                for expr in condition {
+                    expr.type_check(stack, frame, global_env, types)?;
+                }
+
+                Signature::new(vec![Type::Bool.id()], vec![]).evaluate(else_tok, stack, types)?;
+
+                for expr in block {
+                    expr.type_check(stack, frame, global_env, types)?
+                }
+
+                Ok(())
+            }
             Expr::Ident { ident } => {
                 if let Some(sig) = global_env.get(&ident.lexeme) {
                     sig.evaluate(ident, stack, types)?;
@@ -392,6 +405,12 @@ impl UntypedExpr {
                                     vec![Type::U8.id(), Type::U8.id()],
                                     vec![Type::U8.id()],
                                 ),
+                                // *T == *T    -> bool
+                                Signature::new_maybe_generic(
+                                    vec![TypeId::new("*T"), TypeId::new("*T")],
+                                    vec![Type::U64.id()],
+                                    Some(vec![TypeId::new("T")]),
+                                ),
                             ];
 
                             // TODO: Comparison between pointers
@@ -451,7 +470,6 @@ impl UntypedExpr {
                         }
                         Operator::Equal => {
                             // TODO: equality between Enums
-                            // TODO: Equality between pointers
 
                             Signature::evaluate_many(
                                 &vec![
@@ -464,6 +482,12 @@ impl UntypedExpr {
                                     Signature::new(
                                         vec![Type::U8.id(), Type::U8.id()],
                                         vec![Type::Bool.id()],
+                                    ),
+                                    // *T == *T   -> bool
+                                    Signature::new_maybe_generic(
+                                        vec![TypeId::new("*T"), TypeId::new("*T")],
+                                        vec![Type::Bool.id()],
+                                        Some(vec![TypeId::new("T")]),
                                     ),
                                 ],
                                 op_tok,

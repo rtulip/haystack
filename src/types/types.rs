@@ -285,8 +285,23 @@ impl TypeId {
                         .with_hint(format!("Found mapping: {:?}", map)));
                     }
 
+                    let mut name_string = format!("{}<", name.lexeme);
+                    for tid in &generics[0..generics.len() - 1] {
+                        name_string = format!("{name_string}{} ", tid.assign(token, map, types)?);
+                    }
+                    name_string = format!(
+                        "{name_string}{}>",
+                        generics.last().unwrap().assign(token, map, types)?
+                    );
+
+                    let tid = TypeId::new(&name_string);
+
+                    if types.contains_key(&tid) {
+                        return Ok(tid);
+                    }
+
                     let mut assigned_inputs = vec![];
-                    for input in inputs {
+                    for input in inputs.clone() {
                         assigned_inputs.push(Arg {
                             token: input.token,
                             ident: input.ident,
@@ -295,21 +310,13 @@ impl TypeId {
                     }
 
                     let mut assigned_outputs = vec![];
-                    for output in outputs {
+                    for output in outputs.clone() {
                         assigned_outputs.push(Arg {
                             token: output.token,
                             ident: output.ident,
                             typ: Typed(output.typ.0.assign(&token, map, types)?),
                         });
                     }
-
-                    let mut name_string = format!("{}<", name.lexeme);
-                    for tid in &generics[0..generics.len() - 1] {
-                        name_string = format!("{name_string}{tid} ");
-                    }
-                    name_string = format!("{name_string}{}>", generics.last().unwrap());
-
-                    let tid = TypeId::new(&name_string);
 
                     let new_fn = Type::UncheckedFunction {
                         token: fn_token,
@@ -333,11 +340,12 @@ impl TypeId {
                 }
             },
             None => {
-                assert!(
-                    map.contains_key(&self),
-                    "Expected to find {self} in {:?}",
-                    map
-                );
+                if !map.contains_key(&self) {
+                    return Err(HayError::new_type_err(
+                        format!("Expected to find {self} in {:?}", map),
+                        token.loc.clone(),
+                    ));
+                }
 
                 Ok(map.get(&self).unwrap().clone())
             }

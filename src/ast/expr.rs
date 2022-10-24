@@ -98,7 +98,7 @@ impl UntypedExpr {
         types: &mut BTreeMap<TypeId, Type>,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<(), HayError> {
-        match self {
+        let r = match self {
             Expr::Accessor {
                 token,
                 ident,
@@ -175,14 +175,39 @@ impl UntypedExpr {
             } => {
                 let mut sig = global_env.get(&base.lexeme).unwrap().clone();
 
-                sig.assign(
-                    token,
-                    &annotations
+                let annotations = if let Some(map) = generic_map {
+                    let ann = annotations
                         .iter()
-                        .map(|arg| TypeId::new(&arg.token.lexeme))
-                        .collect(),
-                    types,
-                )?;
+                        .map(|arg| {
+                            let tid = TypeId::new(&arg.token.lexeme);
+                            let tid = tid.assign(token, map, types);
+                            tid
+                        })
+                        .collect::<Vec<Result<TypeId, HayError>>>();
+
+                    let gen_fn_tid = TypeId::new(&base.lexeme);
+                    gen_fn_tid.assign(token, &map, types)?;
+
+                    ann
+                } else {
+                    annotations
+                        .iter()
+                        .map(|arg| Ok(TypeId::new(&arg.token.lexeme)))
+                        .collect::<Vec<Result<TypeId, HayError>>>()
+                };
+
+                for ann in &annotations {
+                    if let Err(e) = ann {
+                        return Err(e.clone());
+                    }
+                }
+
+                let annotations = annotations
+                    .into_iter()
+                    .map(|a| if let Ok(tid) = a { tid } else { unreachable!() })
+                    .collect::<Vec<TypeId>>();
+
+                sig.assign(token, &annotations, types)?;
 
                 if let Some(_map) = sig.evaluate(token, stack, types)? {
                     todo!("Make a concrete version of the call")
@@ -227,6 +252,17 @@ impl UntypedExpr {
             }
             Expr::Cast { token, typ } => {
                 let typ_id = TypeId::new(&typ.lexeme);
+                let typ_id = if let Some(map) = generic_map {
+                    if let Ok(tid) = typ_id.assign(token, map, types) {
+                        // try to assign for annotated casts
+                        tid
+                    } else {
+                        // If annotation fails, need to use resolution.
+                        typ_id
+                    }
+                } else {
+                    typ_id
+                };
                 let cast_type = types.get(&typ_id).unwrap().clone();
 
                 match &cast_type {
@@ -793,7 +829,9 @@ impl UntypedExpr {
 
                 Ok(())
             }
-        }
+        };
+
+        r
     }
 }
 

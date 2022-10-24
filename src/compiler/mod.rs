@@ -56,7 +56,6 @@ pub fn compile_haystack(
     for s in stmts {
         s.add_to_global_scope(&mut types, &mut global_env)?;
     }
-
     while types
         .iter()
         .filter(|(_, v)| matches!(v, Type::UncheckedFunction { .. }))

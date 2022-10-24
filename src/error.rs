@@ -1,6 +1,6 @@
 use crate::lex::token::Loc;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ErrorKind {
     Error,
 }
@@ -11,6 +11,7 @@ impl std::fmt::Display for ErrorKind {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct HayError {
     message: String,
     kind: ErrorKind,

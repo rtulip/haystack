@@ -57,32 +57,26 @@ pub fn compile_haystack(
         s.add_to_global_scope(&mut types, &mut global_env)?;
     }
 
+    let mut round = 1;
     while types
         .iter()
-        .filter(|(_, v)| {
-            if let Type::UncheckedFunction { generics, .. } = &v {
-                generics.len() == 0
-            } else {
-                false
-            }
-        })
+        .filter(|(_, v)| matches!(v, Type::UncheckedFunction { .. }))
         .count()
         != 0
     {
+        println!("Round {round}");
         let fns = types
-            .drain_filter(|_, v| {
-                if let Type::UncheckedFunction { generics, .. } = v {
-                    generics.len() == 0
-                } else {
-                    false
-                }
-            })
+            .drain_filter(|_, v| matches!(v, Type::UncheckedFunction { .. }))
             .collect::<Vec<(TypeId, Type)>>();
 
-        let mut new_fn_info = vec![];
-
-        for (_tid, f) in fns {
-            if let Type::UncheckedFunction { inputs, body, .. } = f {
+        for (tid, f) in fns {
+            if let Type::UncheckedFunction {
+                inputs,
+                body,
+                generic_map,
+                ..
+            } = f
+            {
                 let mut stack = vec![];
                 let mut frame = vec![];
 
@@ -97,19 +91,21 @@ pub fn compile_haystack(
                     }
                 });
 
+                println!("Checking {tid}");
+
                 for expr in body {
-                    if let Some(mut fn_info) =
-                        expr.type_check(&mut stack, &mut frame, &global_env, &mut types)?
-                    {
-                        new_fn_info.append(&mut fn_info);
-                    }
+                    expr.type_check(
+                        &mut stack,
+                        &mut frame,
+                        &global_env,
+                        &mut types,
+                        &generic_map,
+                    )?;
                 }
             }
         }
 
-        for (func, map) in new_fn_info {
-            println!("Need to create a copy of {func} where {:?}", map);
-        }
+        round += 1;
     }
 
     Ok(())

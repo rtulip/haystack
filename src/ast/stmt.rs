@@ -197,17 +197,27 @@ impl Stmt {
                     },
                 );
 
-                match types.insert(
-                    TypeId::new(&name.lexeme),
+                let typ = if generics.len() == 0 {
                     Type::UncheckedFunction {
                         token,
                         name: name.clone(),
-                        generics,
                         inputs,
                         outputs,
                         body,
-                    },
-                ) {
+                        generic_map: None,
+                    }
+                } else {
+                    Type::GenericFunction {
+                        token,
+                        name: name.clone(),
+                        inputs,
+                        outputs,
+                        generics,
+                        body,
+                    }
+                };
+
+                match types.insert(TypeId::new(&name.lexeme), typ) {
                     None => {
                         global_env.insert(name.lexeme, sig);
                     }

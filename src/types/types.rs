@@ -263,7 +263,74 @@ impl TypeId {
                 | Type::Bool
                 | Type::Enum { .. }
                 | Type::Record { .. } => Ok(self.clone()),
-                _ => unimplemented!("Havent finished working on {:?}", typ),
+                Type::GenericFunction {
+                    token: fn_token,
+                    name,
+                    inputs,
+                    outputs,
+                    generics,
+                    body,
+                } => {
+                    if !generics.iter().all(|tid| map.contains_key(tid))
+                        && map.len() == generics.len()
+                    {
+                        return Err(HayError::new(
+                            "Bad mapping to monomporphize funcion",
+                            token.loc.clone(),
+                        )
+                        .with_hint(format!(
+                            "Generic function {} is generic over {:?}.",
+                            name.lexeme, generics
+                        ))
+                        .with_hint(format!("Found mapping: {:?}", map)));
+                    }
+
+                    let mut assigned_inputs = vec![];
+                    for input in inputs {
+                        assigned_inputs.push(Arg {
+                            token: input.token,
+                            ident: input.ident,
+                            typ: Typed(input.typ.0.assign(&token, map, types)?),
+                        });
+                    }
+
+                    let mut assigned_outputs = vec![];
+                    for output in outputs {
+                        assigned_outputs.push(Arg {
+                            token: output.token,
+                            ident: output.ident,
+                            typ: Typed(output.typ.0.assign(&token, map, types)?),
+                        });
+                    }
+
+                    let mut name_string = format!("{}<", name.lexeme);
+                    for tid in &generics[0..generics.len() - 1] {
+                        name_string = format!("{name_string}{tid} ");
+                    }
+                    name_string = format!("{name_string}{}>", generics.last().unwrap());
+
+                    let tid = TypeId::new(&name_string);
+
+                    let new_fn = Type::UncheckedFunction {
+                        token: fn_token,
+                        name: Token {
+                            kind: name.kind,
+                            lexeme: name_string,
+                            loc: name.loc,
+                        },
+                        inputs: assigned_inputs,
+                        outputs: assigned_outputs,
+                        body: body,
+                        generic_map: Some(map.clone()),
+                    };
+
+                    types.insert(tid.clone(), new_fn);
+
+                    Ok(tid)
+                }
+                Type::UncheckedFunction { .. } => {
+                    unreachable!("Should never assign to non-generic function!")
+                }
             },
             None => {
                 assert!(
@@ -419,7 +486,7 @@ impl TypeId {
             (Some(Type::GenericRecordBase { .. }), _) => unreachable!(
                 "Generic bases shouldn't be part of type resolution, only Generic Instances.",
             ),
-            (Some(Type::UncheckedFunction { .. }), _) => {
+            (Some(Type::UncheckedFunction { .. } | Type::GenericFunction { .. }), _) => {
                 unreachable!("Functions should never be part of type resolution.")
             }
         }
@@ -459,7 +526,7 @@ impl TypeId {
                     Loc::new("", 0, 0, 0),
                 ))
             }
-            Type::UncheckedFunction { .. } => Err(HayError::new(
+            Type::UncheckedFunction { .. } | Type::GenericFunction { .. } => Err(HayError::new(
                 "Functions do not have a size",
                 Loc::new("", 0, 0, 0),
             )),
@@ -528,13 +595,21 @@ pub enum Type {
         name: Token,
         variants: Vec<Token>,
     },
-    UncheckedFunction {
+    GenericFunction {
         token: Token,
         name: Token,
         inputs: Vec<Arg<Typed>>,
         outputs: Vec<Arg<Typed>>,
         generics: Vec<TypeId>,
         body: Vec<Box<UntypedExpr>>,
+    },
+    UncheckedFunction {
+        token: Token,
+        name: Token,
+        inputs: Vec<Arg<Typed>>,
+        outputs: Vec<Arg<Typed>>,
+        body: Vec<Box<UntypedExpr>>,
+        generic_map: Option<HashMap<TypeId, TypeId>>,
     },
 }
 
@@ -560,8 +635,8 @@ impl Type {
 
                 TypeId::new(name)
             }
-            Type::UncheckedFunction { .. } => {
-                unimplemented!("Haven't implemented name from Unchecked Functions.")
+            Type::UncheckedFunction { .. } | Type::GenericFunction { .. } => {
+                unimplemented!("Haven't implemented name from Functions.")
             }
         }
     }
@@ -654,7 +729,7 @@ impl Signature {
         token: &Token,
         stack: &mut Vec<TypeId>,
         types: &mut BTreeMap<TypeId, Type>,
-    ) -> Result<(), HayError> {
+    ) -> Result<Option<HashMap<TypeId, TypeId>>, HayError> {
         let in_len = sigs[0].inputs.len();
         let out_len = sigs[0].outputs.len();
         if !sigs
@@ -673,8 +748,8 @@ impl Signature {
         }
 
         for sig in sigs {
-            if let Ok(_) = sig.evaluate(token, stack, types) {
-                return Ok(());
+            if let Ok(x) = sig.evaluate(token, stack, types) {
+                return Ok(x);
             }
         }
 

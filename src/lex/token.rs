@@ -16,7 +16,7 @@ impl Loc {
     {
         Loc {
             file: file.into(),
-            line: line,
+            line,
             span: Range { start, end },
         }
     }
@@ -28,7 +28,7 @@ impl std::fmt::Display for Loc {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Marker {
     LeftBrace,
     RightBrace,
@@ -60,7 +60,7 @@ impl std::fmt::Display for Marker {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Operator {
     Plus,
     Minus,
@@ -99,7 +99,7 @@ impl std::fmt::Display for Operator {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Keyword {
     Function,
     Var,
@@ -179,14 +179,8 @@ pub enum Literal {
 #[derive(Debug, Clone)]
 pub enum TypeToken {
     Pointer(Box<TypeToken>),
-    Parameterized {
-        base: String,
-        inner: Vec<Box<TypeToken>>,
-    },
-    Array {
-        base: Box<TypeToken>,
-        size: u64,
-    },
+    Parameterized { base: String, inner: Vec<TypeToken> },
+    Array { base: Box<TypeToken>, size: u64 },
     Base(String),
 }
 
@@ -197,8 +191,8 @@ impl std::fmt::Display for TypeToken {
             TypeToken::Pointer(p) => write!(f, "*{p}"),
             TypeToken::Parameterized { base, inner } => {
                 write!(f, "{base}<")?;
-                for i in 0..inner.len() - 1 {
-                    write!(f, "{} ", inner[i])?;
+                for inner_t in inner.iter().take(inner.len() - 1) {
+                    write!(f, "{} ", inner_t)?;
                 }
                 write!(f, "{}>", inner.last().unwrap())
             }
@@ -261,14 +255,14 @@ impl std::cmp::PartialEq for TokenKind {
             (TokenKind::Marker(m), TokenKind::Marker(o)) => m == o,
             (TokenKind::Operator(op), TokenKind::Operator(o)) => op == o,
             (TokenKind::Keyword(kw), TokenKind::Keyword(o)) => kw == o,
-            (TokenKind::Literal(l), TokenKind::Literal(o)) => match (l, o) {
-                (Literal::Bool(_), Literal::Bool(_)) => true,
-                (Literal::Char(_), Literal::Char(_)) => true,
-                (Literal::String(_), Literal::String(_)) => true,
-                (Literal::U64(_), Literal::U64(_)) => true,
-                (Literal::U8(_), Literal::U8(_)) => true,
-                _ => false,
-            },
+            (TokenKind::Literal(l), TokenKind::Literal(o)) => matches!(
+                (l, o),
+                (Literal::Bool(_), Literal::Bool(_))
+                    | (Literal::Char(_), Literal::Char(_))
+                    | (Literal::String(_), Literal::String(_))
+                    | (Literal::U64(_), Literal::U64(_))
+                    | (Literal::U8(_), Literal::U8(_))
+            ),
             (TokenKind::EoF, TokenKind::EoF) => true,
             (TokenKind::Syscall(_), TokenKind::Syscall(_)) => true,
             _ => false,

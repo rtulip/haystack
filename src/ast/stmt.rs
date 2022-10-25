@@ -6,7 +6,7 @@ use crate::lex::token::Token;
 use crate::types::{RecordKind, Signature, Type, TypeId, Typed, Untyped};
 use std::collections::{BTreeMap, HashMap};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Visitiliby {
     Public,
     Private,
@@ -68,7 +68,7 @@ fn bulid_local_generics(
             let mut out = vec![];
             for a in annotations {
                 if types.contains_key(&TypeId::new(&a.token.lexeme)) {
-                    return Err(HayError::new(format!("Generic type {} cannot be used as it has already been defined elsewhere.", a.token.lexeme), a.token.loc.clone()));
+                    return Err(HayError::new(format!("Generic type {} cannot be used as it has already been defined elsewhere.", a.token.lexeme), a.token.loc));
                 }
                 out.push(TypeId(a.token.lexeme));
             }
@@ -85,7 +85,7 @@ pub enum Stmt {
         inputs: Vec<Arg<Untyped>>,
         outputs: Vec<Arg<Untyped>>,
         annotations: Option<Vec<Arg<Untyped>>>,
-        body: Vec<Box<UntypedExpr>>,
+        body: Vec<UntypedExpr>,
     },
     Record {
         token: Token,
@@ -190,14 +190,14 @@ impl Stmt {
                 let sig = Signature::new_maybe_generic(
                     inputs.iter().map(|arg| arg.typ.0.clone()).collect(),
                     outputs.iter().map(|arg| arg.typ.0.clone()).collect(),
-                    if generics.len() == 0 {
+                    if generics.is_empty() {
                         None
                     } else {
                         Some(generics.clone())
                     },
                 );
 
-                let typ = if generics.len() == 0 {
+                let typ = if generics.is_empty() {
                     Type::UncheckedFunction {
                         token,
                         name: name.clone(),
@@ -237,7 +237,7 @@ impl Stmt {
                     let inner = TypeId::from_token(&typ, types, &vec![])?;
                     let ptr = Type::Pointer { inner };
                     let id = ptr.id();
-                    types.insert(ptr.id(), ptr.clone());
+                    types.insert(ptr.id(), ptr);
 
                     let sig = Signature::new(vec![], vec![id]);
 

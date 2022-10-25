@@ -30,19 +30,19 @@ pub enum Expr<TypeState> {
     },
     If {
         token: Token,
-        then: Vec<Box<Expr<TypeState>>>,
-        otherwise: Vec<Box<Expr<TypeState>>>,
-        finally: Option<Vec<Box<Expr<TypeState>>>>,
+        then: Vec<Expr<TypeState>>,
+        otherwise: Vec<Expr<TypeState>>,
+        finally: Option<Vec<Expr<TypeState>>>,
     },
     ElseIf {
         else_tok: Token,
-        condition: Vec<Box<Expr<TypeState>>>,
-        block: Vec<Box<Expr<TypeState>>>,
+        condition: Vec<Expr<TypeState>>,
+        block: Vec<Expr<TypeState>>,
     },
     As {
         token: Token,
         args: Vec<Arg<TypeState>>,
-        block: Option<Vec<Box<Expr<TypeState>>>>,
+        block: Option<Vec<Expr<TypeState>>>,
     },
     Var {
         token: Token,
@@ -51,8 +51,8 @@ pub enum Expr<TypeState> {
     },
     While {
         token: Token,
-        cond: Vec<Box<Expr<TypeState>>>,
-        body: Vec<Box<Expr<TypeState>>>,
+        cond: Vec<Expr<TypeState>>,
+        body: Vec<Expr<TypeState>>,
     },
     AnnotatedCall {
         token: Token,
@@ -147,7 +147,7 @@ impl UntypedExpr {
                         )));
                     }
 
-                    if let None = variants.iter().find(|v| v.lexeme == inner[0].lexeme) {
+                    if !variants.iter().any(|v| v.lexeme == inner[0].lexeme) {
                         return Err(HayError::new(
                             format!("Unknown enum variant {}", inner[0].lexeme),
                             token.loc.clone(),
@@ -180,13 +180,12 @@ impl UntypedExpr {
                         .iter()
                         .map(|arg| {
                             let tid = TypeId::new(&arg.token.lexeme);
-                            let tid = tid.assign(token, map, types);
-                            tid
+                            tid.assign(token, map, types)
                         })
                         .collect::<Vec<Result<TypeId, HayError>>>();
 
                     let gen_fn_tid = TypeId::new(&base.lexeme);
-                    gen_fn_tid.assign(token, &map, types)?;
+                    gen_fn_tid.assign(token, map, types)?;
 
                     ann
                 } else {
@@ -443,8 +442,8 @@ impl UntypedExpr {
                 }
 
                 if let Some(finally) = finally {
-                    *stack = initial_stack.clone();
-                    *frame = initial_frame.clone();
+                    *stack = initial_stack;
+                    *frame = initial_frame;
                     for e in finally {
                         e.type_check(stack, frame, global_env, types, generic_map)?;
                     }

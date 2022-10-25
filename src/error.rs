@@ -39,7 +39,7 @@ impl HayError {
         HayError {
             message: format!("Type Error: {}", message.into()),
             kind: ErrorKind::Error,
-            loc: loc,
+            loc,
             hints: vec![],
         }
     }

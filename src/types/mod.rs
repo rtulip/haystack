@@ -1,4 +1,4 @@
+mod type_info;
 mod type_state;
-mod types;
+pub use type_info::*;
 pub use type_state::*;
-pub use types::*;

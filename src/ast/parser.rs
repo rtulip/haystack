@@ -40,7 +40,7 @@ impl<'a> Parser<'a> {
     }
 
     fn peek(&self) -> &Token {
-        &self.tokens.last().unwrap()
+        self.tokens.last().unwrap()
     }
 
     fn check(&self, kind: TokenKind) -> bool {
@@ -201,11 +201,8 @@ impl<'a> Parser<'a> {
                     ));
                 }
 
-                if outputs.len() == 0 {
-                    return Err(HayError::new(
-                        format!("Expected a non-empty return list."),
-                        tok.loc,
-                    ));
+                if outputs.is_empty() {
+                    return Err(HayError::new("Expected a non-empty return list.", tok.loc));
                 }
 
                 outputs
@@ -235,9 +232,7 @@ impl<'a> Parser<'a> {
             && !args.iter().all(|arg| arg.ident.is_none())
         {
             Err(HayError::new(
-                format!(
-                    "Either all arguments or no arguments in args list must have an identifier."
-                ),
+                "Either all arguments or no arguments in args list must have an identifier.",
                 token.loc.clone(),
             ))
         } else {
@@ -278,10 +273,13 @@ impl<'a> Parser<'a> {
                 )),
             }
         } else if let Ok(ident) = self.matches(TokenKind::ident()) {
-            let typ = if let Ok(_) = self.matches(TokenKind::Operator(Operator::LessThan)) {
+            let typ = if self
+                .matches(TokenKind::Operator(Operator::LessThan))
+                .is_ok()
+            {
                 let mut inner = vec![];
                 while let Some(t) = self.parse_type()? {
-                    inner.push(Box::new(t.typ()?));
+                    inner.push(t.typ()?);
                 }
 
                 let close = match self.matches(TokenKind::Operator(Operator::GreaterThan)) {
@@ -305,7 +303,7 @@ impl<'a> Parser<'a> {
                 let lexeme = format!("{}", kind);
 
                 Token {
-                    kind: kind,
+                    kind,
                     lexeme,
                     loc: Loc::new(
                         ident.loc.file,
@@ -322,7 +320,7 @@ impl<'a> Parser<'a> {
                 }
             };
 
-            if let Ok(_) = self.matches(TokenKind::Marker(Marker::LeftBracket)) {
+            if self.matches(TokenKind::Marker(Marker::LeftBracket)).is_ok() {
                 let n = match self.matches(TokenKind::u64()) {
                     Ok(n) => n.u64()?,
                     Err(t) => {
@@ -379,7 +377,7 @@ impl<'a> Parser<'a> {
     fn parse_arg(&mut self) -> Result<Option<Arg<Untyped>>, HayError> {
         match self.parse_type()? {
             Some(token) => {
-                if let Ok(_) = self.matches(TokenKind::Marker(Marker::Colon)) {
+                if self.matches(TokenKind::Marker(Marker::Colon)).is_ok() {
                     match self.matches(TokenKind::ident()) {
                         Ok(ident) => Ok(Some(Arg {
                             token,
@@ -407,7 +405,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn block(&mut self) -> Result<Vec<Box<UntypedExpr>>, HayError> {
+    fn block(&mut self) -> Result<Vec<UntypedExpr>, HayError> {
         if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
             return Err(HayError::new(
                 format!(
@@ -421,7 +419,7 @@ impl<'a> Parser<'a> {
 
         let mut exprs = vec![];
         while !self.is_at_end() && !self.check(TokenKind::Marker(Marker::RightBrace)) {
-            exprs.push(self.expression()?);
+            exprs.push(*self.expression()?);
         }
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
@@ -454,9 +452,9 @@ impl<'a> Parser<'a> {
                     let next = self.tokens.pop().unwrap();
                     match &next.kind {
                         TokenKind::Operator(Operator::LessThan) => {
-                            if inners.len() != 0 {
+                            if inners.is_empty() {
                                 return Err(HayError::new(
-                                    format!("Cannot provide annotations within this context."),
+                                    "Cannot provide annotations within this context.",
                                     next.loc,
                                 ));
                             }
@@ -477,7 +475,7 @@ impl<'a> Parser<'a> {
                                     }
                                 };
 
-                            if annotations.len() == 0 {
+                            if annotations.is_empty() {
                                 return Err(HayError::new(
                                     "Expected a non-zero number of annotations",
                                     next.loc,
@@ -493,7 +491,7 @@ impl<'a> Parser<'a> {
                             };
                             new_token = Token {
                                 kind: TokenKind::Ident(lexeme.clone()),
-                                lexeme: lexeme,
+                                lexeme,
                                 loc: Loc::new(
                                     new_token.loc.file,
                                     new_token.loc.line,
@@ -505,7 +503,7 @@ impl<'a> Parser<'a> {
                             return Ok(Box::new(UntypedExpr::AnnotatedCall {
                                 token: new_token,
                                 base: token,
-                                annotations: annotations,
+                                annotations,
                             }));
                         }
                         TokenKind::Ident(_) => {
@@ -541,7 +539,7 @@ impl<'a> Parser<'a> {
                     }
                 }
 
-                if inners.len() == 0 {
+                if inners.is_empty() {
                     Ok(Box::new(UntypedExpr::Ident { ident: token }))
                 } else {
                     Ok(Box::new(UntypedExpr::Accessor {
@@ -671,10 +669,10 @@ impl<'a> Parser<'a> {
             ));
         };
 
-        if variants.len() == 0 {
+        if variants.is_empty() {
             return Err(HayError::new(
                 "Enumerations must have at least one variant.",
-                name.loc.clone(),
+                name.loc,
             ));
         }
 
@@ -748,7 +746,7 @@ impl<'a> Parser<'a> {
 
         let mut stmts = vec![Stmt::Record {
             token: start,
-            name: name,
+            name,
             annotations,
             members,
             kind: if kw == Keyword::Union {
@@ -772,7 +770,7 @@ impl<'a> Parser<'a> {
             members.push(mem);
         }
 
-        if members.len() == 0 {
+        if members.is_empty() {
             Err(HayError::new(
                 "Struct members cannot be empty.",
                 tok.loc.clone(),
@@ -833,7 +831,7 @@ impl<'a> Parser<'a> {
     }
 
     fn impl_section(&mut self) -> Result<Option<Vec<Stmt>>, HayError> {
-        if let Ok(_) = self.matches(TokenKind::Keyword(Keyword::Impl)) {
+        if self.matches(TokenKind::Keyword(Keyword::Impl)).is_ok() {
             if let Err(t) = self.matches(TokenKind::Marker(Marker::Colon)) {
                 return Err(HayError::new(
                     format!(
@@ -871,11 +869,11 @@ impl<'a> Parser<'a> {
                     let cond = self.else_if_condition()?;
                     let body = self.block()?;
 
-                    otherwise.push(Box::new(UntypedExpr::ElseIf {
+                    otherwise.push(UntypedExpr::ElseIf {
                         else_tok,
                         condition: cond,
                         block: body,
-                    }));
+                    });
                 }
             }
         }
@@ -888,10 +886,10 @@ impl<'a> Parser<'a> {
         }))
     }
 
-    fn else_if_condition(&mut self) -> Result<Vec<Box<UntypedExpr>>, HayError> {
+    fn else_if_condition(&mut self) -> Result<Vec<UntypedExpr>, HayError> {
         let mut cond = vec![];
         while self.peek().kind != TokenKind::Keyword(Keyword::If) && !self.is_at_end() {
-            cond.push(self.expression()?);
+            cond.push(*self.expression()?);
         }
 
         if let Err(t) = self.matches(TokenKind::Keyword(Keyword::If)) {
@@ -986,16 +984,12 @@ impl<'a> Parser<'a> {
     fn parse_while(&mut self, token: Token) -> Result<Box<UntypedExpr>, HayError> {
         let mut cond = vec![];
         while !self.check(TokenKind::Marker(Marker::LeftBrace)) {
-            cond.push(self.expression()?);
+            cond.push(*self.expression()?);
         }
 
         let body = self.block()?;
 
-        Ok(Box::new(UntypedExpr::While {
-            token: token,
-            cond,
-            body,
-        }))
+        Ok(Box::new(UntypedExpr::While { token, cond, body }))
     }
 
     fn size_of(&mut self, token: Token) -> Result<Box<UntypedExpr>, HayError> {

@@ -21,7 +21,7 @@ impl TypeId {
         local_types: &Vec<TypeId>,
     ) -> Result<TypeId, HayError> {
         if types.contains_key(&TypeId::new(&token.lexeme))
-            || local_types.iter().find(|t| t.0 == token.lexeme).is_some()
+            || local_types.iter().any(|t| t.0 == token.lexeme)
         {
             return Ok(TypeId(token.lexeme.clone()));
         }
@@ -52,7 +52,7 @@ impl TypeId {
             }
             TypeToken::Base(base) => {
                 if types.contains_key(&TypeId::new(base))
-                    || local_types.iter().find(|t| &t.0 == base).is_some()
+                    || local_types.iter().any(|t| &t.0 == base)
                 {
                     Ok(TypeId(base.clone()))
                 } else {
@@ -78,7 +78,7 @@ impl TypeId {
                         let mut annotations = vec![];
                         for t in inner {
                             annotations.push(TypeId::from_type_token(
-                                &token,
+                                token,
                                 t,
                                 types,
                                 local_types,
@@ -88,10 +88,10 @@ impl TypeId {
                         if annotations.iter().any(|t| types.get(t).is_none()) {
                             let t = Type::GenericRecordInstance {
                                 base: TypeId::new(base),
-                                base_generics: generics.clone(),
+                                base_generics: generics,
                                 alias_list: annotations,
-                                members: members.clone(),
-                                kind: kind.clone(),
+                                members,
+                                kind,
                             };
                             let tid = t.id();
 
@@ -103,18 +103,14 @@ impl TypeId {
                             base_tid.assign(token, &map, types)
                         }
                     }
-                    Some(_) => {
-                        return Err(HayError::new(
-                            format!("Type {base} cannot be annotated, because it is not generic."),
-                            token.loc.clone(),
-                        ));
-                    }
-                    None => {
-                        return Err(HayError::new(
-                            format!("Unrecognized base type: {base}"),
-                            token.loc.clone(),
-                        ));
-                    }
+                    Some(_) => Err(HayError::new(
+                        format!("Type {base} cannot be annotated, because it is not generic."),
+                        token.loc.clone(),
+                    )),
+                    None => Err(HayError::new(
+                        format!("Unrecognized base type: {base}"),
+                        token.loc.clone(),
+                    )),
                 }
             }
             TypeToken::Pointer(inner) => {
@@ -138,11 +134,11 @@ impl TypeId {
         map: &HashMap<TypeId, TypeId>,
         types: &mut BTreeMap<TypeId, Type>,
     ) -> Result<TypeId, HayError> {
-        if let Some(new_t) = map.get(&self) {
+        if let Some(new_t) = map.get(self) {
             return Ok(new_t.clone());
         }
 
-        let maybe_typ = types.get(&self).cloned();
+        let maybe_typ = types.get(self).cloned();
         match maybe_typ {
             Some(typ) => match typ {
                 Type::GenericRecordBase {
@@ -182,7 +178,7 @@ impl TypeId {
                             loc: name_token.loc,
                         },
                         members: resolved_members,
-                        kind: kind,
+                        kind,
                     };
 
                     types.insert(name.clone(), t);
@@ -233,9 +229,9 @@ impl TypeId {
                         token: token.clone(),
                         name: Token::new(
                             TokenKind::Type(TypeToken::Base(name.clone())),
-                            name.clone(),
+                            name,
                             token.loc.file.clone(),
-                            token.loc.line.clone(),
+                            token.loc.line,
                             token.loc.span.start,
                             token.loc.span.end,
                         ),
@@ -301,20 +297,20 @@ impl TypeId {
                     }
 
                     let mut assigned_inputs = vec![];
-                    for input in inputs.clone() {
+                    for input in inputs {
                         assigned_inputs.push(Arg {
                             token: input.token,
                             ident: input.ident,
-                            typ: Typed(input.typ.0.assign(&token, map, types)?),
+                            typ: Typed(input.typ.0.assign(token, map, types)?),
                         });
                     }
 
                     let mut assigned_outputs = vec![];
-                    for output in outputs.clone() {
+                    for output in outputs {
                         assigned_outputs.push(Arg {
                             token: output.token,
                             ident: output.ident,
-                            typ: Typed(output.typ.0.assign(&token, map, types)?),
+                            typ: Typed(output.typ.0.assign(token, map, types)?),
                         });
                     }
 
@@ -327,7 +323,7 @@ impl TypeId {
                         },
                         inputs: assigned_inputs,
                         outputs: assigned_outputs,
-                        body: body,
+                        body,
                         generic_map: Some(map.clone()),
                     };
 
@@ -340,14 +336,14 @@ impl TypeId {
                 }
             },
             None => {
-                if !map.contains_key(&self) {
+                if !map.contains_key(self) {
                     return Err(HayError::new_type_err(
                         format!("Expected to find {self} in {:?}", map),
                         token.loc.clone(),
                     ));
                 }
 
-                Ok(map.get(&self).unwrap().clone())
+                Ok(map.get(self).unwrap().clone())
             }
         }
     }
@@ -368,7 +364,7 @@ impl TypeId {
                     ));
                 }
 
-                if !map.contains_key(&concrete) {
+                if !map.contains_key(concrete) {
                     return Err(HayError::new(
                         format!("Generic type {self} has not been mapped to a concrete type."),
                         token.loc.clone(),
@@ -508,7 +504,7 @@ impl TypeId {
     }
 
     pub fn size(&self, types: &BTreeMap<TypeId, Type>) -> Result<usize, HayError> {
-        match types.get(&self).unwrap() {
+        match types.get(self).unwrap() {
             Type::Bool
             | Type::Char
             | Type::U64
@@ -618,14 +614,14 @@ pub enum Type {
         inputs: Vec<Arg<Typed>>,
         outputs: Vec<Arg<Typed>>,
         generics: Vec<TypeId>,
-        body: Vec<Box<UntypedExpr>>,
+        body: Vec<UntypedExpr>,
     },
     UncheckedFunction {
         token: Token,
         name: Token,
         inputs: Vec<Arg<Typed>>,
         outputs: Vec<Arg<Typed>>,
-        body: Vec<Box<UntypedExpr>>,
+        body: Vec<UntypedExpr>,
         generic_map: Option<HashMap<TypeId, TypeId>>,
     },
     Function {
@@ -633,7 +629,7 @@ pub enum Type {
         name: Token,
         inputs: Vec<Arg<Typed>>,
         outputs: Vec<Arg<Typed>>,
-        body: Vec<Box<UntypedExpr>>,
+        body: Vec<UntypedExpr>,
         generic_map: Option<HashMap<TypeId, TypeId>>,
     },
 }
@@ -669,15 +665,13 @@ impl Type {
     }
 }
 
+type Predicate = dyn Fn(&Vec<TypeId>, &BTreeMap<TypeId, Type>) -> bool;
 #[derive(Clone)]
 pub struct Signature<'pred> {
     pub inputs: Vec<TypeId>,
     pub outputs: Vec<TypeId>,
     pub generics: Option<Vec<TypeId>>,
-    predicate: Option<(
-        &'pred dyn Fn(&Vec<TypeId>, &BTreeMap<TypeId, Type>) -> bool,
-        String,
-    )>,
+    predicate: Option<(&'pred Predicate, String)>,
 }
 
 impl<'pred> Signature<'pred> {
@@ -698,16 +692,12 @@ impl<'pred> Signature<'pred> {
         Self {
             inputs,
             outputs,
-            generics: generics,
+            generics,
             predicate: None,
         }
     }
 
-    pub fn with_predicate<S>(
-        self,
-        predicate: &'pred dyn Fn(&Vec<TypeId>, &BTreeMap<TypeId, Type>) -> bool,
-        message: S,
-    ) -> Self
+    pub fn with_predicate<S>(self, predicate: &'pred Predicate, message: S) -> Self
     where
         S: Into<String>,
     {
@@ -745,7 +735,7 @@ impl<'pred> Signature<'pred> {
             map = to_resolve.resolve(token, stack, types)?;
             &to_resolve
         } else {
-            &self
+            self
         };
 
         for (input, stk) in sig.inputs.iter().rev().zip(stack.iter().rev()) {
@@ -860,7 +850,7 @@ impl<'pred> Signature<'pred> {
     fn resolve(
         &mut self,
         token: &Token,
-        stack: &mut Vec<TypeId>,
+        stack: &mut [TypeId],
         types: &mut BTreeMap<TypeId, Type>,
     ) -> Result<Option<HashMap<TypeId, TypeId>>, HayError> {
         let mut map = HashMap::new();
@@ -876,17 +866,17 @@ impl<'pred> Signature<'pred> {
             *t = t.assign(token, &map, types)?;
         }
 
-        if map.len() > 0 {
-            Ok(Some(map))
-        } else {
+        if map.is_empty() {
             Ok(None)
+        } else {
+            Ok(Some(map))
         }
     }
 
     pub fn assign(
         &mut self,
         token: &Token,
-        annotations: &Vec<TypeId>,
+        annotations: &[TypeId],
         types: &mut BTreeMap<TypeId, Type>,
     ) -> Result<(), HayError> {
         if self.generics.is_none() {
@@ -902,7 +892,7 @@ impl<'pred> Signature<'pred> {
                 .unwrap()
                 .clone()
                 .into_iter()
-                .zip(annotations.clone().into_iter()),
+                .zip(annotations.iter().cloned()),
         );
 
         for t in &mut self.inputs {

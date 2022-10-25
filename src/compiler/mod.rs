@@ -16,7 +16,7 @@ pub fn parse_haystack_into_statements(
         return Ok(vec![]);
     }
 
-    if let Ok(source) = std::fs::read_to_string(&input_path) {
+    if let Ok(source) = std::fs::read_to_string(input_path) {
         visited.insert(input_path.clone());
         let scanner = Scanner::new(input_path, &source);
         let tokens = scanner.scan_tokens()?;
@@ -167,7 +167,7 @@ mod tests {
 
         if std::path::Path::new(&com_path).exists() {
             let prev_output: OutputSummary =
-                serde_json::from_str(&std::fs::read_to_string(&com_path)?.as_str())?;
+                serde_json::from_str(std::fs::read_to_string(&com_path)?.as_str())?;
             assert_eq!(prev_output, compilation_summary);
         } else {
             std::fs::write(
@@ -183,7 +183,7 @@ mod tests {
 
             if std::path::Path::new(&run_path).exists() {
                 let prev_output: OutputSummary =
-                    serde_json::from_str(&std::fs::read_to_string(&run_path)?.as_str())?;
+                    serde_json::from_str(std::fs::read_to_string(&run_path)?.as_str())?;
                 assert_eq!(prev_output, output);
             } else {
                 std::fs::write(run_path, serde_json::to_string_pretty(&output)?)?;

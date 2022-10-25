@@ -221,8 +221,9 @@ impl Scanner {
 
     fn char(&mut self) -> Result<(), HayError> {
         let mut c = self.advance();
-        match c {
-            '\\' => match self.advance() {
+
+        if c == '\\' {
+            match self.advance() {
                 'n' => c = '\n',
                 't' => c = '\t',
                 'r' => c = '\r',
@@ -232,8 +233,7 @@ impl Scanner {
                         Loc::new(&self.file, self.line, self.token_start, self.token_end),
                     ))
                 }
-            },
-            _ => (),
+            }
         }
 
         if !self.matches('\'') {

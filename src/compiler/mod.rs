@@ -66,12 +66,14 @@ pub fn compile_haystack(
             .drain_filter(|_, v| matches!(v, Type::UncheckedFunction { .. }))
             .collect::<Vec<(TypeId, Type)>>();
 
-        for (_tid, f) in fns {
+        for (tid, f) in fns {
             if let Type::UncheckedFunction {
+                token,
+                name,
                 inputs,
+                outputs,
                 body,
                 generic_map,
-                ..
             } = f
             {
                 let mut stack = vec![];
@@ -88,7 +90,7 @@ pub fn compile_haystack(
                     }
                 });
 
-                for expr in body {
+                for expr in &body {
                     expr.type_check(
                         &mut stack,
                         &mut frame,
@@ -97,6 +99,18 @@ pub fn compile_haystack(
                         &generic_map,
                     )?;
                 }
+
+                types.insert(
+                    tid,
+                    Type::Function {
+                        token,
+                        name,
+                        inputs,
+                        outputs,
+                        body,
+                        generic_map,
+                    },
+                );
             }
         }
     }

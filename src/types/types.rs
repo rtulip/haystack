@@ -335,7 +335,7 @@ impl TypeId {
 
                     Ok(tid)
                 }
-                Type::UncheckedFunction { .. } => {
+                Type::UncheckedFunction { .. } | Type::Function { .. } => {
                     unreachable!("Should never assign to non-generic function!")
                 }
             },
@@ -494,7 +494,14 @@ impl TypeId {
             (Some(Type::GenericRecordBase { .. }), _) => unreachable!(
                 "Generic bases shouldn't be part of type resolution, only Generic Instances.",
             ),
-            (Some(Type::UncheckedFunction { .. } | Type::GenericFunction { .. }), _) => {
+            (
+                Some(
+                    Type::UncheckedFunction { .. }
+                    | Type::GenericFunction { .. }
+                    | Type::Function { .. },
+                ),
+                _,
+            ) => {
                 unreachable!("Functions should never be part of type resolution.")
             }
         }
@@ -534,7 +541,9 @@ impl TypeId {
                     Loc::new("", 0, 0, 0),
                 ))
             }
-            Type::UncheckedFunction { .. } | Type::GenericFunction { .. } => Err(HayError::new(
+            Type::UncheckedFunction { .. }
+            | Type::GenericFunction { .. }
+            | Type::Function { .. } => Err(HayError::new(
                 "Functions do not have a size",
                 Loc::new("", 0, 0, 0),
             )),
@@ -619,6 +628,14 @@ pub enum Type {
         body: Vec<Box<UntypedExpr>>,
         generic_map: Option<HashMap<TypeId, TypeId>>,
     },
+    Function {
+        token: Token,
+        name: Token,
+        inputs: Vec<Arg<Typed>>,
+        outputs: Vec<Arg<Typed>>,
+        body: Vec<Box<UntypedExpr>>,
+        generic_map: Option<HashMap<TypeId, TypeId>>,
+    },
 }
 
 impl Type {
@@ -643,7 +660,9 @@ impl Type {
 
                 TypeId::new(name)
             }
-            Type::UncheckedFunction { .. } | Type::GenericFunction { .. } => {
+            Type::UncheckedFunction { .. }
+            | Type::GenericFunction { .. }
+            | Type::Function { .. } => {
                 unimplemented!("Haven't implemented name from Functions.")
             }
         }

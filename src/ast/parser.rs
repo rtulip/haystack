@@ -452,7 +452,7 @@ impl<'a> Parser<'a> {
                     let next = self.tokens.pop().unwrap();
                     match &next.kind {
                         TokenKind::Operator(Operator::LessThan) => {
-                            if inners.is_empty() {
+                            if !inners.is_empty() {
                                 return Err(HayError::new(
                                     "Cannot provide annotations within this context.",
                                     next.loc,

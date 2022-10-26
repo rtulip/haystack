@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/scanner/scan_multi_line_string.hay:2:1] Error: Unexpected top level token: `Str`\n"
+}

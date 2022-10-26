@@ -23,7 +23,7 @@ impl TypeId {
 
     // Checks to see if a TypeId is generic.
     pub fn is_generic(&self, types: &BTreeMap<TypeId, Type>) -> bool {
-        match types.get(&self) {
+        match types.get(self) {
             Some(
                 Type::Bool
                 | Type::Char
@@ -128,7 +128,7 @@ impl TypeId {
                             )?);
                         }
 
-                        if annotations.iter().any(|t| t.is_generic(&types)) {
+                        if annotations.iter().any(|t| t.is_generic(types)) {
                             // if any annotation is generic then create a generic record instance.
                             let t = Type::GenericRecordInstance {
                                 base: TypeId::new(base),

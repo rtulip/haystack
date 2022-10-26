@@ -1,5 +1,5 @@
 use crate::ast::arg::Arg;
-use crate::ast::expr::UntypedExpr;
+use crate::ast::expr::{Expr, TypedExpr};
 use crate::ast::stmt::Member;
 use crate::error::HayError;
 use crate::lex::token::{Loc, Token, TokenKind, TypeToken};
@@ -865,7 +865,7 @@ pub enum Type {
         inputs: Vec<Arg<Typed>>,
         outputs: Vec<Arg<Typed>>,
         generics: Vec<TypeId>,
-        body: Vec<UntypedExpr>,
+        body: Vec<Expr>,
     },
     /// Represents a concrete function that needs to be type checked.
     UncheckedFunction {
@@ -873,7 +873,7 @@ pub enum Type {
         name: Token,
         inputs: Vec<Arg<Typed>>,
         outputs: Vec<Arg<Typed>>,
-        body: Vec<UntypedExpr>,
+        body: Vec<Expr>,
         generic_map: Option<HashMap<TypeId, TypeId>>,
     },
     /// Represents a function that has been type checked.
@@ -882,7 +882,7 @@ pub enum Type {
         name: Token,
         inputs: Vec<Arg<Typed>>,
         outputs: Vec<Arg<Typed>>,
-        body: Vec<UntypedExpr>,
+        body: Vec<TypedExpr>,
         generic_map: Option<HashMap<TypeId, TypeId>>,
     },
 }

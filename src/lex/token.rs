@@ -60,7 +60,7 @@ impl std::fmt::Display for Marker {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Operator {
     Plus,
     Minus,
@@ -180,7 +180,7 @@ pub enum Literal {
 pub enum TypeToken {
     Pointer(Box<TypeToken>),
     Parameterized { base: String, inner: Vec<TypeToken> },
-    Array { base: Box<TypeToken>, size: u64 },
+    Array { base: Box<TypeToken>, size: usize },
     Base(String),
 }
 
@@ -346,6 +346,19 @@ impl Token {
             TokenKind::Keyword(kw) => Ok(*kw),
             _ => Err(HayError::new(
                 format!("Failed to destructure {} into a keyword", self.kind),
+                self.loc.clone(),
+            )),
+        }
+    }
+
+    pub fn dimension(&self) -> Result<Option<usize>, HayError> {
+        match &self.kind {
+            TokenKind::Type(typ) => match typ {
+                TypeToken::Array { size, .. } => Ok(Some(*size)),
+                _ => Ok(None),
+            },
+            _ => Err(HayError::new(
+                "Can't get a dimension from a non-type token.",
                 self.loc.clone(),
             )),
         }

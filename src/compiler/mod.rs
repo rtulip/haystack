@@ -92,14 +92,15 @@ pub fn compile_haystack(
                     }
                 });
 
-                for expr in &body {
-                    expr.type_check(
+                let mut typed_body = vec![];
+                for expr in body {
+                    typed_body.push(expr.type_check(
                         &mut stack,
                         &mut frame,
                         &global_env,
                         &mut types,
                         &generic_map,
-                    )?;
+                    )?);
                 }
 
                 types.insert(
@@ -109,7 +110,7 @@ pub fn compile_haystack(
                         name,
                         inputs,
                         outputs,
-                        body,
+                        body: typed_body,
                         generic_map,
                     },
                 );

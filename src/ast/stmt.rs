@@ -1,5 +1,5 @@
 use super::arg::Arg;
-use super::expr::{Expr, UntypedExpr};
+use super::expr::Expr;
 use crate::error::HayError;
 use crate::lex::token::Token;
 
@@ -85,7 +85,7 @@ pub enum Stmt {
         inputs: Vec<Arg<Untyped>>,
         outputs: Vec<Arg<Untyped>>,
         annotations: Option<Vec<Arg<Untyped>>>,
-        body: Vec<UntypedExpr>,
+        body: Vec<Expr>,
     },
     Record {
         token: Token,
@@ -101,7 +101,7 @@ pub enum Stmt {
     },
     Var {
         token: Token,
-        expr: Box<UntypedExpr>,
+        expr: Box<Expr>,
     },
 }
 

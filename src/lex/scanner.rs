@@ -341,3 +341,76 @@ impl Scanner {
         Ok(())
     }
 }
+
+mod tests {
+
+    #[test]
+    fn scan_good_escape_chars() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("scanner/scan_good_escape_chars")
+    }
+
+    #[test]
+    fn scan_bad_equals_operator() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("scanner/scan_bad_equals_operator")
+    }
+
+    #[test]
+    fn scan_multi_line_string() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("scanner/scan_multi_line_string")
+    }
+
+    #[test]
+    fn scan_bad_syscall_open() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("scanner/scan_bad_syscall_open")
+    }
+
+    #[test]
+    fn scan_bad_syscall_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("scanner/scan_bad_syscall_close")
+    }
+
+    #[test]
+    fn scan_bad_syscall_number_too_large() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("scanner/scan_bad_syscall_number_too_large")
+    }
+
+    #[test]
+    fn scan_bad_syscall_number_too_small() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("scanner/scan_bad_syscall_number_too_small")
+    }
+
+    #[test]
+    fn scan_bad_syscall_parameter() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("scanner/scan_bad_syscall_parameter")
+    }
+
+    #[test]
+    fn scan_unexpected_char() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("scanner/scan_unexpected_char")
+    }
+
+    #[test]
+    fn scan_bad_number_literal() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("scanner/scan_bad_number_literal")
+    }
+
+    #[test]
+    fn scan_bad_u8() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("scanner/scan_bad_u8")
+    }
+
+    #[test]
+    fn scan_unterminated_char() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("scanner/scan_unterminated_char")
+    }
+
+    #[test]
+    fn scan_unterminated_string() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("scanner/scan_unterminated_string")
+    }
+
+    #[test]
+    fn scan_bad_escaped_char() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("scanner/scan_bad_escaped_char")
+    }
+}

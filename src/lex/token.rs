@@ -373,3 +373,100 @@ impl std::fmt::Display for Token {
         }
     }
 }
+
+mod tests {
+
+    #[allow(unused_imports)]
+    use super::*;
+
+    #[test]
+    fn test_operator_display() {
+        assert_eq!(format!("{}", Operator::Plus), format!("`+`"));
+        assert_eq!(format!("{}", Operator::Minus), format!("`-`"));
+        assert_eq!(format!("{}", Operator::Star), format!("`*`"));
+        assert_eq!(format!("{}", Operator::Slash), format!("`/`"));
+        assert_eq!(format!("{}", Operator::LessThan), format!("`<`"));
+        assert_eq!(format!("{}", Operator::LessEqual), format!("`<=`"));
+        assert_eq!(format!("{}", Operator::GreaterThan), format!("`>`"));
+        assert_eq!(format!("{}", Operator::GreaterEqual), format!("`>=`"));
+        assert_eq!(format!("{}", Operator::Equal), format!("`==`"));
+        assert_eq!(format!("{}", Operator::BangEqual), format!("`!=`"));
+        assert_eq!(format!("{}", Operator::Modulo), format!("`%`"));
+        assert_eq!(format!("{}", Operator::Read), format!("`@`"));
+        assert_eq!(format!("{}", Operator::Write), format!("`!`"));
+    }
+
+    #[test]
+    fn test_keyword_display() {
+        assert_eq!(format!("{}", Keyword::Else), format!("`else`"));
+        assert_eq!(format!("{}", Keyword::While), format!("`while`"));
+        assert_eq!(format!("{}", Keyword::Union), format!("`union`"));
+        assert_eq!(format!("{}", Keyword::Syscall), format!("`syscall`"));
+        assert_eq!(format!("{}", Keyword::Include), format!("`include`"));
+    }
+
+    #[test]
+    fn test_tokenkind_display() {
+        assert_eq!(
+            format!("{}", TokenKind::Operator(Operator::Plus)),
+            format!("`+`")
+        );
+
+        assert_eq!(
+            format!("{}", TokenKind::Literal(Literal::Bool(true))),
+            format!("`bool`")
+        );
+
+        assert_eq!(
+            format!("{}", TokenKind::Literal(Literal::U8(0))),
+            format!("`u8`")
+        );
+
+        assert_eq!(format!("{}", TokenKind::Syscall(1)), format!("Syscall(1)"));
+    }
+
+    #[test]
+    fn test_bad_token_destructure() {
+        let tok = Token::new(TokenKind::EoF, "", "", 0, 0, 0);
+
+        assert!(tok.string().is_err());
+        assert!(tok.typ().is_err());
+        assert!(tok.ident().is_err());
+        assert!(tok.u64().is_err());
+        assert!(tok.keyword().is_err());
+    }
+
+    #[test]
+    fn test_token_display() {
+        let mut tok = Token::new(TokenKind::EoF, "lexeme", "file", 1, 1, 2);
+
+        assert_eq!(format!("{}", tok), String::from("[file:1:1]: EOF"));
+        tok.kind = TokenKind::Ident(String::from("ident"));
+        assert_eq!(format!("{}", tok), String::from("[file:1:1]: ident"));
+        tok.kind = TokenKind::Keyword(Keyword::While);
+        assert_eq!(format!("{}", tok), String::from("[file:1:1]: lexeme"));
+        tok.kind = TokenKind::Literal(Literal::Bool(true));
+        assert_eq!(format!("{}", tok), String::from("[file:1:1]: true"));
+        tok.kind = TokenKind::Literal(Literal::String(String::new()));
+        assert_eq!(format!("{}", tok), String::from("[file:1:1]: lexeme"));
+        tok.kind = TokenKind::Literal(Literal::Char(' '));
+        assert_eq!(format!("{}", tok), String::from("[file:1:1]: lexeme"));
+        tok.kind = TokenKind::Literal(Literal::U64(0));
+        assert_eq!(format!("{}", tok), String::from("[file:1:1]: 0"));
+        tok.kind = TokenKind::Literal(Literal::U8(0));
+        assert_eq!(format!("{}", tok), String::from("[file:1:1]: 0u8"));
+        tok.kind = TokenKind::Marker(Marker::Arrow);
+        assert_eq!(format!("{}", tok), String::from("[file:1:1]: `->`"));
+        tok.kind = TokenKind::Operator(Operator::Plus);
+        assert_eq!(format!("{}", tok), String::from("[file:1:1]: `+`"));
+        tok.kind = TokenKind::Syscall(1);
+        assert_eq!(format!("{}", tok), String::from("[file:1:1]: syscall(1)"));
+        tok.kind = TokenKind::Type(TypeToken::Base(String::from("T")));
+        assert_eq!(format!("{}", tok), String::from("[file:1:1]: T"));
+    }
+
+    #[test]
+    fn test_syscall_partial_eq() {
+        assert_eq!(TokenKind::Syscall(1), TokenKind::Syscall(2));
+    }
+}

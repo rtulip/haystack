@@ -7,33 +7,70 @@ use crate::types::Typed;
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
 
+/// Unique Identifier for types
+///
+/// This is just a wrapper around a string, which is used as an identifier
+/// for types. The Haystack compiler __MUST__ ensure that Types are uniquely
+/// identifyable from their TypeId.
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TypeId(pub String);
 
 impl TypeId {
+    /// creates a new TypeId.
     pub fn new<S: Into<String>>(id: S) -> Self {
         TypeId(id.into())
     }
 
+    // Checks to see if a TypeId is generic.
+    pub fn is_generic(&self, types: &BTreeMap<TypeId, Type>) -> bool {
+        match types.get(&self) {
+            Some(
+                Type::Bool
+                | Type::Char
+                | Type::Enum { .. }
+                | Type::U64
+                | Type::U8
+                | Type::Function { .. }
+                | Type::Record { .. }
+                | Type::UncheckedFunction { .. },
+            ) => false,
+            Some(Type::Pointer { inner }) => inner.is_generic(types),
+            Some(
+                Type::GenericRecordBase { .. }
+                | Type::GenericRecordInstance { .. }
+                | Type::GenericFunction { .. },
+            )
+            | None => true,
+        }
+    }
+
+    /// Creates a new TypeId from a [`Token`]
+    ///
+    /// Note: panics if `token.kind` is not a [`TypeToken`] and the `token.lexeme`
+    /// is not found in either `types` or `local_types`.  
     pub fn from_token(
         token: &Token,
         types: &mut BTreeMap<TypeId, Type>,
         local_types: &Vec<TypeId>,
     ) -> Result<TypeId, HayError> {
+        // Shortcut to get the type if it can be found easily.
         if types.contains_key(&TypeId::new(&token.lexeme))
             || local_types.iter().any(|t| t.0 == token.lexeme)
         {
             return Ok(TypeId(token.lexeme.clone()));
         }
 
+        // Extract the TypeToken kind
         let typ = match &token.kind {
             TokenKind::Type(typ) => typ,
             _ => panic!("Didn't expect this...: {:?}", token.kind),
         };
 
+        // Get the TypeId using the TypeToken.
         TypeId::from_type_token(token, typ, types, local_types)
     }
 
+    /// Creates a new TypeId from a [`TypeToken`].
     fn from_type_token(
         token: &Token,
         typ: &TypeToken,
@@ -42,12 +79,16 @@ impl TypeId {
     ) -> Result<TypeId, HayError> {
         match typ {
             TypeToken::Array { base, .. } => {
-                let mut map = HashMap::new();
+                // Get the TypeId for the type of the Array TokenType.
+                // For example `u8[100]` has a base TypeId of TypeId("u8").
                 let base_tid = TypeId::from_type_token(token, base, types, local_types)?;
 
-                map.insert(TypeId::new("T"), base_tid);
+                // The `Arr` struct is defined in `prelude.hay` and is generic over T.
+                // Map `T` to// The TypeId generated id dep the base TypeId
+                let map = HashMap::from([(TypeId::new("T"), base_tid)]);
+                // Create a new concrete type of `Arr<base_tid>` by assigning Arr<T> with { T: base_tid}.
                 let arr_tid = TypeId::new("Arr").assign(token, &map, types)?;
-                // TODO: figure out why this doesn't need to be a pointer type...
+
                 Ok(arr_tid)
             }
             TypeToken::Base(base) => {
@@ -71,10 +112,12 @@ impl TypeId {
                         kind,
                         ..
                     }) => {
+                        // Make sure there are right number of annotations.
                         if generics.len() != inner.len() {
                             return Err(HayError::new(format!("Incorrect number of type annotations provided. Expected annotations for {:?}", generics), token.loc.clone()));
                         }
 
+                        // Collect inner types into TypeId's
                         let mut annotations = vec![];
                         for t in inner {
                             annotations.push(TypeId::from_type_token(
@@ -85,7 +128,8 @@ impl TypeId {
                             )?);
                         }
 
-                        if annotations.iter().any(|t| types.get(t).is_none()) {
+                        if annotations.iter().any(|t| t.is_generic(&types)) {
+                            // if any annotation is generic then create a generic record instance.
                             let t = Type::GenericRecordInstance {
                                 base: TypeId::new(base),
                                 base_generics: generics,
@@ -95,16 +139,32 @@ impl TypeId {
                             };
                             let tid = t.id();
 
+                            // Insert the new type into the types map.
                             types.insert(tid.clone(), t);
                             Ok(tid)
                         } else {
+                            // If no annotations are generic, then assign types accordingly.
                             let map: HashMap<TypeId, TypeId> =
                                 generics.into_iter().zip(annotations.into_iter()).collect();
                             base_tid.assign(token, &map, types)
                         }
                     }
-                    Some(_) => Err(HayError::new(
-                        format!("Type {base} cannot be annotated, because it is not generic."),
+                    Some(
+                        Type::Bool
+                        | Type::Char
+                        | Type::U8
+                        | Type::U64
+                        | Type::Enum { .. }
+                        | Type::Pointer { .. }
+                        | Type::Function { .. }
+                        | Type::GenericFunction { .. }
+                        | Type::GenericRecordInstance { .. }
+                        | Type::Record { .. }
+                        | Type::UncheckedFunction { .. },
+                    ) => Err(HayError::new(
+                        format!(
+                            "Type {base} cannot be annotated, because it is not a generic record."
+                        ),
                         token.loc.clone(),
                     )),
                     None => Err(HayError::new(
@@ -114,13 +174,13 @@ impl TypeId {
                 }
             }
             TypeToken::Pointer(inner) => {
+                // Get the TypeId of the inner type to create the pointer type.
                 let inner_typ_id = TypeId::from_type_token(token, inner, types, local_types)?;
                 let t = Type::Pointer {
                     inner: inner_typ_id,
                 };
 
                 let tid = t.id();
-
                 types.insert(tid.clone(), t);
 
                 Ok(tid)
@@ -128,18 +188,42 @@ impl TypeId {
         }
     }
 
+    /// Assigns generics for a TypeId based on a mapping and returns the new TypeId created.
+    ///
+    /// Consider the following example `Haystack` code:
+    /// ```
+    /// fn foo(Arr<u64>: arr) -> [T] { ... }
+    /// ```
+    ///
+    /// When parsing this function's arguments, we need to be able to assign the type `u64`
+    /// to the generic structure `Arr<T>`. That's what this function does.
+    ///
+    /// ```
+    /// let mut types = HashMap::from([
+    ///     (TypeId::new("Arr"), Type::GenericRecord { ... }),
+    ///     (Type::U64.id(), Type::U64),
+    ///     ...
+    /// ]);
+    /// let map = HashMap::from([(TypeId::new("T"), Type::U64.id())]);
+    /// let tid = TypeId::new("Arr");
+    /// let new_tid.assign(&token, map, &mut types)?;
+    /// assert_eq!(new_tid, TypeId::from("Arr<u64>"));
+    /// ```
     pub fn assign(
         &self,
         token: &Token,
         map: &HashMap<TypeId, TypeId>,
         types: &mut BTreeMap<TypeId, Type>,
     ) -> Result<TypeId, HayError> {
+        // If the TypeId is in the map return the concrete type.
         if let Some(new_t) = map.get(self) {
             return Ok(new_t.clone());
         }
 
         let maybe_typ = types.get(self).cloned();
         match maybe_typ {
+            // The TypeId is a known type.
+            // Assignment is done based on what kind of Type it is.
             Some(typ) => match typ {
                 Type::GenericRecordBase {
                     token: base_token,
@@ -149,6 +233,7 @@ impl TypeId {
                     kind,
                     ..
                 } => {
+                    // Assign each member type from the base.
                     let mut resolved_members = vec![];
                     for m in members {
                         resolved_members.push(Member {
@@ -158,18 +243,27 @@ impl TypeId {
                             typ: Typed(m.typ.0.assign(token, map, types)?),
                         });
                     }
+
+                    // Assign each generic
                     let mut resolved_generics = vec![];
                     for t in generics {
                         resolved_generics.push(t.assign(token, map, types)?);
                     }
 
+                    // Construct the new name.
+                    // Type name is of the format:
+                    //     {base}<{rg1} {rg2} ... {rgn}> where rg1.. rg2 are the names of the resolved generics.
+                    //
+                    // Note: This naming convention must adhere to the uniqueness requirements of the Haystack compiler.
+                    // i.e. Two different types must not have the same name.
+                    // This should be sufficient for that.
                     let mut name = format!("{self}<");
                     for t in &resolved_generics[0..resolved_generics.len() - 1] {
                         name = format!("{name}{t} ");
                     }
-
                     let name = TypeId::new(format!("{name}{}>", resolved_generics.last().unwrap()));
 
+                    // Construct a new record type.
                     let t = Type::Record {
                         token: base_token,
                         name: Token {
@@ -180,8 +274,8 @@ impl TypeId {
                         members: resolved_members,
                         kind,
                     };
-
                     types.insert(name.clone(), t);
+
                     Ok(name)
                 }
                 Type::GenericRecordInstance {
@@ -191,6 +285,56 @@ impl TypeId {
                     members,
                     kind,
                 } => {
+                    // Assigning to GenericRecordInstances can be a little bit tricky
+                    // because there's a layer of generics between the mapping used
+                    // as input, and the base generics. It is for this reason, the
+                    // Generic Record Instances have an `alias_list`.
+                    //
+                    // Consider the following Haystack code:
+                    // ```
+                    // struct Foo<T> { T: t }
+                    // fn bar<A B> { Foo<A>: x Foo<B>: y} { .. }
+                    // ```
+                    //
+                    // The function `bar`'s signature looks like this in the IR:
+                    // ```
+                    // Signature {
+                    //     inputs: vec![
+                    //         Type::GenericRecordInstance {
+                    //             base: "Foo",
+                    //             base_generics: vec!["T"],
+                    //             alias_list: vec!["A"],
+                    //             members: base_members.clone(),
+                    //             ...
+                    //         }
+                    //         Type::GenericRecordInstance {
+                    //             base: "Foo",
+                    //             base_generics: vec!["T"],
+                    //             alias_list: vec!["B"],
+                    //             members: base_members.clone(),
+                    //             ...
+                    //         }
+                    //     ],
+                    //     outputs: vec![],
+                    //     generics:
+                    // }
+                    // ```
+                    //
+                    // During type assignment, a map is provided for the generics,
+                    // such as { "A": "u64", "B": "char"}. Since the GenericRecordInstance's
+                    // members are copies of the base's, blindly assigning to the members
+                    // would not correctly account for the aliasing.
+                    //
+                    // As such, first an alias map is constructed from the alias_list and
+                    // base_generics. In this example, the resulting alias map looks like
+                    // this: {"T" : "A"} and {"T": "B"} for the two instances respectively.
+                    //
+                    // Then we create the map which will be used for assignment. This looks
+                    // like: {"T:" : "u64"} and {"T": "char"} respectively in our example.
+                    //
+                    // Now that we have properly addressed the generics aliasing, members
+                    // can be resolved, a name generated, and the new record can be created.
+
                     let alias_map: HashMap<TypeId, TypeId> = HashMap::from_iter(
                         base_generics
                             .clone()
@@ -198,11 +342,13 @@ impl TypeId {
                             .zip(alias_list.into_iter()),
                     );
 
+                    // Build the mapping which will be used for assigning members.
                     let mut aliased_generics = HashMap::new();
                     for (k, v) in &alias_map {
                         aliased_generics.insert(k.clone(), v.clone().assign(token, map, types)?);
                     }
 
+                    // Resolve each member.
                     let mut resolved_members = vec![];
                     for member in members {
                         resolved_members.push(Member {
@@ -213,6 +359,7 @@ impl TypeId {
                         });
                     }
 
+                    // Create a list of resolved generics in order of the base generics.
                     let mut resolved_generics = vec![];
                     for gen in base_generics {
                         resolved_generics.push(gen.assign(token, &aliased_generics, types)?)
@@ -246,6 +393,7 @@ impl TypeId {
                     Ok(tid)
                 }
                 Type::Pointer { inner } => {
+                    // Assign to the inner type and generate a new type if needed.
                     let inner = inner.assign(token, map, types)?;
                     let t = Type::Pointer { inner };
                     let id: TypeId = t.id();
@@ -267,8 +415,14 @@ impl TypeId {
                     generics,
                     body,
                 } => {
+                    // During type checking, generic functions will be called and then
+                    // will need to be monomorphised. Signature::evaluate() will return
+                    // the mapping of geneircs which will be used, thus GenericFunctions
+                    // will never need to be resolved.
+
+                    // Make sure that each generic is mapped.
                     if !generics.iter().all(|tid| map.contains_key(tid))
-                        && map.len() == generics.len()
+                        || map.len() != generics.len()
                     {
                         return Err(HayError::new(
                             "Bad mapping to monomporphize funcion",
@@ -281,6 +435,7 @@ impl TypeId {
                         .with_hint(format!("Found mapping: {:?}", map)));
                     }
 
+                    // Generate the new name
                     let mut name_string = format!("{}<", name.lexeme);
                     for tid in &generics[0..generics.len() - 1] {
                         name_string = format!("{name_string}{} ", tid.assign(token, map, types)?);
@@ -290,8 +445,8 @@ impl TypeId {
                         generics.last().unwrap().assign(token, map, types)?
                     );
 
+                    // Exit early if the monomorphised function already exists.
                     let tid = TypeId::new(&name_string);
-
                     if types.contains_key(&tid) {
                         return Ok(tid);
                     }
@@ -314,6 +469,7 @@ impl TypeId {
                         });
                     }
 
+                    // Create a new unchecked function to make sure it gets type checked.
                     let new_fn = Type::UncheckedFunction {
                         token: fn_token,
                         name: Token {
@@ -348,6 +504,39 @@ impl TypeId {
         }
     }
 
+    /// Resolves a potentialy generic type from a concrete type and creates a mapping
+    /// of any generics that are found.
+    ///
+    /// Conider the following `Haystack` code:
+    /// ```
+    /// fn foo<T>(*T: ptr) { ... }
+    /// fn main() {
+    ///     var u64: bar
+    ///     var bool[100]: baz
+    ///
+    ///     bar foo     // (1)
+    /// }
+    /// ```
+    ///
+    /// When we call foo, we need to make sure it's inputs are correct, but it's
+    /// signature is generic. On line (1), the stack has a single `*u64` on it, which
+    /// we want to make sure is an appropriate argument for `foo`. That's what this
+    /// function does.
+    ///
+    /// ```
+    /// let mut types = HashMap::from([
+    ///     (TypeId::new("*T"), Type::Pointer{ inner: TypeId::new("T") })
+    ///     (TypeId::new("*u64"), Type::Pointer{ inner: TypeId::new("u64") })
+    ///     (Type::U64.id(), Type::U64),
+    ///     ...
+    /// ]);
+    /// let mut map = HashMap::new();
+    /// let gen_t = TypeId::new("*T"),
+    /// let concrete_t = TypeId::new("*u64");
+    /// let new_t = gen_t.resolve(token, &concrete_t, &mut map, &mut types)?;
+    /// assert_eq!(new_t, concrete_t);
+    /// assert_eq!(map.get(&TypeId::new("T")).unwrap(), &Type::U64.id());
+    /// ```
     pub fn resolve(
         &self,
         token: &Token,
@@ -357,6 +546,9 @@ impl TypeId {
     ) -> Result<Self, HayError> {
         match (types.get(self).cloned(), types.get(concrete).cloned()) {
             (None, None) => {
+                // Two types not found in map. i.e. both are placeholder types.
+
+                // Make sure they are the same placeholder.
                 if self != concrete {
                     return Err(HayError::new(
                         format!("Cannot resolve generic type {self} from {concrete}"),
@@ -364,6 +556,7 @@ impl TypeId {
                     ));
                 }
 
+                // Makesure the map contains te placeholder's value.
                 if !map.contains_key(concrete) {
                     return Err(HayError::new(
                         format!("Generic type {self} has not been mapped to a concrete type."),
@@ -373,9 +566,13 @@ impl TypeId {
                     .with_hint(format!("{:?}", map)));
                 }
 
+                // Return the mapped value.
                 Ok(map.get(self).unwrap().clone())
             }
             (None, Some(_)) => {
+                // Self is a placeholder and concrete is a value.
+
+                // Map the placeholder to the concrete value & check for collisions.
                 if let Some(prev) = map.insert(self.clone(), concrete.clone()) {
                     if &prev != concrete {
                         return Err(HayError::new_type_err(
@@ -399,6 +596,7 @@ impl TypeId {
                     inner: inner_concrete,
                 }),
             ) => {
+                // Resolve the pointer's inner type.
                 let p = Type::Pointer {
                     inner: inner.resolve(token, &inner_concrete, map, types)?,
                 };
@@ -407,6 +605,7 @@ impl TypeId {
                 Ok(tid)
             }
             (Some(Type::Record { kind, .. }), Some(Type::Record { .. })) => {
+                // Make sure it's the same record.
                 if self != concrete {
                     return Err(HayError::new_type_err(
                         format!("Cannot resolve {kind} {self} from {concrete}."),
@@ -416,10 +615,6 @@ impl TypeId {
 
                 Ok(self.clone())
             }
-            (Some(Type::Record { .. }), Some(_)) => Err(HayError::new_type_err(
-                format!("Cannot resolve {self} from {concrete}"),
-                token.loc.clone(),
-            )),
             (
                 Some(Type::GenericRecordInstance {
                     members: generic_members,
@@ -430,6 +625,9 @@ impl TypeId {
                 }),
                 Some(Type::Record { members, name, .. }),
             ) => {
+                // Can resolve a generic record instance from a concrete record, if and only if
+                // the concrete record is derived from the same base.
+
                 if !name.lexeme.starts_with(&base.0) {
                     return Err(HayError::new(
                         format!("Cannot resolve {kind} {base} from {}", name.lexeme),
@@ -439,6 +637,7 @@ impl TypeId {
 
                 assert!(members.len() == generic_members.len());
 
+                // resolve each member from the concrete record's members.
                 for (generic, concrete) in generic_members.iter().zip(members) {
                     generic.typ.0.resolve(token, &concrete.typ.0, map, types)?;
                 }
@@ -463,6 +662,7 @@ impl TypeId {
                     ..
                 }),
             ) => {
+                // Make sure enums are of the same type.
                 if name.lexeme != concrete_name.lexeme {
                     return Err(HayError::new(
                         format!(
@@ -476,6 +676,7 @@ impl TypeId {
                 Ok(concrete.clone())
             }
 
+            // Cover all the cases of mismatched types.
             (Some(Type::Pointer { .. }), _)
             | (Some(Type::Bool), _)
             | (Some(Type::Char), _)
@@ -497,12 +698,11 @@ impl TypeId {
                     | Type::Function { .. },
                 ),
                 _,
-            ) => {
-                unreachable!("Functions should never be part of type resolution.")
-            }
+            ) => unreachable!("Functions should never be part of type resolution."),
         }
     }
 
+    /// Gets the size of a type in bytes.
     pub fn size(&self, types: &BTreeMap<TypeId, Type>) -> Result<usize, HayError> {
         match types.get(self).unwrap() {
             Type::Bool
@@ -559,6 +759,7 @@ impl std::fmt::Display for TypeId {
     }
 }
 
+/// Representation of the different kinds of records.
 #[derive(Debug, Clone, Copy)]
 pub enum RecordKind {
     Struct,
@@ -574,40 +775,90 @@ impl std::fmt::Display for RecordKind {
     }
 }
 
+/// Representation of Types within Haystack.
+///
+/// Each non-function type has a unique [`TypeId`]. This uniqueness must be upheld by the compiler.
+///
+/// There are 4 base built-in types: [`Type::U8`], [`Type::U64`], [`Type::Char`], and [`Type::Bool`].
+///
+/// More complex types can be built from these built-in types.
+/// * [`Type::Pointer`] represents a pointer and holds the [`TypeId`] of an inner type.
+/// * [`Type::Record`] represents both concrete and monomorphized structs and unions.
+/// * [`Type::GenericRecordBase`] represents the definition of generic structs and unions.
+/// * [`Type::GenericRecordInstance`] represents the use of a geneirc struct or enum in a type signature or annotation.
+/// * [`Type::Enum`] is a basic c-style enumeration
+/// * [`Type::GenericFunction`] represents the definition of a function which is generic over some types.
+/// * [`Type::UncheckedFunction`] represents functions which have not yet been type-checked. None-must remain before code generation.
+/// * [`Type::Function`] represents final type-checked functions.
 #[derive(Debug, Clone)]
 pub enum Type {
+    /// Built-in unsigned 8-bit integer.
     U8,
+    /// Built-in unsigned 64 bit integer.
     U64,
+    /// Built-in character type.
     Char,
+    /// Built-in boolean.
     Bool,
+    /// Pointer type.
     Pointer {
+        /// The type being pointed to.
         inner: TypeId,
     },
+    /// Record types represent struct and union.
     Record {
+        /// The token of the `struct` or `union` keywords.
         token: Token,
+        /// The token containing the name of the record.
         name: Token,
+        /// The members of the struct or union.
+        /// The compiler MUST guarantee that these types are known within the `types` map during compilation.
         members: Vec<Member<Typed>>,
+        /// A flag to indicate if the record is a struct or union.
         kind: RecordKind,
     },
+    /// Type to represent the definition of a generic record.
     GenericRecordBase {
+        /// The token of the `struct` or `union` keywords.
         token: Token,
+        /// The token containing the name of the record.
         name: Token,
+        /// What types the record is generic over.
+        /// Note: The order of these types DOES matter for type resolution and assignment.
+        /// Note: These types will not appear in the `types` map during compilation.
         generics: Vec<TypeId>,
+        /// The members of the struct or union.
+        /// These types are allowed to not be present within the `types` map during compilation.
         members: Vec<Member<Typed>>,
+        /// A flag to indicate if the record is a struct or union.
         kind: RecordKind,
     },
+    /// Type to represent the instantiation of a generic record
     GenericRecordInstance {
-        base: TypeId, //
+        /// The [`Type::GenericRecordBase`] which this instance originates from.
+        base: TypeId,
+        /// A copy of the [`Type::GenericRecordBase`]'s generics
         base_generics: Vec<TypeId>,
+        /// A list of [`TypeId`] the same length as `base_generics`.
+        /// This is used to create a mapping from the base generics types within the local scope.
         alias_list: Vec<TypeId>,
+        /// The members of the struct or union.
+        /// These types are allowed to not be present within the `types` map during compilation.
         members: Vec<Member<Typed>>,
+        /// A flag to indicate if the record is a struct or union.
         kind: RecordKind,
     },
+    /// Representation of a simple c-style enum
     Enum {
+        /// Token of the `enum` keyword
         token: Token,
+        /// Token containing the name of the enum.
         name: Token,
+        /// List of tokens for each variant of the enum.
         variants: Vec<Token>,
     },
+    /// Represents a generic function.
+    /// Generic Functions are not type checked.
     GenericFunction {
         token: Token,
         name: Token,
@@ -616,6 +867,7 @@ pub enum Type {
         generics: Vec<TypeId>,
         body: Vec<UntypedExpr>,
     },
+    /// Represents a concrete function that needs to be type checked.
     UncheckedFunction {
         token: Token,
         name: Token,
@@ -624,6 +876,7 @@ pub enum Type {
         body: Vec<UntypedExpr>,
         generic_map: Option<HashMap<TypeId, TypeId>>,
     },
+    /// Represents a function that has been type checked.
     Function {
         token: Token,
         name: Token,
@@ -635,6 +888,7 @@ pub enum Type {
 }
 
 impl Type {
+    /// Builds the unique [`TypeId`] for a given type.
     pub fn id(&self) -> TypeId {
         match self {
             Type::U64 => TypeId::new("u64"),
@@ -666,6 +920,60 @@ impl Type {
 }
 
 type Predicate = dyn Fn(&Vec<TypeId>, &BTreeMap<TypeId, Type>) -> bool;
+
+/// A Structure to describe changes to the stack.
+///
+/// During type checking, each [`crate::ast::expr::Expr`] will manipulate the
+/// stack. That manipulation is represented with a Signature.
+///
+/// Signatures can be generic, as to allow for type checking generic function
+/// calls.
+///
+/// Additionally, signatures can have a Predicate, which is a condition that
+/// must be true in order for the Signature to evaulate successfully.
+///
+/// For example the `==` and `!=` operators accept the following signatures:
+///
+///     1. [u64  u64 ] -> [bool]
+///     2. [u8   u8  ] -> [bool]
+///     3. [char char] -> [bool]
+///     4. [*T   *T  ] -> [bool]
+///     5. [E    E   ] -> [bool] where E is an enum.
+///
+/// The first three are trivial to construct:
+/// ```rust
+/// let sig = Signature::new(
+///     vec![Type::U64.id(), Type::U64.id()],
+///     vec![Type::Bool.id()]
+/// );
+/// ```
+///
+/// Constructing the 4th requires making a generic signature:
+/// ```
+/// let generic_sig = Signature::new_generic(
+///     vec![TypeId::new("*T"), TypeId::new("*T")]  // Create the TypeId for the generic types
+///     vec![Type::Bool.id()]
+///     vec![TypeId::new("T")]                      // Include the base generics
+/// );
+/// ```
+///
+/// The 5th requires a predicate, which can be added after building the Signature.
+/// ```
+/// let enums_sig = Signature::new_generic(
+///     vec![TypeId::new("E"), TypeId::new("E")],
+///     vec![Type::Bool.id()],
+///     vec![TypeId::new("E")]
+/// ).with_predicate(
+///     &|inputs, types| match (types.get(&inputs[0]), types.get(&inputs[1])) {
+///         (
+///             Some(Type::Enum { name: left, .. }),
+///             Some(Type::Enum { name: right, .. }),
+///         ) => left.lexeme == right.lexeme,
+///         _ => false,
+///     },
+///     "E is an enum",
+/// );
+/// ```
 #[derive(Clone)]
 pub struct Signature<'pred> {
     pub inputs: Vec<TypeId>,
@@ -675,6 +983,14 @@ pub struct Signature<'pred> {
 }
 
 impl<'pred> Signature<'pred> {
+    /// Constructs a new signature.
+    /// ```
+    /// // [u64 Str] -> [bool]
+    /// let sig = Signature::new(
+    ///     vec![Type::U64.id(), TypeId::new("Str")],
+    ///     vec![Type::Bool.id()]
+    /// );
+    /// ```
     pub fn new(inputs: Vec<TypeId>, outputs: Vec<TypeId>) -> Self {
         Self {
             inputs,
@@ -684,6 +1000,25 @@ impl<'pred> Signature<'pred> {
         }
     }
 
+    /// Construct a new generic signature.
+    /// ```
+    /// // [*T u64] -> [*T]
+    /// let sig = Signature::new(
+    ///     vec![TypeId::new("*T"), Type::U64.id()],
+    ///     vec![TypeId::new("*T")],
+    ///     vec![TypeId::new("T")]  // indicate that sig is generic over `T`
+    /// );
+    /// ```
+    pub fn new_generic(inputs: Vec<TypeId>, outputs: Vec<TypeId>, generics: Vec<TypeId>) -> Self {
+        Self {
+            inputs,
+            outputs,
+            generics: Some(generics),
+            predicate: None,
+        }
+    }
+
+    /// Constructs an optionally generic signature.
     pub fn new_maybe_generic(
         inputs: Vec<TypeId>,
         outputs: Vec<TypeId>,
@@ -697,6 +1032,21 @@ impl<'pred> Signature<'pred> {
         }
     }
 
+    /// Adds a predicate to a Signature.
+    ///
+    /// Note: panics if `self` alreayd has a predicate.
+    ///
+    /// ```
+    /// // [T] -> [] where sizeOf(T) == 1
+    /// let sig = Signature::new_generic(
+    ///     vec![TypeId::new("T")],
+    ///     vec![],
+    ///     vec![TypeId::new("T")],
+    /// ).with_predicate(
+    ///     &|inputs, types| inputs[0].size(types) == 1,
+    ///     "sizeOf(T) == 1"
+    /// );
+    /// ```
     pub fn with_predicate<S>(self, predicate: &'pred Predicate, message: S) -> Self
     where
         S: Into<String>,
@@ -713,12 +1063,37 @@ impl<'pred> Signature<'pred> {
         }
     }
 
+    /// Consumes the top of the stack if it matches the Signature's inputs
+    /// then pushes the outputs onto the stack.
+    ///
+    /// Adds newly monomorphized types into the `types` map.
+    ///
+    /// Returns a map of assigned generic types if the Signature was generic.
+    ///
+    /// ```
+    /// // The initial stack has a `u64` on it.
+    /// let mut stack = vec![Type::U64.id()];
+    ///
+    /// // [u64] -> [bool]
+    /// Signature::new(vec![Type::U64.id()],vec![Type::Bool.id()])
+    ///     .evaluate(&token, &mut stack, &mut types);
+    /// assert_eq!(&stack, &vec![TypeId::Bool.id()]);
+    ///
+    /// Signature::new_generic(
+    ///     vec![TypeId::new("T")],
+    ///     vec![TypeId::new("T"), TypeId::new("T")],
+    ///     vec![TypeId::new("T")]
+    /// ).evaluate(&token, &mut stack, &mut types);
+    /// assert_eq!(&stack, &vec![TypeId::Bool.id(), TypeId::Bool.id()]);
+    /// ```
     pub fn evaluate(
         &self,
         token: &Token,
         stack: &mut Vec<TypeId>,
         types: &mut BTreeMap<TypeId, Type>,
     ) -> Result<Option<HashMap<TypeId, TypeId>>, HayError> {
+        // Make sure the stack has at least as many elements as the inputs.
+        // This ensures that the stack doesn't underflow.
         if stack.len() < self.inputs.len() {
             return Err(HayError::new_type_err(
                 format!("Invalid number of inputs for {:?}", token.lexeme),
@@ -728,9 +1103,14 @@ impl<'pred> Signature<'pred> {
             .with_hint(format!("Found:    {:?}", stack)));
         }
 
+        // Need to resolve the generics if `self` is generic.
+        // Don't want to copy `self` otherwise.
         let mut map = None;
         let mut to_resolve;
         let sig = if self.generics.is_some() {
+            // Need to clone to make `self` mutable for resolution.
+            // Don't want to take in &mut self, because most signatures should
+            // be constant, such as function signatures
             to_resolve = self.clone();
             map = to_resolve.resolve(token, stack, types)?;
             &to_resolve
@@ -738,6 +1118,7 @@ impl<'pred> Signature<'pred> {
             self
         };
 
+        // Check that each input matches the element on the stack.
         for (input, stk) in sig.inputs.iter().rev().zip(stack.iter().rev()) {
             if input != stk {
                 return Err(HayError::new_type_err(
@@ -757,6 +1138,7 @@ impl<'pred> Signature<'pred> {
             }
         }
 
+        // If the signature has a predicate, evaulate it.
         if let Some((pred, msg)) = &sig.predicate {
             if !pred(&sig.inputs, types) {
                 return Err(HayError::new_type_err(
@@ -775,23 +1157,31 @@ impl<'pred> Signature<'pred> {
                 )));
             }
         }
+
+        // Pop the inputs off of the stack, since by this point it's been
+        // checked that the inputs matched the stack.
         for _ in &sig.inputs {
             stack.pop();
         }
 
+        // Push the outputs onto the stack.
         for out in &sig.outputs {
             stack.push(out.clone());
         }
 
+        // Return the map that might have been used during type resolution.
         Ok(map)
     }
 
+    /// Evaluates multiple signatures and applies the first which succeeds.
     pub fn evaluate_many(
         sigs: &[Signature],
         token: &Token,
         stack: &mut Vec<TypeId>,
         types: &mut BTreeMap<TypeId, Type>,
     ) -> Result<Option<HashMap<TypeId, TypeId>>, HayError> {
+        // Make sure that each signature has the same "shape"
+        // This might not be strctly nessisary.
         let in_len = sigs[0].inputs.len();
         let out_len = sigs[0].outputs.len();
         if !sigs
@@ -809,12 +1199,15 @@ impl<'pred> Signature<'pred> {
             return Err(e);
         }
 
+        // Evaluate each Signature & return early if successful.
         for sig in sigs {
             if let Ok(x) = sig.evaluate(token, stack, types) {
                 return Ok(x);
             }
         }
 
+        // Build a nice error message.
+        // If this point is reached, none of the signatures evaluated successfully.
         let mut e = HayError::new_type_err(
             format!("Invalid inputs for {}", token.kind),
             token.loc.clone(),
@@ -847,14 +1240,22 @@ impl<'pred> Signature<'pred> {
         Err(e)
     }
 
+    /// Resolves each type in the signature based on the stack.
     fn resolve(
         &mut self,
         token: &Token,
         stack: &mut [TypeId],
         types: &mut BTreeMap<TypeId, Type>,
     ) -> Result<Option<HashMap<TypeId, TypeId>>, HayError> {
+        // No work to do if the signature isn't generic.
+        if self.generics.is_none() {
+            return Ok(None);
+        }
+
         let mut map = HashMap::new();
         let len = self.inputs.len();
+
+        // Resolve each type based on the concrete type found on the stack.
         for (t, concrete) in self
             .inputs
             .iter_mut()
@@ -862,23 +1263,26 @@ impl<'pred> Signature<'pred> {
         {
             *t = t.resolve(token, concrete, &mut map, types)?;
         }
+
+        // Given the generic mapping created from the resolution of the inputs,
+        // assign each output accordingly.
         for t in &mut self.outputs {
             *t = t.assign(token, &map, types)?;
         }
 
-        if map.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(map))
-        }
+        assert!(!map.is_empty(), "Map should be non-empty at this point");
+        Ok(Some(map))
     }
 
+    /// Assigns a mapping to each type in the signature.
     pub fn assign(
         &mut self,
         token: &Token,
         annotations: &[TypeId],
         types: &mut BTreeMap<TypeId, Type>,
     ) -> Result<(), HayError> {
+        // Check that the signature is generic. Doesn't make sense to assign
+        // geneircs to a non-geneirc Signature.
         if self.generics.is_none() {
             return Err(HayError::new_type_err(
                 "Cannot assign to non-generic signature.",
@@ -886,6 +1290,20 @@ impl<'pred> Signature<'pred> {
             ));
         }
 
+        // Make sure that the annotations are of the right length.
+        if self.generics.as_ref().unwrap().len() != annotations.len() {
+            return Err(HayError::new_type_err(
+                format!(
+                    "Signature expected {} annotations for geneircs: {:?}, but found {:?}",
+                    self.generics.as_ref().unwrap().len(),
+                    self.generics.as_ref().unwrap(),
+                    annotations
+                ),
+                token.loc.clone(),
+            ));
+        }
+
+        // Create the map needed by TypeId::assign.
         let map: HashMap<TypeId, TypeId> = HashMap::from_iter(
             self.generics
                 .as_ref()
@@ -895,14 +1313,17 @@ impl<'pred> Signature<'pred> {
                 .zip(annotations.iter().cloned()),
         );
 
+        // Assign to each input
         for t in &mut self.inputs {
             *t = t.assign(token, &map, types)?;
         }
 
+        // Assign to each output
         for t in &mut self.outputs {
             *t = t.assign(token, &map, types)?;
         }
 
+        // Since the signature has been assigned, it should no longer be generic.
         self.generics = None;
 
         Ok(())
@@ -913,7 +1334,7 @@ impl<'pred> std::fmt::Debug for Signature<'pred> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "inputs: {:?} outputs: {:?}",
+            "{:?} -> {:?}",
             self.inputs.iter().map(|t| &t.0).collect::<Vec<&String>>(),
             self.outputs.iter().map(|t| &t.0).collect::<Vec<&String>>(),
         )?;

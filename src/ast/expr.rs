@@ -330,10 +330,10 @@ impl UntypedExpr {
                                 Signature::new(vec![Type::U8.id()], vec![Type::U64.id()]),
                                 Signature::new(vec![Type::Bool.id()], vec![Type::U64.id()]),
                                 Signature::new(vec![Type::Char.id()], vec![Type::U64.id()]),
-                                Signature::new_maybe_generic(
+                                Signature::new_generic(
                                     vec![TypeId::new("*T")],
                                     vec![Type::U64.id()],
-                                    Some(vec![TypeId::new("T")]),
+                                    vec![TypeId::new("T")],
                                 ),
                             ],
                             token,
@@ -364,10 +364,10 @@ impl UntypedExpr {
                     Type::GenericRecordBase {
                         generics, members, ..
                     } => {
-                        Signature::new_maybe_generic(
+                        Signature::new_generic(
                             members.iter().map(|m| m.typ.0.clone()).collect(),
                             vec![typ_id.clone()],
-                            Some(generics.clone()),
+                            generics.clone(),
                         )
                         .evaluate(token, stack, types)?;
                         Ok(())
@@ -535,10 +535,10 @@ impl UntypedExpr {
                                     vec![Type::U8.id()],
                                 ),
                                 // *T == *T    -> bool
-                                Signature::new_maybe_generic(
+                                Signature::new_generic(
                                     vec![TypeId::new("*T"), TypeId::new("*T")],
                                     vec![Type::U64.id()],
-                                    Some(vec![TypeId::new("T")]),
+                                    vec![TypeId::new("T")],
                                 ),
                             ];
 
@@ -625,15 +625,15 @@ impl UntypedExpr {
                                         vec![Type::Bool.id()],
                                     ),
                                     // *T == *T   -> bool
-                                    Signature::new_maybe_generic(
+                                    Signature::new_generic(
                                         vec![TypeId::new("*T"), TypeId::new("*T")],
                                         vec![Type::Bool.id()],
-                                        Some(vec![TypeId::new("T")]),
+                                        vec![TypeId::new("T")],
                                     ),
-                                    Signature::new_maybe_generic(
+                                    Signature::new_generic(
                                         vec![TypeId::new("E"), TypeId::new("E")],
                                         vec![Type::Bool.id()],
-                                        Some(vec![TypeId::new("E")]),
+                                        vec![TypeId::new("E")],
                                     )
                                     .with_predicate(
                                         &|inputs, types| match (
@@ -669,15 +669,15 @@ impl UntypedExpr {
                                         vec![Type::U8.id(), Type::U8.id()],
                                         vec![Type::Bool.id()],
                                     ),
-                                    Signature::new_maybe_generic(
+                                    Signature::new_generic(
                                         vec![TypeId::new("*T"), TypeId::new("*T")],
                                         vec![Type::Bool.id()],
-                                        Some(vec![TypeId::new("T")]),
+                                        vec![TypeId::new("T")],
                                     ),
-                                    Signature::new_maybe_generic(
+                                    Signature::new_generic(
                                         vec![TypeId::new("E"), TypeId::new("E")],
                                         vec![Type::Bool.id()],
-                                        Some(vec![TypeId::new("E")]),
+                                        vec![TypeId::new("E")],
                                     )
                                     .with_predicate(
                                         &|inputs, types| match (
@@ -720,20 +720,20 @@ impl UntypedExpr {
                             Ok(())
                         }
                         Operator::Read => {
-                            Signature::new_maybe_generic(
+                            Signature::new_generic(
                                 vec![TypeId::new("*T")],
                                 vec![TypeId::new("T")],
-                                Some(vec![TypeId::new("T")]),
+                                vec![TypeId::new("T")],
                             )
                             .evaluate(op_tok, stack, types)?;
 
                             Ok(())
                         }
                         Operator::Write => {
-                            Signature::new_maybe_generic(
+                            Signature::new_generic(
                                 vec![TypeId::new("T"), TypeId::new("*T")],
                                 vec![],
-                                Some(vec![TypeId::new("T")]),
+                                vec![TypeId::new("T")],
                             )
                             .evaluate(op_tok, stack, types)?;
 

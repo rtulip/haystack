@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parse_bad_block_open.hay:1:19] Error: Expected `{` at start of block, but found `u64` instead.\n"
-}

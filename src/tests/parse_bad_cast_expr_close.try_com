@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parse_bad_cast_expr_close.hay:3:13] Error: Expected `)` after `cast`, but found `]`\n"
-}

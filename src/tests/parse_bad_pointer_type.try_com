@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parse_bad_pointer_type.hay:1:8] Error: Expected type after `*`, but found `)` instead.\n"
-}

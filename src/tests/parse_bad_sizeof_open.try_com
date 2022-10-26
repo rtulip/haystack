@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parse_bad_sizeof_open.hay:3:11] Error: Expected `(` after `sizeOf`, but found `[` instead.\n"
-}

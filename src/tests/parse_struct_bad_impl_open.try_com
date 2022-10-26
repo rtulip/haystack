@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parse_struct_bad_impl_open.hay:5:5] Error: Expected `:` after `impl`, but found `fn`\n"
-}

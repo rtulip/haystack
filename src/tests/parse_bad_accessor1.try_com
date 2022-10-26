@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parse_bad_accessor1.hay:3:10] Error: Expected either an identifier or `<` after `::`, but found `u64` instead.\n"
-}

@@ -195,371 +195,371 @@ mod tests {
 
     #[test]
     fn array() -> Result<(), std::io::Error> {
-        run_test("array")
+        run_test("functional/array")
     }
 
     #[test]
     fn auto_functions() -> Result<(), std::io::Error> {
-        run_test("auto_functions")
+        run_test("functional/auto_functions")
     }
 
     #[test]
     fn cat() -> Result<(), std::io::Error> {
-        run_test("cat")
+        run_test("functional/cat")
     }
 
     #[test]
     fn r#enum() -> Result<(), std::io::Error> {
-        run_test("enum")
+        run_test("functional/enum")
     }
 
     #[test]
     fn generic_struct() -> Result<(), std::io::Error> {
-        run_test("generic_struct")
+        run_test("functional/generic_struct")
     }
 
     #[test]
     fn hello_world() -> Result<(), std::io::Error> {
-        run_test("hello_world")
+        run_test("functional/hello_world")
     }
 
     #[test]
     fn if_else() -> Result<(), std::io::Error> {
-        run_test("if_else")
+        run_test("functional/if_else")
     }
 
     #[test]
     fn r#impl() -> Result<(), std::io::Error> {
-        run_test("impl")
+        run_test("functional/impl")
     }
 
     #[test]
     fn linear_map() -> Result<(), std::io::Error> {
-        run_test("linear_map")
+        run_test("functional/linear_map")
     }
 
     #[test]
     fn local() -> Result<(), std::io::Error> {
-        run_test("local")
+        run_test("functional/local")
     }
 
     #[test]
     fn math() -> Result<(), std::io::Error> {
-        run_test("math")
+        run_test("functional/math")
     }
 
     #[test]
     fn nested_ident() -> Result<(), std::io::Error> {
-        run_test("nested_ident")
+        run_test("functional/nested_ident")
     }
 
     #[test]
     fn option() -> Result<(), std::io::Error> {
-        run_test("option")
+        run_test("functional/option")
     }
 
     #[test]
     fn pointer() -> Result<(), std::io::Error> {
-        run_test("pointer")
+        run_test("functional/pointer")
     }
 
     #[test]
     fn scoped_as() -> Result<(), std::io::Error> {
-        run_test("scoped_as")
+        run_test("functional/scoped_as")
     }
 
     #[test]
     fn stacks() -> Result<(), std::io::Error> {
-        run_test("stacks")
+        run_test("functional/stacks")
     }
 
     #[test]
     fn struct_accessors() -> Result<(), std::io::Error> {
-        run_test("struct_accessors")
+        run_test("functional/struct_accessors")
     }
 
     #[test]
     fn r#struct() -> Result<(), std::io::Error> {
-        run_test("struct")
+        run_test("functional/struct")
     }
 
     #[test]
     fn r#union() -> Result<(), std::io::Error> {
-        run_test("union")
+        run_test("functional/union")
     }
 
     #[test]
     fn scan_unexpected_char() -> Result<(), std::io::Error> {
-        run_test("scan_unexpected_char")
+        run_test("scanner/scan_unexpected_char")
     }
 
     #[test]
     fn scan_bad_number_literal() -> Result<(), std::io::Error> {
-        run_test("scan_bad_number_literal")
+        run_test("scanner/scan_bad_number_literal")
     }
 
     #[test]
     fn scan_bad_u8() -> Result<(), std::io::Error> {
-        run_test("scan_bad_u8")
+        run_test("scanner/scan_bad_u8")
     }
 
     #[test]
     fn scan_unterminated_char() -> Result<(), std::io::Error> {
-        run_test("scan_unterminated_char")
+        run_test("scanner/scan_unterminated_char")
     }
 
     #[test]
     fn scan_unterminated_string() -> Result<(), std::io::Error> {
-        run_test("scan_unterminated_string")
+        run_test("scanner/scan_unterminated_string")
     }
 
     #[test]
     fn scan_bad_escaped_char() -> Result<(), std::io::Error> {
-        run_test("scan_bad_escaped_char")
+        run_test("scanner/scan_bad_escaped_char")
     }
 
     #[test]
     fn parse_as_block_bad_close() -> Result<(), std::io::Error> {
-        run_test("parse_as_block_bad_close")
+        run_test("parser/parse_as_block_bad_close")
     }
 
     #[test]
     fn parse_as_block_bad_open() -> Result<(), std::io::Error> {
-        run_test("parse_as_block_bad_open")
+        run_test("parser/parse_as_block_bad_open")
     }
 
     #[test]
     fn parse_bad_accessor1() -> Result<(), std::io::Error> {
-        run_test("parse_bad_accessor1")
+        run_test("parser/parse_bad_accessor1")
     }
 
     #[test]
     fn parse_bad_accessor2() -> Result<(), std::io::Error> {
-        run_test("parse_bad_accessor2")
+        run_test("parser/parse_bad_accessor2")
     }
 
     #[test]
     fn parse_bad_accessor3() -> Result<(), std::io::Error> {
-        run_test("parse_bad_accessor3")
+        run_test("parser/parse_bad_accessor3")
     }
 
     #[test]
     fn parse_bad_annotated_call_close() -> Result<(), std::io::Error> {
-        run_test("parse_bad_annotated_call_close")
+        run_test("parser/parse_bad_annotated_call_close")
     }
 
     #[test]
     fn parse_bad_annotated_type() -> Result<(), std::io::Error> {
-        run_test("parse_bad_annotated_type")
+        run_test("parser/parse_bad_annotated_type")
     }
 
     #[test]
     fn parse_bad_arg_identifier() -> Result<(), std::io::Error> {
-        run_test("parse_bad_arg_identifier")
+        run_test("parser/parse_bad_arg_identifier")
     }
 
     #[test]
     fn parse_bad_array_var_close() -> Result<(), std::io::Error> {
-        run_test("parse_bad_array_var_close")
+        run_test("parser/parse_bad_array_var_close")
     }
 
     #[test]
     fn parse_bad_array_var_size() -> Result<(), std::io::Error> {
-        run_test("parse_bad_array_var_size")
+        run_test("parser/parse_bad_array_var_size")
     }
 
     #[test]
     fn parse_bad_block_close() -> Result<(), std::io::Error> {
-        run_test("parse_bad_block_close")
+        run_test("parser/parse_bad_block_close")
     }
 
     #[test]
     fn parse_bad_block_open() -> Result<(), std::io::Error> {
-        run_test("parse_bad_block_open")
+        run_test("parser/parse_bad_block_open")
     }
 
     #[test]
     fn parse_bad_body_after_function_name() -> Result<(), std::io::Error> {
-        run_test("parse_bad_body_after_function_name")
+        run_test("parser/parse_bad_body_after_function_name")
     }
 
     #[test]
     fn parse_bad_cast_expr_close() -> Result<(), std::io::Error> {
-        run_test("parse_bad_cast_expr_close")
+        run_test("parser/parse_bad_cast_expr_close")
     }
 
     #[test]
     fn parse_bad_cast_expr_open() -> Result<(), std::io::Error> {
-        run_test("parse_bad_cast_expr_open")
+        run_test("parser/parse_bad_cast_expr_open")
     }
 
     #[test]
     fn parse_bad_cast_expr_param() -> Result<(), std::io::Error> {
-        run_test("parse_bad_cast_expr_param")
+        run_test("parser/parse_bad_cast_expr_param")
     }
 
     #[test]
     fn parse_bad_else_if_block() -> Result<(), std::io::Error> {
-        run_test("parse_bad_else_if_block")
+        run_test("parser/parse_bad_else_if_block")
     }
 
     #[test]
     fn parse_bad_expression() -> Result<(), std::io::Error> {
-        run_test("parse_bad_expression")
+        run_test("parser/parse_bad_expression")
     }
 
     #[test]
     fn parse_bad_file_to_include() -> Result<(), std::io::Error> {
-        run_test("parse_bad_file_to_include")
+        run_test("parser/parse_bad_file_to_include")
     }
 
     #[test]
     fn parse_bad_function_annotation_close() -> Result<(), std::io::Error> {
-        run_test("parse_bad_function_annotation_close")
+        run_test("parser/parse_bad_function_annotation_close")
     }
 
     #[test]
     fn parse_bad_function_parameter_close() -> Result<(), std::io::Error> {
-        run_test("parse_bad_function_parameter_close")
+        run_test("parser/parse_bad_function_parameter_close")
     }
 
     #[test]
     fn parse_bad_function_return_list_close() -> Result<(), std::io::Error> {
-        run_test("parse_bad_function_return_list_close")
+        run_test("parser/parse_bad_function_return_list_close")
     }
 
     #[test]
     fn parse_bad_function_return_list_open() -> Result<(), std::io::Error> {
-        run_test("parse_bad_function_return_list_open")
+        run_test("parser/parse_bad_function_return_list_open")
     }
 
     #[test]
     fn parse_bad_include_statement() -> Result<(), std::io::Error> {
-        run_test("parse_bad_include_statement")
+        run_test("parser/parse_bad_include_statement")
     }
 
     #[test]
     fn parse_bad_pointer_type() -> Result<(), std::io::Error> {
-        run_test("parse_bad_pointer_type")
+        run_test("parser/parse_bad_pointer_type")
     }
 
     #[test]
     fn parse_bad_top_level_token() -> Result<(), std::io::Error> {
-        run_test("parse_bad_top_level_token")
+        run_test("parser/parse_bad_top_level_token")
     }
 
     #[test]
     fn parse_enum_bad_close() -> Result<(), std::io::Error> {
-        run_test("parse_enum_bad_close")
+        run_test("parser/parse_enum_bad_close")
     }
 
     #[test]
     fn parse_enum_bad_open() -> Result<(), std::io::Error> {
-        run_test("parse_enum_bad_open")
+        run_test("parser/parse_enum_bad_open")
     }
 
     #[test]
     fn parse_enum_empty_variants() -> Result<(), std::io::Error> {
-        run_test("parse_enum_empty_variants")
+        run_test("parser/parse_enum_empty_variants")
     }
 
     #[test]
     fn parse_enum_without_identifier() -> Result<(), std::io::Error> {
-        run_test("parse_enum_without_identifier")
+        run_test("parser/parse_enum_without_identifier")
     }
 
     #[test]
     fn parse_function_empty_return_list() -> Result<(), std::io::Error> {
-        run_test("parse_function_empty_return_list")
+        run_test("parser/parse_function_empty_return_list")
     }
 
     #[test]
     fn parse_function_without_name() -> Result<(), std::io::Error> {
-        run_test("parse_function_without_name")
+        run_test("parser/parse_function_without_name")
     }
 
     #[test]
     fn parse_mixed_identifier_arg_list() -> Result<(), std::io::Error> {
-        run_test("parse_mixed_identifier_arg_list")
+        run_test("parser/parse_mixed_identifier_arg_list")
     }
 
     #[test]
     fn parse_no_args_in_annotated_call() -> Result<(), std::io::Error> {
-        run_test("parse_no_args_in_annotated_call")
+        run_test("parser/parse_no_args_in_annotated_call")
     }
 
     #[test]
     fn parse_struct_bad_annotations_close() -> Result<(), std::io::Error> {
-        run_test("parse_struct_bad_annotations_close")
+        run_test("parser/parse_struct_bad_annotations_close")
     }
 
     #[test]
     fn parse_struct_bad_close() -> Result<(), std::io::Error> {
-        run_test("parse_struct_bad_close")
+        run_test("parser/parse_struct_bad_close")
     }
 
     #[test]
     fn parse_struct_bad_impl_open() -> Result<(), std::io::Error> {
-        run_test("parse_struct_bad_impl_open")
+        run_test("parser/parse_struct_bad_impl_open")
     }
 
     #[test]
     fn parse_struct_bad_open() -> Result<(), std::io::Error> {
-        run_test("parse_struct_bad_open")
+        run_test("parser/parse_struct_bad_open")
     }
 
     #[test]
     fn parse_struct_empty_members() -> Result<(), std::io::Error> {
-        run_test("parse_struct_empty_members")
+        run_test("parser/parse_struct_empty_members")
     }
 
     #[test]
     fn parse_struct_member_without_identifier1() -> Result<(), std::io::Error> {
-        run_test("parse_struct_member_without_identifier1")
+        run_test("parser/parse_struct_member_without_identifier1")
     }
 
     #[test]
     fn parse_struct_member_without_identifier2() -> Result<(), std::io::Error> {
-        run_test("parse_struct_member_without_identifier2")
+        run_test("parser/parse_struct_member_without_identifier2")
     }
 
     #[test]
     fn parse_struct_pub_member_without_type() -> Result<(), std::io::Error> {
-        run_test("parse_struct_pub_member_without_type")
+        run_test("parser/parse_struct_pub_member_without_type")
     }
 
     #[test]
     fn parse_struct_without_identifier() -> Result<(), std::io::Error> {
-        run_test("parse_struct_without_identifier")
+        run_test("parser/parse_struct_without_identifier")
     }
 
     #[test]
     fn parse_var_expr_bad_ident() -> Result<(), std::io::Error> {
-        run_test("parse_var_expr_bad_ident")
+        run_test("parser/parse_var_expr_bad_ident")
     }
 
     #[test]
     fn parse_var_expr_bad_type() -> Result<(), std::io::Error> {
-        run_test("parse_var_expr_bad_type")
+        run_test("parser/parse_var_expr_bad_type")
     }
 
     #[test]
     fn parse_var_expr_missing_colon() -> Result<(), std::io::Error> {
-        run_test("parse_var_expr_missing_colon")
+        run_test("parser/parse_var_expr_missing_colon")
     }
 
     #[test]
     fn parse_bad_sizeof_open() -> Result<(), std::io::Error> {
-        run_test("parse_bad_sizeof_open")
+        run_test("parser/parse_bad_sizeof_open")
     }
 
     #[test]
     fn parse_bad_sizeof_close() -> Result<(), std::io::Error> {
-        run_test("parse_bad_sizeof_close")
+        run_test("parser/parse_bad_sizeof_close")
     }
 
     #[test]
     fn parse_bad_sizeof_param() -> Result<(), std::io::Error> {
-        run_test("parse_bad_sizeof_param")
+        run_test("parser/parse_bad_sizeof_param")
     }
 }

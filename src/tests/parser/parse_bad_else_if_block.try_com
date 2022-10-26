@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parser/parse_bad_else_if_block.hay:5:19] Error: Expected `if`, but found end of file instead.\n"
+}

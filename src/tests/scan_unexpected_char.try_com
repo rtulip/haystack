@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/scan_unexpected_char.hay:1:1] Error: Unexpected character: `😂`\n"
-}

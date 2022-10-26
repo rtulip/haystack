@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/scanner/scan_unterminated_string.hay:1:1] Error: Unterminated string\n"
+}

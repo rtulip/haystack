@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/scan_unterminated_char.hay:1:1] Error: Unterminated character\n"
-}

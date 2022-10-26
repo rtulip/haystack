@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parse_bad_arg_identifier.hay:1:13] Error: Expected an identifier after `:`, but found `u64` instead.\n"
-}

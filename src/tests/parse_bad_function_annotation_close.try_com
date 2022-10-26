@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parse_bad_function_annotation_close.hay:1:10] Error: Expected `>` after function annotations, but found `u64` instead.\n"
-}

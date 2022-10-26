@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parse_bad_sizeof_close.hay:2:15] Error: Expected `)` after type identifier, but found `}` instead.\n"
-}

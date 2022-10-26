@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parse_bad_function_return_list_open.hay:1:13] Error: Expected `[` after `->`, but found an identifier (u64) instead.\n"
-}

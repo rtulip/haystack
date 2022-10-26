@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parse_struct_bad_close.hay:3:1] Error: Expected `}` to close structure, but found `]` instead.\n"
-}

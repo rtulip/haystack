@@ -1,6 +1,7 @@
 #![feature(btree_drain_filter)]
 
 mod ast;
+mod backend;
 mod compiler;
 mod error;
 mod lex;

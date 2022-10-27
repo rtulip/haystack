@@ -1,5 +1,6 @@
 use crate::ast::parser::Parser;
 use crate::ast::stmt::Stmt;
+use crate::backend::Operation;
 use crate::error::HayError;
 use crate::lex::scanner::Scanner;
 use crate::lex::token::Loc;
@@ -117,6 +118,15 @@ pub fn compile_haystack(
             }
         }
     }
+
+    let mut ops = vec![];
+
+    types
+        .iter()
+        .filter(|(_, t)| matches!(t, Type::Function { .. }))
+        .for_each(|(_, func)| {
+            ops.push(Operation::from_function(func.clone(), &types));
+        });
 
     Ok(())
 }

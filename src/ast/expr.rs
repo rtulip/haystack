@@ -254,7 +254,7 @@ impl Expr {
                     todo!("Make a concrete version of the call")
                 }
 
-                Ok(TypedExpr::Global { typ: tid.0 })
+                Ok(TypedExpr::Call { func: tid.0 })
             }
             Expr::As { token, args, block } => {
                 if stack.len() < args.len() {
@@ -462,11 +462,11 @@ impl Expr {
                     let typed_expr = if let Some(map) = sig.evaluate(&ident, stack, types)? {
                         let gen_fn_tid = TypeId::new(&ident.lexeme);
                         let monomorphised = gen_fn_tid.assign(&ident, &map, types)?;
-                        Ok(TypedExpr::Global {
-                            typ: monomorphised.0,
+                        Ok(TypedExpr::Call {
+                            func: monomorphised.0,
                         })
                     } else {
-                        Ok(TypedExpr::Global { typ: ident.lexeme })
+                        Ok(TypedExpr::Call { func: ident.lexeme })
                     };
 
                     return typed_expr;
@@ -1043,8 +1043,8 @@ pub enum TypedExpr {
     SizeOf {
         typ: TypeId,
     },
-    Global {
-        typ: String,
+    Call {
+        func: String,
     },
     Framed {
         frame: Vec<(String, TypeId)>,

@@ -1,6 +1,6 @@
 use crate::ast::parser::Parser;
 use crate::ast::stmt::Stmt;
-use crate::backend::Operation;
+use crate::backend::Instruction;
 use crate::error::HayError;
 use crate::lex::scanner::Scanner;
 use crate::lex::token::Loc;
@@ -82,7 +82,7 @@ pub fn compile_haystack(
                 let mut stack = vec![];
                 let mut frame = vec![];
 
-                inputs.iter().for_each(|arg| {
+                inputs.iter().rev().for_each(|arg| {
                     if arg.ident.is_some() {
                         frame.push((
                             arg.ident.as_ref().unwrap().lexeme.clone(),
@@ -124,8 +124,8 @@ pub fn compile_haystack(
     types
         .iter()
         .filter(|(_, t)| matches!(t, Type::Function { .. }))
-        .for_each(|(_, func)| {
-            ops.push(Operation::from_function(func.clone(), &types));
+        .for_each(|(tid, func)| {
+            ops.push((tid, Instruction::from_function(func.clone(), &types)));
         });
 
     Ok(())

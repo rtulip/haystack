@@ -71,7 +71,7 @@ impl TypeId {
     }
 
     /// Creates a new TypeId from a [`TypeToken`].
-    fn from_type_token(
+    pub fn from_type_token(
         token: &Token,
         typ: &TypeToken,
         types: &mut BTreeMap<TypeId, Type>,

@@ -202,8 +202,6 @@ impl Expr {
                     let gen_fn_tid = TypeId::new(&base.lexeme);
                     let func = gen_fn_tid.assign(&token, map, types)?;
 
-                    println!("Func: {func}");
-
                     (ann, func)
                 } else {
                     let ann = annotations
@@ -922,9 +920,17 @@ impl Expr {
 
                 frame.push((ident.lexeme.clone(), id));
 
+                let typ_size = typ_id.size(types)?;
+                let data = if let Some((dimension, tt)) = typ.dimension()? {
+                    let inner_typ = TypeId::from_type_token(&typ, &tt, types, &vec![])?;
+                    Some(inner_typ.size(types)? * dimension)
+                } else {
+                    None
+                };
+
                 Ok(TypedExpr::Var {
-                    typ: typ_id,
-                    dimension: typ.dimension()?,
+                    typ: typ_size,
+                    data: data,
                 })
             }
             Expr::While { token, cond, body } => {
@@ -1033,8 +1039,8 @@ pub enum TypedExpr {
         block: Option<Vec<TypedExpr>>,
     },
     Var {
-        typ: TypeId,
-        dimension: Option<usize>,
+        typ: usize,
+        data: Option<usize>,
     },
     While {
         cond: Vec<TypedExpr>,

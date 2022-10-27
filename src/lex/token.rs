@@ -351,10 +351,10 @@ impl Token {
         }
     }
 
-    pub fn dimension(&self) -> Result<Option<usize>, HayError> {
+    pub fn dimension(&self) -> Result<Option<(usize, TypeToken)>, HayError> {
         match &self.kind {
             TokenKind::Type(typ) => match typ {
-                TypeToken::Array { size, .. } => Ok(Some(*size)),
+                TypeToken::Array { size, base } => Ok(Some((*size, *base.clone()))),
                 _ => Ok(None),
             },
             _ => Err(HayError::new(

@@ -36,7 +36,7 @@ fn Str.concat(Str: s1 Str: s2 Arr<u8>: buffer) -> [Str] {
 }
 
 fn fputs(Str: s u64: fd) {
-    s as [str] { str::size str::data } fd sys_write drop
+    s::size s::data fd sys_write drop
 }
 
 // TODO: replace `1` with a constant for stdout

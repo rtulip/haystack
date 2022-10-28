@@ -1,6 +1,6 @@
 use crate::ast::parser::Parser;
 use crate::ast::stmt::Stmt;
-use crate::backend::Instruction;
+use crate::backend::{compile, Instruction, X86_64};
 use crate::error::HayError;
 use crate::lex::scanner::Scanner;
 use crate::lex::token::Loc;
@@ -119,14 +119,20 @@ pub fn compile_haystack(
         }
     }
 
-    let mut ops = vec![];
-
+    let mut instructions = vec![];
+    let mut init_data = HashMap::new();
+    let mut uninit_data = HashMap::new();
     types
         .iter()
         .filter(|(_, t)| matches!(t, Type::Function { .. }))
         .for_each(|(tid, func)| {
-            ops.push((tid, Instruction::from_function(func.clone(), &types)));
+            instructions.push((
+                tid.0.as_str(),
+                Instruction::from_function(func.clone(), &types, &mut init_data),
+            ));
         });
+
+    compile::<X86_64>("out.asm", &instructions, &mut init_data, &mut uninit_data).unwrap();
 
     Ok(())
 }

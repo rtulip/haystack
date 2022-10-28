@@ -7,13 +7,20 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub enum Data {
+pub enum InitData {
     String(String),
+    Arr { size: usize, pointer: String },
+}
+
+pub enum UninitData {
+    Marker,
+    Region(u64),
 }
 
 #[derive(Debug, Clone)]
 pub enum Instruction {
     Call(String),
+    Return,
     PushU64(u64),
     PushGlobal {
         id: String,
@@ -30,6 +37,7 @@ pub enum Instruction {
     },
     Operator {
         op: Operator,
+        size: Option<(usize, usize)>,
     },
     JumpDest {
         id: usize,
@@ -56,10 +64,33 @@ pub enum Instruction {
 }
 
 impl Instruction {
+    fn escape_string(s: String) -> String {
+        let mut new_s = String::new();
+        let mut i = 0;
+
+        while i < s.len() {
+            match s.chars().nth(i).unwrap() {
+                '\\' => {
+                    i += 1;
+                    match s.chars().nth(i).unwrap() {
+                        'n' => new_s.push('\n'),
+                        't' => new_s.push('\t'),
+                        'r' => new_s.push('\r'),
+                        _ => unreachable!(),
+                    }
+                }
+                c => new_s.push(c),
+            }
+
+            i += 1;
+        }
+        new_s
+    }
+
     fn from_expr(
         expr: TypedExpr,
         types: &BTreeMap<TypeId, Type>,
-        data: &mut HashMap<usize, Data>,
+        init_data: &mut HashMap<usize, InitData>,
         jump_count: &mut usize,
         frame_reserved: &mut usize,
     ) -> Vec<Self> {
@@ -69,7 +100,7 @@ impl Instruction {
             TypedExpr::Framed { frame, idx, inner } => {
                 assert!(idx < frame.len());
                 let mut offset = 0;
-                for (_, tid) in &frame[idx..] {
+                for (_, tid) in &frame[idx + 1..] {
                     offset += tid.size(types).unwrap();
                 }
 
@@ -86,11 +117,9 @@ impl Instruction {
                                         .unwrap()
                                         .0;
 
-                                    members
-                                        .iter()
-                                        .rev()
-                                        .take(members.len() - idx - 1)
-                                        .for_each(|m| offset -= m.typ.0.size(types).unwrap());
+                                    for m in &members[0..idx] {
+                                        offset += m.typ.0.size(types).unwrap()
+                                    }
 
                                     &members[idx].typ.0
                                 }
@@ -113,7 +142,13 @@ impl Instruction {
 
                 ops.push(i);
             }
-            TypedExpr::Operator { op } => ops.push(Instruction::Operator { op }),
+            TypedExpr::Operator { op, typ: Some(typ) } => ops.push(Instruction::Operator {
+                op,
+                size: Some((typ.size(&types).unwrap(), typ.width())),
+            }),
+            TypedExpr::Operator { op, typ: None } => {
+                ops.push(Instruction::Operator { op, size: None })
+            }
             TypedExpr::If {
                 then,
                 otherwise,
@@ -121,53 +156,52 @@ impl Instruction {
             } => {
                 let mut n_jumps = 0;
                 let mut then_ops = vec![];
+                then_ops.push(Instruction::StartBlock);
                 for e in then {
-                    then_ops.push(Instruction::StartBlock);
                     then_ops.append(&mut Instruction::from_expr(
                         e,
                         types,
-                        data,
+                        init_data,
                         jump_count,
                         frame_reserved,
                     ));
-                    then_ops.push(Instruction::EndBlock {
-                        bytes_to_free: Instruction::count_framed_bytes(&then_ops),
-                    });
                 }
+                then_ops.push(Instruction::EndBlock {
+                    bytes_to_free: Instruction::count_framed_bytes(&then_ops),
+                });
 
                 let mut otherwise_ops = vec![];
                 for other in otherwise {
                     if let TypedExpr::ElseIf { condition, block } = other {
                         let mut cnd_ops = vec![];
                         let mut blk_ops = vec![];
-
+                        cnd_ops.push(Instruction::StartBlock);
                         for e in condition {
-                            cnd_ops.push(Instruction::StartBlock);
                             cnd_ops.append(&mut Instruction::from_expr(
                                 e,
                                 types,
-                                data,
+                                init_data,
                                 jump_count,
                                 frame_reserved,
                             ));
-                            cnd_ops.push(Instruction::EndBlock {
-                                bytes_to_free: Instruction::count_framed_bytes(&cnd_ops),
-                            });
                         }
+                        cnd_ops.push(Instruction::EndBlock {
+                            bytes_to_free: Instruction::count_framed_bytes(&cnd_ops),
+                        });
 
+                        blk_ops.push(Instruction::StartBlock);
                         for e in block {
-                            blk_ops.push(Instruction::StartBlock);
                             blk_ops.append(&mut Instruction::from_expr(
                                 e,
                                 types,
-                                data,
+                                init_data,
                                 jump_count,
                                 frame_reserved,
                             ));
-                            blk_ops.push(Instruction::EndBlock {
-                                bytes_to_free: Instruction::count_framed_bytes(&blk_ops),
-                            });
                         }
+                        blk_ops.push(Instruction::EndBlock {
+                            bytes_to_free: Instruction::count_framed_bytes(&blk_ops),
+                        });
 
                         otherwise_ops.push((cnd_ops, blk_ops))
                     } else {
@@ -178,22 +212,21 @@ impl Instruction {
 
                 let mut finally_ops = vec![];
                 if let Some(finally) = finally {
+                    finally_ops.push(Instruction::StartBlock);
                     for e in finally {
-                        finally_ops.push(Instruction::StartBlock);
                         finally_ops.append(&mut Instruction::from_expr(
                             e,
                             types,
-                            data,
+                            init_data,
                             jump_count,
                             frame_reserved,
                         ));
-                        finally_ops.push(Instruction::EndBlock {
-                            bytes_to_free: Instruction::count_framed_bytes(&finally_ops),
-                        });
                     }
+                    finally_ops.push(Instruction::EndBlock {
+                        bytes_to_free: Instruction::count_framed_bytes(&finally_ops),
+                    });
                     n_jumps += 1;
                 }
-
                 ops.push(Instruction::JumpFalse {
                     dest_id: *jump_count,
                 });
@@ -226,14 +259,17 @@ impl Instruction {
                         dest_id: *jump_count + n_jumps,
                     });
                     ops.push(Instruction::JumpDest { id: *jump_count });
+
                     *jump_count += 1;
                 }
             }
             TypedExpr::Literal { value } => match value {
                 Literal::String(s) => {
-                    let n = data.len();
+                    let n = init_data.len();
+                    let s = Instruction::escape_string(s);
+
                     let str_len = s.len() as u64;
-                    data.insert(n, Data::String(s));
+                    init_data.insert(n, InitData::String(s));
                     ops.push(Instruction::PushU64(str_len));
                     ops.push(Instruction::PushGlobal {
                         id: format!("str_{n}"),
@@ -246,6 +282,7 @@ impl Instruction {
             },
             TypedExpr::Call { func } => ops.push(Instruction::Call(func)),
             TypedExpr::As { args, block } => {
+                let start = ops.len();
                 for arg in &args {
                     ops.push(Instruction::PushToFrame {
                         bytes: arg.size(types).unwrap(),
@@ -253,13 +290,12 @@ impl Instruction {
                 }
 
                 if let Some(block) = block {
-                    let start = ops.len();
                     ops.push(Instruction::StartBlock);
                     for e in block {
                         ops.append(&mut Instruction::from_expr(
                             e,
                             types,
-                            data,
+                            init_data,
                             jump_count,
                             frame_reserved,
                         ));
@@ -321,30 +357,27 @@ impl Instruction {
                     ops.append(&mut Instruction::from_expr(
                         e,
                         types,
-                        data,
+                        init_data,
                         jump_count,
                         frame_reserved,
                     ));
                 }
 
                 let mut body_ops = vec![];
-
+                let start = ops.len();
+                ops.push(Instruction::StartBlock);
                 for e in body {
-                    let start = ops.len();
-                    ops.push(Instruction::StartBlock);
                     body_ops.append(&mut Instruction::from_expr(
                         e,
                         types,
-                        data,
+                        init_data,
                         jump_count,
                         frame_reserved,
                     ));
-
-                    ops.push(Instruction::EndBlock {
-                        bytes_to_free: Instruction::count_framed_bytes(&ops[start..]),
-                    });
                 }
-
+                ops.push(Instruction::EndBlock {
+                    bytes_to_free: Instruction::count_framed_bytes(&ops[start..]),
+                });
                 ops.push(Instruction::JumpFalse {
                     dest_id: *jump_count,
                 });
@@ -368,7 +401,11 @@ impl Instruction {
         ops
     }
 
-    pub fn from_function(func: Type, types: &BTreeMap<TypeId, Type>) -> Vec<Self> {
+    pub fn from_function(
+        func: Type,
+        types: &BTreeMap<TypeId, Type>,
+        init_data: &mut HashMap<usize, InitData>,
+    ) -> Vec<Self> {
         if let Type::Function { body, inputs, .. } = func {
             let mut ops = vec![
                 Instruction::FrameReserve { bytes: 0 },
@@ -384,13 +421,13 @@ impl Instruction {
             }
 
             let mut reserve = 0;
-            let mut data = HashMap::new();
+            let mut jump_count = 0;
             for expr in body {
                 ops.append(&mut Instruction::from_expr(
                     expr,
                     types,
-                    &mut data,
-                    &mut 0,
+                    init_data,
+                    &mut jump_count,
                     &mut reserve,
                 ));
             }
@@ -400,6 +437,7 @@ impl Instruction {
             ops.push(Instruction::EndBlock {
                 bytes_to_free: bytes_framed + reserve,
             });
+            ops.push(Instruction::Return);
 
             ops[0] = Instruction::FrameReserve { bytes: reserve };
 

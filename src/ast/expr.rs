@@ -613,7 +613,7 @@ impl Expr {
 
                             Signature::evaluate_many(&sigs, &op_tok, stack, types)?;
 
-                            Ok(TypedExpr::Operator { op: *op })
+                            Ok(TypedExpr::Operator { op: *op, typ: None })
                         }
                         Operator::Minus => {
                             let sigs = vec![
@@ -639,7 +639,7 @@ impl Expr {
 
                             Signature::evaluate_many(&sigs, &op_tok, stack, types)?;
 
-                            Ok(TypedExpr::Operator { op: *op })
+                            Ok(TypedExpr::Operator { op: *op, typ: None })
                         }
                         Operator::Star => {
                             Signature::evaluate_many(
@@ -658,7 +658,7 @@ impl Expr {
                                 types,
                             )?;
 
-                            Ok(TypedExpr::Operator { op: *op })
+                            Ok(TypedExpr::Operator { op: *op, typ: None })
                         }
                         Operator::Slash => {
                             Signature::evaluate_many(
@@ -677,7 +677,7 @@ impl Expr {
                                 types,
                             )?;
 
-                            Ok(TypedExpr::Operator { op: *op })
+                            Ok(TypedExpr::Operator { op: *op, typ: None })
                         }
                         Operator::LessThan
                         | Operator::LessEqual
@@ -700,7 +700,7 @@ impl Expr {
 
                             Signature::evaluate_many(&sigs, &op_tok, stack, types)?;
 
-                            Ok(TypedExpr::Operator { op: *op })
+                            Ok(TypedExpr::Operator { op: *op, typ: None })
                         }
                         Operator::Equal => {
                             // TODO: equality between Enums
@@ -747,7 +747,7 @@ impl Expr {
                                 types,
                             )?;
 
-                            Ok(TypedExpr::Operator { op: *op })
+                            Ok(TypedExpr::Operator { op: *op, typ: None })
                         }
                         Operator::BangEqual => {
                             Signature::evaluate_many(
@@ -791,7 +791,7 @@ impl Expr {
                                 types,
                             )?;
 
-                            Ok(TypedExpr::Operator { op: *op })
+                            Ok(TypedExpr::Operator { op: *op, typ: None })
                         }
                         Operator::Modulo => {
                             Signature::evaluate_many(
@@ -810,27 +810,35 @@ impl Expr {
                                 types,
                             )?;
 
-                            Ok(TypedExpr::Operator { op: *op })
+                            Ok(TypedExpr::Operator { op: *op, typ: None })
                         }
                         Operator::Read => {
-                            Signature::new_generic(
+                            let map = Signature::new_generic(
                                 vec![TypeId::new("*T")],
                                 vec![TypeId::new("T")],
                                 vec![TypeId::new("T")],
                             )
-                            .evaluate(&op_tok, stack, types)?;
+                            .evaluate(&op_tok, stack, types)?
+                            .unwrap();
 
-                            Ok(TypedExpr::Operator { op: *op })
+                            Ok(TypedExpr::Operator {
+                                op: *op,
+                                typ: Some(map.get(&TypeId::new("T")).unwrap().clone()),
+                            })
                         }
                         Operator::Write => {
-                            Signature::new_generic(
+                            let map = Signature::new_generic(
                                 vec![TypeId::new("T"), TypeId::new("*T")],
                                 vec![],
                                 vec![TypeId::new("T")],
                             )
-                            .evaluate(&op_tok, stack, types)?;
+                            .evaluate(&op_tok, stack, types)?
+                            .unwrap();
 
-                            Ok(TypedExpr::Operator { op: *op })
+                            Ok(TypedExpr::Operator {
+                                op: *op,
+                                typ: Some(map.get(&TypeId::new("T")).unwrap().clone()),
+                            })
                         }
                     }
                 }
@@ -1018,6 +1026,7 @@ pub enum TypedExpr {
     },
     Operator {
         op: Operator,
+        typ: Option<TypeId>,
     },
     Syscall {
         n: usize,

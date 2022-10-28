@@ -745,6 +745,14 @@ impl TypeId {
             )),
         }
     }
+
+    pub fn width(&self) -> usize {
+        if self == &Type::U8.id() {
+            1
+        } else {
+            8
+        }
+    }
 }
 
 impl std::fmt::Debug for TypeId {

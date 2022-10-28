@@ -125,7 +125,16 @@ impl Instruction {
 
                                     &members[idx].typ.0
                                 }
-                                RecordKind::Union => break,
+                                RecordKind::Union => {
+                                    let idx = members
+                                        .iter()
+                                        .enumerate()
+                                        .find(|(_, m)| &m.ident.lexeme == inner)
+                                        .unwrap()
+                                        .0;
+
+                                    &members[idx].typ.0
+                                }
                             }
                         } else {
                             panic!("{typ}");

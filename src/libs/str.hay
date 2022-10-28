@@ -104,8 +104,6 @@ fn Str.split_left(u64: n Str: s) -> [Str Str] {
     s::size n - s::data n ptr+ cast(Str)
 }
 
-fn nop() {}
-
 fn u64.to_str(u64: u Arr<u8>: chars) -> [Str] {
 
     chars::size 20 < if {
@@ -122,12 +120,8 @@ fn u64.to_str(u64: u Arr<u8>: chars) -> [Str] {
             x 10 % 48 + cast(u8) chars::data i ptr+ !
             
             i 1 -
-            x 10 /
-
-            
-        } 
-        nop
-        drop
+            x 10 /    
+        } drop
         
         as [i]
         19 i - chars::data i 1 + ptr+ cast(Str)

@@ -7,7 +7,7 @@ struct OutputSummary {
 }
 
 #[allow(dead_code)]
-pub fn run_test(file_base: &str) -> Result<(), std::io::Error> {
+pub fn run_test(directory: &str, file_base: &str) -> Result<(), std::io::Error> {
     use crate::compiler::run_command;
     use std::process::Output;
 
@@ -21,7 +21,7 @@ pub fn run_test(file_base: &str) -> Result<(), std::io::Error> {
             stderr,
         }
     }
-    let file = format!("src/tests/{file_base}");
+    let file = format!("src/tests/{directory}/{file_base}");
 
     let output = run_command(
         "cargo",

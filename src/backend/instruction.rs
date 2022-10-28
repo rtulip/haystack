@@ -402,7 +402,20 @@ impl Instruction {
             TypedExpr::Syscall { n } => ops.push(Instruction::Syscall(n)),
             TypedExpr::Global { ident } => ops.push(Instruction::PushGlobal { id: ident }),
             TypedExpr::ElseIf { .. } => todo!(),
-            TypedExpr::Enum { .. } => todo!(),
+            TypedExpr::Enum { typ, variant } => {
+                if let Type::Enum { variants, .. } = types.get(&typ).unwrap() {
+                    ops.push(Instruction::PushU64(
+                        variants
+                            .iter()
+                            .enumerate()
+                            .find(|(_, v)| v.lexeme == variant)
+                            .unwrap()
+                            .0 as u64,
+                    ));
+                } else {
+                    panic!();
+                }
+            }
         }
 
         ops

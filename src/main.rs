@@ -14,15 +14,11 @@ struct Cli {
     file: String,
     #[clap(short, long)]
     run: bool,
-    #[clap(long)]
-    json: bool,
-    #[clap(long)]
-    simple: bool,
 }
 
 fn main() {
     let cli = Cli::parse();
-    if let Err(e) = compile_haystack(cli.file, cli.run, cli.json, cli.simple) {
+    if let Err(e) = compile_haystack(cli.file, cli.run) {
         e.report();
         std::process::exit(1);
     }

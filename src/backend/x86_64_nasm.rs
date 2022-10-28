@@ -7,6 +7,7 @@ use super::{InitData, Instruction, UninitData};
 
 impl super::CodeGen for X86_64 {
     fn encode_name(label: &str) -> String {
+        // println!("Encoding: {label}");
         let mut s = String::from("fn_");
         s.push_str(
             label
@@ -16,6 +17,7 @@ impl super::CodeGen for X86_64 {
                     '<' => '_',
                     '>' => '_',
                     '+' => '~',
+                    ' ' => '_',
                     c => c,
                 })
                 .collect::<String>()
@@ -43,7 +45,7 @@ impl super::CodeGen for X86_64 {
                 for _ in 0..*bytes {
                     writeln!(file, "  mov rbx, [rax]")?;
                     writeln!(file, "  push rbx")?;
-                    writeln!(file, "  sub rax, 8")?;
+                    writeln!(file, "  add rax, 8")?;
                 }
             }
             Instruction::PushToFrame { quad_words } => {

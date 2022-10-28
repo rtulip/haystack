@@ -257,6 +257,7 @@ impl Expr {
                 Ok(TypedExpr::Call { func: tid.0 })
             }
             Expr::As { token, args, block } => {
+                let initial_frame = frame.clone();
                 if stack.len() < args.len() {
                     let e = HayError::new_type_err(
                         "Insufficient elements on the stack to bind",
@@ -293,6 +294,7 @@ impl Expr {
                     }
 
                     typed_block = Some(tmp);
+                    *frame = initial_frame;
                 }
 
                 Ok(TypedExpr::As {

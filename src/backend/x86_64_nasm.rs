@@ -7,7 +7,6 @@ use super::{InitData, Instruction, UninitData};
 
 impl super::CodeGen for X86_64 {
     fn encode_name(label: &str) -> String {
-        // println!("Encoding: {label}");
         let mut s = String::from("fn_");
         label.chars().for_each(|c| match c {
             '.' => s.push_str("_dot_"),
@@ -229,7 +228,7 @@ impl super::CodeGen for X86_64 {
                 writeln!(
                     file,
                     "  sub rbx, {}",
-                    offset_to_data + 16 + (data_size - 1) * data_width
+                    offset_to_data + 16 + (data_size + 1) * data_width
                 )?;
                 writeln!(file, "  mov [rax], rbx")?;
                 writeln!(file, "  sub rax, 8")?;

@@ -55,9 +55,16 @@ pub fn compile_haystack(
     types.insert(TypeId::new("char"), Type::Char);
     types.insert(TypeId::new("bool"), Type::Bool);
 
+    let mut init_data = HashMap::new();
+    let mut uninit_data = HashMap::new();
     let mut global_env = HashMap::new();
     for s in stmts {
-        s.add_to_global_scope(&mut types, &mut global_env)?;
+        s.add_to_global_scope(
+            &mut types,
+            &mut global_env,
+            &mut init_data,
+            &mut uninit_data,
+        )?;
     }
     while types
         .iter()
@@ -120,8 +127,6 @@ pub fn compile_haystack(
     }
 
     let mut instructions = vec![];
-    let mut init_data = HashMap::new();
-    let mut uninit_data = HashMap::new();
     types
         .iter()
         .filter(|(_, t)| matches!(t, Type::Function { .. }))

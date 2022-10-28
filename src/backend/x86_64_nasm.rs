@@ -46,22 +46,28 @@ impl super::CodeGen for X86_64 {
                     writeln!(file, "  sub rax, 8")?;
                 }
             }
-            Instruction::PushToFrame { bytes } => {
-                for _ in 0..*bytes {
+            Instruction::PushToFrame { quad_words } => {
+                for _ in 0..*quad_words {
                     writeln!(file, "  pop  rax")?;
                     writeln!(file, "  sub  qword [frame_end_ptr], 8")?;
                     writeln!(file, "  mov  rbx, [frame_end_ptr]")?;
                     writeln!(file, "  mov  [rbx], rax")?;
                 }
             }
-            Instruction::FramePtrToFrameReserve { offset } => {
+            Instruction::FramePtrToFrameReserve {
+                offset,
+                size,
+                width,
+            } => {
                 writeln!(file, "  mov  rax, [frame_start_ptr]")?;
-                writeln!(file, "  add  rax, {offset}")?;
-                writeln!(file, "  push rax")?;
+                writeln!(file, "  sub  rax, {}", offset + 16 + ((size - 1) * width))?;
+                writeln!(file, "  sub  qword [frame_end_ptr], 8")?;
+                writeln!(file, "  mov  rbx, [frame_end_ptr]")?;
+                writeln!(file, "  mov  [rbx], rax")?;
             }
             Instruction::StartBlock => (),
             Instruction::EndBlock { bytes_to_free } => {
-                writeln!(file, "  add qword [frame_end_ptr], {}", 8 * bytes_to_free)?;
+                writeln!(file, "  add qword [frame_end_ptr], {bytes_to_free}")?;
             }
             Instruction::Operator { op, size: None } => match op {
                 Operator::Plus => {
@@ -208,15 +214,20 @@ impl super::CodeGen for X86_64 {
             Instruction::InitLocalVarArr {
                 offset_to_var,
                 offset_to_data,
-                data_len,
+                data_size,
+                data_width,
             } => {
                 writeln!(file, "  mov rax, [frame_start_ptr]")?;
-                writeln!(file, "  add rax, {offset_to_var}")?;
+                writeln!(file, "  sub rax, {}", offset_to_var + 16)?;
                 writeln!(file, "  mov rbx, [frame_start_ptr]")?;
-                writeln!(file, "  add rbx, {offset_to_data}")?;
+                writeln!(
+                    file,
+                    "  sub rbx, {}",
+                    offset_to_data + 16 + (data_size - 1) * data_width
+                )?;
                 writeln!(file, "  mov [rax], rbx")?;
-                writeln!(file, "  add rax, 8")?;
-                writeln!(file, "  mov rbx, {data_len}")?;
+                writeln!(file, "  sub rax, 8")?;
+                writeln!(file, "  mov rbx, {data_size}")?;
                 writeln!(file, "  mov [rax], rbx")?;
             }
             Instruction::Syscall(n) => {
@@ -284,14 +295,14 @@ impl super::CodeGen for X86_64 {
 
     fn init_data(
         file: &mut std::fs::File,
-        data: &std::collections::HashMap<usize, InitData>,
+        data: &std::collections::HashMap<String, InitData>,
     ) -> Result<(), std::io::Error> {
         writeln!(file)?;
         writeln!(file, "segment .data")?;
         for (id, data) in data {
             match data {
                 InitData::String(s) => {
-                    write!(file, "  str_{id}: db ")?;
+                    write!(file, "  {id}: db ")?;
                     if s.len() > 0 {
                         s.as_bytes()
                             .iter()
@@ -310,7 +321,7 @@ impl super::CodeGen for X86_64 {
 
     fn uninit_data(
         file: &mut std::fs::File,
-        data: &std::collections::HashMap<usize, UninitData>,
+        data: &std::collections::HashMap<String, UninitData>,
     ) -> Result<(), std::io::Error> {
         writeln!(file, "segment .bss")?;
         writeln!(file, "  frame_start_ptr: resq 1")?;
@@ -320,8 +331,7 @@ impl super::CodeGen for X86_64 {
 
         for (id, data) in data {
             match data {
-                UninitData::Marker => writeln!(file, "  marker_{id}")?,
-                UninitData::Region(size) => writeln!(file, "  region_{id}: resq {size}")?,
+                UninitData::Region(size) => writeln!(file, "  {id}: resq {size}")?,
             }
         }
 

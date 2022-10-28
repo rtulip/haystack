@@ -1,5 +1,6 @@
 use super::arg::Arg;
 use super::expr::Expr;
+use crate::backend::{InitData, UninitData};
 use crate::error::HayError;
 use crate::lex::token::Token;
 
@@ -18,6 +19,12 @@ pub struct Member<TypeState> {
     pub token: Token,
     pub ident: Token,
     pub typ: TypeState,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum StmtKind {
+    Var,
+    Function,
 }
 
 fn resolve_members(
@@ -109,7 +116,9 @@ impl Stmt {
     pub fn add_to_global_scope(
         self,
         types: &mut BTreeMap<TypeId, Type>,
-        global_env: &mut HashMap<String, Signature>,
+        global_env: &mut HashMap<String, (StmtKind, Signature)>,
+        init_data: &mut HashMap<String, InitData>,
+        uninit_data: &mut HashMap<String, UninitData>,
     ) -> Result<(), HayError> {
         match self {
             Stmt::Record {
@@ -219,7 +228,7 @@ impl Stmt {
 
                 match types.insert(TypeId::new(&name.lexeme), typ) {
                     None => {
-                        global_env.insert(name.lexeme, sig);
+                        global_env.insert(name.lexeme, (StmtKind::Function, sig));
                     }
                     Some(_) => {
                         return Err(HayError::new(
@@ -235,13 +244,36 @@ impl Stmt {
             Stmt::Var { token, expr } => {
                 if let Expr::Var { token, typ, ident } = *expr {
                     let inner = TypeId::from_token(&typ, types, &vec![])?;
-                    let ptr = Type::Pointer { inner };
+                    let ptr = Type::Pointer {
+                        inner: inner.clone(),
+                    };
                     let id = ptr.id();
                     types.insert(ptr.id(), ptr);
 
                     let sig = Signature::new(vec![], vec![id]);
 
-                    match global_env.insert(ident.lexeme.clone(), sig) {
+                    if let Some((dimension, tt)) = typ.dimension()? {
+                        let inner_typ = TypeId::from_type_token(&typ, &tt, types, &vec![])?;
+                        let inner_size = inner_typ.size(types)?;
+
+                        let data_id = uninit_data.len();
+                        uninit_data.insert(
+                            format!("data_{data_id}"),
+                            UninitData::Region(inner_size * dimension),
+                        );
+                        init_data.insert(
+                            ident.lexeme.clone(),
+                            InitData::Arr {
+                                size: dimension,
+                                pointer: format!("data_{data_id}"),
+                            },
+                        );
+                    } else {
+                        uninit_data
+                            .insert(ident.lexeme.clone(), UninitData::Region(inner.size(types)?));
+                    }
+
+                    match global_env.insert(ident.lexeme.clone(), (StmtKind::Var, sig)) {
                         None => (),
                         Some(_) => {
                             return Err(HayError::new(

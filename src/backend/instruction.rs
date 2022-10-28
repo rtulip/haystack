@@ -13,8 +13,7 @@ pub enum InitData {
 }
 
 pub enum UninitData {
-    Marker,
-    Region(u64),
+    Region(usize),
 }
 
 #[derive(Debug, Clone)]
@@ -31,9 +30,11 @@ pub enum Instruction {
     },
     FramePtrToFrameReserve {
         offset: usize,
+        size: usize,
+        width: usize,
     },
     PushToFrame {
-        bytes: usize,
+        quad_words: usize,
     },
     Operator {
         op: Operator,
@@ -59,7 +60,8 @@ pub enum Instruction {
     InitLocalVarArr {
         offset_to_var: usize,
         offset_to_data: usize,
-        data_len: usize,
+        data_size: usize,
+        data_width: usize,
     },
 }
 
@@ -90,7 +92,7 @@ impl Instruction {
     fn from_expr(
         expr: TypedExpr,
         types: &BTreeMap<TypeId, Type>,
-        init_data: &mut HashMap<usize, InitData>,
+        init_data: &mut HashMap<String, InitData>,
         jump_count: &mut usize,
         frame_reserved: &mut usize,
     ) -> Vec<Self> {
@@ -269,7 +271,7 @@ impl Instruction {
                     let s = Instruction::escape_string(s);
 
                     let str_len = s.len() as u64;
-                    init_data.insert(n, InitData::String(s));
+                    init_data.insert(format!("str_{n}"), InitData::String(s));
                     ops.push(Instruction::PushU64(str_len));
                     ops.push(Instruction::PushGlobal {
                         id: format!("str_{n}"),
@@ -285,7 +287,7 @@ impl Instruction {
                 let start = ops.len();
                 for arg in &args {
                     ops.push(Instruction::PushToFrame {
-                        bytes: arg.size(types).unwrap(),
+                        quad_words: arg.size(types).unwrap(),
                     });
                 }
 
@@ -307,7 +309,7 @@ impl Instruction {
                 }
             }
             TypedExpr::Cast { .. } => (),
-            TypedExpr::Var { typ, data } => {
+            TypedExpr::Var { size, width, data } => {
                 // Space is reserved for all local var's within a function's scope.
                 // Space is reserved in parsing order.
                 // This is what the frame should look like before any execution
@@ -332,21 +334,24 @@ impl Instruction {
 
                 // reserve space for typ
                 let offset_to_var = *frame_reserved;
-                *frame_reserved += typ;
+                *frame_reserved += size * width;
 
                 // reserve space for data (if any)
-                if let Some(data) = data {
+                if let Some((data_size, data_width)) = data {
                     ops.push(Instruction::InitLocalVarArr {
                         offset_to_var,
                         offset_to_data: *frame_reserved,
-                        data_len: data,
+                        data_size,
+                        data_width,
                     });
-                    *frame_reserved += data;
+                    *frame_reserved += data_size * data_width;
                 }
 
                 // push ptr to typ onto frame.
                 ops.push(Instruction::FramePtrToFrameReserve {
                     offset: offset_to_var,
+                    size,
+                    width,
                 })
             }
             TypedExpr::While { cond, body } => {
@@ -362,10 +367,13 @@ impl Instruction {
                         frame_reserved,
                     ));
                 }
+                ops.push(Instruction::JumpFalse {
+                    dest_id: *jump_count,
+                });
+
+                ops.push(Instruction::StartBlock);
 
                 let mut body_ops = vec![];
-                let start = ops.len();
-                ops.push(Instruction::StartBlock);
                 for e in body {
                     body_ops.append(&mut Instruction::from_expr(
                         e,
@@ -375,11 +383,8 @@ impl Instruction {
                         frame_reserved,
                     ));
                 }
-                ops.push(Instruction::EndBlock {
-                    bytes_to_free: Instruction::count_framed_bytes(&ops[start..]),
-                });
-                ops.push(Instruction::JumpFalse {
-                    dest_id: *jump_count,
+                body_ops.push(Instruction::EndBlock {
+                    bytes_to_free: Instruction::count_framed_bytes(&body_ops),
                 });
 
                 ops.append(&mut body_ops);
@@ -395,7 +400,9 @@ impl Instruction {
                 ops.push(Instruction::PushU64(typ.size(types).unwrap() as u64))
             }
             TypedExpr::Syscall { n } => ops.push(Instruction::Syscall(n)),
-            e => unimplemented!("{:?}", e),
+            TypedExpr::Global { ident } => ops.push(Instruction::PushGlobal { id: ident }),
+            TypedExpr::ElseIf { .. } => todo!(),
+            TypedExpr::Enum { .. } => todo!(),
         }
 
         ops
@@ -404,7 +411,7 @@ impl Instruction {
     pub fn from_function(
         func: Type,
         types: &BTreeMap<TypeId, Type>,
-        init_data: &mut HashMap<usize, InitData>,
+        init_data: &mut HashMap<String, InitData>,
     ) -> Vec<Self> {
         if let Type::Function { body, inputs, .. } = func {
             let mut ops = vec![
@@ -415,7 +422,7 @@ impl Instruction {
             for Arg { ident, typ, .. } in inputs.iter().rev() {
                 if ident.is_some() {
                     ops.push(Instruction::PushToFrame {
-                        bytes: typ.0.size(types).unwrap(),
+                        quad_words: typ.0.size(types).unwrap(),
                     });
                 }
             }
@@ -451,8 +458,8 @@ impl Instruction {
         let mut framed_bytes = 0;
         for i in instrs {
             match i {
-                Instruction::PushToFrame { bytes } => framed_bytes += bytes,
-                Instruction::FramePtrToFrameReserve { .. } => framed_bytes += 1,
+                Instruction::PushToFrame { quad_words } => framed_bytes += quad_words * 8,
+                Instruction::FramePtrToFrameReserve { .. } => framed_bytes += 8,
                 Instruction::EndBlock { bytes_to_free } => framed_bytes -= bytes_to_free,
                 _ => (),
             }

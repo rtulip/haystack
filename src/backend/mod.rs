@@ -1,10 +1,7 @@
 mod instruction;
 mod x86_64_nasm;
 pub use instruction::*;
-use std::{
-    collections::HashMap,
-    hash::{self, Hasher},
-};
+use std::collections::HashMap;
 pub use x86_64_nasm::*;
 
 pub trait CodeGen {
@@ -25,19 +22,19 @@ pub trait CodeGen {
     fn entry(file: &mut std::fs::File) -> Result<(), std::io::Error>;
     fn init_data(
         file: &mut std::fs::File,
-        data: &HashMap<usize, InitData>,
+        data: &HashMap<String, InitData>,
     ) -> Result<(), std::io::Error>;
     fn uninit_data(
         file: &mut std::fs::File,
-        data: &HashMap<usize, UninitData>,
+        data: &HashMap<String, UninitData>,
     ) -> Result<(), std::io::Error>;
 }
 
 pub fn compile<B: CodeGen>(
     file: &str,
     functions: &Vec<(&str, Vec<Instruction>)>,
-    init_data: &HashMap<usize, InitData>,
-    uninit_data: &HashMap<usize, UninitData>,
+    init_data: &HashMap<String, InitData>,
+    uninit_data: &HashMap<String, UninitData>,
 ) -> Result<(), std::io::Error> {
     let mut file = std::fs::File::create(file).unwrap();
 

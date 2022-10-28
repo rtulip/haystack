@@ -4,6 +4,8 @@ use crate::lex::token::{Literal, Operator, Token, TokenKind};
 use crate::types::{RecordKind, Signature, Type, TypeId, Untyped};
 use std::collections::{BTreeMap, HashMap};
 
+use super::stmt::StmtKind;
+
 #[derive(Debug, Clone)]
 pub enum Expr {
     Literal {
@@ -92,7 +94,7 @@ impl Expr {
         self,
         stack: &mut Vec<TypeId>,
         frame: &mut Vec<(String, TypeId)>,
-        global_env: &HashMap<String, Signature>,
+        global_env: &HashMap<String, (StmtKind, Signature)>,
         types: &mut BTreeMap<TypeId, Type>,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<TypedExpr, HayError> {
@@ -188,7 +190,7 @@ impl Expr {
                 base,
                 annotations,
             } => {
-                let mut sig = global_env.get(&base.lexeme).unwrap().clone();
+                let (_, mut sig) = global_env.get(&base.lexeme).unwrap().clone();
 
                 let (annotations, tid) = if let Some(map) = generic_map {
                     let ann = annotations
@@ -456,15 +458,21 @@ impl Expr {
                 })
             }
             Expr::Ident { ident } => {
-                if let Some(sig) = global_env.get(&ident.lexeme) {
+                if let Some((kind, sig)) = global_env.get(&ident.lexeme) {
                     let typed_expr = if let Some(map) = sig.evaluate(&ident, stack, types)? {
+                        assert!(matches!(kind, StmtKind::Function));
                         let gen_fn_tid = TypeId::new(&ident.lexeme);
                         let monomorphised = gen_fn_tid.assign(&ident, &map, types)?;
                         Ok(TypedExpr::Call {
                             func: monomorphised.0,
                         })
                     } else {
-                        Ok(TypedExpr::Call { func: ident.lexeme })
+                        match kind {
+                            StmtKind::Var => Ok(TypedExpr::Global {
+                                ident: ident.lexeme,
+                            }),
+                            StmtKind::Function => Ok(TypedExpr::Call { func: ident.lexeme }),
+                        }
                     };
 
                     return typed_expr;
@@ -530,7 +538,7 @@ impl Expr {
                 if let Some(finally) = finally {
                     let first_tok = finally[0].token().clone();
                     *stack = initial_stack;
-                    *frame = initial_frame;
+                    *frame = initial_frame.clone();
                     let mut tmp = vec![];
                     for e in finally {
                         tmp.push(e.type_check(stack, frame, global_env, types, generic_map)?);
@@ -556,6 +564,8 @@ impl Expr {
 
                     return Err(err);
                 }
+
+                *frame = initial_frame;
 
                 Ok(TypedExpr::If {
                     then: typed_then,
@@ -931,19 +941,20 @@ impl Expr {
                 let typ_size = typ_id.size(types)?;
                 let data = if let Some((dimension, tt)) = typ.dimension()? {
                     let inner_typ = TypeId::from_type_token(&typ, &tt, types, &vec![])?;
-                    Some(inner_typ.size(types)? * dimension)
+                    Some((inner_typ.size(types)? * dimension, inner_typ.width()))
                 } else {
                     None
                 };
 
                 Ok(TypedExpr::Var {
-                    typ: typ_size,
+                    size: typ_size,
+                    width: typ_id.width(),
                     data: data,
                 })
             }
             Expr::While { token, cond, body } => {
                 let stack_before = stack.clone();
-
+                let frame_before = frame.clone();
                 // Evaluate up to the body
                 let mut typed_cond = vec![];
                 for expr in cond {
@@ -954,6 +965,15 @@ impl Expr {
                         types,
                         generic_map,
                     )?);
+                }
+
+                if *frame != frame_before {
+                    return Err(HayError::new_type_err(
+                        format!("Frame cannot change within the while loop condition."),
+                        token.loc.clone(),
+                    )
+                    .with_hint(format!("Frame Before: {:?}", frame_before))
+                    .with_hint(format!("Frame After : {:?}", frame)));
                 }
 
                 Signature::new(vec![Type::Bool.id()], vec![]).evaluate(&token, stack, types)?;
@@ -977,6 +997,8 @@ impl Expr {
                     .with_hint(format!("Stack before loop: {:?}", stack_before))
                     .with_hint(format!("Stack after loop:  {:?}", stack)));
                 }
+
+                *frame = frame_before;
 
                 Ok(TypedExpr::While {
                     cond: typed_cond,
@@ -1048,8 +1070,9 @@ pub enum TypedExpr {
         block: Option<Vec<TypedExpr>>,
     },
     Var {
-        typ: usize,
-        data: Option<usize>,
+        size: usize,
+        width: usize,
+        data: Option<(usize, usize)>,
     },
     While {
         cond: Vec<TypedExpr>,
@@ -1069,5 +1092,8 @@ pub enum TypedExpr {
     Enum {
         typ: TypeId,
         variant: String,
+    },
+    Global {
+        ident: String,
     },
 }

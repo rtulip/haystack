@@ -9,20 +9,15 @@ impl super::CodeGen for X86_64 {
     fn encode_name(label: &str) -> String {
         // println!("Encoding: {label}");
         let mut s = String::from("fn_");
-        s.push_str(
-            label
-                .chars()
-                .map(|c| match c {
-                    '.' => '_',
-                    '<' => '_',
-                    '>' => '_',
-                    '+' => '~',
-                    ' ' => '_',
-                    c => c,
-                })
-                .collect::<String>()
-                .as_str(),
-        );
+        label.chars().for_each(|c| match c {
+            '.' => s.push_str("_dot_"),
+            '<' => s.push('_'),
+            '>' => s.push('_'),
+            '+' => s.push_str("_plus_"),
+            ' ' => s.push('_'),
+            '*' => s.push_str("_star_"),
+            c => s.push(c),
+        });
         s
     }
 
@@ -129,6 +124,15 @@ impl super::CodeGen for X86_64 {
                     writeln!(file, "  pop  rax")?;
                     writeln!(file, "  cmp  rax, rbx")?;
                     writeln!(file, "  cmovl rcx, rdx")?;
+                    writeln!(file, "  push rcx")?;
+                }
+                Operator::LessEqual => {
+                    writeln!(file, "  mov  rcx, 0")?;
+                    writeln!(file, "  mov  rdx, 1")?;
+                    writeln!(file, "  pop  rbx")?;
+                    writeln!(file, "  pop  rax")?;
+                    writeln!(file, "  cmp  rax, rbx")?;
+                    writeln!(file, "  cmovle rcx, rdx")?;
                     writeln!(file, "  push rcx")?;
                 }
                 Operator::Equal => {
@@ -313,7 +317,9 @@ impl super::CodeGen for X86_64 {
                         write!(file, "0x00, ")?;
                     }
                 }
-                InitData::Arr { .. } => todo!(),
+                InitData::Arr { size, pointer } => {
+                    write!(file, "  {id}: dq {size}, {pointer}").unwrap()
+                }
             }
             writeln!(file, "")?;
         }

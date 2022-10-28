@@ -323,6 +323,7 @@ impl Expr {
                                 vec![typ_id.clone()],
                             )
                             .evaluate(&token, stack, types)?;
+                            Ok(TypedExpr::Cast { typ: typ_id })
                         }
                         RecordKind::Union => {
                             let mut sigs = vec![];
@@ -334,7 +335,11 @@ impl Expr {
                                 ));
                             });
 
+                            let padding =
+                                typ_id.size(types)? - stack.iter().last().unwrap().size(types)?;
                             Signature::evaluate_many(&sigs, &token, stack, types)?;
+
+                            Ok(TypedExpr::Pad { padding })
                         }
                     },
                     Type::GenericRecordInstance { kind, .. } => {
@@ -349,6 +354,7 @@ impl Expr {
                                             vec![new_typ],
                                         )
                                         .evaluate(&token, stack, types)?;
+                                        Ok(TypedExpr::Cast { typ: typ_id })
                                     }
                                     RecordKind::Union => {
                                         let mut sigs = vec![];
@@ -361,6 +367,7 @@ impl Expr {
                                         });
 
                                         Signature::evaluate_many(&sigs, &token, stack, types)?;
+                                        todo!()
                                     }
                                 }
                             } else {
@@ -387,6 +394,7 @@ impl Expr {
                             stack,
                             types,
                         )?;
+                        Ok(TypedExpr::Cast { typ: typ_id })
                     }
                     Type::U8 => {
                         Signature::evaluate_many(
@@ -400,10 +408,12 @@ impl Expr {
                             stack,
                             types,
                         )?;
+                        Ok(TypedExpr::Cast { typ: typ_id })
                     }
                     Type::Pointer { .. } => {
                         Signature::new(vec![Type::U64.id()], vec![typ_id.clone()])
                             .evaluate(&token, stack, types)?;
+                        Ok(TypedExpr::Cast { typ: typ_id })
                     }
                     Type::GenericRecordBase {
                         generics, members, ..
@@ -414,14 +424,13 @@ impl Expr {
                             generics.clone(),
                         )
                         .evaluate(&token, stack, types)?;
+                        Ok(TypedExpr::Cast { typ: typ_id })
                     }
                     Type::Char | Type::Bool | Type::Enum { .. } => unimplemented!(),
                     Type::GenericFunction { .. }
                     | Type::UncheckedFunction { .. }
                     | Type::Function { .. } => unreachable!(),
                 }
-
-                Ok(TypedExpr::Cast { typ: typ_id })
             }
             Expr::ElseIf {
                 else_tok,
@@ -1095,5 +1104,8 @@ pub enum TypedExpr {
     },
     Global {
         ident: String,
+    },
+    Pad {
+        padding: usize,
     },
 }

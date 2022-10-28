@@ -125,7 +125,7 @@ impl Instruction {
 
                                     &members[idx].typ.0
                                 }
-                                RecordKind::Union => todo!(),
+                                RecordKind::Union => break,
                             }
                         } else {
                             panic!("{typ}");
@@ -414,6 +414,11 @@ impl Instruction {
                     ));
                 } else {
                     panic!();
+                }
+            }
+            TypedExpr::Pad { padding } => {
+                for _ in 0..padding {
+                    ops.push(Instruction::PushU64(0));
                 }
             }
         }

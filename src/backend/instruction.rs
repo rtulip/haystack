@@ -405,9 +405,9 @@ impl Instruction {
                 ops.push(Instruction::JumpDest { id: *jump_count });
                 *jump_count += 1;
             }
-            TypedExpr::SizeOf { typ } => {
-                ops.push(Instruction::PushU64(typ.size(types).unwrap() as u64))
-            }
+            TypedExpr::SizeOf { typ } => ops.push(Instruction::PushU64(
+                (typ.size(types).unwrap() * typ.width()) as u64,
+            )),
             TypedExpr::Syscall { n } => ops.push(Instruction::Syscall(n)),
             TypedExpr::Global { ident } => ops.push(Instruction::PushGlobal { id: ident }),
             TypedExpr::ElseIf { .. } => todo!(),

@@ -53,7 +53,7 @@ fn exit(u64) {
 }
 
 fn fputu(u64: u u64: fd) {
-    var u8[20]: buffer
+    var u8[32]: buffer
     u buffer @ u64.to_str fd fputs
 }
 

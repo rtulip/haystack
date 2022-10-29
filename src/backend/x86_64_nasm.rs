@@ -228,7 +228,7 @@ impl super::CodeGen for X86_64 {
                 writeln!(
                     file,
                     "  sub rbx, {}",
-                    offset_to_data + 16 + (data_size + 1) * data_width
+                    offset_to_data + 8 + data_size * data_width
                 )?;
                 writeln!(file, "  mov [rax], rbx")?;
                 writeln!(file, "  sub rax, 8")?;

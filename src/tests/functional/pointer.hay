@@ -5,7 +5,7 @@ fn main() {
     0 while dup word::size < {
         as [i]
         word::data i ptr+ @ cast(u64) putlnu
-        88 cast(u8) word::data i ptr+ !
+        'X' word::data i ptr+ !
         i 1 + 
     } drop
 

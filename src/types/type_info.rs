@@ -747,7 +747,7 @@ impl TypeId {
     }
 
     pub fn width(&self) -> usize {
-        if self == &Type::U8.id() {
+        if self == &Type::U8.id() || self == &Type::Char.id() {
             1
         } else {
             8

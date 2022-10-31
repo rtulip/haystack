@@ -438,6 +438,19 @@ impl Expr {
                         )?;
                         Ok(TypedExpr::Cast { typ: typ_id })
                     }
+                    Type::Char => {
+                        Signature::evaluate_many(
+                            &vec![
+                                Signature::new(vec![Type::U8.id()], vec![Type::Char.id()]),
+                                Signature::new(vec![Type::U64.id()], vec![Type::Char.id()]),
+                                Signature::new(vec![Type::Char.id()], vec![Type::Char.id()]),
+                            ],
+                            &token,
+                            stack,
+                            types,
+                        )?;
+                        Ok(TypedExpr::Cast { typ: typ_id })
+                    }
                     Type::Pointer { .. } => {
                         Signature::new(vec![Type::U64.id()], vec![typ_id.clone()])
                             .evaluate(&token, stack, types)?;
@@ -454,7 +467,7 @@ impl Expr {
                         .evaluate(&token, stack, types)?;
                         Ok(TypedExpr::Cast { typ: typ_id })
                     }
-                    Type::Char | Type::Bool | Type::Enum { .. } => unimplemented!(),
+                    Type::Bool | Type::Enum { .. } => unimplemented!(),
                     Type::GenericFunction { .. }
                     | Type::UncheckedFunction { .. }
                     | Type::Function { .. } => unreachable!(),

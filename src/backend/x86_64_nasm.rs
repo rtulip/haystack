@@ -238,7 +238,7 @@ impl super::CodeGen for X86_64 {
             Instruction::Syscall(n) => {
                 let order = ["rax", "rdi", "rsi", "rdx", "r10", "r8", "r9"];
                 for i in 0..=*n {
-                    writeln!(file, "  pop  {}", order[i as usize]).unwrap();
+                    writeln!(file, "  pop  {}", order[i]).unwrap();
                 }
                 writeln!(file, "  syscall").unwrap();
                 writeln!(file, "  push rax").unwrap();

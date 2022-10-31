@@ -326,7 +326,7 @@ impl Expr {
                 })
             }
             Expr::Cast { token, typ } => {
-                let typ_id = TypeId::new(&typ.lexeme);
+                let typ_id = TypeId::new(typ.lexeme);
                 let typ_id = if let Some(map) = generic_map {
                     if let Ok(tid) = typ_id.assign(&token, map, types) {
                         // try to assign for annotated casts
@@ -923,7 +923,7 @@ impl Expr {
                 Ok(TypedExpr::SizeOf { typ: tid })
             }
             Expr::Syscall { token, n } => {
-                if stack.len() < n as usize {
+                if stack.len() < n {
                     return Err(HayError::new_type_err(
                         format!(
                             "{} requires at least {} elements on the stack. Found {}",

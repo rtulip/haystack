@@ -25,6 +25,34 @@ jobs:
     - uses: ilammy/setup-nasm@v1    
     - name: Build
       run: cargo build --verbose
-      
-    - name: Run tests
+  
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@master
+    - uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly
+          components: clippy
+          override: true
+    - uses: ilammy/setup-nasm@v1    
+    - name: Run Tests
       run: cargo test --verbose
+  
+  clippy:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@master
+    - uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly
+          components: clippy
+          override: true
+    - name: Run Clippy
+      uses: actions-rs/clippy-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        args: --all-features -- -D warnings

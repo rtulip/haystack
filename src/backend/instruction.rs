@@ -289,7 +289,7 @@ impl Instruction {
                 Literal::U64(n) => ops.push(Instruction::PushU64(n)),
                 Literal::U8(n) => ops.push(Instruction::PushU64(n as u64)),
                 Literal::Bool(b) => ops.push(Instruction::PushU64(b as u64)),
-                _ => todo!("value: {:?}", value),
+                Literal::Char(c) => ops.push(Instruction::PushU64(c as u64)),
             },
             TypedExpr::Call { func } => ops.push(Instruction::Call(func)),
             TypedExpr::As { args, block } => {

@@ -152,7 +152,7 @@ impl super::CodeGen for X86_64 {
                     writeln!(file, "  cmovne rcx, rdx")?;
                     writeln!(file, "  push rcx")?;
                 }
-                _ => todo!("{op}"),
+                Operator::Read | Operator::Write => unreachable!(),
             },
             Instruction::Operator {
                 op,

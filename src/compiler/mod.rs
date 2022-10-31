@@ -136,8 +136,8 @@ pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
     compile::<X86_64>(
         path.with_extension("asm").to_str().unwrap(),
         &instructions,
-        &mut init_data,
-        &mut uninit_data,
+        &init_data,
+        &uninit_data,
     )
     .unwrap();
 
@@ -175,7 +175,7 @@ pub fn run_command(cmd: &str, args: Vec<&str>) -> Output {
     let nasm_output = Command::new(cmd)
         .args(args)
         .output()
-        .expect(format!("Failed to run nasm: {cmd}").as_str());
+        .unwrap_or_else(|_| panic!("Failed to run nasm: {cmd}"));
     io::stdout().write_all(&nasm_output.stdout).unwrap();
     io::stderr().write_all(&nasm_output.stderr).unwrap();
     nasm_output

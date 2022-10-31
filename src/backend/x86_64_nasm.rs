@@ -308,7 +308,7 @@ impl super::CodeGen for X86_64 {
             match data {
                 InitData::String(s) => {
                     write!(file, "  {id}: db ")?;
-                    if s.len() > 0 {
+                    if !s.is_empty() {
                         s.as_bytes()
                             .iter()
                             .for_each(|b| write!(file, "{:#x}, ", b).unwrap());
@@ -320,7 +320,7 @@ impl super::CodeGen for X86_64 {
                     write!(file, "  {id}: dq {size}, {pointer}").unwrap()
                 }
             }
-            writeln!(file, "")?;
+            writeln!(file)?;
         }
 
         Ok(())

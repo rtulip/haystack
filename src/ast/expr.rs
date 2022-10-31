@@ -123,13 +123,13 @@ impl Expr {
                                         "Type `{}` doesn't have a member {}",
                                         name.lexeme, inner_member.lexeme,
                                     ),
-                                    token.loc.clone(),
+                                    token.loc,
                                 ));
                             }
                         } else {
                             return Err(HayError::new(
                                 format!("Cannot access into non-record type `{tid}`"),
-                                token.loc.clone(),
+                                token.loc,
                             ));
                         }
                     }
@@ -147,7 +147,7 @@ impl Expr {
                     if inner.len() != 1 {
                         return Err(HayError::new(
                             "Cannot have multiple inner accessor for an enum type.",
-                            token.loc.clone(),
+                            token.loc,
                         )
                         .with_hint(format!("Found accessors: {:?}", inner))
                         .with_hint(format!(
@@ -159,7 +159,7 @@ impl Expr {
                     if !variants.iter().any(|v| v.lexeme == inner[0].lexeme) {
                         return Err(HayError::new(
                             format!("Unknown enum variant {}", inner[0].lexeme),
-                            token.loc.clone(),
+                            token.loc,
                         )
                         .with_hint(format!(
                             "Enum {} has variants: {:?}",
@@ -179,10 +179,10 @@ impl Expr {
                             .clone(),
                     })
                 } else {
-                    return Err(HayError::new(
+                    Err(HayError::new(
                         format!("Unknown identifier `{}`", ident.lexeme),
-                        token.loc.clone(),
-                    ));
+                        token.loc,
+                    ))
                 }
             }
             Expr::AnnotatedCall {
@@ -246,9 +246,7 @@ impl Expr {
                                 .map(|(k, v)| (k.clone(), TypeId::new(&v.token.lexeme))),
                         );
 
-                        let func = gen_fn_tid.assign(&token, &map, types)?;
-
-                        func
+                        gen_fn_tid.assign(&token, &map, types)?
                     } else {
                         return Err(HayError::new_type_err(
                             format!(
@@ -286,7 +284,7 @@ impl Expr {
                 if stack.len() < args.len() {
                     let e = HayError::new_type_err(
                         "Insufficient elements on the stack to bind",
-                        token.loc.clone(),
+                        token.loc,
                     )
                     .with_hint(format!(
                         "Expected {} elements to bind to idents: {:?}",
@@ -401,7 +399,10 @@ impl Expr {
                                 unreachable!()
                             }
                         } else {
-                            return Err(HayError::new(format!("Shouldn't be able to cast to {kind} {typ_id} without a known mapping for generics"), token.loc.clone()));
+                            Err(HayError::new_type_err(
+                                format!("Shouldn't be able to cast to {kind} {typ_id} without a known mapping for generics"), 
+                                token.loc.clone()
+                            ))
                         }
                     }
                     Type::U64 => {
@@ -527,10 +528,10 @@ impl Expr {
                     });
                 }
 
-                return Err(HayError::new_type_err(
+                Err(HayError::new_type_err(
                     format!("Unrecognized word `{}`", ident.lexeme),
                     ident.loc.clone(),
-                ));
+                ))
             }
             Expr::If {
                 token,
@@ -621,13 +622,13 @@ impl Expr {
 
                     Ok(TypedExpr::Literal { value: lit.clone() })
                 } else {
-                    return Err(HayError::new(
+                    Err(HayError::new(
                         format!(
                             "Logic Error -- Literal without TokenKind::Literal. Found {} instead",
                             value.kind
                         ),
                         value.loc.clone(),
-                    ));
+                    ))
                 }
             }
             Expr::Operator { op: op_tok } => match &op_tok.kind {
@@ -888,12 +889,10 @@ impl Expr {
                         }
                     }
                 }
-                _ => {
-                    return Err(HayError::new(
-                        "Logic error. Operator token with kind != TokenKind::Operator",
-                        op_tok.loc.clone(),
-                    ))
-                }
+                _ => Err(HayError::new(
+                    "Logic error. Operator token with kind != TokenKind::Operator",
+                    op_tok.loc.clone(),
+                )),
             },
             Expr::SizeOf { token, typ } => {
                 let tid = match TypeId::from_token(&typ, types, &vec![]) {
@@ -972,7 +971,7 @@ impl Expr {
                     types.insert(id.clone(), ptr);
                 }
 
-                frame.push((ident.lexeme.clone(), id));
+                frame.push((ident.lexeme, id));
 
                 let typ_size = typ_id.size(types)?;
                 let data = if let Some((dimension, tt)) = typ.dimension()? {
@@ -985,7 +984,7 @@ impl Expr {
                 Ok(TypedExpr::Var {
                     size: typ_size,
                     width: typ_id.width(),
-                    data: data,
+                    data,
                 })
             }
             Expr::While { token, cond, body } => {
@@ -1005,7 +1004,7 @@ impl Expr {
 
                 if *frame != frame_before {
                     return Err(HayError::new_type_err(
-                        format!("Frame cannot change within the while loop condition."),
+                        "Frame cannot change within the while loop condition.",
                         token.loc.clone(),
                     )
                     .with_hint(format!("Frame Before: {:?}", frame_before))

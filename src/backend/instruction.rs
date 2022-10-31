@@ -109,7 +109,7 @@ impl Instruction {
                 let mut typ = &frame[idx].1;
                 let bytes = if let Some(inner) = &inner {
                     for inner in inner {
-                        typ = if let Type::Record { members, kind, .. } = types.get(&typ).unwrap() {
+                        typ = if let Type::Record { members, kind, .. } = types.get(typ).unwrap() {
                             match kind {
                                 RecordKind::Struct => {
                                     let idx = members
@@ -155,7 +155,7 @@ impl Instruction {
             }
             TypedExpr::Operator { op, typ: Some(typ) } => ops.push(Instruction::Operator {
                 op,
-                size: Some((typ.size(&types).unwrap(), typ.width())),
+                size: Some((typ.size(types).unwrap(), typ.width())),
             }),
             TypedExpr::Operator { op, typ: None } => {
                 ops.push(Instruction::Operator { op, size: None })

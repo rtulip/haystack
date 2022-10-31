@@ -192,19 +192,44 @@ impl Expr {
             } => {
                 let (_, mut sig) = global_env.get(&base.lexeme).unwrap().clone();
 
-                let (annotations, tid) = if let Some(map) = generic_map {
-                    let ann = annotations
-                        .iter()
-                        .map(|arg| {
-                            let tid = TypeId::new(&arg.token.lexeme);
-                            tid.assign(&token, map, types)
-                        })
-                        .collect::<Vec<Result<TypeId, HayError>>>();
+                let (annotations, tid) = if annotations
+                    .iter()
+                    .any(|arg| TypeId::new(&arg.token.lexeme).is_generic(types))
+                {
+                    if let Some(map) = generic_map {
+                        let ann = annotations
+                            .iter()
+                            .map(|arg| {
+                                let tid = TypeId::new(&arg.token.lexeme);
+                                tid.assign(&token, map, types)
+                            })
+                            .collect::<Vec<Result<TypeId, HayError>>>();
 
-                    let gen_fn_tid = TypeId::new(&base.lexeme);
-                    let func = gen_fn_tid.assign(&token, map, types)?;
+                        let gen_fn_tid = TypeId::new(&base.lexeme);
+                        let func = gen_fn_tid.assign(&token, map, types)?;
 
-                    (ann, func)
+                        (ann, func)
+                    } else {
+                        return Err(HayError::new_type_err(
+                            "Unresolved generic types in annotations",
+                            token.loc.clone(),
+                        )
+                        .with_hint(format!(
+                            "Found annotations: {:?}",
+                            annotations
+                                .iter()
+                                .map(|arg| &arg.token.lexeme)
+                                .collect::<Vec<&String>>()
+                        ))
+                        .with_hint(format!(
+                            "          Of which {:?} are generic",
+                            annotations
+                                .iter()
+                                .map(|arg| TypeId::new(&arg.token.lexeme))
+                                .filter(|tid| tid.is_generic(types))
+                                .collect::<Vec<TypeId>>()
+                        )));
+                    }
                 } else {
                     let ann = annotations
                         .iter()

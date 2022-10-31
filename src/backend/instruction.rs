@@ -364,8 +364,10 @@ impl Instruction {
                 })
             }
             TypedExpr::While { cond, body } => {
-                let while_dest = *jump_count;
-                ops.push(Instruction::JumpDest { id: while_dest });
+                let while_start_dest = *jump_count;
+                ops.push(Instruction::JumpDest {
+                    id: while_start_dest,
+                });
                 *jump_count += 1;
                 for e in cond {
                     ops.append(&mut Instruction::from_expr(
@@ -376,9 +378,11 @@ impl Instruction {
                         frame_reserved,
                     ));
                 }
+                let while_end_dest = *jump_count;
                 ops.push(Instruction::JumpFalse {
-                    dest_id: *jump_count,
+                    dest_id: while_end_dest,
                 });
+                *jump_count += 1;
 
                 ops.push(Instruction::StartBlock);
 
@@ -399,10 +403,10 @@ impl Instruction {
                 ops.append(&mut body_ops);
 
                 ops.push(Instruction::Jump {
-                    dest_id: while_dest,
+                    dest_id: while_start_dest,
                 });
 
-                ops.push(Instruction::JumpDest { id: *jump_count });
+                ops.push(Instruction::JumpDest { id: while_end_dest });
                 *jump_count += 1;
             }
             TypedExpr::SizeOf { typ } => ops.push(Instruction::PushU64(

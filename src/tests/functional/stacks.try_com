@@ -1,5 +1,5 @@
 {
   "exit_code": 0,
-  "stdout": "[CMD]: nasm -felf64 src/tests/stacks.asm\n[CMD]: ld -o stacks src/tests/stacks.o\n",
+  "stdout": "[CMD]: nasm -felf64 src/tests/functional/stacks.asm\n[CMD]: ld -o stacks src/tests/functional/stacks.o\n",
   "stderr": ""
 }

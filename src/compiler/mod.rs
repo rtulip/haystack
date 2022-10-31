@@ -189,11 +189,6 @@ mod tests {
     }
 
     #[test]
-    fn auto_functions() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "auto_functions")
-    }
-
-    #[test]
     fn cat() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "cat")
     }

@@ -8,5 +8,5 @@ fn cat(Str: path) {
 }
 
 fn main() {
-    "./src/tests/cat.hay" cat
+    "./src/tests/functional/cat.hay" cat
 }

@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "[CMD]: nasm -felf64 src/tests/functional/nested_ident.asm\n[CMD]: ld -o nested_ident src/tests/functional/nested_ident.o\n",
+  "stderr": ""
+}

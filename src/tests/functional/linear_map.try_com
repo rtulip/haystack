@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "[CMD]: nasm -felf64 src/tests/functional/linear_map.asm\n[CMD]: ld -o linear_map src/tests/functional/linear_map.o\n",
+  "stderr": ""
+}

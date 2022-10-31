@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "[CMD]: nasm -felf64 src/tests/functional/hello_world.asm\n[CMD]: ld -o hello_world src/tests/functional/hello_world.o\n",
+  "stderr": ""
+}

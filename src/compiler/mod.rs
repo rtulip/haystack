@@ -1,36 +1,145 @@
-mod common;
-mod type_check;
-pub mod x86_64;
-use crate::ir::program::Program;
-use crate::lex;
-pub use common::{compiler_error, program_to_json, simplify_ir};
-use std::collections::HashSet;
+use crate::ast::parser::Parser;
+use crate::ast::stmt::Stmt;
+use crate::backend::{compile, Instruction, X86_64};
+use crate::error::HayError;
+use crate::lex::scanner::Scanner;
+use crate::lex::token::Loc;
+use crate::types::{Type, TypeId};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::{self, Write};
 use std::process::{Command, Output};
-pub use type_check::{evaluate_signature, type_check_ops_list};
 
-pub fn compile_haystack(input_path: String, run: bool, ir: bool, simple: bool) -> Option<Output> {
+pub mod test_tools;
+
+pub fn parse_haystack_into_statements(
+    input_path: &String,
+    visited: &mut HashSet<String>,
+) -> Result<Vec<Stmt>, HayError> {
+    if visited.contains(input_path) {
+        return Ok(vec![]);
+    }
+
+    if let Ok(source) = std::fs::read_to_string(input_path) {
+        visited.insert(input_path.clone());
+        let scanner = Scanner::new(input_path, &source);
+        let tokens = scanner.scan_tokens()?;
+        let parser = Parser::new(tokens, visited);
+        let stmts = parser.parse()?;
+
+        Ok(stmts)
+    } else {
+        Err(HayError::new(
+            format!("Failed to read from file: {input_path}"),
+            Loc::new(input_path, 0, 0, 0),
+        ))
+    }
+}
+
+pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
     let path = std::path::Path::new(&input_path);
-    let ir_path = path.with_extension("json");
-    let mut program = Program::new();
-    let mut included_files: HashSet<String> = HashSet::new();
-    lex::hay_into_ir("src/libs/prelude.hay", &mut program, &mut included_files);
-    lex::hay_into_ir(&input_path, &mut program, &mut included_files);
-    program.check_for_entry_point();
-    program.check_for_name_conflicts();
-    program.assign_words();
-    program.type_check();
-    program.finish_building_destructors();
-    program.convert_opkind_copy_into_calls();
-    if ir {
-        program_to_json(&ir_path, &program);
+    let mut visited = HashSet::new();
+    let mut stmts =
+        parse_haystack_into_statements(&String::from("src/libs/prelude.hay"), &mut visited)?;
+    stmts.append(&mut parse_haystack_into_statements(
+        &input_path,
+        &mut visited,
+    )?);
+
+    let mut types: BTreeMap<TypeId, Type> = BTreeMap::new();
+    types.insert(TypeId::new("u64"), Type::U64);
+    types.insert(TypeId::new("u8"), Type::U8);
+    types.insert(TypeId::new("char"), Type::Char);
+    types.insert(TypeId::new("bool"), Type::Bool);
+
+    let mut init_data = HashMap::new();
+    let mut uninit_data = HashMap::new();
+    let mut global_env = HashMap::new();
+    for s in stmts {
+        s.add_to_global_scope(
+            &mut types,
+            &mut global_env,
+            &mut init_data,
+            &mut uninit_data,
+        )?;
     }
-    if simple {
-        simplify_ir(&program, &path.with_extension("simple"));
+    while types
+        .iter()
+        .filter(|(_, v)| matches!(v, Type::UncheckedFunction { .. }))
+        .count()
+        != 0
+    {
+        let fns = types
+            .drain_filter(|_, v| matches!(v, Type::UncheckedFunction { .. }))
+            .collect::<Vec<(TypeId, Type)>>();
+
+        for (tid, f) in fns {
+            if let Type::UncheckedFunction {
+                token,
+                name,
+                inputs,
+                outputs,
+                body,
+                generic_map,
+            } = f
+            {
+                let mut stack = vec![];
+                let mut frame = vec![];
+
+                inputs.iter().rev().for_each(|arg| {
+                    if arg.ident.is_some() {
+                        frame.push((
+                            arg.ident.as_ref().unwrap().lexeme.clone(),
+                            arg.typ.0.clone(),
+                        ))
+                    } else {
+                        stack.push(arg.typ.0.clone())
+                    }
+                });
+
+                let mut typed_body = vec![];
+                for expr in body {
+                    typed_body.push(expr.type_check(
+                        &mut stack,
+                        &mut frame,
+                        &global_env,
+                        &mut types,
+                        &generic_map,
+                    )?);
+                }
+
+                types.insert(
+                    tid,
+                    Type::Function {
+                        token,
+                        name,
+                        inputs,
+                        outputs,
+                        body: typed_body,
+                        generic_map,
+                    },
+                );
+            }
+        }
     }
-    program.normalize_function_names();
-    program.normalize_global_names();
-    x86_64::compile_program(&program, &path.with_extension("asm").to_str().unwrap());
+
+    let mut instructions = vec![];
+    types
+        .iter()
+        .filter(|(_, t)| matches!(t, Type::Function { .. }))
+        .for_each(|(tid, func)| {
+            instructions.push((
+                tid.0.as_str(),
+                Instruction::from_function(func.clone(), &types, &mut init_data),
+            ));
+        });
+
+    compile::<X86_64>(
+        path.with_extension("asm").to_str().unwrap(),
+        &instructions,
+        &init_data,
+        &uninit_data,
+    )
+    .unwrap();
 
     assert!(run_command(
         "nasm",
@@ -48,14 +157,15 @@ pub fn compile_haystack(input_path: String, run: bool, ir: bool, simple: bool) -
     )
     .status
     .success());
+
     if run {
-        return Some(run_command(
+        run_command(
             format!("./{}", &path.file_stem().unwrap().to_str().unwrap()).as_str(),
             vec![],
-        ));
+        );
     }
 
-    None
+    Ok(())
 }
 
 pub fn run_command(cmd: &str, args: Vec<&str>) -> Output {
@@ -65,7 +175,7 @@ pub fn run_command(cmd: &str, args: Vec<&str>) -> Output {
     let nasm_output = Command::new(cmd)
         .args(args)
         .output()
-        .expect("Failed to run nasm");
+        .unwrap_or_else(|_| panic!("Failed to run nasm: {cmd}"));
     io::stdout().write_all(&nasm_output.stdout).unwrap();
     io::stderr().write_all(&nasm_output.stderr).unwrap();
     nasm_output
@@ -73,70 +183,338 @@ pub fn run_command(cmd: &str, args: Vec<&str>) -> Output {
 
 mod tests {
 
-    use serde::{Deserialize, Serialize};
-    #[derive(Serialize, Deserialize, Debug, PartialEq)]
-    struct OutputSummary {
-        exit_code: i32,
-        stdout: String,
-        stderr: String,
+    #[test]
+    fn array() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "array")
     }
 
     #[test]
-    fn run_tests() -> Result<(), std::io::Error> {
-        use crate::compiler::run_command;
-        use std::fs;
-        use std::process::Output;
+    fn cat() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "cat")
+    }
 
-        fn summarize_output(output: &Output) -> OutputSummary {
-            let exit_code = output.status.code().unwrap();
-            let stdout = String::from_utf8(output.stdout.clone()).unwrap();
-            let stderr = String::from_utf8(output.stderr.clone()).unwrap();
-            OutputSummary {
-                exit_code,
-                stdout,
-                stderr,
-            }
-        }
-        let test_dir = std::path::Path::new("src/tests");
-        for entry in fs::read_dir(test_dir)? {
-            let entry = entry?;
-            let path = entry.path();
+    #[test]
+    fn r#enum() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "enum")
+    }
 
-            if path.extension().unwrap() == "hay" {
-                let output = run_command("cargo", vec!["r", "-q", "--", path.to_str().unwrap()]);
-                let compilation_summary = summarize_output(&output);
-                let com_path = path.with_extension("try_com");
+    #[test]
+    fn generic_struct() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "generic_struct")
+    }
 
-                if com_path.exists() {
-                    let prev_output: OutputSummary =
-                        serde_json::from_str(&std::fs::read_to_string(&com_path)?.as_str())?;
-                    assert_eq!(prev_output, compilation_summary);
-                } else {
-                    std::fs::write(
-                        com_path,
-                        serde_json::to_string_pretty(&compilation_summary)?,
-                    )?;
-                }
+    #[test]
+    fn hello_world() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "hello_world")
+    }
 
-                if output.status.success() {
-                    let output = summarize_output(&run_command(
-                        format!("./{}", &path.file_stem().unwrap().to_str().unwrap()).as_str(),
-                        vec![],
-                    ));
+    #[test]
+    fn if_else() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "if_else")
+    }
 
-                    let run_path = path.with_extension("try_run");
+    #[test]
+    fn r#impl() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "impl")
+    }
 
-                    if run_path.exists() {
-                        let prev_output: OutputSummary =
-                            serde_json::from_str(&std::fs::read_to_string(&run_path)?.as_str())?;
-                        assert_eq!(prev_output, output);
-                    } else {
-                        std::fs::write(run_path, serde_json::to_string_pretty(&output)?)?;
-                    }
-                }
-            }
-        }
+    #[test]
+    fn linear_map() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "linear_map")
+    }
 
-        Ok(())
+    #[test]
+    fn local() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "local")
+    }
+
+    #[test]
+    fn math() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "math")
+    }
+
+    #[test]
+    fn nested_ident() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "nested_ident")
+    }
+
+    #[test]
+    fn option() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "option")
+    }
+
+    #[test]
+    fn pointer() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "pointer")
+    }
+
+    #[test]
+    fn scoped_as() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "scoped_as")
+    }
+
+    #[test]
+    fn stacks() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "stacks")
+    }
+
+    #[test]
+    fn struct_accessors() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "struct_accessors")
+    }
+
+    #[test]
+    fn r#struct() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "struct")
+    }
+
+    #[test]
+    fn r#union() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "union")
+    }
+
+    #[test]
+    fn parse_as_block_bad_close() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_as_block_bad_close")
+    }
+
+    #[test]
+    fn parse_as_block_bad_open() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_as_block_bad_open")
+    }
+
+    #[test]
+    fn parse_bad_accessor1() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_accessor1")
+    }
+
+    #[test]
+    fn parse_bad_accessor2() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_accessor2")
+    }
+
+    #[test]
+    fn parse_bad_accessor3() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_accessor3")
+    }
+
+    #[test]
+    fn parse_bad_annotated_call_close() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_annotated_call_close")
+    }
+
+    #[test]
+    fn parse_bad_annotated_type() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_annotated_type")
+    }
+
+    #[test]
+    fn parse_bad_arg_identifier() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_arg_identifier")
+    }
+
+    #[test]
+    fn parse_bad_array_var_close() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_array_var_close")
+    }
+
+    #[test]
+    fn parse_bad_array_var_size() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_array_var_size")
+    }
+
+    #[test]
+    fn parse_bad_block_close() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_block_close")
+    }
+
+    #[test]
+    fn parse_bad_block_open() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_block_open")
+    }
+
+    #[test]
+    fn parse_bad_body_after_function_name() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_body_after_function_name")
+    }
+
+    #[test]
+    fn parse_bad_cast_expr_close() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_cast_expr_close")
+    }
+
+    #[test]
+    fn parse_bad_cast_expr_open() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_cast_expr_open")
+    }
+
+    #[test]
+    fn parse_bad_cast_expr_param() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_cast_expr_param")
+    }
+
+    #[test]
+    fn parse_bad_else_if_block() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_else_if_block")
+    }
+
+    #[test]
+    fn parse_bad_expression() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_expression")
+    }
+
+    #[test]
+    fn parse_bad_file_to_include() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_file_to_include")
+    }
+
+    #[test]
+    fn parse_bad_function_annotation_close() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_function_annotation_close")
+    }
+
+    #[test]
+    fn parse_bad_function_parameter_close() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_function_parameter_close")
+    }
+
+    #[test]
+    fn parse_bad_function_return_list_close() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_function_return_list_close")
+    }
+
+    #[test]
+    fn parse_bad_function_return_list_open() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_function_return_list_open")
+    }
+
+    #[test]
+    fn parse_bad_include_statement() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_include_statement")
+    }
+
+    #[test]
+    fn parse_bad_pointer_type() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_pointer_type")
+    }
+
+    #[test]
+    fn parse_bad_top_level_token() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_top_level_token")
+    }
+
+    #[test]
+    fn parse_enum_bad_close() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_enum_bad_close")
+    }
+
+    #[test]
+    fn parse_enum_bad_open() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_enum_bad_open")
+    }
+
+    #[test]
+    fn parse_enum_empty_variants() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_enum_empty_variants")
+    }
+
+    #[test]
+    fn parse_enum_without_identifier() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_enum_without_identifier")
+    }
+
+    #[test]
+    fn parse_function_empty_return_list() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_function_empty_return_list")
+    }
+
+    #[test]
+    fn parse_function_without_name() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_function_without_name")
+    }
+
+    #[test]
+    fn parse_mixed_identifier_arg_list() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_mixed_identifier_arg_list")
+    }
+
+    #[test]
+    fn parse_no_args_in_annotated_call() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_no_args_in_annotated_call")
+    }
+
+    #[test]
+    fn parse_struct_bad_annotations_close() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_struct_bad_annotations_close")
+    }
+
+    #[test]
+    fn parse_struct_bad_close() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_struct_bad_close")
+    }
+
+    #[test]
+    fn parse_struct_bad_impl_open() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_struct_bad_impl_open")
+    }
+
+    #[test]
+    fn parse_struct_bad_open() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_struct_bad_open")
+    }
+
+    #[test]
+    fn parse_struct_empty_members() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_struct_empty_members")
+    }
+
+    #[test]
+    fn parse_struct_member_without_identifier1() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_struct_member_without_identifier1")
+    }
+
+    #[test]
+    fn parse_struct_member_without_identifier2() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_struct_member_without_identifier2")
+    }
+
+    #[test]
+    fn parse_struct_pub_member_without_type() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_struct_pub_member_without_type")
+    }
+
+    #[test]
+    fn parse_struct_without_identifier() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_struct_without_identifier")
+    }
+
+    #[test]
+    fn parse_var_expr_bad_ident() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_var_expr_bad_ident")
+    }
+
+    #[test]
+    fn parse_var_expr_bad_type() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_var_expr_bad_type")
+    }
+
+    #[test]
+    fn parse_var_expr_missing_colon() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_var_expr_missing_colon")
+    }
+
+    #[test]
+    fn parse_bad_sizeof_open() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_sizeof_open")
+    }
+
+    #[test]
+    fn parse_bad_sizeof_close() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_sizeof_close")
+    }
+
+    #[test]
+    fn parse_bad_sizeof_param() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("parser", "parse_bad_sizeof_param")
     }
 }

@@ -1,5 +1,0 @@
-{
-  "exit_code": 0,
-  "stdout": "Destroying bar\n Foo1: Copying a foo!\n  Foo Count: 3\nFoo(100,105)\nDestroying Foo(100,105)\n  Foo Count: 2\n Foo2: Copying a foo!\n  Foo Count: 3\nFoo(200,205)\nDestroying Foo(200,205)\n  Foo Count: 2\nDestroying Foo(100,105)\n  Foo Count: 1\nDestroying Foo(200,205)\n  Foo Count: 0\nFinal Foo Count: 0\n",
-  "stderr": ""
-}

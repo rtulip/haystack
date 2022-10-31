@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parser/parse_bad_sizeof_param.hay:2:11] Error: Expected a type identifier, but found `u64` instead.\n"
+}

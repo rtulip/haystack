@@ -1,6 +1,11 @@
+#![feature(btree_drain_filter)]
+
+mod ast;
+mod backend;
 mod compiler;
-mod ir;
+mod error;
 mod lex;
+mod types;
 use clap::Parser;
 use compiler::compile_haystack;
 
@@ -9,13 +14,12 @@ struct Cli {
     file: String,
     #[clap(short, long)]
     run: bool,
-    #[clap(long)]
-    json: bool,
-    #[clap(long)]
-    simple: bool,
 }
 
 fn main() {
     let cli = Cli::parse();
-    compile_haystack(cli.file, cli.run, cli.json, cli.simple);
+    if let Err(e) = compile_haystack(cli.file, cli.run) {
+        e.report();
+        std::process::exit(1);
+    }
 }

@@ -19,7 +19,7 @@ fn Str.to_cStr(Str: s Arr<u8>: buffer) -> [cStr bool] {
         s as [str] {
             str::size str::data 
         } buffer::data memcpy
-        0 cast(u8) buffer::data s::size ptr+ !
+        0u8 buffer::data s::size ptr+ !
         s::size 1 + buffer::data cast(cStr) true
     }
 }
@@ -36,7 +36,7 @@ fn Str.concat(Str: s1 Str: s2 Arr<u8>: buffer) -> [Str] {
 }
 
 fn fputs(Str: s u64: fd) {
-    s as [str] { str::size str::data } fd sys_write drop
+    s::size s::data fd sys_write drop
 }
 
 // TODO: replace `1` with a constant for stdout
@@ -53,7 +53,7 @@ fn exit(u64) {
 }
 
 fn fputu(u64: u u64: fd) {
-    var u8[20]: buffer
+    var u8[32]: buffer
     u buffer @ u64.to_str fd fputs
 }
 
@@ -120,7 +120,7 @@ fn u64.to_str(u64: u Arr<u8>: chars) -> [Str] {
             x 10 % 48 + cast(u8) chars::data i ptr+ !
             
             i 1 -
-            x 10 /
+            x 10 /    
         } drop
         
         as [i]

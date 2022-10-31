@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/scanner/scan_good_escape_chars.hay:1:1] Error: Unexpected top level token: `char`\n"
+}

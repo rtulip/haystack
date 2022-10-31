@@ -1,0 +1,12 @@
+include "std.hay"
+include "file.hay"
+
+fn cat(Str: path) {
+    path File.str_from_path as [file_str]
+    file_str putlns 
+    file_str::size file_str::data cast(Arr) free 
+}
+
+fn main() {
+    "./src/tests/functional/cat.hay" cat
+}

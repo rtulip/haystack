@@ -669,6 +669,10 @@ impl Expr {
                                     vec![Type::U8.id(), Type::U64.id()],
                                     vec![Type::U64.id()],
                                 ),
+                                Signature::new(
+                                    vec![Type::Char.id(), Type::Char.id()],
+                                    vec![Type::Char.id()],
+                                ),
                             ];
 
                             Signature::evaluate_many(&sigs, &op_tok, stack, types)?;

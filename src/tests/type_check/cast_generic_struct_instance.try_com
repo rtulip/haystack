@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/cast_generic_struct_instance.hay:8:7] Error: Type Error: Type Error - Invalid inputs for \"cast(Foo<bool>)\"\n    [Note]: Expected: [bool]\n    [Note]: Found:    [u64]\n"
+}

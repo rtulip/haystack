@@ -1,0 +1,14 @@
+include "std.hay"
+enum Foo {
+    Bar
+    Baz
+}
+
+fn main() {
+
+    Foo::Bar Foo::Baz == putlnb
+    Foo::Bar Foo::Baz != putlnb
+
+    0 Foo::Bar != putlnb
+
+}

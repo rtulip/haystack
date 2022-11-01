@@ -65,6 +65,10 @@ fn putlnu(u64) {
     putu "\n" puts
 }
 
+fn putlnu8(u8) {
+    cast(u64) putu "\n" puts
+}
+
 fn fputb(bool: b u64: fd) {
     b if { "true" fd fputs } else { "false" fd fputs }
 }

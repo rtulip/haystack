@@ -1,0 +1,6 @@
+fn foo<T>() -> [u64] { sizeOf(X) }
+fn main() {
+
+    foo::<u64>
+
+}

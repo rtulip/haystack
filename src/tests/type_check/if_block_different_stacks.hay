@@ -1,0 +1,11 @@
+fn main() {
+
+    true if {
+        1
+    } else false if {
+        true
+    } else {
+        "Hello World"
+    }
+
+}

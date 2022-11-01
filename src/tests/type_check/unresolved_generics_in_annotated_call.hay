@@ -1,0 +1,7 @@
+fn foo<T1 T2>() {}
+
+fn main() {
+
+    foo::<T1>
+
+}

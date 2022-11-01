@@ -1,0 +1,9 @@
+enum Foo {
+    Bar
+}
+
+fn main() {
+
+    1 cast(Foo)
+
+}

@@ -1,0 +1,9 @@
+union Foo{
+    u64: bar
+}
+
+fn main() {
+
+    12345 cast(Foo) as [foo] foo::bad
+
+}

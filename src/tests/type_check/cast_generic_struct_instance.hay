@@ -1,0 +1,10 @@
+struct Foo<T> {
+    T: foo
+}
+
+
+fn main() {
+
+    1 cast(Foo<bool>)
+
+}

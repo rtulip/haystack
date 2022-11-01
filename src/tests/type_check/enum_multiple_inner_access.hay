@@ -1,0 +1,10 @@
+enum Foo {
+    Bar,
+    Baz
+}
+
+fn main() {
+
+    Foo::Bar::Baz
+
+}

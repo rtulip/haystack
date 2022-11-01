@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/enum_unknown_variant.hay:6:5] Error: Unknown enum variant `Baz`\n    [Note]: Enum Foo has variants: [\"Bar\"]\n"
+}

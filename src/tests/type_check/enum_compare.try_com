@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/enum_compare.hay:12:16] Error: Type Error: Invalid inputs for `!=`\n    [Note]: Expected one of 4 signatures:\n    [Note]:   [u64, u64]\n    [Note]:   [u8, u8]\n    [Note]:   [*T, *T]\n    [Note]:   [E, E] where E is an enum\n    [Note]: Found:\n    [Note]:   [u64, Foo]\n"
+}

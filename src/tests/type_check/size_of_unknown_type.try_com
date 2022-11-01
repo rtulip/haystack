@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/size_of_unknown_type.hay:3:5] Error: Type Error: Cannot get the size of unknown type T\n"
+}

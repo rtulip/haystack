@@ -1278,8 +1278,14 @@ impl<'pred> Signature<'pred> {
             *t = t.assign(token, &map, types)?;
         }
 
-        assert!(!map.is_empty(), "Map should be non-empty at this point");
-        Ok(Some(map))
+        if map.is_empty() {
+            Err(HayError::new(
+                "Map should be non-empty at this point",
+                token.loc.clone(),
+            ))
+        } else {
+            Ok(Some(map))
+        }
     }
 
     /// Assigns a mapping to each type in the signature.

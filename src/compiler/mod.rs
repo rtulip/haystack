@@ -133,6 +133,13 @@ pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
             ));
         });
 
+    if !instructions.iter().any(|(name, _)| *name == "main") {
+        return Err(HayError::new(
+            "No entry point, exiting before compilation.",
+            Loc::new(&input_path, 1, 1, 1),
+        ));
+    }
+
     compile::<X86_64>(
         path.with_extension("asm").to_str().unwrap(),
         &instructions,

@@ -414,4 +414,9 @@ mod tests {
     fn scan_bad_escaped_char() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("scanner", "scan_bad_escaped_char")
     }
+
+    #[test]
+    fn scan_constructor_and_destructor() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("scanner", "scan_special_functions")
+    }
 }

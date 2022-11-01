@@ -482,4 +482,11 @@ mod tests {
     fn test_syscall_partial_eq() {
         assert_eq!(TokenKind::Syscall(1), TokenKind::Syscall(2));
     }
+
+    #[test]
+    fn test_dimension_error() {
+        assert!(Token::new(TokenKind::EoF, "lexeme", "file", 0, 0, 0)
+            .dimension()
+            .is_err());
+    }
 }

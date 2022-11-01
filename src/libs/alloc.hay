@@ -224,7 +224,7 @@ fn malloc<T>(u64: count) -> [Arr<T>] {
         }
     }
     as [arr]
-    0 cast(u8) arr memset
+    0u8 arr memset
     arr arr_convert::<T>
 
 }

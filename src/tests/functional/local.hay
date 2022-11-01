@@ -1,7 +1,7 @@
 include "std.hay"
 
 fn copy_local(Str: s) {
-    var u8[100]: nums
+    var char[100]: nums
     
     nums @ as [arr]
     

@@ -227,6 +227,7 @@ impl Scanner {
                 'n' => c = '\n',
                 't' => c = '\t',
                 'r' => c = '\r',
+                '0' => c = '\0',
                 c => {
                     return Err(HayError::new(
                         format!("Unknown escaped character: `\\{c}`"),

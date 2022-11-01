@@ -1,14 +1,14 @@
 include "sys_x86_64.hay"
 struct cStr {
     pub u64: size
-    pub *u8: data
+    pub *char: data
 }
 
 fn cStr.to_Str(cStr: cs) -> [Str] {
     cs::size 1 - cs::data cast(Str)
 }
 
-fn Str.to_cStr(Str: s Arr<u8>: buffer) -> [cStr bool] {
+fn Str.to_cStr(Str: s Arr<char>: buffer) -> [cStr bool] {
     s::size 1 + buffer::size >= if {
         "Buffer is too small to null terminate string" putlns
         s as [str] {
@@ -19,12 +19,12 @@ fn Str.to_cStr(Str: s Arr<u8>: buffer) -> [cStr bool] {
         s as [str] {
             str::size str::data 
         } buffer::data memcpy
-        0u8 buffer::data s::size ptr+ !
+        '\0' buffer::data s::size ptr+ !
         s::size 1 + buffer::data cast(cStr) true
     }
 }
 
-fn Str.concat(Str: s1 Str: s2 Arr<u8>: buffer) -> [Str] {
+fn Str.concat(Str: s1 Str: s2 Arr<char>: buffer) -> [Str] {
     s1::size s2::size + buffer::size > if {
         "Buffer is to small to concatinate strings" putlns
         1 exit
@@ -53,7 +53,7 @@ fn exit(u64) {
 }
 
 fn fputu(u64: u u64: fd) {
-    var u8[32]: buffer
+    var char[32]: buffer
     u buffer @ u64.to_str fd fputs
 }
 
@@ -104,7 +104,7 @@ fn Str.split_left(u64: n Str: s) -> [Str Str] {
     s::size n - s::data n ptr+ cast(Str)
 }
 
-fn u64.to_str(u64: u Arr<u8>: chars) -> [Str] {
+fn u64.to_str(u64: u Arr<char>: chars) -> [Str] {
 
     chars::size 20 < if {
         "Must provide at least 20 chars of buffer to copy u64" putlns
@@ -117,7 +117,7 @@ fn u64.to_str(u64: u Arr<u8>: chars) -> [Str] {
     } else {
         19 u while dup 0 != {
             as [i x]
-            x 10 % 48 + cast(u8) chars::data i ptr+ !
+            x 10 % cast(char) '0' + chars::data i ptr+ !
             
             i 1 -
             x 10 /    

@@ -14,7 +14,7 @@ fn File.exists(Str: file_name) -> [bool] {
 }
 
 fn File.open(u64: mode u64: flags Str: path) -> [File] {
-    var u8[1024]: str_buff str_buff @ as [cstr]
+    var char[1024]: str_buff str_buff @ as [cstr]
     path cstr Str.to_cStr as [filepath success]
     success lnot if {
         "Failed to null terminate the path. Exiting" putlns
@@ -33,7 +33,7 @@ fn File.close(File: file) {
 fn File.str_from_path(Str: path) -> [Str] {
     0 0 path File.open as [file]
     file File.size as [size]
-    size malloc::<u8> as [buffer]
+    size malloc::<char> as [buffer]
     size buffer::data file::fd sys_read drop
     file File.close
 

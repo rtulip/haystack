@@ -1,0 +1,2 @@
+fn Foo() {}
+enum Foo { Bar }

@@ -1,0 +1,2 @@
+fn foo() {}
+var u64: foo

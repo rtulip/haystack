@@ -1,0 +1,6 @@
+fn main() {
+
+    1 as [foo]
+    foo::data
+
+}

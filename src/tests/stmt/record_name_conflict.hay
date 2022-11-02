@@ -1,0 +1,2 @@
+enum Foo { Bar }
+struct Foo { u64: bar}

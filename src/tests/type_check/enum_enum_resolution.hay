@@ -1,0 +1,17 @@
+enum A {
+    a
+    b
+    c
+}
+
+enum B {
+    a
+    b
+    c
+}
+fn foo<T>(T A) { drop drop }
+fn main() {
+
+    1 B::a foo
+
+}

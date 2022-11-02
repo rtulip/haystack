@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/record_record_resolution.hay:6:21] Error: Type Error: Cannot resolve struct `Arr<u64>` from `Str`.\n"
+}

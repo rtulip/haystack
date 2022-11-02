@@ -1,0 +1,2 @@
+struct Foo { u64: foo}
+fn Foo() {}

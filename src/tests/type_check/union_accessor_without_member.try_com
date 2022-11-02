@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/union_accessor_without_member.hay:7:30] Error: Type Error: Union `Foo` doesn't have a member `bad`\n    [Note]: `Foo` has the following members: [\"bar\"]\n"
+}

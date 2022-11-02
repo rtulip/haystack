@@ -349,3 +349,26 @@ impl std::fmt::Debug for Stmt {
         }
     }
 }
+
+mod tests {
+
+    #[test]
+    fn fn_name_conflict() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "fn_name_conflict")
+    }
+
+    #[test]
+    fn enum_name_conflict() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "enum_name_conflict")
+    }
+
+    #[test]
+    fn record_name_conflict() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "record_name_conflict")
+    }
+
+    #[test]
+    fn var_name_conflict() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "var_name_conflict")
+    }
+}

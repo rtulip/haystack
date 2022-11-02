@@ -111,20 +111,39 @@ impl Expr {
                 {
                     let mut typ = tid;
                     for inner_member in &inner {
-                        if let Type::Record { name, members, .. } = types.get(typ).unwrap() {
+                        if let Type::Record {
+                            name,
+                            members,
+                            kind,
+                            ..
+                        } = types.get(typ).unwrap()
+                        {
                             if let Some(m) = members
                                 .iter()
                                 .find(|m| m.ident.lexeme == inner_member.lexeme)
                             {
                                 typ = &m.typ.0;
                             } else {
-                                return Err(HayError::new(
+                                return Err(HayError::new_type_err(
                                     format!(
-                                        "Type `{}` doesn't have a member {}",
-                                        name.lexeme, inner_member.lexeme,
+                                        "{} `{}` doesn't have a member `{}`",
+                                        match kind {
+                                            RecordKind::Union => "Union",
+                                            RecordKind::Struct => "Struct",
+                                        },
+                                        name.lexeme,
+                                        inner_member.lexeme,
                                     ),
                                     token.loc,
-                                ));
+                                )
+                                .with_hint(format!(
+                                    "`{}` has the following members: {:?}",
+                                    name.lexeme,
+                                    members
+                                        .iter()
+                                        .map(|m| &m.ident.lexeme)
+                                        .collect::<Vec<&String>>()
+                                )));
                             }
                         } else {
                             return Err(HayError::new(
@@ -149,21 +168,21 @@ impl Expr {
                             "Cannot have multiple inner accessor for an enum type.",
                             token.loc,
                         )
-                        .with_hint(format!("Found accessors: {:?}", inner))
                         .with_hint(format!(
-                            "Enum {} has variants: {:?}",
-                            ident.lexeme, variants
+                            "Found accessors: {:?}",
+                            inner.iter().map(|t| &t.lexeme).collect::<Vec<&String>>()
                         )));
                     }
 
                     if !variants.iter().any(|v| v.lexeme == inner[0].lexeme) {
                         return Err(HayError::new(
-                            format!("Unknown enum variant {}", inner[0].lexeme),
+                            format!("Unknown enum variant `{}`", inner[0].lexeme),
                             token.loc,
                         )
                         .with_hint(format!(
                             "Enum {} has variants: {:?}",
-                            ident.lexeme, variants
+                            ident.lexeme,
+                            variants.iter().map(|t| &t.lexeme).collect::<Vec<&String>>()
                         )));
                     }
 
@@ -222,12 +241,13 @@ impl Expr {
                                 .collect::<Vec<&String>>()
                         ))
                         .with_hint(format!(
-                            "          Of which {:?} are generic",
+                            "         Of which: {:?} are generic",
                             annotations
                                 .iter()
                                 .map(|arg| TypeId::new(&arg.token.lexeme))
                                 .filter(|tid| tid.is_generic(types))
-                                .collect::<Vec<TypeId>>()
+                                .map(|t| t.0)
+                                .collect::<Vec<String>>()
                         )));
                     }
                 } else {
@@ -250,7 +270,7 @@ impl Expr {
                     } else {
                         return Err(HayError::new_type_err(
                             format!(
-                                "Cannot provide annotations to non generic function {}",
+                                "Cannot provide annotations to non generic function `{}`",
                                 base.lexeme
                             ),
                             token.loc.clone(),
@@ -326,7 +346,7 @@ impl Expr {
                 })
             }
             Expr::Cast { token, typ } => {
-                let typ_id = TypeId::new(typ.lexeme);
+                let typ_id = TypeId::from_token(&typ, types, &vec![])?;
                 let typ_id = if let Some(map) = generic_map {
                     if let Ok(tid) = typ_id.assign(&token, map, types) {
                         // try to assign for annotated casts
@@ -367,44 +387,7 @@ impl Expr {
                             Ok(TypedExpr::Pad { padding })
                         }
                     },
-                    Type::GenericRecordInstance { kind, .. } => {
-                        if let Some(generic_map) = generic_map {
-                            let new_typ = typ_id.assign(&token, generic_map, types)?;
 
-                            if let Some(Type::Record { members, kind, .. }) = types.get(&new_typ) {
-                                match kind {
-                                    RecordKind::Struct => {
-                                        Signature::new(
-                                            members.iter().map(|m| m.typ.0.clone()).collect(),
-                                            vec![new_typ],
-                                        )
-                                        .evaluate(&token, stack, types)?;
-                                        Ok(TypedExpr::Cast { typ: typ_id })
-                                    }
-                                    RecordKind::Union => {
-                                        let mut sigs = vec![];
-
-                                        members.iter().for_each(|m| {
-                                            sigs.push(Signature::new(
-                                                vec![m.typ.0.clone()],
-                                                vec![new_typ.clone()],
-                                            ));
-                                        });
-
-                                        Signature::evaluate_many(&sigs, &token, stack, types)?;
-                                        todo!()
-                                    }
-                                }
-                            } else {
-                                unreachable!()
-                            }
-                        } else {
-                            Err(HayError::new_type_err(
-                                format!("Shouldn't be able to cast to {kind} {typ_id} without a known mapping for generics"), 
-                                token.loc.clone()
-                            ))
-                        }
-                    }
                     Type::U64 => {
                         Signature::evaluate_many(
                             &vec![
@@ -467,10 +450,15 @@ impl Expr {
                         .evaluate(&token, stack, types)?;
                         Ok(TypedExpr::Cast { typ: typ_id })
                     }
-                    Type::Bool | Type::Enum { .. } => unimplemented!(),
+                    Type::Enum { .. } => Err(HayError::new_type_err(
+                        "Casting to enums is unsupported.",
+                        token.loc.clone(),
+                    )),
+                    Type::Bool => unimplemented!(),
                     Type::GenericFunction { .. }
                     | Type::UncheckedFunction { .. }
-                    | Type::Function { .. } => unreachable!(),
+                    | Type::Function { .. }
+                    | Type::GenericRecordInstance { .. } => unreachable!(),
                 }
             }
             Expr::ElseIf {
@@ -937,10 +925,12 @@ impl Expr {
                 };
 
                 Signature::new(vec![], vec![Type::U64.id()]).evaluate(&token, stack, types)?;
-                Ok(TypedExpr::SizeOf { typ: tid })
+                Ok(TypedExpr::Literal {
+                    value: Literal::U64((tid.size(types)? * tid.width()) as u64),
+                })
             }
             Expr::Syscall { token, n } => {
-                if stack.len() < n {
+                if stack.len() < n + 1 {
                     return Err(HayError::new_type_err(
                         format!(
                             "{} requires at least {} elements on the stack. Found {}",
@@ -1041,7 +1031,9 @@ impl Expr {
                     )?);
                 }
 
-                if stack.iter().zip(&stack_before).any(|(t1, t2)| t1 != t2) {
+                if stack.len() != stack_before.len()
+                    || stack.iter().zip(&stack_before).any(|(t1, t2)| t1 != t2)
+                {
                     return Err(HayError::new(
                         "While loop must not change stack between iterations.",
                         token.loc.clone(),
@@ -1130,9 +1122,6 @@ pub enum TypedExpr {
         cond: Vec<TypedExpr>,
         body: Vec<TypedExpr>,
     },
-    SizeOf {
-        typ: TypeId,
-    },
     Call {
         func: String,
     },
@@ -1151,4 +1140,116 @@ pub enum TypedExpr {
     Pad {
         padding: usize,
     },
+}
+
+mod tests {
+
+    #[test]
+    fn bind_insufficient_elements() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "bind_insufficient_elements")
+    }
+
+    #[test]
+    fn annotations_on_non_generic_function() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "annotations_on_non_generic_function")
+    }
+
+    #[test]
+    fn enum_multiple_inner_access() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "enum_multiple_inner_access")
+    }
+
+    #[test]
+    fn enum_unknown_variant() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "enum_unknown_variant")
+    }
+
+    #[test]
+    fn non_record_accessor() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "non_record_accessor")
+    }
+
+    #[test]
+    fn struct_accessor_without_member() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "struct_accessor_without_member")
+    }
+
+    #[test]
+    fn union_accessor_without_member() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "union_accessor_without_member")
+    }
+
+    #[test]
+    fn unknown_accessor_ident() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "unknown_accessor_ident")
+    }
+
+    #[test]
+    fn unresolved_generics_in_annotated_call() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "unresolved_generics_in_annotated_call")
+    }
+
+    #[test]
+    fn cast_u8() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "cast_u8")
+    }
+
+    #[test]
+    fn cast_enum() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "cast_enum")
+    }
+
+    #[test]
+    fn cast_generic_struct_instance() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "cast_generic_struct_instance")
+    }
+
+    #[test]
+    fn unrecognized_ident() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "unrecognized_ident")
+    }
+
+    #[test]
+    fn if_block_different_stacks() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "if_block_different_stacks")
+    }
+
+    #[test]
+    fn enum_compare() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "enum_compare")
+    }
+
+    #[test]
+    fn size_of_unknown_type() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "size_of_unknown_type")
+    }
+    #[test]
+    fn size_of_unknown_type_generic() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "size_of_unknown_type_generic")
+    }
+
+    #[test]
+    fn syscall_bad_number_of_args() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "syscall_bad_number_of_args")
+    }
+
+    #[test]
+    fn syscall_wrong_sized_types() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "syscall_wrong_sized_types")
+    }
+
+    #[test]
+    fn while_changes_frame() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "while_changes_frame")
+    }
+
+    #[test]
+    fn while_changes_stack() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "while_changes_stack")
+    }
+
+    #[test]
+    fn var_unknown_type() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "var_unknown_type")
+    }
 }

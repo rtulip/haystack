@@ -608,7 +608,7 @@ impl TypeId {
                 // Make sure it's the same record.
                 if self != concrete {
                     return Err(HayError::new_type_err(
-                        format!("Cannot resolve {kind} {self} from {concrete}."),
+                        format!("Cannot resolve {kind} `{self}` from `{concrete}`."),
                         token.loc.clone(),
                     ));
                 }
@@ -630,7 +630,7 @@ impl TypeId {
 
                 if !name.lexeme.starts_with(&base.0) {
                     return Err(HayError::new(
-                        format!("Cannot resolve {kind} {base} from {}", name.lexeme),
+                        format!("Cannot resolve {kind} `{base}` from `{}`", name.lexeme),
                         token.loc.clone(),
                     ));
                 }
@@ -666,7 +666,7 @@ impl TypeId {
                 if name.lexeme != concrete_name.lexeme {
                     return Err(HayError::new(
                         format!(
-                            "Failed to resolve enum type {} from {}",
+                            "Failed to resolve enum type `{}` from `{}`",
                             name.lexeme, concrete_name.lexeme
                         ),
                         token.loc.clone(),
@@ -1358,5 +1358,28 @@ impl<'pred> std::fmt::Debug for Signature<'pred> {
         }
 
         Ok(())
+    }
+}
+
+mod tests {
+
+    #[test]
+    fn record_record_resolution() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "record_record_resolution")
+    }
+
+    #[test]
+    fn generic_record_record_resolution() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "generic_record_record_resolution")
+    }
+
+    #[test]
+    fn enum_enum_resolution() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "enum_enum_resolution")
+    }
+
+    #[test]
+    fn generic_record_size() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "generic_record_size")
     }
 }

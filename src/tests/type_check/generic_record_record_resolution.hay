@@ -1,0 +1,6 @@
+fn foo<T>(Arr<T>) { drop }
+fn main() {
+
+    "Hello World" foo
+
+}

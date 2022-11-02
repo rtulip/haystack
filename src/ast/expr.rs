@@ -925,7 +925,9 @@ impl Expr {
                 };
 
                 Signature::new(vec![], vec![Type::U64.id()]).evaluate(&token, stack, types)?;
-                Ok(TypedExpr::SizeOf { typ: tid })
+                Ok(TypedExpr::Literal {
+                    value: Literal::U64((tid.size(types)? * tid.width()) as u64),
+                })
             }
             Expr::Syscall { token, n } => {
                 if stack.len() < n + 1 {
@@ -1119,9 +1121,6 @@ pub enum TypedExpr {
     While {
         cond: Vec<TypedExpr>,
         body: Vec<TypedExpr>,
-    },
-    SizeOf {
-        typ: TypeId,
     },
     Call {
         func: String,

@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[:0:0] Error: Generic Records do not have a size known at compile time\n"
+}

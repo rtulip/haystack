@@ -2,141 +2,98 @@ use crate::ast::stmt::Stmt;
 use crate::backend::{compile, Instruction, X86_64};
 use crate::error::HayError;
 use crate::lex::token::Loc;
-use crate::types::{Type, TypeId};
+use crate::types::{Type, TypeId, TypeMap};
 use std::io::{self, Write};
+use std::path::Path;
 use std::process::{Command, Output};
 
 pub mod test_tools;
 
 pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
-    let path = std::path::Path::new(&input_path);
-
     let stmts = Stmt::from_file_with_prelude(&input_path)?;
     let (mut types, global_env, mut init_data, uninit_data) = Stmt::build_types_and_data(stmts)?;
-    while types
-        .iter()
-        .filter(|(_, v)| matches!(v, Type::UncheckedFunction { .. }))
-        .count()
-        != 0
-    {
-        let fns = types
-            .drain_filter(|_, v| matches!(v, Type::UncheckedFunction { .. }))
-            .collect::<Vec<(TypeId, Type)>>();
+    Type::type_check_functions(&mut types, &global_env)?;
+    let fn_instructions = Instruction::from_type_map(&types, &mut init_data);
+    check_for_entry_point(&types, &input_path)?;
 
-        for (tid, f) in fns {
-            if let Type::UncheckedFunction {
-                token,
-                name,
-                inputs,
-                outputs,
-                body,
-                generic_map,
-            } = f
-            {
-                let mut stack = vec![];
-                let mut frame = vec![];
-
-                inputs.iter().rev().for_each(|arg| {
-                    if arg.ident.is_some() {
-                        frame.push((
-                            arg.ident.as_ref().unwrap().lexeme.clone(),
-                            arg.typ.0.clone(),
-                        ))
-                    } else {
-                        stack.push(arg.typ.0.clone())
-                    }
-                });
-
-                let mut typed_body = vec![];
-                for expr in body {
-                    typed_body.push(expr.type_check(
-                        &mut stack,
-                        &mut frame,
-                        &global_env,
-                        &mut types,
-                        &generic_map,
-                    )?);
-                }
-
-                types.insert(
-                    tid,
-                    Type::Function {
-                        token,
-                        name,
-                        inputs,
-                        outputs,
-                        body: typed_body,
-                        generic_map,
-                    },
-                );
-            }
-        }
-    }
-
-    let mut instructions = vec![];
-    types
-        .iter()
-        .filter(|(_, t)| matches!(t, Type::Function { .. }))
-        .for_each(|(tid, func)| {
-            instructions.push((
-                tid.0.as_str(),
-                Instruction::from_function(func.clone(), &types, &mut init_data),
-            ));
-        });
-
-    if !instructions.iter().any(|(name, _)| *name == "main") {
-        return Err(HayError::new(
-            "No entry point, exiting before compilation.",
-            Loc::new(&input_path, 1, 1, 1),
-        ));
-    }
-
+    let path = Path::new(&input_path);
     compile::<X86_64>(
         path.with_extension("asm").to_str().unwrap(),
-        &instructions,
+        &fn_instructions,
         &init_data,
         &uninit_data,
     )
     .unwrap();
 
-    assert!(run_command(
+    // assembler
+    run_command(
         "nasm",
         vec!["-felf64", path.with_extension("asm").to_str().unwrap()],
-    )
-    .status
-    .success());
-    assert!(run_command(
+        &input_path,
+        false,
+    )?;
+
+    // linker
+    run_command(
         "ld",
         vec![
             "-o",
             path.file_stem().unwrap().to_str().unwrap(),
             path.with_extension("o").to_str().unwrap(),
         ],
-    )
-    .status
-    .success());
+        &input_path,
+        false,
+    )?;
 
     if run {
+        // run the exe
         run_command(
             format!("./{}", &path.file_stem().unwrap().to_str().unwrap()).as_str(),
             vec![],
-        );
+            &input_path,
+            true,
+        )?;
     }
 
     Ok(())
 }
 
-pub fn run_command(cmd: &str, args: Vec<&str>) -> Output {
+pub fn run_command(
+    cmd: &str,
+    args: Vec<&str>,
+    input_path: &String,
+    verbose: bool,
+) -> Result<Output, HayError> {
     print!("[CMD]: {cmd}");
     args.iter().for_each(|arg| print!(" {arg}"));
     println!();
-    let nasm_output = Command::new(cmd)
-        .args(args)
-        .output()
-        .unwrap_or_else(|_| panic!("Failed to run nasm: {cmd}"));
-    io::stdout().write_all(&nasm_output.stdout).unwrap();
-    io::stderr().write_all(&nasm_output.stderr).unwrap();
-    nasm_output
+    match Command::new(cmd).args(args).output() {
+        Ok(output) => {
+            if verbose {
+                io::stdout().write_all(&output.stdout).unwrap();
+                io::stderr().write_all(&output.stderr).unwrap();
+            }
+            Ok(output)
+        }
+        Err(e) => Err(
+            HayError::new("Command Failed", Loc::new(input_path, 1, 1, 1))
+                .with_hint(format!("{:?}", e)),
+        ),
+    }
+}
+
+fn check_for_entry_point(types: &TypeMap, input_path: &String) -> Result<(), HayError> {
+    if !types
+        .iter()
+        .any(|(tid, t)| matches!(t, Type::Function { .. }) && tid == &TypeId::new("main"))
+    {
+        Err(HayError::new(
+            "No entry point was found",
+            Loc::new(input_path, 1, 1, 1),
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 mod tests {

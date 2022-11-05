@@ -26,7 +26,10 @@ pub fn run_test(directory: &str, file_base: &str) -> Result<(), std::io::Error> 
     let output = run_command(
         "cargo",
         vec!["r", "-q", "--", format!("{file}.hay").as_str()],
-    );
+        &file,
+        false,
+    )
+    .unwrap();
     let compilation_summary = summarize_output(&output);
     let com_path = format!("{file}.try_com");
 
@@ -42,7 +45,9 @@ pub fn run_test(directory: &str, file_base: &str) -> Result<(), std::io::Error> 
     }
 
     if output.status.success() {
-        let output = summarize_output(&run_command(format!("./{file_base}",).as_str(), vec![]));
+        let output = summarize_output(
+            &run_command(format!("./{file_base}",).as_str(), vec![], &file, false).unwrap(),
+        );
 
         let run_path = format!("{file}.try_run");
 

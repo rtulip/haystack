@@ -1,6 +1,7 @@
 use crate::ast::arg::Arg;
 use crate::ast::expr::{Expr, TypedExpr};
 use crate::ast::member::Member;
+use crate::ast::stmt::GlobalEnv;
 use crate::error::HayError;
 use crate::lex::token::{Loc, Token, TokenKind, TypeToken};
 use crate::types::Typed;
@@ -937,6 +938,73 @@ impl Type {
         types.insert(Type::Char.id(), Type::Char);
 
         types
+    }
+
+    pub fn type_check_functions(
+        types: &mut TypeMap,
+        global_env: &GlobalEnv,
+    ) -> Result<(), HayError> {
+        while types
+            .iter()
+            .filter(|(_, v)| matches!(v, Type::UncheckedFunction { .. }))
+            .count()
+            != 0
+        {
+            let fns = types
+                .drain_filter(|_, v| matches!(v, Type::UncheckedFunction { .. }))
+                .collect::<Vec<(TypeId, Type)>>();
+
+            for (tid, f) in fns {
+                if let Type::UncheckedFunction {
+                    token,
+                    name,
+                    inputs,
+                    outputs,
+                    body,
+                    generic_map,
+                } = f
+                {
+                    let mut stack = vec![];
+                    let mut frame = vec![];
+
+                    inputs.iter().rev().for_each(|arg| {
+                        if arg.ident.is_some() {
+                            frame.push((
+                                arg.ident.as_ref().unwrap().lexeme.clone(),
+                                arg.typ.0.clone(),
+                            ))
+                        } else {
+                            stack.push(arg.typ.0.clone())
+                        }
+                    });
+
+                    let mut typed_body = vec![];
+                    for expr in body {
+                        typed_body.push(expr.type_check(
+                            &mut stack,
+                            &mut frame,
+                            &global_env,
+                            types,
+                            &generic_map,
+                        )?);
+                    }
+
+                    types.insert(
+                        tid,
+                        Type::Function {
+                            token,
+                            name,
+                            inputs,
+                            outputs,
+                            body: typed_body,
+                            generic_map,
+                        },
+                    );
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 

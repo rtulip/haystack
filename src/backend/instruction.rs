@@ -16,6 +16,9 @@ pub enum UninitData {
     Region(usize),
 }
 
+pub type InitDataMap = HashMap<String, InitData>;
+pub type UninitDataMap = HashMap<String, UninitData>;
+
 #[derive(Debug, Clone)]
 pub enum Instruction {
     Call(String),

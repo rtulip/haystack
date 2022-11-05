@@ -1,11 +1,13 @@
 use crate::ast::arg::Arg;
 use crate::ast::expr::{Expr, TypedExpr};
-use crate::ast::stmt::Member;
+use crate::ast::member::Member;
 use crate::error::HayError;
 use crate::lex::token::{Loc, Token, TokenKind, TypeToken};
 use crate::types::Typed;
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
+
+use super::TypeMap;
 
 /// Unique Identifier for types
 ///
@@ -924,6 +926,17 @@ impl Type {
                 unimplemented!("Haven't implemented name from Functions.")
             }
         }
+    }
+
+    pub fn new_map() -> TypeMap {
+        let mut types = BTreeMap::new();
+
+        types.insert(Type::U64.id(), Type::U64);
+        types.insert(Type::U8.id(), Type::U8);
+        types.insert(Type::Bool.id(), Type::Bool);
+        types.insert(Type::Char.id(), Type::Char);
+
+        types
     }
 }
 

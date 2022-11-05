@@ -1,87 +1,20 @@
 use super::arg::Arg;
 use super::expr::Expr;
-use crate::backend::{InitData, UninitData};
+use super::member::Member;
+use super::parser::Parser;
+use crate::backend::{InitData, InitDataMap, UninitData, UninitDataMap};
 use crate::error::HayError;
-use crate::lex::token::Token;
+use crate::lex::scanner::Scanner;
+use crate::lex::token::{Loc, Token};
+use crate::types::{RecordKind, Signature, Type, TypeId, TypeMap, Untyped};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::types::{RecordKind, Signature, Type, TypeId, Typed, Untyped};
-use std::collections::{BTreeMap, HashMap};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Visitiliby {
-    Public,
-    Private,
-}
-
-#[derive(Debug, Clone)]
-pub struct Member<TypeState> {
-    pub vis: Visitiliby,
-    pub token: Token,
-    pub ident: Token,
-    pub typ: TypeState,
-}
+pub type GlobalEnv<'a> = HashMap<String, (StmtKind, Signature<'a>)>;
 
 #[derive(Debug, Clone, Copy)]
 pub enum StmtKind {
     Var,
     Function,
-}
-
-fn resolve_members(
-    members: Vec<Member<Untyped>>,
-    types: &mut BTreeMap<TypeId, Type>,
-    local_types: &Vec<TypeId>,
-) -> Result<Vec<Member<Typed>>, HayError> {
-    let mut out = vec![];
-    for m in members {
-        let typ = Typed(TypeId::from_token(&m.token, types, local_types)?);
-        out.push(Member {
-            vis: m.vis,
-            token: m.token,
-            ident: m.ident,
-            typ,
-        })
-    }
-
-    Ok(out)
-}
-
-fn resolve_arguments(
-    args: Vec<Arg<Untyped>>,
-    types: &mut BTreeMap<TypeId, Type>,
-    local_types: &Vec<TypeId>,
-) -> Result<Vec<Arg<Typed>>, HayError> {
-    let mut out = vec![];
-
-    for arg in args {
-        let typ = Typed(TypeId::from_token(&arg.token, types, local_types)?);
-        out.push(Arg {
-            token: arg.token,
-            ident: arg.ident,
-            typ,
-        });
-    }
-
-    Ok(out)
-}
-
-fn bulid_local_generics(
-    annotations: Option<Vec<Arg<Untyped>>>,
-    types: &BTreeMap<TypeId, Type>,
-) -> Result<Vec<TypeId>, HayError> {
-    match annotations {
-        None => Ok(vec![]),
-        Some(annotations) => {
-            let mut out = vec![];
-            for a in annotations {
-                if types.contains_key(&TypeId::new(&a.token.lexeme)) {
-                    return Err(HayError::new(format!("Generic type {} cannot be used as it has already been defined elsewhere.", a.token.lexeme), a.token.loc));
-                }
-                out.push(TypeId(a.token.lexeme));
-            }
-            Ok(out)
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -113,6 +46,78 @@ pub enum Stmt {
 }
 
 impl Stmt {
+    pub fn from_file(
+        input_path: &String,
+        visited: &mut HashSet<String>,
+    ) -> Result<Vec<Self>, HayError> {
+        if visited.contains(input_path) {
+            return Ok(vec![]);
+        }
+
+        if let Ok(source) = std::fs::read_to_string(input_path) {
+            visited.insert(input_path.clone());
+            let scanner = Scanner::new(input_path, &source);
+            let tokens = scanner.scan_tokens()?;
+            let parser = Parser::new(tokens, visited);
+            let stmts = parser.parse()?;
+
+            Ok(stmts)
+        } else {
+            Err(HayError::new(
+                format!("Failed to read from file: {input_path}"),
+                Loc::new(input_path, 0, 0, 0),
+            ))
+        }
+    }
+
+    pub fn from_file_with_prelude(input_path: &String) -> Result<Vec<Self>, HayError> {
+        let mut visited = HashSet::new();
+        let prelude_path = String::from("src/libs/prelude.hay");
+        let mut stmts = Stmt::from_file(&prelude_path, &mut visited)?;
+        stmts.append(&mut Stmt::from_file(input_path, &mut visited)?);
+
+        Ok(stmts)
+    }
+
+    fn bulid_local_generics(
+        annotations: Option<Vec<Arg<Untyped>>>,
+        types: &BTreeMap<TypeId, Type>,
+    ) -> Result<Vec<TypeId>, HayError> {
+        match annotations {
+            None => Ok(vec![]),
+            Some(annotations) => {
+                let mut out = vec![];
+                for a in annotations {
+                    if types.contains_key(&TypeId::new(&a.token.lexeme)) {
+                        return Err(HayError::new(format!("Generic type {} cannot be used as it has already been defined elsewhere.", a.token.lexeme), a.token.loc));
+                    }
+                    out.push(TypeId(a.token.lexeme));
+                }
+                Ok(out)
+            }
+        }
+    }
+
+    pub fn build_types_and_data<'a>(
+        stmts: Vec<Self>,
+    ) -> Result<(TypeMap, GlobalEnv<'a>, InitDataMap, UninitDataMap), HayError> {
+        let mut types = Type::new_map();
+        let mut global_env = HashMap::new();
+        let mut init_data = HashMap::new();
+        let mut uninit_data = HashMap::new();
+
+        for s in stmts {
+            s.add_to_global_scope(
+                &mut types,
+                &mut global_env,
+                &mut init_data,
+                &mut uninit_data,
+            )?;
+        }
+
+        Ok((types, global_env, init_data, uninit_data))
+    }
+
     pub fn add_to_global_scope(
         self,
         types: &mut BTreeMap<TypeId, Type>,
@@ -128,8 +133,8 @@ impl Stmt {
                 members,
                 kind,
             } => {
-                let generics = bulid_local_generics(annotations, types)?;
-                let members = resolve_members(members, types, &generics)?;
+                let generics = Stmt::bulid_local_generics(annotations, types)?;
+                let members = Member::resolve(members, types, &generics)?;
 
                 let prev = match generics.len() {
                     0 => types.insert(
@@ -192,9 +197,9 @@ impl Stmt {
                 annotations,
                 body,
             } => {
-                let generics = bulid_local_generics(annotations, types)?;
-                let inputs = resolve_arguments(inputs, types, &generics)?;
-                let outputs = resolve_arguments(outputs, types, &generics)?;
+                let generics = Stmt::bulid_local_generics(annotations, types)?;
+                let inputs = Arg::resolve(inputs, types, &generics)?;
+                let outputs = Arg::resolve(outputs, types, &generics)?;
 
                 let sig = Signature::new_maybe_generic(
                     inputs.iter().map(|arg| arg.typ.0.clone()).collect(),

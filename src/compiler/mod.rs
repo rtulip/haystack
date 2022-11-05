@@ -1,67 +1,18 @@
-use crate::ast::parser::Parser;
 use crate::ast::stmt::Stmt;
 use crate::backend::{compile, Instruction, X86_64};
 use crate::error::HayError;
-use crate::lex::scanner::Scanner;
 use crate::lex::token::Loc;
 use crate::types::{Type, TypeId};
-use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::{self, Write};
 use std::process::{Command, Output};
 
 pub mod test_tools;
 
-pub fn parse_haystack_into_statements(
-    input_path: &String,
-    visited: &mut HashSet<String>,
-) -> Result<Vec<Stmt>, HayError> {
-    if visited.contains(input_path) {
-        return Ok(vec![]);
-    }
-
-    if let Ok(source) = std::fs::read_to_string(input_path) {
-        visited.insert(input_path.clone());
-        let scanner = Scanner::new(input_path, &source);
-        let tokens = scanner.scan_tokens()?;
-        let parser = Parser::new(tokens, visited);
-        let stmts = parser.parse()?;
-
-        Ok(stmts)
-    } else {
-        Err(HayError::new(
-            format!("Failed to read from file: {input_path}"),
-            Loc::new(input_path, 0, 0, 0),
-        ))
-    }
-}
-
 pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
     let path = std::path::Path::new(&input_path);
-    let mut visited = HashSet::new();
-    let mut stmts =
-        parse_haystack_into_statements(&String::from("src/libs/prelude.hay"), &mut visited)?;
-    stmts.append(&mut parse_haystack_into_statements(
-        &input_path,
-        &mut visited,
-    )?);
 
-    let mut types: BTreeMap<TypeId, Type> = BTreeMap::new();
-    types.insert(TypeId::new("u64"), Type::U64);
-    types.insert(TypeId::new("u8"), Type::U8);
-    types.insert(TypeId::new("char"), Type::Char);
-    types.insert(TypeId::new("bool"), Type::Bool);
-
-    let mut init_data = HashMap::new();
-    let mut uninit_data = HashMap::new();
-    let mut global_env = HashMap::new();
-    for s in stmts {
-        s.add_to_global_scope(
-            &mut types,
-            &mut global_env,
-            &mut init_data,
-            &mut uninit_data,
-        )?;
-    }
+    let stmts = Stmt::from_file_with_prelude(&input_path)?;
+    let (mut types, global_env, mut init_data, uninit_data) = Stmt::build_types_and_data(stmts)?;
     while types
         .iter()
         .filter(|(_, v)| matches!(v, Type::UncheckedFunction { .. }))

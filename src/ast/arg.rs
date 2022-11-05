@@ -1,4 +1,10 @@
-use crate::lex::token::Token;
+use std::collections::BTreeMap;
+
+use crate::{
+    error::HayError,
+    lex::token::Token,
+    types::{Type, TypeId, Typed, Untyped},
+};
 
 /// A structure to represent an Argument.
 ///
@@ -41,4 +47,25 @@ pub struct Arg<TypeState> {
     pub ident: Option<Token>,
     /// Type information related to the argument
     pub typ: TypeState,
+}
+
+impl Arg<Untyped> {
+    pub fn resolve(
+        args: Vec<Arg<Untyped>>,
+        types: &mut BTreeMap<TypeId, Type>,
+        local_types: &Vec<TypeId>,
+    ) -> Result<Vec<Arg<Typed>>, HayError> {
+        let mut out = vec![];
+
+        for arg in args {
+            let typ = Typed(TypeId::from_token(&arg.token, types, local_types)?);
+            out.push(Arg {
+                token: arg.token,
+                ident: arg.ident,
+                typ,
+            });
+        }
+
+        Ok(out)
+    }
 }

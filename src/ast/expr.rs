@@ -211,7 +211,7 @@ impl Expr {
             } => {
                 let (_, mut sig) = global_env
                     .get(&base.lexeme)
-                    .expect(format!("Should have found function: {base}").as_str())
+                    .unwrap_or_else(|| panic!("Should have found function: {base}"))
                     .clone();
 
                 let (annotations, tid) = if annotations

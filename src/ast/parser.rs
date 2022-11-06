@@ -1,13 +1,14 @@
-use super::stmt::Visitiliby;
 use crate::ast::arg::Arg;
 use crate::ast::expr::Expr;
-use crate::ast::stmt::{Member, Stmt};
-use crate::compiler::parse_haystack_into_statements;
+use crate::ast::stmt::Stmt;
 use crate::error::HayError;
 use crate::lex::token::{Keyword, Loc, Marker, Operator, Token, TokenKind, TypeToken};
 use crate::types::RecordKind;
 use crate::types::Untyped;
 use std::collections::HashSet;
+
+use super::member::Member;
+use super::visibility::Visitiliby;
 
 pub struct Parser<'a> {
     tokens: Vec<Token>,
@@ -94,9 +95,9 @@ impl<'a> Parser<'a> {
         let libs_path = format!("src/libs/{to_include}");
 
         if std::path::Path::new(&to_include).exists() {
-            parse_haystack_into_statements(&to_include, self.visited)
+            Stmt::from_file(&to_include, self.visited)
         } else if std::path::Path::new(&libs_path).exists() {
-            parse_haystack_into_statements(&libs_path, self.visited)
+            Stmt::from_file(&libs_path, self.visited)
         } else {
             Err(HayError::new(
                 format!("Failed to find file to include: {to_include}."),

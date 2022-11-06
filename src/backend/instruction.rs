@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use crate::{
     ast::{arg::Arg, expr::TypedExpr},
     lex::token::{Literal, Operator},
-    types::{RecordKind, Type, TypeId},
+    types::{RecordKind, Type, TypeId, TypeMap},
 };
 
 #[derive(Debug, Clone)]
@@ -15,6 +15,9 @@ pub enum InitData {
 pub enum UninitData {
     Region(usize),
 }
+
+pub type InitDataMap = HashMap<String, InitData>;
+pub type UninitDataMap = HashMap<String, UninitData>;
 
 #[derive(Debug, Clone)]
 pub enum Instruction {
@@ -481,6 +484,23 @@ impl Instruction {
         } else {
             panic!("Can only create backend Instructions from functions!");
         }
+    }
+
+    pub fn from_type_map<'a>(
+        types: &'a TypeMap,
+        init_data: &mut InitDataMap,
+    ) -> Vec<(&'a str, Vec<Self>)> {
+        let mut instructions = vec![];
+        types
+            .iter()
+            .filter(|(_, t)| matches!(t, Type::Function { .. }))
+            .for_each(|(tid, func)| {
+                instructions.push((
+                    tid.0.as_str(),
+                    Instruction::from_function(func.clone(), types, init_data),
+                ));
+            });
+        instructions
     }
 
     pub fn count_framed_bytes(instrs: &[Instruction]) -> usize {

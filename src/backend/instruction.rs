@@ -31,6 +31,9 @@ pub enum Instruction {
         offset_from_end: usize,
         bytes: usize,
     },
+    PushPtrToFrame {
+        offset_from_end: usize,
+    },
     FramePtrToFrameReserve {
         offset: usize,
         size: usize,
@@ -156,6 +159,16 @@ impl Instruction {
                 };
 
                 ops.push(i);
+            }
+            TypedExpr::AddrFramed { frame, idx } => {
+                assert!(idx < frame.len());
+                let mut offset = 0;
+                for (_, tid) in &frame[idx + 1..] {
+                    offset += tid.size(types).unwrap();
+                }
+                ops.push(Instruction::PushPtrToFrame {
+                    offset_from_end: offset,
+                })
             }
             TypedExpr::Operator { op, typ: Some(typ) } => ops.push(Instruction::Operator {
                 op,

@@ -33,7 +33,6 @@ pub enum Instruction {
     },
     PushPtrToFrame {
         offset_from_end: usize,
-        bytes: usize,
     },
     FramePtrToFrameReserve {
         offset: usize,
@@ -167,8 +166,9 @@ impl Instruction {
                 for (_, tid) in &frame[idx + 1..] {
                     offset += tid.size(types).unwrap();
                 }
-
-                todo!()
+                ops.push(Instruction::PushPtrToFrame {
+                    offset_from_end: offset,
+                })
             }
             TypedExpr::Operator { op, typ: Some(typ) } => ops.push(Instruction::Operator {
                 op,

@@ -60,7 +60,7 @@ impl std::fmt::Display for Marker {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Operator {
     Plus,
     Minus,
@@ -75,6 +75,7 @@ pub enum Operator {
     Modulo,
     Read,
     Write,
+    Address(String),
 }
 
 impl std::fmt::Display for Operator {
@@ -94,6 +95,7 @@ impl std::fmt::Display for Operator {
             Operator::Modulo => write!(f, "%")?,
             Operator::Read => write!(f, "@")?,
             Operator::Write => write!(f, "!")?,
+            Operator::Address(ident) => write!(f, "&{ident}")?,
         }
         write!(f, "`")
     }

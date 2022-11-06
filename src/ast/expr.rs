@@ -209,7 +209,10 @@ impl Expr {
                 base,
                 annotations,
             } => {
-                let (_, mut sig) = global_env.get(&base.lexeme).unwrap().clone();
+                let (_, mut sig) = global_env
+                    .get(&base.lexeme)
+                    .expect(format!("Should have found function: {base}").as_str())
+                    .clone();
 
                 let (annotations, tid) = if annotations
                     .iter()
@@ -665,7 +668,10 @@ impl Expr {
 
                             Signature::evaluate_many(&sigs, &op_tok, stack, types)?;
 
-                            Ok(TypedExpr::Operator { op: *op, typ: None })
+                            Ok(TypedExpr::Operator {
+                                op: op.clone(),
+                                typ: None,
+                            })
                         }
                         Operator::Minus => {
                             let sigs = vec![
@@ -691,7 +697,10 @@ impl Expr {
 
                             Signature::evaluate_many(&sigs, &op_tok, stack, types)?;
 
-                            Ok(TypedExpr::Operator { op: *op, typ: None })
+                            Ok(TypedExpr::Operator {
+                                op: op.clone(),
+                                typ: None,
+                            })
                         }
                         Operator::Star => {
                             Signature::evaluate_many(
@@ -710,7 +719,10 @@ impl Expr {
                                 types,
                             )?;
 
-                            Ok(TypedExpr::Operator { op: *op, typ: None })
+                            Ok(TypedExpr::Operator {
+                                op: op.clone(),
+                                typ: None,
+                            })
                         }
                         Operator::Slash => {
                             Signature::evaluate_many(
@@ -729,7 +741,10 @@ impl Expr {
                                 types,
                             )?;
 
-                            Ok(TypedExpr::Operator { op: *op, typ: None })
+                            Ok(TypedExpr::Operator {
+                                op: op.clone(),
+                                typ: None,
+                            })
                         }
                         Operator::LessThan
                         | Operator::LessEqual
@@ -752,7 +767,10 @@ impl Expr {
 
                             Signature::evaluate_many(&sigs, &op_tok, stack, types)?;
 
-                            Ok(TypedExpr::Operator { op: *op, typ: None })
+                            Ok(TypedExpr::Operator {
+                                op: op.clone(),
+                                typ: None,
+                            })
                         }
                         Operator::Equal => {
                             // TODO: equality between Enums
@@ -799,7 +817,10 @@ impl Expr {
                                 types,
                             )?;
 
-                            Ok(TypedExpr::Operator { op: *op, typ: None })
+                            Ok(TypedExpr::Operator {
+                                op: op.clone(),
+                                typ: None,
+                            })
                         }
                         Operator::BangEqual => {
                             Signature::evaluate_many(
@@ -843,7 +864,10 @@ impl Expr {
                                 types,
                             )?;
 
-                            Ok(TypedExpr::Operator { op: *op, typ: None })
+                            Ok(TypedExpr::Operator {
+                                op: op.clone(),
+                                typ: None,
+                            })
                         }
                         Operator::Modulo => {
                             Signature::evaluate_many(
@@ -862,7 +886,10 @@ impl Expr {
                                 types,
                             )?;
 
-                            Ok(TypedExpr::Operator { op: *op, typ: None })
+                            Ok(TypedExpr::Operator {
+                                op: op.clone(),
+                                typ: None,
+                            })
                         }
                         Operator::Read => {
                             let map = Signature::new_generic(
@@ -874,7 +901,7 @@ impl Expr {
                             .unwrap();
 
                             Ok(TypedExpr::Operator {
-                                op: *op,
+                                op: op.clone(),
                                 typ: Some(map.get(&TypeId::new("T")).unwrap().clone()),
                             })
                         }
@@ -888,9 +915,32 @@ impl Expr {
                             .unwrap();
 
                             Ok(TypedExpr::Operator {
-                                op: *op,
+                                op: op.clone(),
                                 typ: Some(map.get(&TypeId::new("T")).unwrap().clone()),
                             })
+                        }
+                        Operator::Address(ident) => {
+                            match frame.iter().enumerate().find(|(_, (id, _))| ident == id) {
+                                Some((idx, (_, tid))) => {
+                                    let ptr = Type::Pointer { inner: tid.clone() };
+                                    let ptr_tid = ptr.id();
+
+                                    types.insert(ptr_tid.clone(), ptr);
+                                    stack.push(ptr_tid);
+
+                                    Ok(TypedExpr::AddrFramed {
+                                        frame: frame.clone(),
+                                        idx,
+                                    })
+                                }
+                                None => todo!("Error out "),
+                                // stack.push(tid.clone());
+                                // return Ok(TypedExpr::Framed {
+                                //     frame: frame.clone(),
+                                //     idx: i,
+                                //     inner: None,
+                                // });
+                            }
                         }
                     }
                 }
@@ -1129,6 +1179,10 @@ pub enum TypedExpr {
         frame: Vec<(String, TypeId)>,
         idx: usize,
         inner: Option<Vec<String>>,
+    },
+    AddrFramed {
+        frame: Vec<(String, TypeId)>,
+        idx: usize,
     },
     Enum {
         typ: TypeId,

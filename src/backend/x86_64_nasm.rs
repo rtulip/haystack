@@ -42,6 +42,10 @@ impl super::CodeGen for X86_64 {
                     writeln!(file, "  add rax, 8")?;
                 }
             }
+            Instruction::PushPtrToFrame {
+                offset_from_end,
+                bytes,
+            } => todo!(),
             Instruction::PushToFrame { quad_words } => {
                 for _ in 0..*quad_words {
                     writeln!(file, "  pop  rax")?;
@@ -152,7 +156,7 @@ impl super::CodeGen for X86_64 {
                     writeln!(file, "  cmovne rcx, rdx")?;
                     writeln!(file, "  push rcx")?;
                 }
-                Operator::Read | Operator::Write => unreachable!(),
+                Operator::Read | Operator::Write | Operator::Address(_) => unreachable!(),
             },
             Instruction::Operator {
                 op,

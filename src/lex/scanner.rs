@@ -174,6 +174,30 @@ impl Scanner {
                 }
             }
             '@' => self.add_token(TokenKind::Operator(Operator::Read)),
+            '&' => {
+                if self.peek(0).is_alphabetic() {
+                    // Pushes either Keyword, Syscall, or Ident
+                    self.identifier()?;
+                    let ident = match self.tokens.pop().unwrap() {
+                        Token {
+                            kind: TokenKind::Ident(ident),
+                            ..
+                        } => ident,
+                        Token { kind, loc, .. } => {
+                            return Err(HayError::new(
+                                format!("Expected an identifier, but found {}", kind),
+                                loc,
+                            ))
+                        }
+                    };
+
+                    self.add_token(TokenKind::Operator(Operator::Address(String::from(
+                        &ident[1..],
+                    ))))
+                } else {
+                    unimplemented!("Binary and operator isn't implemented yet")
+                }
+            }
             ' ' | '\t' | '\r' => (),
             '\n' => self.newline(),
             '"' => self.string()?,

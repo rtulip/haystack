@@ -183,12 +183,7 @@ impl Scanner {
                             kind: TokenKind::Ident(ident),
                             ..
                         } => ident,
-                        Token { kind, loc, .. } => {
-                            return Err(HayError::new(
-                                format!("Expected an identifier, but found {}", kind),
-                                loc,
-                            ))
-                        }
+                        _ => unreachable!(),
                     };
 
                     self.add_token(TokenKind::Operator(Operator::Address(String::from(

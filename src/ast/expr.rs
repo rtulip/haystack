@@ -933,13 +933,10 @@ impl Expr {
                                         idx,
                                     })
                                 }
-                                None => todo!("Error out "),
-                                // stack.push(tid.clone());
-                                // return Ok(TypedExpr::Framed {
-                                //     frame: frame.clone(),
-                                //     idx: i,
-                                //     inner: None,
-                                // });
+                                None => Err(HayError::new_type_err(
+                                    format!("Can't take address of unknown identifier: `{ident}`"),
+                                    op_tok.loc,
+                                )),
                             }
                         }
                     }
@@ -1305,5 +1302,10 @@ mod tests {
     #[test]
     fn var_unknown_type() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("type_check", "var_unknown_type")
+    }
+
+    #[test]
+    fn address_of_unknown_ident() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "address_of_unknown_ident")
     }
 }

@@ -109,7 +109,7 @@ mod tests {
     }
 
     #[test]
-    fn r#enum() -> Result<(), std::io::Error> {
+    fn hay_enum() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "enum")
     }
 
@@ -129,7 +129,7 @@ mod tests {
     }
 
     #[test]
-    fn r#impl() -> Result<(), std::io::Error> {
+    fn hay_impl() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "impl")
     }
 
@@ -179,13 +179,18 @@ mod tests {
     }
 
     #[test]
-    fn r#struct() -> Result<(), std::io::Error> {
+    fn hay_struct() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "struct")
     }
 
     #[test]
-    fn r#union() -> Result<(), std::io::Error> {
+    fn hay_union() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "union")
+    }
+
+    #[test]
+    fn address_of_framed() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "address_of_framed")
     }
 
     #[test]

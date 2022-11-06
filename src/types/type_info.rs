@@ -983,7 +983,7 @@ impl Type {
                         typed_body.push(expr.type_check(
                             &mut stack,
                             &mut frame,
-                            &global_env,
+                            global_env,
                             types,
                             &generic_map,
                         )?);

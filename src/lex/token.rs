@@ -118,6 +118,7 @@ pub enum Keyword {
     SizeOf,
     Pub,
     Impl,
+    Inline,
 }
 
 impl std::fmt::Display for Keyword {
@@ -139,6 +140,7 @@ impl std::fmt::Display for Keyword {
             Keyword::SizeOf => write!(f, "sizeOf")?,
             Keyword::Pub => write!(f, "pub")?,
             Keyword::Impl => write!(f, "impl")?,
+            Keyword::Inline => write!(f, "inline")?,
         }
         write!(f, "`")
     }
@@ -162,9 +164,12 @@ impl Keyword {
         map.insert("sizeOf", TokenKind::Keyword(Keyword::SizeOf));
         map.insert("pub", TokenKind::Keyword(Keyword::Pub));
         map.insert("impl", TokenKind::Keyword(Keyword::Impl));
+        map.insert("inline", TokenKind::Keyword(Keyword::Inline));
+
         map.insert("true", TokenKind::Literal(Literal::Bool(true)));
         map.insert("false", TokenKind::Literal(Literal::Bool(false)));
         map.insert("syscall", TokenKind::Syscall(0));
+
         map
     }
 }

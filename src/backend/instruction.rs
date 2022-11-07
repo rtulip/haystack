@@ -308,7 +308,25 @@ impl Instruction {
                 Literal::Bool(b) => ops.push(Instruction::PushU64(b as u64)),
                 Literal::Char(c) => ops.push(Instruction::PushU64(c as u64)),
             },
-            TypedExpr::Call { func } => ops.push(Instruction::Call(func)),
+            TypedExpr::Call { func } => {
+                let tid = TypeId::new(&func);
+                let t = types.get(&tid).unwrap();
+                if let Type::Function { inline, .. } = t {
+                    if !inline {
+                        ops.push(Instruction::Call(func))
+                    } else {
+                        ops.append(&mut Instruction::from_inlined_function(
+                            t.clone(),
+                            types,
+                            init_data,
+                            jump_count,
+                            frame_reserved,
+                        ))
+                    }
+                } else {
+                    unreachable!()
+                }
+            }
             TypedExpr::As { args, block } => {
                 let start = ops.len();
                 for arg in &args {
@@ -451,6 +469,44 @@ impl Instruction {
         }
 
         ops
+    }
+
+    fn from_inlined_function(
+        func: Type,
+        types: &TypeMap,
+        init_data: &mut HashMap<String, InitData>,
+        jump_count: &mut usize,
+        frame_reserved: &mut usize,
+    ) -> Vec<Self> {
+        if let Type::Function { body, inputs, .. } = func {
+            let mut ops = vec![Instruction::StartBlock];
+
+            for Arg { ident, typ, .. } in inputs.iter().rev() {
+                if ident.is_some() {
+                    ops.push(Instruction::PushToFrame {
+                        quad_words: typ.0.size(types).unwrap(),
+                    });
+                }
+            }
+
+            for expr in body {
+                ops.append(&mut Instruction::from_expr(
+                    expr,
+                    types,
+                    init_data,
+                    jump_count,
+                    frame_reserved,
+                ));
+            }
+
+            ops.push(Instruction::EndBlock {
+                bytes_to_free: Instruction::count_framed_bytes(&ops),
+            });
+
+            ops
+        } else {
+            panic!("Can only create backend Instructions from functions!");
+        }
     }
 
     pub fn from_function(

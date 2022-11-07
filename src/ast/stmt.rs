@@ -26,6 +26,7 @@ pub enum Stmt {
         outputs: Vec<Arg<Untyped>>,
         annotations: Option<Vec<Arg<Untyped>>>,
         body: Vec<Expr>,
+        inline: bool,
     },
     Record {
         token: Token,
@@ -196,6 +197,7 @@ impl Stmt {
                 outputs,
                 annotations,
                 body,
+                inline,
             } => {
                 let generics = Stmt::bulid_local_generics(annotations, types)?;
                 let inputs = Arg::resolve(inputs, types, &generics)?;
@@ -219,6 +221,7 @@ impl Stmt {
                         outputs,
                         body,
                         generic_map: None,
+                        inline,
                     }
                 } else {
                     Type::GenericFunction {
@@ -228,6 +231,7 @@ impl Stmt {
                         outputs,
                         generics,
                         body,
+                        inline,
                     }
                 };
 

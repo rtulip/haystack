@@ -15,6 +15,7 @@ impl super::CodeGen for X86_64 {
             '+' => s.push_str("_plus_"),
             ' ' => s.push('_'),
             '*' => s.push_str("_star_"),
+            '_' => s.push_str("__"),
             c => s.push(c),
         });
         s

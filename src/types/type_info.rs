@@ -417,6 +417,7 @@ impl TypeId {
                     outputs,
                     generics,
                     body,
+                    inline,
                 } => {
                     // During type checking, generic functions will be called and then
                     // will need to be monomorphised. Signature::evaluate() will return
@@ -484,6 +485,7 @@ impl TypeId {
                         outputs: assigned_outputs,
                         body,
                         generic_map: Some(map.clone()),
+                        inline,
                     };
 
                     types.insert(tid.clone(), new_fn);
@@ -877,6 +879,7 @@ pub enum Type {
         outputs: Vec<Arg<Typed>>,
         generics: Vec<TypeId>,
         body: Vec<Expr>,
+        inline: bool,
     },
     /// Represents a concrete function that needs to be type checked.
     UncheckedFunction {
@@ -886,6 +889,7 @@ pub enum Type {
         outputs: Vec<Arg<Typed>>,
         body: Vec<Expr>,
         generic_map: Option<HashMap<TypeId, TypeId>>,
+        inline: bool,
     },
     /// Represents a function that has been type checked.
     Function {
@@ -895,6 +899,7 @@ pub enum Type {
         outputs: Vec<Arg<Typed>>,
         body: Vec<TypedExpr>,
         generic_map: Option<HashMap<TypeId, TypeId>>,
+        inline: bool,
     },
 }
 
@@ -962,6 +967,7 @@ impl Type {
                     outputs,
                     body,
                     generic_map,
+                    inline,
                 } = f
                 {
                     let mut stack = vec![];
@@ -998,6 +1004,7 @@ impl Type {
                             outputs,
                             body: typed_body,
                             generic_map,
+                            inline,
                         },
                     );
                 }

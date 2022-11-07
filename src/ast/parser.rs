@@ -62,7 +62,8 @@ impl<'a> Parser<'a> {
     fn declaration(&mut self) -> Result<Vec<Stmt>, HayError> {
         let token = self.tokens.pop().unwrap();
         match &token.kind {
-            TokenKind::Keyword(Keyword::Function) => self.function(token),
+            TokenKind::Keyword(Keyword::Inline) => self.inline_function(token),
+            TokenKind::Keyword(Keyword::Function) => self.function(token, false),
             TokenKind::Keyword(Keyword::Struct) | TokenKind::Keyword(Keyword::Union) => {
                 self.structure(token)
             }
@@ -106,6 +107,25 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn inline_function(&mut self, start: Token) -> Result<Vec<Stmt>, HayError> {
+        let fn_tok = match self.matches(TokenKind::Keyword(Keyword::Function)) {
+            Ok(tok) => tok,
+            Err(tok) => {
+                return Err(HayError::new(
+                    format!(
+                        "Expected keyword {} after {}, but found {}",
+                        Keyword::Function,
+                        Keyword::Include,
+                        tok.kind
+                    ),
+                    start.loc,
+                ))
+            }
+        };
+
+        self.function(fn_tok, true)
+    }
+
     // Function          -> "fn" IDENT (annotations)? args_list (return_types)? block
     // annotations       -> "<" type_name ">"
     // args_list         -> "(" typed_args_list | untyped_args_list ")"
@@ -113,7 +133,7 @@ impl<'a> Parser<'a> {
     // untyped_args_list -> IDENT*
     // return_types      -> "->" "[" IDENT+ "]"
     // block             -> "{" Expression* "}"
-    fn function(&mut self, start: Token) -> Result<Vec<Stmt>, HayError> {
+    fn function(&mut self, start: Token, inline: bool) -> Result<Vec<Stmt>, HayError> {
         let name = match self.matches(TokenKind::ident()) {
             Ok(t) => t,
             Err(t) => {
@@ -220,6 +240,7 @@ impl<'a> Parser<'a> {
             outputs,
             annotations,
             body,
+            inline,
         }])
     }
 
@@ -846,8 +867,15 @@ impl<'a> Parser<'a> {
             }
 
             let mut fns = vec![];
-            while let Ok(fn_tok) = self.matches(TokenKind::Keyword(Keyword::Function)) {
-                fns.append(&mut self.function(fn_tok)?);
+            loop {
+                match (
+                    self.matches(TokenKind::Keyword(Keyword::Function)),
+                    self.matches(TokenKind::Keyword(Keyword::Inline)),
+                ) {
+                    (Ok(fn_tok), _) => fns.append(&mut self.function(fn_tok, false)?),
+                    (_, Ok(inline_tok)) => fns.append(&mut self.inline_function(inline_tok)?),
+                    _ => break,
+                }
             }
 
             Ok(Some(fns))

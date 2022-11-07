@@ -194,6 +194,22 @@ mod tests {
     }
 
     #[test]
+    fn inline_fn() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "inline_fn")?;
+
+        let asm = std::fs::read_to_string("src/tests/functional/inline_fn.asm").unwrap();
+        assert!(
+            asm.find("call fn_add").is_none(),
+            "Found a call to `fn_add` in the generated assembly!"
+        );
+        assert!(
+            asm.find("fn_add:").is_some(),
+            "Didn't find any definition of `fn_add` in generated assembly"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn parse_as_block_bad_close() -> Result<(), std::io::Error> {
         super::test_tools::run_test("parser", "parse_as_block_bad_close")
     }

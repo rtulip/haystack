@@ -1,0 +1,8 @@
+include "std.hay"
+
+inline fn add(u64: a u64: b) -> [u64] { a b + }
+
+fn main() {
+    1 2 add putlnu
+    4 5 add putlnu
+}

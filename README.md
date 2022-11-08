@@ -5,9 +5,9 @@ Haysatck is also heavily inspired by [Porth](https://www.gitlab.com/tsoding/port
 *Note*: This langue is is very early development and is subject to frequent and rapid changes.
 
 # Getting Started:
-Getting sarted with `Haystack` is pretty simple, there's three requirements: `rust`, `nasm`, and `ld`. I'm working on Ubuntu, and can give no guarantee that `Haystack` will work properly on anything else. If you do give `Haystack` a try and something goes wrong, please open a bug and provide as many details as possible, and I'll do my best to try and figure it out. 
+Getting sarted with `Haystack` is pretty simple, there's three requirements: `rust`, `nasm`, and `ld`. I'm working on Ubuntu, and can give no guarantee that `Haystack` will work properly on anything else. If you do give `Haystack` a try and something goes wrong, please open a bug and provide as many details as possible, and I'll do my best to try and figure it out. If you're using Windows, I recommend using `virtualbox` or something similar and get a Linux virtual machine until Windows is a supported target.
 
-* `rust`: I'm using rustc version `1.59.0`, older versions should work, but I haven't tried to figure out what else works. See more about installing rust [here](https://www.rust-lang.org/tools/install)
+* `rust`: I'm using nightly rustc version `1.66.0`, older versions should work, but I haven't tried to figure out what else works. See more about installing rust [here](https://www.rust-lang.org/tools/install). Once you've installed rust, use the command `rustup update nightly` to switch to the nightly version of the rustc compiler.
 * `nasm`: I'm using version `2.13.02`. I was able to install it using `apt`.
 * `ld`: I believe this was installed with the rest of the GNU Binutils, on `Ubuntu`. 
 
@@ -26,12 +26,6 @@ You can try any of the examples under `./examples`.
 * You can compile the program with: `cargo r -- examples/name_of_file.hay`
 * Add the `-r` or `--run` flag to also run the program:  ` cargo r -- examples/name_of_file.hay -r`
 
-### Inspect the Intermediate Representation
-You can easily see how the program gets compiled into linear operations by output as a text file or a json file.
-* To see the simplified representation of the IR add the `--simple` flag when compiling and open the file under `examples/name_of_file.simple`
-* To see the json representation add the `--json` flag when compiling and open the file under `examples/name_of_file.json`
-
-
 # Tutorial:
 
 ## Basics
@@ -41,8 +35,8 @@ You can easily see how the program gets compiled into linear operations by outpu
 ```
 include "std.hay"
 fn main() {
-    1 2   // literals get pushed onto the stack.
-    +     // `+` consumes two `u64` from the top of the stack, and pushes the resuling sum back onto the stack.
+    1 2    // literals get pushed onto the stack.
+    +      // `+` consumes two `u64` from the top of the stack, and pushes the resuling sum back onto the stack.
     putlnu // The `putlnu` function consumes a `u64` from the top of the stack and prints it to stdout.
 }
 ```
@@ -201,7 +195,8 @@ fn main() {
 
     pair::first::size putlnu
 
-    // the Write function is defined in "std.hay" and prints a Str to stdout.
+    // the `putlns` function is defined in "std.hay"
+    // and prints a `Str` to stdout with a newline.
     pair::second      putlns 
 }
 ```
@@ -211,10 +206,10 @@ fn main() {
 You can include files with the `include "path/to/file.hay"` syntax. `Haystack` will search from `src/libs/` as well as the current directory for the file.
 
 ```
-// defines 'write' function
+// defines 'putlnu' function
 include "std.hay" 
 
-fn main() { "Hello World!\n" write }
+fn main() { "Hello World!" putlnu }
 ```
 
 ## The Prelude 
@@ -236,7 +231,7 @@ fn ptr+<T>(*T: ptr u64: n) -> [*T] { ... }  // offsets a pointer by n
 include "std.hay"
 
 fn main() {
-    "Hello World!\n" write
+    "Hello World!\n" putlnu
 }
 ```
 

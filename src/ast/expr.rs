@@ -592,7 +592,7 @@ impl Expr {
                     typed_finally = Some(tmp);
                     end_stacks.push((first_tok, stack.clone()));
                 } else {
-                    end_stacks.push((then_end_tok, initial_stack.clone()));
+                    end_stacks.push((then_end_tok, initial_stack));
                 }
 
                 if !(0..end_stacks.len() - 1)

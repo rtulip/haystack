@@ -9,7 +9,10 @@ struct Arr<T> {
 }
 
 fn drop<T>(T: t) {}
+
 fn dup<T>(T: t) -> [T T]{ t t }
+
+
 fn swap<A B>(A: a B: b) -> [B A] { b a }
 fn over<A B>(A: a B: b) -> [A B A] {a b a}
 fn ptr+<T>(*T: ptr u64: n) -> [*T] {

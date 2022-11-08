@@ -552,6 +552,10 @@ impl Expr {
                 let mut end_stacks = vec![];
 
                 let mut typed_then = vec![];
+                let then_end_tok = match then.iter().last() {
+                    Some(e) => e.token().clone(),
+                    None => token.clone(),
+                };
                 for e in then {
                     typed_then.push(e.type_check(stack, frame, global_env, types, generic_map)?);
                 }
@@ -587,6 +591,8 @@ impl Expr {
 
                     typed_finally = Some(tmp);
                     end_stacks.push((first_tok, stack.clone()));
+                } else {
+                    end_stacks.push((then_end_tok, initial_stack));
                 }
 
                 if !(0..end_stacks.len() - 1)
@@ -1194,6 +1200,11 @@ pub enum TypedExpr {
 }
 
 mod tests {
+
+    #[test]
+    fn if_no_else_modify_stack() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "if_no_else_modify_stack")
+    }
 
     #[test]
     fn incorrect_fn_signature() -> Result<(), std::io::Error> {

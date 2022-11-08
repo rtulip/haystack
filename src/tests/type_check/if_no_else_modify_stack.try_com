@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/if_no_else_modify_stack.hay:3:10] Error: Type Error: If block creates stacks of diferent shapes\n    [Note]: Each branch of if block must evaluate to the same stack layout.\n    [Note]: src/tests/type_check/if_no_else_modify_stack.hay:3:10 Branch 1: [u64]\n    [Note]: src/tests/type_check/if_no_else_modify_stack.hay:4:9 Branch 2: []\n"
+}

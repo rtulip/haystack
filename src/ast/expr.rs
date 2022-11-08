@@ -1196,6 +1196,11 @@ pub enum TypedExpr {
 mod tests {
 
     #[test]
+    fn incorrect_fn_signature() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "incorrect_fn_signature")
+    }
+
+    #[test]
     fn bind_insufficient_elements() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("type_check", "bind_insufficient_elements")
     }

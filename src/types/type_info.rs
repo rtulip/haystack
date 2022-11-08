@@ -1003,13 +1003,13 @@ impl Type {
                     if stack_tids != output_tids {
                         return Err(HayError::new_type_err(
                             format!(
-                                "Function {} doesn't produce the correct outputs",
+                                "Function `{}` doesn't produce the correct outputs",
                                 name.lexeme
                             ),
                             name.loc,
                         )
                         .with_hint(format!("Expected final stack: {:?}", output_tids))
-                        .with_hint(format!("Real final stack:     {:?}", stack_tids)));
+                        .with_hint(format!("Function produced:    {:?}", stack_tids)));
                     }
 
                     types.insert(

@@ -1279,6 +1279,11 @@ pub enum TypedExpr {
 mod tests {
 
     #[test]
+    fn bad_early_return() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "bad_early_return")
+    }
+
+    #[test]
     fn if_no_else_modify_stack() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("type_check", "if_no_else_modify_stack")
     }

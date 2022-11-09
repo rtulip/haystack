@@ -103,6 +103,13 @@ impl Expr {
         types: &mut BTreeMap<TypeId, Type>,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<TypedExpr, HayError> {
+        if stack.contains(&Type::Never.id()) {
+            return Err(HayError::new(
+                "Unreachable expression.",
+                self.token().loc.clone(),
+            ));
+        }
+
         match self {
             Expr::Accessor {
                 token,

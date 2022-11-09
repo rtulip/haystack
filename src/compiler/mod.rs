@@ -99,6 +99,21 @@ fn check_for_entry_point(types: &TypeMap, input_path: &String) -> Result<(), Hay
 mod tests {
 
     #[test]
+    fn early_return_basic() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "early_return_basic")
+    }
+
+    #[test]
+    fn early_return_if_else_while() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "early_return_if_else_while")
+    }
+
+    #[test]
+    fn early_return_while_condition() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "early_return_while_condition")
+    }
+
+    #[test]
     fn array() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "array")
     }

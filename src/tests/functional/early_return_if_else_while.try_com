@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "[CMD]: nasm -felf64 src/tests/functional/early_return_if_else_while.asm\n[CMD]: ld -o early_return_if_else_while src/tests/functional/early_return_if_else_while.o\n",
+  "stderr": ""
+}

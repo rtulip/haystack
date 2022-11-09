@@ -1,0 +1,14 @@
+include "std.hay"
+fn foo() -> [u64] {
+
+    while 42 return {
+        "unreachable" putlns
+    }
+
+}
+
+fn main() {
+
+    foo putlnu
+
+}

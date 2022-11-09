@@ -1109,6 +1109,14 @@ impl Expr {
                     .with_hint(format!("Frame After : {:?}", frame)));
                 }
 
+                if stack.contains(&Type::Never.id()) {
+                    *frame = frame_before;
+                    return Ok(TypedExpr::While {
+                        cond: typed_cond,
+                        body: vec![],
+                    });
+                }
+
                 Signature::new(vec![Type::Bool.id()], vec![]).evaluate(&token, stack, types)?;
 
                 let mut typed_body = vec![];

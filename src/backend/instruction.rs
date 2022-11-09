@@ -106,6 +106,7 @@ impl Instruction {
         let mut ops = vec![];
 
         match expr {
+            TypedExpr::Return => ops.push(Instruction::Return),
             TypedExpr::Framed { frame, idx, inner } => {
                 assert!(idx < frame.len());
                 let mut offset = 0;

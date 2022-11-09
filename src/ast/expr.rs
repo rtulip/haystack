@@ -65,6 +65,9 @@ pub enum Expr {
         token: Token,
         typ: Token,
     },
+    Return {
+        token: Token,
+    },
 }
 
 impl Expr {
@@ -84,7 +87,8 @@ impl Expr {
             | Expr::Var { token, .. }
             | Expr::While { token, .. }
             | Expr::AnnotatedCall { token, .. }
-            | Expr::SizeOf { token, .. } => token,
+            | Expr::SizeOf { token, .. }
+            | Expr::Return { token } => token,
         }
     }
 }
@@ -94,6 +98,7 @@ impl Expr {
         self,
         stack: &mut Vec<TypeId>,
         frame: &mut Vec<(String, TypeId)>,
+        func: &Type,
         global_env: &HashMap<String, (StmtKind, Signature)>,
         types: &mut BTreeMap<TypeId, Type>,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
@@ -227,8 +232,8 @@ impl Expr {
                             })
                             .collect::<Vec<Result<TypeId, HayError>>>();
 
-                        let gen_fn_tid = TypeId::new(&base.lexeme);
-                        let func = gen_fn_tid.assign(&token, map, types)?;
+                        let gen_func = TypeId::new(&base.lexeme);
+                        let func = gen_func.assign(&token, map, types)?;
 
                         (ann, func)
                     } else {
@@ -258,9 +263,9 @@ impl Expr {
                         .iter()
                         .map(|arg| Ok(TypeId::new(&arg.token.lexeme)))
                         .collect::<Vec<Result<TypeId, HayError>>>();
-                    let gen_fn_tid = TypeId::new(&base.lexeme);
+                    let gen_func = TypeId::new(&base.lexeme);
                     let func = if let Some(Type::GenericFunction { generics, .. }) =
-                        types.get(&gen_fn_tid)
+                        types.get(&gen_func)
                     {
                         let map: HashMap<TypeId, TypeId> = HashMap::from_iter(
                             generics
@@ -269,7 +274,7 @@ impl Expr {
                                 .map(|(k, v)| (k.clone(), TypeId::new(&v.token.lexeme))),
                         );
 
-                        gen_fn_tid.assign(&token, &map, types)?
+                        gen_func.assign(&token, &map, types)?
                     } else {
                         return Err(HayError::new_type_err(
                             format!(
@@ -332,7 +337,14 @@ impl Expr {
                 if let Some(blk) = block {
                     let mut tmp = vec![];
                     for e in blk {
-                        tmp.push(e.type_check(stack, frame, global_env, types, generic_map)?);
+                        tmp.push(e.type_check(
+                            stack,
+                            frame,
+                            func,
+                            global_env,
+                            types,
+                            generic_map,
+                        )?);
                     }
 
                     for _ in 0..args.len() {
@@ -462,6 +474,7 @@ impl Expr {
                     | Type::UncheckedFunction { .. }
                     | Type::Function { .. }
                     | Type::GenericRecordInstance { .. } => unreachable!(),
+                    Type::Never => unreachable!("Casting to never types is not supported"),
                 }
             }
             Expr::ElseIf {
@@ -474,6 +487,7 @@ impl Expr {
                     typed_condition.push(expr.type_check(
                         stack,
                         frame,
+                        func,
                         global_env,
                         types,
                         generic_map,
@@ -487,6 +501,7 @@ impl Expr {
                     typed_block.push(expr.type_check(
                         stack,
                         frame,
+                        func,
                         global_env,
                         types,
                         generic_map,
@@ -502,8 +517,8 @@ impl Expr {
                 if let Some((kind, sig)) = global_env.get(&ident.lexeme) {
                     let typed_expr = if let Some(map) = sig.evaluate(&ident, stack, types)? {
                         assert!(matches!(kind, StmtKind::Function));
-                        let gen_fn_tid = TypeId::new(&ident.lexeme);
-                        let monomorphised = gen_fn_tid.assign(&ident, &map, types)?;
+                        let gen_func = TypeId::new(&ident.lexeme);
+                        let monomorphised = gen_func.assign(&ident, &map, types)?;
                         Ok(TypedExpr::Call {
                             func: monomorphised.0,
                         })
@@ -557,10 +572,19 @@ impl Expr {
                     None => token.clone(),
                 };
                 for e in then {
-                    typed_then.push(e.type_check(stack, frame, global_env, types, generic_map)?);
+                    typed_then.push(e.type_check(
+                        stack,
+                        frame,
+                        func,
+                        global_env,
+                        types,
+                        generic_map,
+                    )?);
                 }
 
-                end_stacks.push((token.clone(), stack.clone()));
+                if !stack.contains(&Type::Never.id()) {
+                    end_stacks.push((token.clone(), stack.clone()));
+                }
 
                 let mut typed_otherwise = vec![];
                 for case in otherwise {
@@ -571,27 +595,40 @@ impl Expr {
                     typed_otherwise.push(case.type_check(
                         stack,
                         frame,
+                        func,
                         global_env,
                         types,
                         generic_map,
                     )?);
 
-                    end_stacks.push((case_token, stack.clone()));
+                    if !stack.contains(&Type::Never.id()) {
+                        end_stacks.push((case_token, stack.clone()));
+                    }
                 }
 
                 let mut typed_finally = None;
                 if let Some(finally) = finally {
                     let first_tok = finally[0].token().clone();
-                    *stack = initial_stack;
+                    *stack = initial_stack.clone();
                     *frame = initial_frame.clone();
                     let mut tmp = vec![];
                     for e in finally {
-                        tmp.push(e.type_check(stack, frame, global_env, types, generic_map)?);
+                        tmp.push(e.type_check(
+                            stack,
+                            frame,
+                            func,
+                            global_env,
+                            types,
+                            generic_map,
+                        )?);
                     }
 
                     typed_finally = Some(tmp);
-                    end_stacks.push((first_tok, stack.clone()));
+                    if !stack.contains(&Type::Never.id()) {
+                        end_stacks.push((first_tok, stack.clone()));
+                    }
                 } else {
+                    *stack = initial_stack.clone();
                     end_stacks.push((then_end_tok, initial_stack));
                 }
 
@@ -1056,6 +1093,7 @@ impl Expr {
                     typed_cond.push(expr.type_check(
                         stack,
                         frame,
+                        func,
                         global_env,
                         types,
                         generic_map,
@@ -1078,14 +1116,16 @@ impl Expr {
                     typed_body.push(expr.type_check(
                         stack,
                         frame,
+                        func,
                         global_env,
                         types,
                         generic_map,
                     )?);
                 }
 
-                if stack.len() != stack_before.len()
-                    || stack.iter().zip(&stack_before).any(|(t1, t2)| t1 != t2)
+                if !stack.contains(&Type::Never.id())
+                    && (stack.len() != stack_before.len()
+                        || stack.iter().zip(&stack_before).any(|(t1, t2)| t1 != t2))
                 {
                     return Err(HayError::new(
                         "While loop must not change stack between iterations.",
@@ -1101,6 +1141,33 @@ impl Expr {
                     cond: typed_cond,
                     body: typed_body,
                 })
+            }
+            Expr::Return { token } => {
+                if let Type::UncheckedFunction { outputs, name, .. } = func {
+                    let stack_expected = outputs
+                        .iter()
+                        .map(|arg| &arg.typ.0)
+                        .collect::<Vec<&TypeId>>();
+                    let stack_real = stack.iter().collect::<Vec<&TypeId>>();
+
+                    if stack_real != stack_expected {
+                        return Err(HayError::new_type_err(
+                            "Early return type check failure.",
+                            token.loc,
+                        )
+                        .with_hint(format!(
+                            "Function `{}` expects return type(s): {:?}",
+                            name.lexeme, stack_expected
+                        ))
+                        .with_hint(format!("Found the following stack: {:?}", stack_real)));
+                    }
+
+                    stack.push(Type::Never.id());
+
+                    Ok(TypedExpr::Return)
+                } else {
+                    panic!()
+                }
             }
         }
     }
@@ -1122,7 +1189,8 @@ impl std::fmt::Display for Expr {
             | Expr::As { token, .. }
             | Expr::Var { token, .. }
             | Expr::While { token, .. }
-            | Expr::SizeOf { token, .. } => {
+            | Expr::SizeOf { token, .. }
+            | Expr::Return { token } => {
                 write!(f, "{token}")
             }
             Expr::AnnotatedCall {
@@ -1197,6 +1265,7 @@ pub enum TypedExpr {
     Pad {
         padding: usize,
     },
+    Return,
 }
 
 mod tests {

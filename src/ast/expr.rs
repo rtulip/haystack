@@ -274,7 +274,7 @@ impl Expr {
                                 .map(|(k, v)| (k.clone(), TypeId::new(&v.token.lexeme))),
                         );
 
-                        gen_func.assign(&token, &map, types)?
+                        gen_fn_tid.assign(&token, &map, types)?
                     } else {
                         return Err(HayError::new_type_err(
                             format!(
@@ -1281,6 +1281,11 @@ mod tests {
     #[test]
     fn bad_early_return() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("type_check", "bad_early_return")
+    }
+
+    #[test]
+    fn ops_after_return() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "ops_after_return")
     }
 
     #[test]

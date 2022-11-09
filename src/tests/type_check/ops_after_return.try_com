@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/ops_after_return.hay:3:16] Error: Type Error: Invalid inputs for `+`\n    [Note]: Expected one of 5 signatures:\n    [Note]:   [u64, u64]\n    [Note]:   [u8, u8]\n    [Note]:   [u64, u8]\n    [Note]:   [u8, u64]\n    [Note]:   [char, char]\n    [Note]: Found:\n    [Note]:   [u64, !]\n"
+}

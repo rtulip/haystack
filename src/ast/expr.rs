@@ -232,8 +232,8 @@ impl Expr {
                             })
                             .collect::<Vec<Result<TypeId, HayError>>>();
 
-                        let gen_func = TypeId::new(&base.lexeme);
-                        let func = gen_func.assign(&token, map, types)?;
+                        let gen_fn_tid = TypeId::new(&base.lexeme);
+                        let func = gen_fn_tid.assign(&token, map, types)?;
 
                         (ann, func)
                     } else {
@@ -263,9 +263,9 @@ impl Expr {
                         .iter()
                         .map(|arg| Ok(TypeId::new(&arg.token.lexeme)))
                         .collect::<Vec<Result<TypeId, HayError>>>();
-                    let gen_func = TypeId::new(&base.lexeme);
+                    let gen_fn_tid = TypeId::new(&base.lexeme);
                     let func = if let Some(Type::GenericFunction { generics, .. }) =
-                        types.get(&gen_func)
+                        types.get(&gen_fn_tid)
                     {
                         let map: HashMap<TypeId, TypeId> = HashMap::from_iter(
                             generics
@@ -517,8 +517,8 @@ impl Expr {
                 if let Some((kind, sig)) = global_env.get(&ident.lexeme) {
                     let typed_expr = if let Some(map) = sig.evaluate(&ident, stack, types)? {
                         assert!(matches!(kind, StmtKind::Function));
-                        let gen_func = TypeId::new(&ident.lexeme);
-                        let monomorphised = gen_func.assign(&ident, &map, types)?;
+                        let gen_fn_tid = TypeId::new(&ident.lexeme);
+                        let monomorphised = gen_fn_tid.assign(&ident, &map, types)?;
                         Ok(TypedExpr::Call {
                             func: monomorphised.0,
                         })

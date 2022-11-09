@@ -65,6 +65,9 @@ pub enum Expr {
         token: Token,
         typ: Token,
     },
+    Return {
+        token: Token,
+    },
 }
 
 impl Expr {
@@ -84,7 +87,8 @@ impl Expr {
             | Expr::Var { token, .. }
             | Expr::While { token, .. }
             | Expr::AnnotatedCall { token, .. }
-            | Expr::SizeOf { token, .. } => token,
+            | Expr::SizeOf { token, .. }
+            | Expr::Return { token } => token,
         }
     }
 }
@@ -94,10 +98,18 @@ impl Expr {
         self,
         stack: &mut Vec<TypeId>,
         frame: &mut Vec<(String, TypeId)>,
+        func: &Type,
         global_env: &HashMap<String, (StmtKind, Signature)>,
         types: &mut BTreeMap<TypeId, Type>,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<TypedExpr, HayError> {
+        if stack.contains(&Type::Never.id()) {
+            return Err(HayError::new(
+                "Unreachable expression.",
+                self.token().loc.clone(),
+            ));
+        }
+
         match self {
             Expr::Accessor {
                 token,
@@ -332,7 +344,14 @@ impl Expr {
                 if let Some(blk) = block {
                     let mut tmp = vec![];
                     for e in blk {
-                        tmp.push(e.type_check(stack, frame, global_env, types, generic_map)?);
+                        tmp.push(e.type_check(
+                            stack,
+                            frame,
+                            func,
+                            global_env,
+                            types,
+                            generic_map,
+                        )?);
                     }
 
                     for _ in 0..args.len() {
@@ -462,6 +481,7 @@ impl Expr {
                     | Type::UncheckedFunction { .. }
                     | Type::Function { .. }
                     | Type::GenericRecordInstance { .. } => unreachable!(),
+                    Type::Never => unreachable!("Casting to never types is not supported"),
                 }
             }
             Expr::ElseIf {
@@ -474,6 +494,7 @@ impl Expr {
                     typed_condition.push(expr.type_check(
                         stack,
                         frame,
+                        func,
                         global_env,
                         types,
                         generic_map,
@@ -487,6 +508,7 @@ impl Expr {
                     typed_block.push(expr.type_check(
                         stack,
                         frame,
+                        func,
                         global_env,
                         types,
                         generic_map,
@@ -557,10 +579,19 @@ impl Expr {
                     None => token.clone(),
                 };
                 for e in then {
-                    typed_then.push(e.type_check(stack, frame, global_env, types, generic_map)?);
+                    typed_then.push(e.type_check(
+                        stack,
+                        frame,
+                        func,
+                        global_env,
+                        types,
+                        generic_map,
+                    )?);
                 }
 
-                end_stacks.push((token.clone(), stack.clone()));
+                if !stack.contains(&Type::Never.id()) {
+                    end_stacks.push((token.clone(), stack.clone()));
+                }
 
                 let mut typed_otherwise = vec![];
                 for case in otherwise {
@@ -571,12 +602,15 @@ impl Expr {
                     typed_otherwise.push(case.type_check(
                         stack,
                         frame,
+                        func,
                         global_env,
                         types,
                         generic_map,
                     )?);
 
-                    end_stacks.push((case_token, stack.clone()));
+                    if !stack.contains(&Type::Never.id()) {
+                        end_stacks.push((case_token, stack.clone()));
+                    }
                 }
 
                 let mut typed_finally = None;
@@ -586,12 +620,22 @@ impl Expr {
                     *frame = initial_frame.clone();
                     let mut tmp = vec![];
                     for e in finally {
-                        tmp.push(e.type_check(stack, frame, global_env, types, generic_map)?);
+                        tmp.push(e.type_check(
+                            stack,
+                            frame,
+                            func,
+                            global_env,
+                            types,
+                            generic_map,
+                        )?);
                     }
 
                     typed_finally = Some(tmp);
-                    end_stacks.push((first_tok, stack.clone()));
+                    if !stack.contains(&Type::Never.id()) {
+                        end_stacks.push((first_tok, stack.clone()));
+                    }
                 } else {
+                    *stack = initial_stack.clone();
                     end_stacks.push((then_end_tok, initial_stack));
                 }
 
@@ -1056,6 +1100,7 @@ impl Expr {
                     typed_cond.push(expr.type_check(
                         stack,
                         frame,
+                        func,
                         global_env,
                         types,
                         generic_map,
@@ -1071,6 +1116,14 @@ impl Expr {
                     .with_hint(format!("Frame After : {:?}", frame)));
                 }
 
+                if stack.contains(&Type::Never.id()) {
+                    *frame = frame_before;
+                    return Ok(TypedExpr::While {
+                        cond: typed_cond,
+                        body: vec![],
+                    });
+                }
+
                 Signature::new(vec![Type::Bool.id()], vec![]).evaluate(&token, stack, types)?;
 
                 let mut typed_body = vec![];
@@ -1078,14 +1131,16 @@ impl Expr {
                     typed_body.push(expr.type_check(
                         stack,
                         frame,
+                        func,
                         global_env,
                         types,
                         generic_map,
                     )?);
                 }
 
-                if stack.len() != stack_before.len()
-                    || stack.iter().zip(&stack_before).any(|(t1, t2)| t1 != t2)
+                if !stack.contains(&Type::Never.id())
+                    && (stack.len() != stack_before.len()
+                        || stack.iter().zip(&stack_before).any(|(t1, t2)| t1 != t2))
                 {
                     return Err(HayError::new(
                         "While loop must not change stack between iterations.",
@@ -1101,6 +1156,33 @@ impl Expr {
                     cond: typed_cond,
                     body: typed_body,
                 })
+            }
+            Expr::Return { token } => {
+                if let Type::UncheckedFunction { outputs, name, .. } = func {
+                    let stack_expected = outputs
+                        .iter()
+                        .map(|arg| &arg.typ.0)
+                        .collect::<Vec<&TypeId>>();
+                    let stack_real = stack.iter().collect::<Vec<&TypeId>>();
+
+                    if stack_real != stack_expected {
+                        return Err(HayError::new_type_err(
+                            "Early return type check failure.",
+                            token.loc,
+                        )
+                        .with_hint(format!(
+                            "Function `{}` expects return type(s): {:?}",
+                            name.lexeme, stack_expected
+                        ))
+                        .with_hint(format!("Found the following stack: {:?}", stack_real)));
+                    }
+
+                    stack.push(Type::Never.id());
+
+                    Ok(TypedExpr::Return)
+                } else {
+                    panic!()
+                }
             }
         }
     }
@@ -1122,7 +1204,8 @@ impl std::fmt::Display for Expr {
             | Expr::As { token, .. }
             | Expr::Var { token, .. }
             | Expr::While { token, .. }
-            | Expr::SizeOf { token, .. } => {
+            | Expr::SizeOf { token, .. }
+            | Expr::Return { token } => {
                 write!(f, "{token}")
             }
             Expr::AnnotatedCall {
@@ -1197,9 +1280,20 @@ pub enum TypedExpr {
     Pad {
         padding: usize,
     },
+    Return,
 }
 
 mod tests {
+
+    #[test]
+    fn bad_early_return() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "bad_early_return")
+    }
+
+    #[test]
+    fn ops_after_return() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "ops_after_return")
+    }
 
     #[test]
     fn if_no_else_modify_stack() -> Result<(), std::io::Error> {

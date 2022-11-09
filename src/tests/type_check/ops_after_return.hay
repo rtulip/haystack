@@ -1,0 +1,10 @@
+include "std.hay"
+fn foo() -> [u64 u64] {
+    1 2 return +
+}
+
+fn main() {
+
+    foo putlnu putlnu
+
+}

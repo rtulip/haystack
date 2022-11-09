@@ -577,6 +577,7 @@ impl<'a> Parser<'a> {
             TokenKind::Keyword(Keyword::Var) => self.var(token),
             TokenKind::Keyword(Keyword::While) => self.parse_while(token),
             TokenKind::Keyword(Keyword::SizeOf) => self.size_of(token),
+            TokenKind::Keyword(Keyword::Return) => Ok(Box::new(Expr::Return { token })),
             kind => Err(HayError::new(
                 format!("Not sure how to parse expression from {} yet", kind),
                 token.loc,

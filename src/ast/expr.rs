@@ -616,7 +616,7 @@ impl Expr {
                 let mut typed_finally = None;
                 if let Some(finally) = finally {
                     let first_tok = finally[0].token().clone();
-                    *stack = initial_stack.clone();
+                    *stack = initial_stack;
                     *frame = initial_frame.clone();
                     let mut tmp = vec![];
                     for e in finally {

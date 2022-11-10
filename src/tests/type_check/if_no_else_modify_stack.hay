@@ -1,0 +1,7 @@
+fn main() {
+
+    true if {
+        1
+    }
+
+}

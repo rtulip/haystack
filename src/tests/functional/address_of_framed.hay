@@ -33,12 +33,12 @@ fn main() {
     0 while dup 10 < {
         dup &list MyVec.push
         1 +
-    }
+    } drop
 
     0 while dup 10 < {
         dup &list MyVec.get putlnu
         1 +
-    }
+    } drop
 
     &str @ putlns
     &n @ putlnu

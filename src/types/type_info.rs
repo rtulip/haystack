@@ -35,7 +35,8 @@ impl TypeId {
                 | Type::U8
                 | Type::Function { .. }
                 | Type::Record { .. }
-                | Type::UncheckedFunction { .. },
+                | Type::UncheckedFunction { .. }
+                | Type::Never,
             ) => false,
             Some(Type::Pointer { inner }) => inner.is_generic(types),
             Some(
@@ -170,6 +171,7 @@ impl TypeId {
                         ),
                         token.loc.clone(),
                     )),
+                    Some(Type::Never) => unreachable!("Never types aren't representable"),
                     None => Err(HayError::new(
                         format!("Unrecognized base type: {base}"),
                         token.loc.clone(),
@@ -495,6 +497,7 @@ impl TypeId {
                 Type::UncheckedFunction { .. } | Type::Function { .. } => {
                     unreachable!("Should never assign to non-generic function!")
                 }
+                Type::Never => unreachable!("Never types should never be assigned!"),
             },
             None => {
                 if !map.contains_key(self) {
@@ -704,6 +707,9 @@ impl TypeId {
                 ),
                 _,
             ) => unreachable!("Functions should never be part of type resolution."),
+            (Some(Type::Never), _) => {
+                unreachable!("Never types should not be part of type resolution.")
+            }
         }
     }
 
@@ -736,6 +742,10 @@ impl TypeId {
                     Ok(max)
                 }
             },
+            Type::Never => Err(HayError::new(
+                "Never type does not have a size",
+                Loc::new("", 0, 0, 0),
+            )),
             Type::GenericRecordBase { .. } | Type::GenericRecordInstance { .. } => {
                 Err(HayError::new(
                     "Generic Records do not have a size known at compile time",
@@ -813,6 +823,8 @@ pub enum Type {
     Char,
     /// Built-in boolean.
     Bool,
+    /// Built-in Never-type for early returns and functions that will never return.
+    Never,
     /// Pointer type.
     Pointer {
         /// The type being pointed to.
@@ -911,6 +923,7 @@ impl Type {
             Type::U8 => TypeId::new("u8"),
             Type::Char => TypeId::new("char"),
             Type::Bool => TypeId::new("bool"),
+            Type::Never => TypeId::new("!"),
             Type::Enum { name, .. }
             | Type::GenericRecordBase { name, .. }
             | Type::Record { name, .. } => TypeId::new(&name.lexeme),
@@ -968,7 +981,7 @@ impl Type {
                     body,
                     generic_map,
                     inline,
-                } = f
+                } = f.clone()
                 {
                     let mut stack = vec![];
                     let mut frame = vec![];
@@ -989,10 +1002,28 @@ impl Type {
                         typed_body.push(expr.type_check(
                             &mut stack,
                             &mut frame,
+                            &f,
                             global_env,
                             types,
                             &generic_map,
                         )?);
+                    }
+                    let stack_tids = stack.iter().collect::<Vec<&TypeId>>();
+                    let output_tids = outputs
+                        .iter()
+                        .map(|arg| &arg.typ.0)
+                        .collect::<Vec<&TypeId>>();
+
+                    if !stack_tids.contains(&&Type::Never.id()) && stack_tids != output_tids {
+                        return Err(HayError::new_type_err(
+                            format!(
+                                "Function `{}` doesn't produce the correct outputs",
+                                name.lexeme
+                            ),
+                            name.loc,
+                        )
+                        .with_hint(format!("Expected final stack: {:?}", output_tids))
+                        .with_hint(format!("Function produced:    {:?}", stack_tids)));
                     }
 
                     types.insert(

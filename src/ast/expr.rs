@@ -271,11 +271,13 @@ impl Expr {
                         .map(|arg| Ok(TypeId::new(&arg.token.lexeme)))
                         .collect::<Vec<Result<TypeId, HayError>>>();
                     let gen_fn_tid = TypeId::new(&base.lexeme);
-                    let func = if let Some(Type::GenericFunction { generics, .. }) =
-                        types.get(&gen_fn_tid)
+                    let func = if let Ok(func) = types
+                        .get(&gen_fn_tid)
+                        .expect(format!("bad generic_fn_tid: {gen_fn_tid}").as_str())
+                        .try_generic_function(&token)
                     {
                         let map: HashMap<TypeId, TypeId> = HashMap::from_iter(
-                            generics
+                            func.generics
                                 .iter()
                                 .zip(&annotations)
                                 .map(|(k, v)| (k.clone(), TypeId::new(&v.token.lexeme))),
@@ -1158,31 +1160,29 @@ impl Expr {
                 })
             }
             Expr::Return { token } => {
-                if let Type::UncheckedFunction { outputs, name, .. } = func {
-                    let stack_expected = outputs
-                        .iter()
-                        .map(|arg| &arg.typ.0)
-                        .collect::<Vec<&TypeId>>();
-                    let stack_real = stack.iter().collect::<Vec<&TypeId>>();
+                let func = func.unchecked_function();
+                let stack_expected = func
+                    .outputs
+                    .iter()
+                    .map(|arg| &arg.typ.0)
+                    .collect::<Vec<&TypeId>>();
+                let stack_real = stack.iter().collect::<Vec<&TypeId>>();
 
-                    if stack_real != stack_expected {
-                        return Err(HayError::new_type_err(
-                            "Early return type check failure.",
-                            token.loc,
-                        )
-                        .with_hint(format!(
-                            "Function `{}` expects return type(s): {:?}",
-                            name.lexeme, stack_expected
-                        ))
-                        .with_hint(format!("Found the following stack: {:?}", stack_real)));
-                    }
-
-                    stack.push(Type::Never.id());
-
-                    Ok(TypedExpr::Return)
-                } else {
-                    panic!()
+                if stack_real != stack_expected {
+                    return Err(HayError::new_type_err(
+                        "Early return type check failure.",
+                        token.loc,
+                    )
+                    .with_hint(format!(
+                        "Function `{}` expects return type(s): {:?}",
+                        func.name.lexeme, stack_expected
+                    ))
+                    .with_hint(format!("Found the following stack: {:?}", stack_real)));
                 }
+
+                stack.push(Type::Never.id());
+
+                Ok(TypedExpr::Return)
             }
         }
     }

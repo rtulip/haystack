@@ -6,7 +6,9 @@ use crate::backend::{InitData, InitDataMap, UninitData, UninitDataMap};
 use crate::error::HayError;
 use crate::lex::scanner::Scanner;
 use crate::lex::token::{Loc, Token};
-use crate::types::{RecordKind, Signature, Type, TypeId, TypeMap, Untyped};
+use crate::types::{
+    GenericFunction, RecordKind, Signature, Type, TypeId, TypeMap, UncheckedFunction, Untyped,
+};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 pub type GlobalEnv<'a> = HashMap<String, (StmtKind, Signature<'a>)>;
@@ -215,23 +217,27 @@ impl Stmt {
 
                 let typ = if generics.is_empty() {
                     Type::UncheckedFunction {
-                        token,
-                        name: name.clone(),
-                        inputs,
-                        outputs,
-                        body,
-                        generic_map: None,
-                        inline,
+                        func: UncheckedFunction {
+                            token,
+                            name: name.clone(),
+                            inputs,
+                            outputs,
+                            body,
+                            generic_map: None,
+                            inline,
+                        },
                     }
                 } else {
                     Type::GenericFunction {
-                        token,
-                        name: name.clone(),
-                        inputs,
-                        outputs,
-                        generics,
-                        body,
-                        inline,
+                        func: GenericFunction {
+                            token,
+                            name: name.clone(),
+                            inputs,
+                            outputs,
+                            generics,
+                            body,
+                            inline,
+                        },
                     }
                 };
 

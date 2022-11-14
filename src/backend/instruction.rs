@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::{arg::Arg, expr::TypedExpr},
+    ast::{arg::TypedArg, expr::TypedExpr},
     lex::token::{Literal, Operator},
     types::{FnTag, Function, RecordKind, Type, TypeId, TypeMap},
 };
@@ -128,10 +128,10 @@ impl Instruction {
                                         .0;
 
                                     for m in &members[0..idx] {
-                                        offset += m.typ.0.size(types).unwrap()
+                                        offset += m.typ.size(types).unwrap()
                                     }
 
-                                    &members[idx].typ.0
+                                    &members[idx].typ
                                 }
                                 RecordKind::Union => {
                                     let idx = members
@@ -141,7 +141,7 @@ impl Instruction {
                                         .unwrap()
                                         .0;
 
-                                    &members[idx].typ.0
+                                    &members[idx].typ
                                 }
                             }
                         } else {
@@ -478,10 +478,10 @@ impl Instruction {
     ) -> Vec<Self> {
         let mut ops = vec![Instruction::StartBlock];
 
-        for Arg { ident, typ, .. } in func.inputs.iter().rev() {
+        for TypedArg { ident, typ, .. } in func.inputs.iter().rev() {
             if ident.is_some() {
                 ops.push(Instruction::PushToFrame {
-                    quad_words: typ.0.size(types).unwrap(),
+                    quad_words: typ.size(types).unwrap(),
                 });
             }
         }
@@ -513,10 +513,10 @@ impl Instruction {
             Instruction::StartBlock,
         ];
 
-        for Arg { ident, typ, .. } in func.inputs.iter().rev() {
+        for TypedArg { ident, typ, .. } in func.inputs.iter().rev() {
             if ident.is_some() {
                 ops.push(Instruction::PushToFrame {
-                    quad_words: typ.0.size(types).unwrap(),
+                    quad_words: typ.size(types).unwrap(),
                 });
             }
         }

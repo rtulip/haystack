@@ -1,9 +1,8 @@
-use crate::ast::arg::Arg;
-use crate::ast::member::Member;
+use crate::ast::arg::TypedArg;
+use crate::ast::member::TypedMember;
 use crate::ast::stmt::GlobalEnv;
 use crate::error::HayError;
 use crate::lex::token::{Loc, Token, TokenKind, TypeToken};
-use crate::types::Typed;
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
 
@@ -240,11 +239,12 @@ impl TypeId {
                     // Assign each member type from the base.
                     let mut resolved_members = vec![];
                     for m in members {
-                        resolved_members.push(Member {
+                        resolved_members.push(TypedMember {
+                            parent: m.parent,
                             vis: m.vis,
                             token: m.token,
                             ident: m.ident,
-                            typ: Typed(m.typ.0.assign(token, map, types)?),
+                            typ: m.typ.assign(token, map, types)?,
                         });
                     }
 
@@ -355,11 +355,12 @@ impl TypeId {
                     // Resolve each member.
                     let mut resolved_members = vec![];
                     for member in members {
-                        resolved_members.push(Member {
+                        resolved_members.push(TypedMember {
+                            parent: member.parent,
                             vis: member.vis,
                             token: member.token,
                             ident: member.ident,
-                            typ: Typed(member.typ.0.assign(token, &aliased_generics, types)?),
+                            typ: member.typ.assign(token, &aliased_generics, types)?,
                         });
                     }
 
@@ -450,19 +451,19 @@ impl TypeId {
 
                     let mut assigned_inputs = vec![];
                     for input in func.inputs {
-                        assigned_inputs.push(Arg {
+                        assigned_inputs.push(TypedArg {
                             token: input.token,
                             ident: input.ident,
-                            typ: Typed(input.typ.0.assign(token, map, types)?),
+                            typ: input.typ.assign(token, map, types)?,
                         });
                     }
 
                     let mut assigned_outputs = vec![];
                     for output in func.outputs {
-                        assigned_outputs.push(Arg {
+                        assigned_outputs.push(TypedArg {
                             token: output.token,
                             ident: output.ident,
-                            typ: Typed(output.typ.0.assign(token, map, types)?),
+                            typ: output.typ.assign(token, map, types)?,
                         });
                     }
 
@@ -480,6 +481,7 @@ impl TypeId {
                             body: func.body,
                             generic_map: Some(map.clone()),
                             tags: func.tags,
+                            impl_on: func.impl_on,
                         },
                     };
 
@@ -640,7 +642,7 @@ impl TypeId {
 
                 // resolve each member from the concrete record's members.
                 for (generic, concrete) in generic_members.iter().zip(members) {
-                    generic.typ.0.resolve(token, &concrete.typ.0, map, types)?;
+                    generic.typ.resolve(token, &concrete.typ, map, types)?;
                 }
 
                 for (old, new) in base_generics.iter().zip(alias_list) {
@@ -719,14 +721,14 @@ impl TypeId {
                 RecordKind::Struct => {
                     let mut sum = 0;
                     for member in members {
-                        sum += member.typ.0.size(types)?;
+                        sum += member.typ.size(types)?;
                     }
                     Ok(sum)
                 }
                 RecordKind::Union => {
                     let mut max = 0;
                     for member in members {
-                        let sz = member.typ.0.size(types)?;
+                        let sz = member.typ.size(types)?;
                         if sz > max {
                             max = sz;
                         }
@@ -831,7 +833,7 @@ pub enum Type {
         name: Token,
         /// The members of the struct or union.
         /// The compiler MUST guarantee that these types are known within the `types` map during compilation.
-        members: Vec<Member<Typed>>,
+        members: Vec<TypedMember>,
         /// A flag to indicate if the record is a struct or union.
         kind: RecordKind,
     },
@@ -847,7 +849,7 @@ pub enum Type {
         generics: Vec<TypeId>,
         /// The members of the struct or union.
         /// These types are allowed to not be present within the `types` map during compilation.
-        members: Vec<Member<Typed>>,
+        members: Vec<TypedMember>,
         /// A flag to indicate if the record is a struct or union.
         kind: RecordKind,
     },
@@ -862,7 +864,7 @@ pub enum Type {
         alias_list: Vec<TypeId>,
         /// The members of the struct or union.
         /// These types are allowed to not be present within the `types` map during compilation.
-        members: Vec<Member<Typed>>,
+        members: Vec<TypedMember>,
         /// A flag to indicate if the record is a struct or union.
         kind: RecordKind,
     },
@@ -948,21 +950,18 @@ impl Type {
 
                 func.inputs.iter().rev().for_each(|arg| {
                     if arg.ident.is_some() {
-                        frame.push((
-                            arg.ident.as_ref().unwrap().lexeme.clone(),
-                            arg.typ.0.clone(),
-                        ))
+                        frame.push((arg.ident.as_ref().unwrap().lexeme.clone(), arg.typ.clone()))
                     } else {
-                        stack.push(arg.typ.0.clone())
+                        stack.push(arg.typ.clone())
                     }
                 });
 
                 let mut typed_body = vec![];
-                for expr in func.body {
+                for expr in func.body.clone() {
                     typed_body.push(expr.type_check(
                         &mut stack,
                         &mut frame,
-                        &f,
+                        &func,
                         global_env,
                         types,
                         &func.generic_map,
@@ -972,7 +971,7 @@ impl Type {
                 let output_tids = func
                     .outputs
                     .iter()
-                    .map(|arg| &arg.typ.0)
+                    .map(|arg| &arg.typ)
                     .collect::<Vec<&TypeId>>();
 
                 if !stack_tids.contains(&&Type::Never.id()) && stack_tids != output_tids {

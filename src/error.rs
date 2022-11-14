@@ -16,7 +16,7 @@ pub struct HayError {
     message: String,
     kind: ErrorKind,
     loc: Loc,
-    hints: Vec<String>,
+    hints: Vec<(String, String)>,
 }
 
 impl HayError {
@@ -49,7 +49,21 @@ impl HayError {
         S: Into<String>,
     {
         let mut hints = self.hints;
-        hints.push(hint.into());
+        hints.push((String::from("Note"), hint.into()));
+        HayError {
+            message: self.message,
+            kind: self.kind,
+            loc: self.loc,
+            hints,
+        }
+    }
+    pub fn with_hint_and_custom_note<S1, S2>(self, hint: S1, note: S2) -> Self
+    where
+        S1: Into<String>,
+        S2: Into<String>,
+    {
+        let mut hints = self.hints;
+        hints.push((note.into(), hint.into()));
         HayError {
             message: self.message,
             kind: self.kind,
@@ -60,8 +74,8 @@ impl HayError {
 
     pub fn report(&self) {
         eprintln!("[{}] {}: {}", self.loc, self.kind, self.message);
-        for hint in &self.hints {
-            eprintln!("    [Note]: {hint}");
+        for (note, hint) in &self.hints {
+            eprintln!("    [{note}]: {hint}");
         }
     }
 }

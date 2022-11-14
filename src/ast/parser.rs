@@ -1,13 +1,12 @@
-use crate::ast::arg::Arg;
 use crate::ast::expr::Expr;
 use crate::ast::stmt::Stmt;
 use crate::error::HayError;
 use crate::lex::token::{Keyword, Loc, Marker, Operator, Token, TokenKind, TypeToken};
-use crate::types::Untyped;
 use crate::types::{FnTag, RecordKind};
 use std::collections::HashSet;
 
-use super::member::Member;
+use super::arg::UntypedArg;
+use super::member::UntypedMember;
 use super::visibility::Visitiliby;
 
 pub struct Parser<'a> {
@@ -65,7 +64,7 @@ impl<'a> Parser<'a> {
             TokenKind::Keyword(Keyword::Inline) => self.inline_function(token, None),
             TokenKind::Keyword(Keyword::Function) => self.function(token, vec![], None),
             TokenKind::Keyword(Keyword::Struct) | TokenKind::Keyword(Keyword::Union) => {
-                self.structure(token)
+                self.record(token)
             }
             TokenKind::Keyword(Keyword::Enum) => self.enumeration(token),
             TokenKind::Keyword(Keyword::Include) => self.include(token),
@@ -292,10 +291,11 @@ impl<'a> Parser<'a> {
             annotations,
             body,
             tags,
+            impl_on: impl_on.cloned(),
         }])
     }
 
-    fn args_list(&mut self, token: &Token) -> Result<Vec<Arg<Untyped>>, HayError> {
+    fn args_list(&mut self, token: &Token) -> Result<Vec<UntypedArg>, HayError> {
         let mut args = vec![];
         while let Some(arg) = self.parse_arg()? {
             args.push(arg)
@@ -313,7 +313,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn unnamed_args_list(&mut self, token: &Token) -> Result<Vec<Arg<Untyped>>, HayError> {
+    fn unnamed_args_list(&mut self, token: &Token) -> Result<Vec<UntypedArg>, HayError> {
         let args = self.args_list(token)?;
         if args.iter().any(|arg| arg.ident.is_some()) {
             Err(HayError::new(
@@ -447,14 +447,13 @@ impl<'a> Parser<'a> {
     }
 
     // Arg -> type_name (: IDENT)?
-    fn parse_arg(&mut self) -> Result<Option<Arg<Untyped>>, HayError> {
+    fn parse_arg(&mut self) -> Result<Option<UntypedArg>, HayError> {
         match self.parse_type()? {
             Some(token) => {
                 if self.matches(TokenKind::Marker(Marker::Colon)).is_ok() {
                     match self.matches(TokenKind::ident()) {
-                        Ok(ident) => Ok(Some(Arg {
+                        Ok(ident) => Ok(Some(UntypedArg {
                             token,
-                            typ: Untyped,
                             ident: Some(ident),
                         })),
                         Err(t) => Err(HayError::new(
@@ -467,11 +466,7 @@ impl<'a> Parser<'a> {
                         )),
                     }
                 } else {
-                    Ok(Some(Arg {
-                        token,
-                        typ: Untyped,
-                        ident: None,
-                    }))
+                    Ok(Some(UntypedArg { token, ident: None }))
                 }
             }
             None => Ok(None),
@@ -759,8 +754,13 @@ impl<'a> Parser<'a> {
 
     // structure -> "struct" IDENT "{" named_args_list (impls)? "}"
     // impls     -> "impl" ":" function+
-    fn structure(&mut self, start: Token) -> Result<Vec<Stmt>, HayError> {
+    fn record(&mut self, start: Token) -> Result<Vec<Stmt>, HayError> {
         let kw = start.keyword()?;
+        let kind = if kw == Keyword::Union {
+            RecordKind::Union
+        } else {
+            RecordKind::Struct
+        };
         let name = match self.matches(TokenKind::ident()) {
             Ok(t) => t,
             Err(t) => {
@@ -803,7 +803,7 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        let members = self.members(&start)?;
+        let members = self.members(&start, &name, &kind)?;
 
         let impls = self.impl_section(&name)?;
 
@@ -823,11 +823,7 @@ impl<'a> Parser<'a> {
             name,
             annotations,
             members,
-            kind: if kw == Keyword::Union {
-                RecordKind::Union
-            } else {
-                RecordKind::Struct
-            },
+            kind,
         }];
 
         if let Some(mut fns) = impls {
@@ -837,31 +833,40 @@ impl<'a> Parser<'a> {
         Ok(stmts)
     }
 
-    fn members(&mut self, tok: &Token) -> Result<Vec<Member<Untyped>>, HayError> {
+    fn members(
+        &mut self,
+        start_tok: &Token,
+        typ_tok: &Token,
+        kind: &RecordKind,
+    ) -> Result<Vec<UntypedMember>, HayError> {
         let mut members = vec![];
 
-        while let Some(mem) = self.member()? {
+        while let Some(mem) = self.member(typ_tok, kind)? {
             members.push(mem);
         }
 
         if members.is_empty() {
             Err(HayError::new(
                 "Struct members cannot be empty.",
-                tok.loc.clone(),
+                start_tok.loc.clone(),
             ))
         } else {
             Ok(members)
         }
     }
 
-    fn member(&mut self) -> Result<Option<Member<Untyped>>, HayError> {
+    fn member(
+        &mut self,
+        typ: &Token,
+        kind: &RecordKind,
+    ) -> Result<Option<UntypedMember>, HayError> {
         let (vis, vis_tok) = match self.matches(TokenKind::Keyword(Keyword::Pub)) {
             Ok(t) => (Visitiliby::Public, Some(t)),
             Err(_) => (Visitiliby::Private, None),
         };
 
-        let token = match (&vis, self.parse_type()?) {
-            (Visitiliby::Public, None) => {
+        let token = match (&vis, self.parse_type()?, kind) {
+            (Visitiliby::Public, None, _) => {
                 return Err(HayError::new(
                     format!(
                         "Expected a type after {}, but found {} instead.",
@@ -871,8 +876,14 @@ impl<'a> Parser<'a> {
                     vis_tok.unwrap().loc,
                 ))
             }
-            (_, None) => return Ok(None),
-            (_, Some(t)) => t,
+            (Visitiliby::Public, _, RecordKind::Union) => {
+                return Err(HayError::new(
+                    "Unexpected Keyword `pub` in union definition.",
+                    vis_tok.unwrap().loc,
+                ))
+            }
+            (_, None, _) => return Ok(None),
+            (_, Some(t), _) => t,
         };
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::Colon)) {
@@ -896,11 +907,14 @@ impl<'a> Parser<'a> {
             }
         };
 
-        Ok(Some(Member {
-            vis,
+        Ok(Some(UntypedMember {
+            parent: typ.clone(),
+            vis: match kind {
+                RecordKind::Union => Visitiliby::Public,
+                RecordKind::Struct => vis,
+            },
             token,
             ident,
-            typ: Untyped,
         }))
     }
 

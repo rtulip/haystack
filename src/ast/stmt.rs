@@ -1,6 +1,6 @@
-use super::arg::Arg;
+use super::arg::UntypedArg;
 use super::expr::Expr;
-use super::member::Member;
+use super::member::UntypedMember;
 use super::parser::Parser;
 use crate::backend::{InitData, InitDataMap, UninitData, UninitDataMap};
 use crate::error::HayError;
@@ -8,7 +8,6 @@ use crate::lex::scanner::Scanner;
 use crate::lex::token::{Loc, Token};
 use crate::types::{
     FnTag, GenericFunction, RecordKind, Signature, Type, TypeId, TypeMap, UncheckedFunction,
-    Untyped,
 };
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -25,17 +24,18 @@ pub enum Stmt {
     Function {
         token: Token,
         name: Token,
-        inputs: Vec<Arg<Untyped>>,
-        outputs: Vec<Arg<Untyped>>,
-        annotations: Option<Vec<Arg<Untyped>>>,
+        inputs: Vec<UntypedArg>,
+        outputs: Vec<UntypedArg>,
+        annotations: Option<Vec<UntypedArg>>,
         body: Vec<Expr>,
         tags: Vec<FnTag>,
+        impl_on: Option<Token>,
     },
     Record {
         token: Token,
         name: Token,
-        annotations: Option<Vec<Arg<Untyped>>>,
-        members: Vec<Member<Untyped>>,
+        annotations: Option<Vec<UntypedArg>>,
+        members: Vec<UntypedMember>,
         kind: RecordKind,
     },
     Enum {
@@ -84,7 +84,7 @@ impl Stmt {
     }
 
     fn bulid_local_generics(
-        annotations: Option<Vec<Arg<Untyped>>>,
+        annotations: Option<Vec<UntypedArg>>,
         types: &BTreeMap<TypeId, Type>,
     ) -> Result<Vec<TypeId>, HayError> {
         match annotations {
@@ -138,7 +138,7 @@ impl Stmt {
                 kind,
             } => {
                 let generics = Stmt::bulid_local_generics(annotations, types)?;
-                let members = Member::resolve(members, types, &generics)?;
+                let members = UntypedMember::resolve(members, types, &generics)?;
 
                 let prev = match generics.len() {
                     0 => types.insert(
@@ -201,20 +201,32 @@ impl Stmt {
                 annotations,
                 body,
                 tags,
+                impl_on,
             } => {
                 let generics = Stmt::bulid_local_generics(annotations, types)?;
-                let inputs = Arg::resolve(inputs, types, &generics)?;
-                let outputs = Arg::resolve(outputs, types, &generics)?;
+                let inputs = UntypedArg::resolve(inputs, types, &generics)?;
+                let outputs = UntypedArg::resolve(outputs, types, &generics)?;
 
                 let sig = Signature::new_maybe_generic(
-                    inputs.iter().map(|arg| arg.typ.0.clone()).collect(),
-                    outputs.iter().map(|arg| arg.typ.0.clone()).collect(),
+                    inputs.iter().map(|arg| arg.typ.clone()).collect(),
+                    outputs.iter().map(|arg| arg.typ.clone()).collect(),
                     if generics.is_empty() {
                         None
                     } else {
                         Some(generics.clone())
                     },
                 );
+
+                let impl_on = match impl_on {
+                    Some(tok) => {
+                        if !types.contains_key(&TypeId::new(&tok.lexeme)) {
+                            panic!("Logic error. Unknown type: {tok}");
+                        }
+
+                        Some(TypeId::new(&tok.lexeme))
+                    }
+                    None => None,
+                };
 
                 let typ = if generics.is_empty() {
                     Type::UncheckedFunction {
@@ -226,6 +238,7 @@ impl Stmt {
                             body,
                             generic_map: None,
                             tags,
+                            impl_on,
                         },
                     }
                 } else {
@@ -238,6 +251,7 @@ impl Stmt {
                             generics,
                             body,
                             tags,
+                            impl_on,
                         },
                     }
                 };

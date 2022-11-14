@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use crate::{
     error::HayError,
     lex::token::Token,
-    types::{Type, TypeId, Typed, Untyped},
+    types::{Type, TypeId},
 };
 
 /// A structure to represent an Argument.
@@ -40,26 +40,31 @@ use crate::{
 /// ```
 ///
 #[derive(Debug, Clone)]
-pub struct Arg<TypeState> {
+pub struct UntypedArg {
     /// The token of the argument
     pub token: Token,
     /// An optional identifier.
     pub ident: Option<Token>,
-    /// Type information related to the argument
-    pub typ: TypeState,
 }
 
-impl Arg<Untyped> {
+#[derive(Debug, Clone)]
+pub struct TypedArg {
+    pub token: Token,
+    pub ident: Option<Token>,
+    pub typ: TypeId,
+}
+
+impl UntypedArg {
     pub fn resolve(
-        args: Vec<Arg<Untyped>>,
+        args: Vec<UntypedArg>,
         types: &mut BTreeMap<TypeId, Type>,
         local_types: &Vec<TypeId>,
-    ) -> Result<Vec<Arg<Typed>>, HayError> {
+    ) -> Result<Vec<TypedArg>, HayError> {
         let mut out = vec![];
 
         for arg in args {
-            let typ = Typed(TypeId::from_token(&arg.token, types, local_types)?);
-            out.push(Arg {
+            let typ = TypeId::from_token(&arg.token, types, local_types)?;
+            out.push(TypedArg {
                 token: arg.token,
                 ident: arg.ident,
                 typ,

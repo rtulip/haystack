@@ -156,43 +156,37 @@ impl<'a> Parser<'a> {
             }
         };
 
-        if name.lexeme.starts_with("+") {
+        if name.lexeme.starts_with('+') {
             if impl_on.is_none() {
                 return Err(HayError::new(
                     "On Copy functions cannot be defined outside of an impl block.",
-                    name.loc.clone(),
+                    name.loc,
                 ));
             }
 
             if name.lexeme != format!("+{}", impl_on.unwrap().lexeme) {
-                return Err(
-                    HayError::new("Unexpected On Copy function name.", name.loc.clone()).with_hint(
-                        format!(
-                            "Expected On Copy function to be named `+{}`",
-                            impl_on.unwrap().lexeme
-                        ),
-                    ),
-                );
+                return Err(HayError::new("Unexpected On Copy function name.", name.loc)
+                    .with_hint(format!(
+                        "Expected On Copy function to be named `+{}`",
+                        impl_on.unwrap().lexeme
+                    )));
             }
 
             tags.push(FnTag::OnCopy)
-        } else if name.lexeme.starts_with("-") {
+        } else if name.lexeme.starts_with('-') {
             if impl_on.is_none() {
                 return Err(HayError::new(
                     "On Drop functions cannot be defined outside of an impl block.",
-                    name.loc.clone(),
+                    name.loc,
                 ));
             }
 
             if name.lexeme != format!("-{}", impl_on.unwrap().lexeme) {
-                return Err(
-                    HayError::new("Unexpected On Drop function name.", name.loc.clone()).with_hint(
-                        format!(
-                            "Expected On Drop function to be named `-{}`",
-                            impl_on.unwrap().lexeme
-                        ),
-                    ),
-                );
+                return Err(HayError::new("Unexpected On Drop function name.", name.loc)
+                    .with_hint(format!(
+                        "Expected On Drop function to be named `-{}`",
+                        impl_on.unwrap().lexeme
+                    )));
             }
 
             tags.push(FnTag::OnDrop)

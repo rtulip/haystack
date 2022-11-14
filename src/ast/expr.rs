@@ -140,14 +140,14 @@ impl Expr {
                                             return Err(
                                                 HayError::new_type_err(
                                                     format!("Cannot access {kind} `{}` member `{}` as it is declared as private.", name.lexeme, m.ident.lexeme), 
-                                                    token.loc.clone()
+                                                    token.loc
                                                 ).with_hint_and_custom_note(format!("{kind} `{}` declared here", name.lexeme), format!("{}", name.loc))
                                             )
                                         }
                                         _ => return Err(
                                             HayError::new_type_err(
                                                 format!("Cannot access {kind} `{}` member `{}` as it is declared as private.", name.lexeme, m.ident.lexeme), 
-                                                token.loc.clone()
+                                                token.loc
                                             ).with_hint_and_custom_note(format!("{kind} `{}` declared here", name.lexeme), format!("{}", name.loc))
                                         )
                                     }
@@ -292,7 +292,7 @@ impl Expr {
                     let gen_fn_tid = TypeId::new(&base.lexeme);
                     let func = if let Ok(func) = types
                         .get(&gen_fn_tid)
-                        .expect(format!("bad generic_fn_tid: {gen_fn_tid}").as_str())
+                        .unwrap_or_else(|| panic!("bad generic_fn_tid: {gen_fn_tid}"))
                         .try_generic_function(&token)
                     {
                         let map: HashMap<TypeId, TypeId> = HashMap::from_iter(

@@ -7,7 +7,8 @@ use crate::error::HayError;
 use crate::lex::scanner::Scanner;
 use crate::lex::token::{Loc, Token};
 use crate::types::{
-    GenericFunction, RecordKind, Signature, Type, TypeId, TypeMap, UncheckedFunction, Untyped,
+    FnTag, GenericFunction, RecordKind, Signature, Type, TypeId, TypeMap, UncheckedFunction,
+    Untyped,
 };
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -28,7 +29,7 @@ pub enum Stmt {
         outputs: Vec<Arg<Untyped>>,
         annotations: Option<Vec<Arg<Untyped>>>,
         body: Vec<Expr>,
-        inline: bool,
+        tags: Vec<FnTag>,
     },
     Record {
         token: Token,
@@ -199,7 +200,7 @@ impl Stmt {
                 outputs,
                 annotations,
                 body,
-                inline,
+                tags,
             } => {
                 let generics = Stmt::bulid_local_generics(annotations, types)?;
                 let inputs = Arg::resolve(inputs, types, &generics)?;
@@ -224,7 +225,7 @@ impl Stmt {
                             outputs,
                             body,
                             generic_map: None,
-                            inline,
+                            tags,
                         },
                     }
                 } else {
@@ -236,7 +237,7 @@ impl Stmt {
                             outputs,
                             generics,
                             body,
-                            inline,
+                            tags,
                         },
                     }
                 };

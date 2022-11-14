@@ -479,7 +479,7 @@ impl TypeId {
                             outputs: assigned_outputs,
                             body: func.body,
                             generic_map: Some(map.clone()),
-                            inline: func.inline,
+                            tags: func.tags,
                         },
                     };
 
@@ -997,7 +997,7 @@ impl Type {
                             outputs: func.outputs,
                             body: typed_body,
                             generic_map: func.generic_map,
-                            inline: func.inline,
+                            tags: func.tags,
                         },
                     },
                 );

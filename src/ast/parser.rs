@@ -3,8 +3,8 @@ use crate::ast::expr::Expr;
 use crate::ast::stmt::Stmt;
 use crate::error::HayError;
 use crate::lex::token::{Keyword, Loc, Marker, Operator, Token, TokenKind, TypeToken};
-use crate::types::RecordKind;
 use crate::types::Untyped;
+use crate::types::{FnTag, RecordKind};
 use std::collections::HashSet;
 
 use super::member::Member;
@@ -62,8 +62,8 @@ impl<'a> Parser<'a> {
     fn declaration(&mut self) -> Result<Vec<Stmt>, HayError> {
         let token = self.tokens.pop().unwrap();
         match &token.kind {
-            TokenKind::Keyword(Keyword::Inline) => self.inline_function(token),
-            TokenKind::Keyword(Keyword::Function) => self.function(token, false),
+            TokenKind::Keyword(Keyword::Inline) => self.inline_function(token, None),
+            TokenKind::Keyword(Keyword::Function) => self.function(token, vec![], None),
             TokenKind::Keyword(Keyword::Struct) | TokenKind::Keyword(Keyword::Union) => {
                 self.structure(token)
             }
@@ -107,7 +107,11 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn inline_function(&mut self, start: Token) -> Result<Vec<Stmt>, HayError> {
+    fn inline_function(
+        &mut self,
+        start: Token,
+        impl_on: Option<&Token>,
+    ) -> Result<Vec<Stmt>, HayError> {
         let fn_tok = match self.matches(TokenKind::Keyword(Keyword::Function)) {
             Ok(tok) => tok,
             Err(tok) => {
@@ -123,7 +127,7 @@ impl<'a> Parser<'a> {
             }
         };
 
-        self.function(fn_tok, true)
+        self.function(fn_tok, vec![FnTag::Inline], impl_on)
     }
 
     // Function          -> "fn" IDENT (annotations)? args_list (return_types)? block
@@ -133,7 +137,12 @@ impl<'a> Parser<'a> {
     // untyped_args_list -> IDENT*
     // return_types      -> "->" "[" IDENT+ "]"
     // block             -> "{" Expression* "}"
-    fn function(&mut self, start: Token, inline: bool) -> Result<Vec<Stmt>, HayError> {
+    fn function(
+        &mut self,
+        start: Token,
+        mut tags: Vec<FnTag>,
+        impl_on: Option<&Token>,
+    ) -> Result<Vec<Stmt>, HayError> {
         let name = match self.matches(TokenKind::ident()) {
             Ok(t) => t,
             Err(t) => {
@@ -147,6 +156,48 @@ impl<'a> Parser<'a> {
                 ))
             }
         };
+
+        if name.lexeme.starts_with("+") {
+            if impl_on.is_none() {
+                return Err(HayError::new(
+                    "On Copy functions cannot be defined outside of an impl block.",
+                    name.loc.clone(),
+                ));
+            }
+
+            if name.lexeme != format!("+{}", impl_on.unwrap().lexeme) {
+                return Err(
+                    HayError::new("Unexpected On Copy function name.", name.loc.clone()).with_hint(
+                        format!(
+                            "Expected On Copy function to be named `+{}`",
+                            impl_on.unwrap().lexeme
+                        ),
+                    ),
+                );
+            }
+
+            tags.push(FnTag::OnCopy)
+        } else if name.lexeme.starts_with("-") {
+            if impl_on.is_none() {
+                return Err(HayError::new(
+                    "On Drop functions cannot be defined outside of an impl block.",
+                    name.loc.clone(),
+                ));
+            }
+
+            if name.lexeme != format!("-{}", impl_on.unwrap().lexeme) {
+                return Err(
+                    HayError::new("Unexpected On Drop function name.", name.loc.clone()).with_hint(
+                        format!(
+                            "Expected On Drop function to be named `-{}`",
+                            impl_on.unwrap().lexeme
+                        ),
+                    ),
+                );
+            }
+
+            tags.push(FnTag::OnDrop)
+        }
 
         let annotations = if let Ok(open) = self.matches(TokenKind::Operator(Operator::LessThan)) {
             let annotations = self.unnamed_args_list(&open)?;
@@ -240,7 +291,7 @@ impl<'a> Parser<'a> {
             outputs,
             annotations,
             body,
-            inline,
+            tags,
         }])
     }
 
@@ -754,7 +805,7 @@ impl<'a> Parser<'a> {
 
         let members = self.members(&start)?;
 
-        let impls = self.impl_section()?;
+        let impls = self.impl_section(&name)?;
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
             return Err(HayError::new(
@@ -853,7 +904,7 @@ impl<'a> Parser<'a> {
         }))
     }
 
-    fn impl_section(&mut self) -> Result<Option<Vec<Stmt>>, HayError> {
+    fn impl_section(&mut self, impl_on: &Token) -> Result<Option<Vec<Stmt>>, HayError> {
         if self.matches(TokenKind::Keyword(Keyword::Impl)).is_ok() {
             if let Err(t) = self.matches(TokenKind::Marker(Marker::Colon)) {
                 return Err(HayError::new(
@@ -873,8 +924,12 @@ impl<'a> Parser<'a> {
                     self.matches(TokenKind::Keyword(Keyword::Function)),
                     self.matches(TokenKind::Keyword(Keyword::Inline)),
                 ) {
-                    (Ok(fn_tok), _) => fns.append(&mut self.function(fn_tok, false)?),
-                    (_, Ok(inline_tok)) => fns.append(&mut self.inline_function(inline_tok)?),
+                    (Ok(fn_tok), _) => {
+                        fns.append(&mut self.function(fn_tok, vec![], Some(impl_on))?)
+                    }
+                    (_, Ok(inline_tok)) => {
+                        fns.append(&mut self.inline_function(inline_tok, Some(impl_on))?)
+                    }
                     _ => break,
                 }
             }
@@ -1311,5 +1366,23 @@ mod tests {
     #[test]
     fn parse_bad_follow_up_to_inline() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("parser", "parse_bad_follow_up_to_inline")
+    }
+
+    #[test]
+    fn parse_on_copy_outside_impl() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_on_copy_outside_impl")
+    }
+
+    #[test]
+    fn parse_on_drop_outside_impl() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_on_drop_outside_impl")
+    }
+    #[test]
+    fn parse_bad_on_copy_name() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_on_copy_name")
+    }
+    #[test]
+    fn parse_bad_on_drop_name() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_on_drop_name")
     }
 }

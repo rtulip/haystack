@@ -1,2 +1,7 @@
-fn +Foo() {}
-fn -Foo() {}
+struct Foo {
+    u64: bar
+
+impl:
+    fn +Foo() {}
+    fn -Foo() {}
+}

@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use crate::{
     ast::{arg::Arg, expr::TypedExpr},
     lex::token::{Literal, Operator},
-    types::{Function, RecordKind, Type, TypeId, TypeMap},
+    types::{FnTag, Function, RecordKind, Type, TypeId, TypeMap},
 };
 
 #[derive(Debug, Clone)]
@@ -313,7 +313,7 @@ impl Instruction {
                 let tid = TypeId::new(&func);
                 let t = types.get(&tid).unwrap();
                 let f = t.function();
-                if !f.inline {
+                if !f.has_tag(FnTag::Inline) {
                     ops.push(Instruction::Call(func))
                 } else {
                     ops.append(&mut Instruction::from_inlined_function(

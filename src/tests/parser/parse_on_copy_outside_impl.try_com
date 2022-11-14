@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parser/parse_on_copy_outside_impl.hay:1:4] Error: On Copy functions cannot be defined outside of an impl block.\n"
+}

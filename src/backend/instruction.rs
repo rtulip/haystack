@@ -1,9 +1,9 @@
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{
-    ast::{arg::Arg, expr::TypedExpr},
+    ast::{arg::TypedArg, expr::TypedExpr},
     lex::token::{Literal, Operator},
-    types::{RecordKind, Type, TypeId, TypeMap},
+    types::{FnTag, Function, RecordKind, Type, TypeId, TypeMap},
 };
 
 #[derive(Debug, Clone)]
@@ -128,10 +128,10 @@ impl Instruction {
                                         .0;
 
                                     for m in &members[0..idx] {
-                                        offset += m.typ.0.size(types).unwrap()
+                                        offset += m.typ.size(types).unwrap()
                                     }
 
-                                    &members[idx].typ.0
+                                    &members[idx].typ
                                 }
                                 RecordKind::Union => {
                                     let idx = members
@@ -141,7 +141,7 @@ impl Instruction {
                                         .unwrap()
                                         .0;
 
-                                    &members[idx].typ.0
+                                    &members[idx].typ
                                 }
                             }
                         } else {
@@ -312,20 +312,17 @@ impl Instruction {
             TypedExpr::Call { func } => {
                 let tid = TypeId::new(&func);
                 let t = types.get(&tid).unwrap();
-                if let Type::Function { inline, .. } = t {
-                    if !inline {
-                        ops.push(Instruction::Call(func))
-                    } else {
-                        ops.append(&mut Instruction::from_inlined_function(
-                            t.clone(),
-                            types,
-                            init_data,
-                            jump_count,
-                            frame_reserved,
-                        ))
-                    }
+                let f = t.function();
+                if !f.has_tag(FnTag::Inline) {
+                    ops.push(Instruction::Call(func))
                 } else {
-                    unreachable!()
+                    ops.append(&mut Instruction::from_inlined_function(
+                        f.clone(),
+                        types,
+                        init_data,
+                        jump_count,
+                        frame_reserved,
+                    ))
                 }
             }
             TypedExpr::As { args, block } => {
@@ -473,87 +470,79 @@ impl Instruction {
     }
 
     fn from_inlined_function(
-        func: Type,
+        func: Function,
         types: &TypeMap,
         init_data: &mut HashMap<String, InitData>,
         jump_count: &mut usize,
         frame_reserved: &mut usize,
     ) -> Vec<Self> {
-        if let Type::Function { body, inputs, .. } = func {
-            let mut ops = vec![Instruction::StartBlock];
+        let mut ops = vec![Instruction::StartBlock];
 
-            for Arg { ident, typ, .. } in inputs.iter().rev() {
-                if ident.is_some() {
-                    ops.push(Instruction::PushToFrame {
-                        quad_words: typ.0.size(types).unwrap(),
-                    });
-                }
+        for TypedArg { ident, typ, .. } in func.inputs.iter().rev() {
+            if ident.is_some() {
+                ops.push(Instruction::PushToFrame {
+                    quad_words: typ.size(types).unwrap(),
+                });
             }
-
-            for expr in body {
-                ops.append(&mut Instruction::from_expr(
-                    expr,
-                    types,
-                    init_data,
-                    jump_count,
-                    frame_reserved,
-                ));
-            }
-
-            ops.push(Instruction::EndBlock {
-                bytes_to_free: Instruction::count_framed_bytes(&ops),
-            });
-
-            ops
-        } else {
-            panic!("Can only create backend Instructions from functions!");
         }
+
+        for expr in func.body {
+            ops.append(&mut Instruction::from_expr(
+                expr,
+                types,
+                init_data,
+                jump_count,
+                frame_reserved,
+            ));
+        }
+
+        ops.push(Instruction::EndBlock {
+            bytes_to_free: Instruction::count_framed_bytes(&ops),
+        });
+
+        ops
     }
 
     pub fn from_function(
-        func: Type,
+        func: Function,
         types: &BTreeMap<TypeId, Type>,
         init_data: &mut HashMap<String, InitData>,
     ) -> Vec<Self> {
-        if let Type::Function { body, inputs, .. } = func {
-            let mut ops = vec![
-                Instruction::FrameReserve { bytes: 0 },
-                Instruction::StartBlock,
-            ];
+        let mut ops = vec![
+            Instruction::FrameReserve { bytes: 0 },
+            Instruction::StartBlock,
+        ];
 
-            for Arg { ident, typ, .. } in inputs.iter().rev() {
-                if ident.is_some() {
-                    ops.push(Instruction::PushToFrame {
-                        quad_words: typ.0.size(types).unwrap(),
-                    });
-                }
+        for TypedArg { ident, typ, .. } in func.inputs.iter().rev() {
+            if ident.is_some() {
+                ops.push(Instruction::PushToFrame {
+                    quad_words: typ.size(types).unwrap(),
+                });
             }
-
-            let mut reserve = 0;
-            let mut jump_count = 0;
-            for expr in body {
-                ops.append(&mut Instruction::from_expr(
-                    expr,
-                    types,
-                    init_data,
-                    &mut jump_count,
-                    &mut reserve,
-                ));
-            }
-
-            let bytes_framed = Instruction::count_framed_bytes(&ops);
-
-            ops.push(Instruction::EndBlock {
-                bytes_to_free: bytes_framed + reserve,
-            });
-            ops.push(Instruction::Return);
-
-            ops[0] = Instruction::FrameReserve { bytes: reserve };
-
-            ops
-        } else {
-            panic!("Can only create backend Instructions from functions!");
         }
+
+        let mut reserve = 0;
+        let mut jump_count = 0;
+        for expr in func.body {
+            ops.append(&mut Instruction::from_expr(
+                expr,
+                types,
+                init_data,
+                &mut jump_count,
+                &mut reserve,
+            ));
+        }
+
+        let bytes_framed = Instruction::count_framed_bytes(&ops);
+
+        ops.push(Instruction::EndBlock {
+            bytes_to_free: bytes_framed + reserve,
+        });
+        ops.push(Instruction::Return);
+
+        ops[0] = Instruction::FrameReserve { bytes: reserve };
+
+        ops
     }
 
     pub fn from_type_map<'a>(
@@ -565,10 +554,14 @@ impl Instruction {
             .iter()
             .filter(|(_, t)| matches!(t, Type::Function { .. }))
             .for_each(|(tid, func)| {
-                instructions.push((
-                    tid.0.as_str(),
-                    Instruction::from_function(func.clone(), types, init_data),
-                ));
+                if let Type::Function { func } = func {
+                    instructions.push((
+                        tid.0.as_str(),
+                        Instruction::from_function(func.clone(), types, init_data),
+                    ));
+                } else {
+                    panic!()
+                }
             });
         instructions
     }

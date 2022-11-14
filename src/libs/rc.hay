@@ -1,0 +1,57 @@
+var u64: NEXT_RC_IDENT
+var u64[4096]: RC_COUNTS
+
+inline fn next_rc() -> [u64] {
+    NEXT_RC_IDENT @ 
+    dup 1 + NEXT_RC_IDENT !
+}
+
+inline fn bump_rc(u64: id) {
+    id RC_COUNTS @ Arr.get_ref as [ptr]
+    ptr @ 1 + ptr !
+}
+
+inline fn dec_rc(u64: id) -> [bool] {
+
+    id RC_COUNTS @ Arr.get_ref as [ptr]
+    ptr @ as [count] 
+    
+    count 0 <= if {
+        "Decrementing a zero count rc." putlns
+        "Cannot recover: exiting" putlns
+        1 exit
+    }
+    count 1 - ptr !
+
+    count 1 ==
+
+}
+
+fn rc_free<T>(*T: _) {
+    "Freeing an RC" putlns
+} 
+
+struct Rc<T> {
+    *T: data
+    u64: id
+
+impl:
+
+    inline fn Rc.new<T>(*T) -> [Rc<T>] {
+        next_rc
+        dup bump_rc
+        cast(Rc)
+    }
+
+    inline fn +Rc<T>(Rc<T>: self) {
+        self::id bump_rc
+    }
+
+    inline fn -Rc<T>(Rc<T>: self) {
+        self::id dec_rc if {
+            self::data rc_free
+        }
+    }
+
+}
+

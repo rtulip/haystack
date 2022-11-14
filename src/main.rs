@@ -1,4 +1,5 @@
 #![feature(btree_drain_filter)]
+#![feature(drain_filter)]
 
 mod ast;
 mod backend;

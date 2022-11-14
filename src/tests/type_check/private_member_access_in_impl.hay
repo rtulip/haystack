@@ -1,0 +1,12 @@
+struct Foo {
+    u64: bar
+}
+
+struct Baz {
+    u64: buzz
+impl:
+    fn do_work() {
+        12345 cast(Foo) as [f]
+        f::bar drop
+    } 
+}

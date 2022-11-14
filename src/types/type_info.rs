@@ -1,14 +1,12 @@
-use crate::ast::arg::Arg;
-use crate::ast::expr::{Expr, TypedExpr};
-use crate::ast::member::Member;
+use crate::ast::arg::TypedArg;
+use crate::ast::member::TypedMember;
 use crate::ast::stmt::GlobalEnv;
 use crate::error::HayError;
 use crate::lex::token::{Loc, Token, TokenKind, TypeToken};
-use crate::types::Typed;
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
 
-use super::TypeMap;
+use super::{Function, GenericFunction, TypeMap, UncheckedFunction};
 
 /// Unique Identifier for types
 ///
@@ -241,11 +239,12 @@ impl TypeId {
                     // Assign each member type from the base.
                     let mut resolved_members = vec![];
                     for m in members {
-                        resolved_members.push(Member {
+                        resolved_members.push(TypedMember {
+                            parent: m.parent,
                             vis: m.vis,
                             token: m.token,
                             ident: m.ident,
-                            typ: Typed(m.typ.0.assign(token, map, types)?),
+                            typ: m.typ.assign(token, map, types)?,
                         });
                     }
 
@@ -356,11 +355,12 @@ impl TypeId {
                     // Resolve each member.
                     let mut resolved_members = vec![];
                     for member in members {
-                        resolved_members.push(Member {
+                        resolved_members.push(TypedMember {
+                            parent: member.parent,
                             vis: member.vis,
                             token: member.token,
                             ident: member.ident,
-                            typ: Typed(member.typ.0.assign(token, &aliased_generics, types)?),
+                            typ: member.typ.assign(token, &aliased_generics, types)?,
                         });
                     }
 
@@ -412,23 +412,15 @@ impl TypeId {
                 | Type::Bool
                 | Type::Enum { .. }
                 | Type::Record { .. } => Ok(self.clone()),
-                Type::GenericFunction {
-                    token: fn_token,
-                    name,
-                    inputs,
-                    outputs,
-                    generics,
-                    body,
-                    inline,
-                } => {
+                Type::GenericFunction { func } => {
                     // During type checking, generic functions will be called and then
                     // will need to be monomorphised. Signature::evaluate() will return
                     // the mapping of geneircs which will be used, thus GenericFunctions
                     // will never need to be resolved.
 
                     // Make sure that each generic is mapped.
-                    if !generics.iter().all(|tid| map.contains_key(tid))
-                        || map.len() != generics.len()
+                    if !func.generics.iter().all(|tid| map.contains_key(tid))
+                        || map.len() != func.generics.len()
                     {
                         return Err(HayError::new(
                             "Bad mapping to monomporphize funcion",
@@ -436,19 +428,19 @@ impl TypeId {
                         )
                         .with_hint(format!(
                             "Generic function {} is generic over {:?}.",
-                            name.lexeme, generics
+                            func.name.lexeme, func.generics
                         ))
                         .with_hint(format!("Found mapping: {:?}", map)));
                     }
 
                     // Generate the new name
-                    let mut name_string = format!("{}<", name.lexeme);
-                    for tid in &generics[0..generics.len() - 1] {
+                    let mut name_string = format!("{}<", func.name.lexeme);
+                    for tid in &func.generics[0..func.generics.len() - 1] {
                         name_string = format!("{name_string}{} ", tid.assign(token, map, types)?);
                     }
                     name_string = format!(
                         "{name_string}{}>",
-                        generics.last().unwrap().assign(token, map, types)?
+                        func.generics.last().unwrap().assign(token, map, types)?
                     );
 
                     // Exit early if the monomorphised function already exists.
@@ -458,36 +450,39 @@ impl TypeId {
                     }
 
                     let mut assigned_inputs = vec![];
-                    for input in inputs {
-                        assigned_inputs.push(Arg {
+                    for input in func.inputs {
+                        assigned_inputs.push(TypedArg {
                             token: input.token,
                             ident: input.ident,
-                            typ: Typed(input.typ.0.assign(token, map, types)?),
+                            typ: input.typ.assign(token, map, types)?,
                         });
                     }
 
                     let mut assigned_outputs = vec![];
-                    for output in outputs {
-                        assigned_outputs.push(Arg {
+                    for output in func.outputs {
+                        assigned_outputs.push(TypedArg {
                             token: output.token,
                             ident: output.ident,
-                            typ: Typed(output.typ.0.assign(token, map, types)?),
+                            typ: output.typ.assign(token, map, types)?,
                         });
                     }
 
                     // Create a new unchecked function to make sure it gets type checked.
                     let new_fn = Type::UncheckedFunction {
-                        token: fn_token,
-                        name: Token {
-                            kind: name.kind,
-                            lexeme: name_string,
-                            loc: name.loc,
+                        func: UncheckedFunction {
+                            token: func.token,
+                            name: Token {
+                                kind: func.name.kind,
+                                lexeme: name_string,
+                                loc: func.name.loc,
+                            },
+                            inputs: assigned_inputs,
+                            outputs: assigned_outputs,
+                            body: func.body,
+                            generic_map: Some(map.clone()),
+                            tags: func.tags,
+                            impl_on: func.impl_on,
                         },
-                        inputs: assigned_inputs,
-                        outputs: assigned_outputs,
-                        body,
-                        generic_map: Some(map.clone()),
-                        inline,
                     };
 
                     types.insert(tid.clone(), new_fn);
@@ -647,7 +642,7 @@ impl TypeId {
 
                 // resolve each member from the concrete record's members.
                 for (generic, concrete) in generic_members.iter().zip(members) {
-                    generic.typ.0.resolve(token, &concrete.typ.0, map, types)?;
+                    generic.typ.resolve(token, &concrete.typ, map, types)?;
                 }
 
                 for (old, new) in base_generics.iter().zip(alias_list) {
@@ -726,14 +721,14 @@ impl TypeId {
                 RecordKind::Struct => {
                     let mut sum = 0;
                     for member in members {
-                        sum += member.typ.0.size(types)?;
+                        sum += member.typ.size(types)?;
                     }
                     Ok(sum)
                 }
                 RecordKind::Union => {
                     let mut max = 0;
                     for member in members {
-                        let sz = member.typ.0.size(types)?;
+                        let sz = member.typ.size(types)?;
                         if sz > max {
                             max = sz;
                         }
@@ -838,7 +833,7 @@ pub enum Type {
         name: Token,
         /// The members of the struct or union.
         /// The compiler MUST guarantee that these types are known within the `types` map during compilation.
-        members: Vec<Member<Typed>>,
+        members: Vec<TypedMember>,
         /// A flag to indicate if the record is a struct or union.
         kind: RecordKind,
     },
@@ -854,7 +849,7 @@ pub enum Type {
         generics: Vec<TypeId>,
         /// The members of the struct or union.
         /// These types are allowed to not be present within the `types` map during compilation.
-        members: Vec<Member<Typed>>,
+        members: Vec<TypedMember>,
         /// A flag to indicate if the record is a struct or union.
         kind: RecordKind,
     },
@@ -869,7 +864,7 @@ pub enum Type {
         alias_list: Vec<TypeId>,
         /// The members of the struct or union.
         /// These types are allowed to not be present within the `types` map during compilation.
-        members: Vec<Member<Typed>>,
+        members: Vec<TypedMember>,
         /// A flag to indicate if the record is a struct or union.
         kind: RecordKind,
     },
@@ -884,35 +879,11 @@ pub enum Type {
     },
     /// Represents a generic function.
     /// Generic Functions are not type checked.
-    GenericFunction {
-        token: Token,
-        name: Token,
-        inputs: Vec<Arg<Typed>>,
-        outputs: Vec<Arg<Typed>>,
-        generics: Vec<TypeId>,
-        body: Vec<Expr>,
-        inline: bool,
-    },
+    GenericFunction { func: GenericFunction },
     /// Represents a concrete function that needs to be type checked.
-    UncheckedFunction {
-        token: Token,
-        name: Token,
-        inputs: Vec<Arg<Typed>>,
-        outputs: Vec<Arg<Typed>>,
-        body: Vec<Expr>,
-        generic_map: Option<HashMap<TypeId, TypeId>>,
-        inline: bool,
-    },
+    UncheckedFunction { func: UncheckedFunction },
     /// Represents a function that has been type checked.
-    Function {
-        token: Token,
-        name: Token,
-        inputs: Vec<Arg<Typed>>,
-        outputs: Vec<Arg<Typed>>,
-        body: Vec<TypedExpr>,
-        generic_map: Option<HashMap<TypeId, TypeId>>,
-        inline: bool,
-    },
+    Function { func: Function },
 }
 
 impl Type {
@@ -973,76 +944,101 @@ impl Type {
                 .collect::<Vec<(TypeId, Type)>>();
 
             for (tid, f) in fns {
-                if let Type::UncheckedFunction {
-                    token,
-                    name,
-                    inputs,
-                    outputs,
-                    body,
-                    generic_map,
-                    inline,
-                } = f.clone()
-                {
-                    let mut stack = vec![];
-                    let mut frame = vec![];
+                let func = f.unchecked_function().clone();
+                let mut stack = vec![];
+                let mut frame = vec![];
 
-                    inputs.iter().rev().for_each(|arg| {
-                        if arg.ident.is_some() {
-                            frame.push((
-                                arg.ident.as_ref().unwrap().lexeme.clone(),
-                                arg.typ.0.clone(),
-                            ))
-                        } else {
-                            stack.push(arg.typ.0.clone())
-                        }
-                    });
-
-                    let mut typed_body = vec![];
-                    for expr in body {
-                        typed_body.push(expr.type_check(
-                            &mut stack,
-                            &mut frame,
-                            &f,
-                            global_env,
-                            types,
-                            &generic_map,
-                        )?);
+                func.inputs.iter().rev().for_each(|arg| {
+                    if arg.ident.is_some() {
+                        frame.push((arg.ident.as_ref().unwrap().lexeme.clone(), arg.typ.clone()))
+                    } else {
+                        stack.push(arg.typ.clone())
                     }
-                    let stack_tids = stack.iter().collect::<Vec<&TypeId>>();
-                    let output_tids = outputs
-                        .iter()
-                        .map(|arg| &arg.typ.0)
-                        .collect::<Vec<&TypeId>>();
+                });
 
-                    if !stack_tids.contains(&&Type::Never.id()) && stack_tids != output_tids {
-                        return Err(HayError::new_type_err(
-                            format!(
-                                "Function `{}` doesn't produce the correct outputs",
-                                name.lexeme
-                            ),
-                            name.loc,
-                        )
-                        .with_hint(format!("Expected final stack: {:?}", output_tids))
-                        .with_hint(format!("Function produced:    {:?}", stack_tids)));
-                    }
-
-                    types.insert(
-                        tid,
-                        Type::Function {
-                            token,
-                            name,
-                            inputs,
-                            outputs,
-                            body: typed_body,
-                            generic_map,
-                            inline,
-                        },
-                    );
+                let mut typed_body = vec![];
+                for expr in func.body.clone() {
+                    typed_body.push(expr.type_check(
+                        &mut stack,
+                        &mut frame,
+                        &func,
+                        global_env,
+                        types,
+                        &func.generic_map,
+                    )?);
                 }
+                let stack_tids = stack.iter().collect::<Vec<&TypeId>>();
+                let output_tids = func
+                    .outputs
+                    .iter()
+                    .map(|arg| &arg.typ)
+                    .collect::<Vec<&TypeId>>();
+
+                if !stack_tids.contains(&&Type::Never.id()) && stack_tids != output_tids {
+                    return Err(HayError::new_type_err(
+                        format!(
+                            "Function `{}` doesn't produce the correct outputs",
+                            func.name.lexeme
+                        ),
+                        func.name.loc,
+                    )
+                    .with_hint(format!("Expected final stack: {:?}", output_tids))
+                    .with_hint(format!("Function produced:    {:?}", stack_tids)));
+                }
+
+                types.insert(
+                    tid,
+                    Type::Function {
+                        func: Function {
+                            token: func.token,
+                            name: func.name,
+                            inputs: func.inputs,
+                            outputs: func.outputs,
+                            body: typed_body,
+                            generic_map: func.generic_map,
+                            tags: func.tags,
+                        },
+                    },
+                );
             }
         }
 
         Ok(())
+    }
+
+    pub fn function(&self) -> &Function {
+        if let Type::Function { func } = self {
+            func
+        } else {
+            panic!("Tried to extract a function from a non-function type");
+        }
+    }
+
+    pub fn unchecked_function(&self) -> &UncheckedFunction {
+        if let Type::UncheckedFunction { func } = self {
+            func
+        } else {
+            panic!("Tried to extract an unchecked function from a non-unchecked-function type")
+        }
+    }
+
+    // pub fn generic_function(&self) -> &GenericFunction {
+    //     if let Type::GenericFunction { func } = self {
+    //         func
+    //     } else {
+    //         panic!("Tried to extract a generic-function from a non-generic-function type")
+    //     }
+    // }
+
+    pub fn try_generic_function(&self, token: &Token) -> Result<&GenericFunction, HayError> {
+        if let Type::GenericFunction { func } = self {
+            Ok(func)
+        } else {
+            Err(HayError::new(
+                "Tried to extract a generic-function from a non-generic-function type",
+                token.loc.clone(),
+            ))
+        }
     }
 }
 

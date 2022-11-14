@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parser/parse_bad_on_drop_name.hay:4:8] Error: Unexpected On Drop function name.\n    [Note]: Expected On Drop function to be named `-Foo`\n"
+}

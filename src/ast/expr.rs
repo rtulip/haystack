@@ -1,9 +1,9 @@
-use crate::ast::arg::Arg;
 use crate::error::HayError;
 use crate::lex::token::{Literal, Operator, Token, TokenKind};
-use crate::types::{RecordKind, Signature, Type, TypeId, Untyped};
+use crate::types::{RecordKind, Signature, Type, TypeId, UncheckedFunction};
 use std::collections::{BTreeMap, HashMap};
 
+use super::arg::UntypedArg;
 use super::stmt::StmtKind;
 
 #[derive(Debug, Clone)]
@@ -43,7 +43,7 @@ pub enum Expr {
     },
     As {
         token: Token,
-        args: Vec<Arg<Untyped>>,
+        args: Vec<UntypedArg>,
         block: Option<Vec<Expr>>,
     },
     Var {
@@ -59,7 +59,7 @@ pub enum Expr {
     AnnotatedCall {
         token: Token,
         base: Token,
-        annotations: Vec<Arg<Untyped>>,
+        annotations: Vec<UntypedArg>,
     },
     SizeOf {
         token: Token,
@@ -98,7 +98,7 @@ impl Expr {
         self,
         stack: &mut Vec<TypeId>,
         frame: &mut Vec<(String, TypeId)>,
-        func: &Type,
+        func: &UncheckedFunction,
         global_env: &HashMap<String, (StmtKind, Signature)>,
         types: &mut BTreeMap<TypeId, Type>,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
@@ -134,7 +134,26 @@ impl Expr {
                                 .iter()
                                 .find(|m| m.ident.lexeme == inner_member.lexeme)
                             {
-                                typ = &m.typ.0;
+                                if !m.is_public() {
+                                    match &func.impl_on {
+                                        Some(typ) => if &m.parent != typ {
+                                            return Err(
+                                                HayError::new_type_err(
+                                                    format!("Cannot access {kind} `{}` member `{}` as it is declared as private.", name.lexeme, m.ident.lexeme), 
+                                                    token.loc
+                                                ).with_hint_and_custom_note(format!("{kind} `{}` declared here", name.lexeme), format!("{}", name.loc))
+                                            )
+                                        }
+                                        _ => return Err(
+                                            HayError::new_type_err(
+                                                format!("Cannot access {kind} `{}` member `{}` as it is declared as private.", name.lexeme, m.ident.lexeme), 
+                                                token.loc
+                                            ).with_hint_and_custom_note(format!("{kind} `{}` declared here", name.lexeme), format!("{}", name.loc))
+                                        )
+                                    }
+                                }
+
+                                typ = &m.typ;
                             } else {
                                 return Err(HayError::new_type_err(
                                     format!(
@@ -271,11 +290,13 @@ impl Expr {
                         .map(|arg| Ok(TypeId::new(&arg.token.lexeme)))
                         .collect::<Vec<Result<TypeId, HayError>>>();
                     let gen_fn_tid = TypeId::new(&base.lexeme);
-                    let func = if let Some(Type::GenericFunction { generics, .. }) =
-                        types.get(&gen_fn_tid)
+                    let func = if let Ok(func) = types
+                        .get(&gen_fn_tid)
+                        .unwrap_or_else(|| panic!("bad generic_fn_tid: {gen_fn_tid}"))
+                        .try_generic_function(&token)
                     {
                         let map: HashMap<TypeId, TypeId> = HashMap::from_iter(
-                            generics
+                            func.generics
                                 .iter()
                                 .zip(&annotations)
                                 .map(|(k, v)| (k.clone(), TypeId::new(&v.token.lexeme))),
@@ -386,7 +407,7 @@ impl Expr {
                     Type::Record { members, kind, .. } => match kind {
                         RecordKind::Struct => {
                             Signature::new(
-                                members.iter().map(|m| m.typ.0.clone()).collect(),
+                                members.iter().map(|m| m.typ.clone()).collect(),
                                 vec![typ_id.clone()],
                             )
                             .evaluate(&token, stack, types)?;
@@ -397,7 +418,7 @@ impl Expr {
 
                             members.iter().for_each(|m| {
                                 sigs.push(Signature::new(
-                                    vec![m.typ.0.clone()],
+                                    vec![m.typ.clone()],
                                     vec![typ_id.clone()],
                                 ));
                             });
@@ -465,7 +486,7 @@ impl Expr {
                         generics, members, ..
                     } => {
                         Signature::new_generic(
-                            members.iter().map(|m| m.typ.0.clone()).collect(),
+                            members.iter().map(|m| m.typ.clone()).collect(),
                             vec![typ_id.clone()],
                             generics.clone(),
                         )
@@ -1158,31 +1179,28 @@ impl Expr {
                 })
             }
             Expr::Return { token } => {
-                if let Type::UncheckedFunction { outputs, name, .. } = func {
-                    let stack_expected = outputs
-                        .iter()
-                        .map(|arg| &arg.typ.0)
-                        .collect::<Vec<&TypeId>>();
-                    let stack_real = stack.iter().collect::<Vec<&TypeId>>();
+                let stack_expected = func
+                    .outputs
+                    .iter()
+                    .map(|arg| &arg.typ)
+                    .collect::<Vec<&TypeId>>();
+                let stack_real = stack.iter().collect::<Vec<&TypeId>>();
 
-                    if stack_real != stack_expected {
-                        return Err(HayError::new_type_err(
-                            "Early return type check failure.",
-                            token.loc,
-                        )
-                        .with_hint(format!(
-                            "Function `{}` expects return type(s): {:?}",
-                            name.lexeme, stack_expected
-                        ))
-                        .with_hint(format!("Found the following stack: {:?}", stack_real)));
-                    }
-
-                    stack.push(Type::Never.id());
-
-                    Ok(TypedExpr::Return)
-                } else {
-                    panic!()
+                if stack_real != stack_expected {
+                    return Err(HayError::new_type_err(
+                        "Early return type check failure.",
+                        token.loc,
+                    )
+                    .with_hint(format!(
+                        "Function `{}` expects return type(s): {:?}",
+                        func.name.lexeme, stack_expected
+                    ))
+                    .with_hint(format!("Found the following stack: {:?}", stack_real)));
                 }
+
+                stack.push(Type::Never.id());
+
+                Ok(TypedExpr::Return)
             }
         }
     }
@@ -1417,5 +1435,15 @@ mod tests {
     #[test]
     fn address_of_unknown_ident() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("type_check", "address_of_unknown_ident")
+    }
+
+    #[test]
+    fn private_member_access() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "private_member_access")
+    }
+
+    #[test]
+    fn private_member_access_in_impl() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "private_member_access_in_impl")
     }
 }

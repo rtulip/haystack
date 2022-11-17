@@ -649,13 +649,13 @@ impl<'a> Parser<'a> {
                 let new_token = Token {
                     kind: TokenKind::Operator(Operator::Address {
                         ident: ident.clone(),
-                        inner: inners.into_iter().map(|t| t.lexeme).collect(),
+                        inner: inners,
                     }),
                     lexeme: new_token.lexeme,
                     loc: new_token.loc,
                 };
 
-                println!("New Token: {new_token}");
+                // println!("New Token: {new_token}");
 
                 Ok(Box::new(Expr::Operator { op: new_token }))
             }

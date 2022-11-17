@@ -1518,4 +1518,9 @@ mod tests {
     fn inner_address_of_private_member() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("type_check", "inner_address_of_private_member")
     }
+
+    #[test]
+    fn multiple_pointer_offsets() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "multiple_pointer_offsets")
+    }
 }

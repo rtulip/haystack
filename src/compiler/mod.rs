@@ -228,4 +228,9 @@ mod tests {
         );
         Ok(())
     }
+
+    #[test]
+    fn pointer_offsets() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "pointer_offsets")
+    }
 }

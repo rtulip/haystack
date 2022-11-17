@@ -80,23 +80,23 @@ pub enum Operator {
 
 impl PartialEq for Operator {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Operator::Plus, Operator::Plus) => true,
-            (Operator::Minus, Operator::Minus) => true,
-            (Operator::Star, Operator::Star) => true,
-            (Operator::Slash, Operator::Slash) => true,
-            (Operator::LessThan, Operator::LessThan) => true,
-            (Operator::LessEqual, Operator::LessEqual) => true,
-            (Operator::GreaterThan, Operator::GreaterThan) => true,
-            (Operator::GreaterEqual, Operator::GreaterEqual) => true,
-            (Operator::Equal, Operator::Equal) => true,
-            (Operator::BangEqual, Operator::BangEqual) => true,
-            (Operator::Modulo, Operator::Modulo) => true,
-            (Operator::Read, Operator::Read) => true,
-            (Operator::Write, Operator::Write) => true,
-            (Operator::Address { .. }, Operator::Address { .. }) => true,
-            _ => false,
-        }
+        matches!(
+            (self, other),
+            (Operator::Plus, Operator::Plus)
+                | (Operator::Minus, Operator::Minus)
+                | (Operator::Star, Operator::Star)
+                | (Operator::Slash, Operator::Slash)
+                | (Operator::LessThan, Operator::LessThan)
+                | (Operator::LessEqual, Operator::LessEqual)
+                | (Operator::GreaterThan, Operator::GreaterThan)
+                | (Operator::GreaterEqual, Operator::GreaterEqual)
+                | (Operator::Equal, Operator::Equal)
+                | (Operator::BangEqual, Operator::BangEqual)
+                | (Operator::Modulo, Operator::Modulo)
+                | (Operator::Read, Operator::Read)
+                | (Operator::Write, Operator::Write)
+                | (Operator::Address { .. }, Operator::Address { .. })
+        )
     }
 }
 

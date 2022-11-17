@@ -154,22 +154,57 @@ impl Instruction {
                     typ.size(types).unwrap()
                 };
 
-                let i = Instruction::PushFromFrame {
+                ops.push(Instruction::PushFromFrame {
                     offset_from_end: offset,
                     bytes,
-                };
-
-                ops.push(i);
+                });
             }
-            TypedExpr::AddrFramed { frame, idx } => {
+            TypedExpr::AddrFramed { frame, idx, inner } => {
                 assert!(idx < frame.len());
                 let mut offset = 0;
                 for (_, tid) in &frame[idx + 1..] {
                     offset += tid.size(types).unwrap();
                 }
+
+                let mut typ = &frame[idx].1;
+                if let Some(inner) = &inner {
+                    for inner in inner {
+                        typ = if let Type::Record { members, kind, .. } = types.get(typ).unwrap() {
+                            match kind {
+                                RecordKind::Struct => {
+                                    let idx = members
+                                        .iter()
+                                        .enumerate()
+                                        .find(|(_, m)| &m.ident.lexeme == inner)
+                                        .unwrap()
+                                        .0;
+
+                                    for m in &members[0..idx] {
+                                        offset += m.typ.size(types).unwrap()
+                                    }
+
+                                    &members[idx].typ
+                                }
+                                RecordKind::Union => {
+                                    let idx = members
+                                        .iter()
+                                        .enumerate()
+                                        .find(|(_, m)| &m.ident.lexeme == inner)
+                                        .unwrap()
+                                        .0;
+
+                                    &members[idx].typ
+                                }
+                            }
+                        } else {
+                            panic!("{typ}");
+                        }
+                    }
+                };
+
                 ops.push(Instruction::PushPtrToFrame {
                     offset_from_end: offset,
-                })
+                });
             }
             TypedExpr::Operator { op, typ: Some(typ) } => ops.push(Instruction::Operator {
                 op,

@@ -186,9 +186,10 @@ impl Scanner {
                         _ => unreachable!(),
                     };
 
-                    self.add_token(TokenKind::Operator(Operator::Address(String::from(
-                        &ident[1..],
-                    ))))
+                    self.add_token(TokenKind::Operator(Operator::Address {
+                        ident: String::from(&ident[1..]),
+                        inner: vec![],
+                    }))
                 } else {
                     unimplemented!("Binary and operator isn't implemented yet")
                 }

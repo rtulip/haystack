@@ -990,10 +990,75 @@ impl Expr {
                                 typ: Some(map.get(&TypeId::new("T")).unwrap().clone()),
                             })
                         }
-                        Operator::Address(ident) => {
+                        Operator::Address { ident, inner } => {
                             match frame.iter().enumerate().find(|(_, (id, _))| ident == id) {
                                 Some((idx, (_, tid))) => {
-                                    let ptr = Type::Pointer { inner: tid.clone() };
+                                    let mut typ = tid;
+                                    for inner_member in inner {
+                                        if let Type::Record {
+                                            name,
+                                            members,
+                                            kind,
+                                            ..
+                                        } = types.get(typ).unwrap()
+                                        {
+                                            if let Some(m) = members
+                                                .iter()
+                                                .find(|m| m.ident.lexeme == inner_member.lexeme)
+                                            {
+                                                if !m.is_public() {
+                                                    match &func.impl_on {
+                                        Some(typ) => if &m.parent != typ {
+                                            return Err(
+                                                HayError::new_type_err(
+                                                    format!("Cannot access {kind} `{}` member `{}` as it is declared as private.", name.lexeme, m.ident.lexeme), 
+                                                    op_tok.loc
+                                                ).with_hint_and_custom_note(format!("{kind} `{}` declared here", name.lexeme), format!("{}", name.loc))
+                                            )
+                                        }
+                                        _ => return Err(
+                                            HayError::new_type_err(
+                                                format!("Cannot access {kind} `{}` member `{}` as it is declared as private.", name.lexeme, m.ident.lexeme), 
+                                                op_tok.loc
+                                            ).with_hint_and_custom_note(format!("{kind} `{}` declared here", name.lexeme), format!("{}", name.loc))
+                                        )
+                                    }
+                                                }
+
+                                                typ = &m.typ;
+                                            } else {
+                                                return Err(HayError::new_type_err(
+                                                    format!(
+                                                        "{} `{}` doesn't have a member `{}`",
+                                                        match kind {
+                                                            RecordKind::Union => "Union",
+                                                            RecordKind::Struct => "Struct",
+                                                        },
+                                                        name.lexeme,
+                                                        inner_member.lexeme,
+                                                    ),
+                                                    op_tok.loc,
+                                                )
+                                                .with_hint(format!(
+                                                    "`{}` has the following members: {:?}",
+                                                    name.lexeme,
+                                                    members
+                                                        .iter()
+                                                        .map(|m| &m.ident.lexeme)
+                                                        .collect::<Vec<&String>>()
+                                                )));
+                                            }
+                                        } else {
+                                            return Err(HayError::new(
+                                                format!(
+                                                    "Cannot access into non-record type `{tid}`"
+                                                ),
+                                                op_tok.loc,
+                                            ));
+                                        }
+                                    }
+
+                                    let ptr = Type::Pointer { inner: typ.clone() };
                                     let ptr_tid = ptr.id();
 
                                     types.insert(ptr_tid.clone(), ptr);
@@ -1002,6 +1067,11 @@ impl Expr {
                                     Ok(TypedExpr::AddrFramed {
                                         frame: frame.clone(),
                                         idx,
+                                        inner: if inner.is_empty() {
+                                            None
+                                        } else {
+                                            Some(inner.iter().map(|t| t.lexeme.clone()).collect())
+                                        },
                                     })
                                 }
                                 None => Err(HayError::new_type_err(
@@ -1287,6 +1357,7 @@ pub enum TypedExpr {
     AddrFramed {
         frame: Vec<(String, TypeId)>,
         idx: usize,
+        inner: Option<Vec<String>>,
     },
     Enum {
         typ: TypeId,
@@ -1445,5 +1516,28 @@ mod tests {
     #[test]
     fn private_member_access_in_impl() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("type_check", "private_member_access_in_impl")
+    }
+
+    #[test]
+    fn inner_address_of_no_member() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "inner_address_of_no_member")
+    }
+
+    #[test]
+    fn inner_address_of_non_record_type() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "inner_address_of_non_record_type")
+    }
+
+    #[test]
+    fn inner_address_of_private_member_in_impl() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "type_check",
+            "inner_address_of_private_member_in_impl",
+        )
+    }
+
+    #[test]
+    fn inner_address_of_private_member() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "inner_address_of_private_member")
     }
 }

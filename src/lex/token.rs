@@ -60,7 +60,7 @@ impl std::fmt::Display for Marker {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum Operator {
     Plus,
     Minus,
@@ -75,7 +75,29 @@ pub enum Operator {
     Modulo,
     Read,
     Write,
-    Address(String),
+    Address { ident: String, inner: Vec<Token> },
+}
+
+impl PartialEq for Operator {
+    fn eq(&self, other: &Self) -> bool {
+        matches!(
+            (self, other),
+            (Operator::Plus, Operator::Plus)
+                | (Operator::Minus, Operator::Minus)
+                | (Operator::Star, Operator::Star)
+                | (Operator::Slash, Operator::Slash)
+                | (Operator::LessThan, Operator::LessThan)
+                | (Operator::LessEqual, Operator::LessEqual)
+                | (Operator::GreaterThan, Operator::GreaterThan)
+                | (Operator::GreaterEqual, Operator::GreaterEqual)
+                | (Operator::Equal, Operator::Equal)
+                | (Operator::BangEqual, Operator::BangEqual)
+                | (Operator::Modulo, Operator::Modulo)
+                | (Operator::Read, Operator::Read)
+                | (Operator::Write, Operator::Write)
+                | (Operator::Address { .. }, Operator::Address { .. })
+        )
+    }
 }
 
 impl std::fmt::Display for Operator {
@@ -95,7 +117,7 @@ impl std::fmt::Display for Operator {
             Operator::Modulo => write!(f, "%")?,
             Operator::Read => write!(f, "@")?,
             Operator::Write => write!(f, "!")?,
-            Operator::Address(ident) => write!(f, "&{ident}")?,
+            Operator::Address { ident, inner } => write!(f, "&{ident}::{:?}", inner)?,
         }
         write!(f, "`")
     }

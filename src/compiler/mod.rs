@@ -209,6 +209,11 @@ mod tests {
     }
 
     #[test]
+    fn inner_address_of_framed() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "inner_address_of_framed")
+    }
+
+    #[test]
     fn inline_fn() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "inline_fn")?;
 

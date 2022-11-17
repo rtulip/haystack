@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/inner_address_of_no_member.hay:8:5] Error: Type Error: Struct `Foo` doesn't have a member `baz`\n    [Note]: `Foo` has the following members: [\"bar\"]\n"
+}

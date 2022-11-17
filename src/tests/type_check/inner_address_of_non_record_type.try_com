@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/inner_address_of_non_record_type.hay:4:5] Error: Cannot access into non-record type `u64`\n"
+}

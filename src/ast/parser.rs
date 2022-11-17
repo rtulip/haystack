@@ -636,7 +636,7 @@ impl<'a> Parser<'a> {
                         kind => {
                             return Err(HayError::new(
                                 format!(
-                                    "Expected either an identifier after {}, but found {} instead.",
+                                    "Expected an identifier after {}, but found {} instead.",
                                     Marker::DoubleColon,
                                     kind
                                 ),
@@ -1441,5 +1441,10 @@ mod tests {
     #[test]
     fn parse_bad_on_drop_name() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("parser", "parse_bad_on_drop_name")
+    }
+
+    #[test]
+    fn parse_bad_inner_address_of() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_inner_address_of")
     }
 }

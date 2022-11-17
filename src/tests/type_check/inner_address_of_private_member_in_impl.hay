@@ -1,0 +1,11 @@
+struct Foo {
+    u64: bar
+}
+
+struct Bar {
+    u64: baz
+impl:
+    fn boom(Foo: foo) {
+        &foo::bar @ drop
+    }
+}

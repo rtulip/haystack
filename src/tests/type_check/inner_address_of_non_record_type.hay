@@ -1,0 +1,6 @@
+fn main() {
+
+    12345 as [foo]
+    &foo::bar
+
+}

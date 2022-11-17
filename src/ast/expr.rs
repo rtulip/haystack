@@ -1517,4 +1517,27 @@ mod tests {
     fn private_member_access_in_impl() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("type_check", "private_member_access_in_impl")
     }
+
+    #[test]
+    fn inner_address_of_no_member() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "inner_address_of_no_member")
+    }
+
+    #[test]
+    fn inner_address_of_non_record_type() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "inner_address_of_non_record_type")
+    }
+
+    #[test]
+    fn inner_address_of_private_member_in_impl() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "type_check",
+            "inner_address_of_private_member_in_impl",
+        )
+    }
+
+    #[test]
+    fn inner_address_of_private_member() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "inner_address_of_private_member")
+    }
 }

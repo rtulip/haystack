@@ -763,6 +763,78 @@ impl TypeId {
             8
         }
     }
+
+    pub fn type_check_inner_accessors<'a>(
+        &'a self,
+        token: Token,
+        inner: &Vec<Token>,
+        func: &UncheckedFunction,
+        types: &'a BTreeMap<TypeId, Type>,
+    ) -> Result<Self, HayError> {
+        let mut typ = self;
+        for inner_member in inner {
+            if let Type::Record {
+                name,
+                members,
+                kind,
+                ..
+            } = types.get(typ).unwrap()
+            {
+                if let Some(m) = members
+                    .iter()
+                    .find(|m| m.ident.lexeme == inner_member.lexeme)
+                {
+                    if !m.is_public() {
+                        match &func.impl_on {
+                            Some(typ) => if &m.parent != typ {
+                                return Err(
+                                    HayError::new_type_err(
+                                        format!("Cannot access {kind} `{}` member `{}` as it is declared as private.", name.lexeme, m.ident.lexeme), 
+                                        token.loc
+                                    ).with_hint_and_custom_note(format!("{kind} `{}` declared here", name.lexeme), format!("{}", name.loc))
+                                )
+                            }
+                            _ => return Err(
+                                HayError::new_type_err(
+                                    format!("Cannot access {kind} `{}` member `{}` as it is declared as private.", name.lexeme, m.ident.lexeme), 
+                                    token.loc
+                                ).with_hint_and_custom_note(format!("{kind} `{}` declared here", name.lexeme), format!("{}", name.loc))
+                            )
+                        }
+                    }
+
+                    typ = &m.typ;
+                } else {
+                    return Err(HayError::new_type_err(
+                        format!(
+                            "{} `{}` doesn't have a member `{}`",
+                            match kind {
+                                RecordKind::Union => "Union",
+                                RecordKind::Struct => "Struct",
+                            },
+                            name.lexeme,
+                            inner_member.lexeme,
+                        ),
+                        token.loc,
+                    )
+                    .with_hint(format!(
+                        "`{}` has the following members: {:?}",
+                        name.lexeme,
+                        members
+                            .iter()
+                            .map(|m| &m.ident.lexeme)
+                            .collect::<Vec<&String>>()
+                    )));
+                }
+            } else {
+                return Err(HayError::new(
+                    format!("Cannot access into non-record type `{typ}`"),
+                    token.loc,
+                ));
+            }
+        }
+        Ok(typ.clone())
+    }
 }
 
 impl std::fmt::Debug for TypeId {

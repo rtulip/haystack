@@ -1,7 +1,7 @@
 use crate::error::HayError;
 use crate::lex::token::{Literal, Operator, Token, TokenKind};
-use crate::types::{RecordKind, Signature, Type, TypeId, UncheckedFunction};
-use std::collections::{BTreeMap, HashMap};
+use crate::types::{RecordKind, Signature, Type, TypeId, TypeMap, UncheckedFunction};
+use std::collections::HashMap;
 
 use super::arg::UntypedArg;
 use super::stmt::StmtKind;
@@ -100,7 +100,7 @@ impl Expr {
         frame: &mut Vec<(String, TypeId)>,
         func: &UncheckedFunction,
         global_env: &HashMap<String, (StmtKind, Signature)>,
-        types: &mut BTreeMap<TypeId, Type>,
+        types: &mut TypeMap,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<TypedExpr, HayError> {
         if stack.contains(&Type::Never.id()) {
@@ -121,76 +121,39 @@ impl Expr {
                     .enumerate()
                     .find(|(_, (k, _))| k == &ident.lexeme)
                 {
-                    let mut typ = tid;
-                    for inner_member in &inner {
-                        if let Type::Record {
-                            name,
-                            members,
-                            kind,
-                            ..
-                        } = types.get(typ).unwrap()
-                        {
-                            if let Some(m) = members
-                                .iter()
-                                .find(|m| m.ident.lexeme == inner_member.lexeme)
-                            {
-                                if !m.is_public() {
-                                    match &func.impl_on {
-                                        Some(typ) => if &m.parent != typ {
-                                            return Err(
-                                                HayError::new_type_err(
-                                                    format!("Cannot access {kind} `{}` member `{}` as it is declared as private.", name.lexeme, m.ident.lexeme), 
-                                                    token.loc
-                                                ).with_hint_and_custom_note(format!("{kind} `{}` declared here", name.lexeme), format!("{}", name.loc))
-                                            )
-                                        }
-                                        _ => return Err(
-                                            HayError::new_type_err(
-                                                format!("Cannot access {kind} `{}` member `{}` as it is declared as private.", name.lexeme, m.ident.lexeme), 
-                                                token.loc
-                                            ).with_hint_and_custom_note(format!("{kind} `{}` declared here", name.lexeme), format!("{}", name.loc))
-                                        )
-                                    }
-                                }
+                    match types.get(tid).unwrap() {
+                        Type::Record { .. } => {
+                            let final_tid =
+                                tid.type_check_inner_accessors(token, &inner, func, types)?;
 
-                                typ = &m.typ;
-                            } else {
-                                return Err(HayError::new_type_err(
-                                    format!(
-                                        "{} `{}` doesn't have a member `{}`",
-                                        match kind {
-                                            RecordKind::Union => "Union",
-                                            RecordKind::Struct => "Struct",
-                                        },
-                                        name.lexeme,
-                                        inner_member.lexeme,
-                                    ),
-                                    token.loc,
-                                )
-                                .with_hint(format!(
-                                    "`{}` has the following members: {:?}",
-                                    name.lexeme,
-                                    members
-                                        .iter()
-                                        .map(|m| &m.ident.lexeme)
-                                        .collect::<Vec<&String>>()
-                                )));
-                            }
-                        } else {
-                            return Err(HayError::new(
-                                format!("Cannot access into non-record type `{tid}`"),
-                                token.loc,
-                            ));
+                            stack.push(final_tid.clone());
+                            Ok(TypedExpr::Framed {
+                                frame: frame.clone(),
+                                idx: i,
+                                inner: Some(inner.iter().map(|t| t.lexeme.clone()).collect()),
+                            })
                         }
+                        Type::Pointer {
+                            inner: pointer_inner_tid,
+                        } => {
+                            let final_tid = pointer_inner_tid
+                                .type_check_inner_accessors(token, &inner, func, types)?;
+
+                            let ptr_type = Type::Pointer { inner: final_tid };
+                            let ptr_tid = ptr_type.id();
+                            types.insert(ptr_type.id(), ptr_type);
+                            stack.push(ptr_tid);
+                            Ok(TypedExpr::FramedPointerOffset {
+                                frame: frame.clone(),
+                                idx: i,
+                                inner: inner.iter().map(|t| t.lexeme.clone()).collect(),
+                            })
+                        }
+                        _ => Err(HayError::new_type_err(
+                            format!("Cannot access into non-record type `{tid}`"),
+                            token.loc,
+                        )),
                     }
-
-                    stack.push(typ.clone());
-
-                    Ok(TypedExpr::Framed {
-                        frame: frame.clone(),
-                        idx: i,
-                        inner: Some(inner.iter().map(|t| t.lexeme.clone()).collect()),
-                    })
                 } else if let Some(Type::Enum { variants, .. }) =
                     types.get(&TypeId::new(&ident.lexeme))
                 {
@@ -858,6 +821,16 @@ impl Expr {
                                         vec![Type::U8.id(), Type::U8.id()],
                                         vec![Type::Bool.id()],
                                     ),
+                                    // bool == bool -> bool
+                                    Signature::new(
+                                        vec![Type::Bool.id(), Type::Bool.id()],
+                                        vec![Type::Bool.id()],
+                                    ),
+                                    // char == char -> char
+                                    Signature::new(
+                                        vec![Type::Char.id(), Type::Char.id()],
+                                        vec![Type::Bool.id()],
+                                    ),
                                     // *T == *T   -> bool
                                     Signature::new_generic(
                                         vec![TypeId::new("*T"), TypeId::new("*T")],
@@ -1358,6 +1331,11 @@ pub enum TypedExpr {
         frame: Vec<(String, TypeId)>,
         idx: usize,
         inner: Option<Vec<String>>,
+    },
+    FramedPointerOffset {
+        frame: Vec<(String, TypeId)>,
+        idx: usize,
+        inner: Vec<String>,
     },
     Enum {
         typ: TypeId,

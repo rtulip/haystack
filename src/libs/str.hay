@@ -79,6 +79,18 @@ fn putlnb(bool) {
     putb "\n" puts
 }
 
+fn fputc(char: c u64: fd) {
+    1 &c cast(Str) fd fputs
+}
+
+fn putc(char) {
+    1 fputc
+}
+
+fn putlnc(char) {
+    putc "\n" puts
+}
+
 fn Str.drop_left(Str: s) -> [Str] {
     s::size 0 == if {
         s

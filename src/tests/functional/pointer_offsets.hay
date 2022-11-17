@@ -1,0 +1,43 @@
+include "std.hay"
+
+fn assert(bool) {
+    lnot if {
+        "Assertion failed!" putlns
+        1 exit
+    }
+}
+
+struct Foo {
+    pub u8: u8
+    pub char: char
+    pub bool: bool
+    pub Str: string
+}
+
+struct Bar {
+    pub bool: bool
+    pub Foo: foo
+    pub u64: number
+}
+
+fn test_ptr_offset(*Bar: bar) {
+    bar::foo::string @ putlns
+    "bar::bool:      " puts bar::bool @ putlnb 
+    "bar::foo::u8:   " puts bar::foo::u8 @ putlnu8
+    "bar::foo::char: " puts bar::foo::char @ putlnc
+    "bar::foo::bool: " puts bar::foo::bool @ putlnb 
+    "bar::number:    " puts bar::number    @ putlnu
+
+    bar::bool      @ false == assert
+    bar::foo::u8   @ 123u8 == assert 
+    bar::foo::char @ 'q'   == assert 
+    bar::foo::bool @ true  == assert 
+    bar::number    @ 54321 == assert 
+}
+fn main() {
+
+    123u8 'q' true "Hello World!" cast(Foo) as [f]
+    false f 54321 cast(Bar) as [bar]
+    &bar test_ptr_offset
+
+}

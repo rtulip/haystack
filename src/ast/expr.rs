@@ -126,7 +126,7 @@ impl Expr {
                             let final_tid =
                                 tid.type_check_inner_accessors(token, &inner, func, types)?;
 
-                            stack.push(final_tid.clone());
+                            stack.push(final_tid);
                             Ok(TypedExpr::Framed {
                                 frame: frame.clone(),
                                 idx: i,

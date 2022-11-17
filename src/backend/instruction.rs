@@ -206,6 +206,67 @@ impl Instruction {
                     offset_from_end: offset,
                 });
             }
+            TypedExpr::FramedPointerOffset { frame, idx, inner } => {
+                assert!(idx < frame.len());
+                let mut frame_offset = 0;
+                let mut ptr_offset = 0;
+                for (_, tid) in &frame[idx + 1..] {
+                    frame_offset += tid.size(types).unwrap();
+                }
+
+                let mut typ = &frame[idx].1;
+                if let Type::Pointer {
+                    inner: inner_ptr_tid,
+                } = types.get(typ).unwrap()
+                {
+                    typ = inner_ptr_tid;
+
+                    for inner in inner {
+                        typ = if let Type::Record { members, kind, .. } = types.get(typ).unwrap() {
+                            match kind {
+                                RecordKind::Struct => {
+                                    let idx = members
+                                        .iter()
+                                        .enumerate()
+                                        .find(|(_, m)| m.ident.lexeme == inner)
+                                        .unwrap()
+                                        .0;
+
+                                    for m in &members[0..idx] {
+                                        ptr_offset += m.typ.size(types).unwrap()
+                                    }
+
+                                    &members[idx].typ
+                                }
+                                RecordKind::Union => {
+                                    let idx = members
+                                        .iter()
+                                        .enumerate()
+                                        .find(|(_, m)| m.ident.lexeme == inner)
+                                        .unwrap()
+                                        .0;
+
+                                    &members[idx].typ
+                                }
+                            }
+                        } else {
+                            panic!("{typ}");
+                        }
+                    }
+                } else {
+                    panic!("Expected a pointer type. Found {typ}");
+                }
+
+                ops.push(Instruction::PushFromFrame {
+                    offset_from_end: frame_offset,
+                    bytes: frame[idx].1.size(types).unwrap(),
+                });
+                ops.push(Instruction::PushU64(ptr_offset as u64 * 8));
+                ops.push(Instruction::Operator {
+                    op: Operator::Plus,
+                    size: None,
+                })
+            }
             TypedExpr::Operator { op, typ: Some(typ) } => ops.push(Instruction::Operator {
                 op,
                 size: Some((typ.size(types).unwrap(), typ.width())),

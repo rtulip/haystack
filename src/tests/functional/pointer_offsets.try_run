@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "Hello World!\nbar::bool:      false\nbar::foo::u8:   123\nbar::foo::char: q\nbar::foo::bool: true\nbar::number:    54321\n",
+  "stderr": ""
+}

@@ -75,7 +75,7 @@ pub enum Operator {
     Modulo,
     Read,
     Write,
-    Address(String),
+    Address { ident: String, inner: Vec<String> },
 }
 
 impl std::fmt::Display for Operator {
@@ -95,7 +95,7 @@ impl std::fmt::Display for Operator {
             Operator::Modulo => write!(f, "%")?,
             Operator::Read => write!(f, "@")?,
             Operator::Write => write!(f, "!")?,
-            Operator::Address(ident) => write!(f, "&{ident}")?,
+            Operator::Address { ident, inner } => write!(f, "&{ident}::{:?}", inner)?,
         }
         write!(f, "`")
     }

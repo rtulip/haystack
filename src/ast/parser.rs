@@ -502,7 +502,7 @@ impl<'a> Parser<'a> {
         let token = self.tokens.pop().unwrap();
         match &token.kind {
             TokenKind::Literal(_) => Ok(Box::new(Expr::Literal { value: token })),
-            TokenKind::Operator(_) => Ok(Box::new(Expr::Operator { op: token })),
+
             TokenKind::Syscall(n) => {
                 let n = *n;
                 Ok(Box::new(Expr::Syscall { token, n }))
@@ -611,6 +611,55 @@ impl<'a> Parser<'a> {
                     }))
                 }
             }
+            TokenKind::Operator(Operator::Address { ident, .. }) => {
+                let mut new_token = token.clone();
+                let mut inners = vec![];
+                while let Ok(dc) = self.matches(TokenKind::Marker(Marker::DoubleColon)) {
+                    let next = self.tokens.pop().unwrap();
+                    match &next.kind {
+                        TokenKind::Ident(_) => {
+                            let new_lexeme =
+                                format!("{}{}{}", new_token.lexeme, dc.lexeme, next.lexeme);
+                            new_token = Token {
+                                kind: new_token.kind.clone(),
+                                lexeme: new_lexeme,
+                                loc: Loc::new(
+                                    new_token.loc.file,
+                                    new_token.loc.line,
+                                    new_token.loc.span.start,
+                                    next.loc.span.end,
+                                ),
+                            };
+
+                            inners.push(next);
+                        }
+                        kind => {
+                            return Err(HayError::new(
+                                format!(
+                                    "Expected either an identifier after {}, but found {} instead.",
+                                    Marker::DoubleColon,
+                                    kind
+                                ),
+                                next.loc,
+                            ));
+                        }
+                    }
+                }
+
+                let new_token = Token {
+                    kind: TokenKind::Operator(Operator::Address {
+                        ident: ident.clone(),
+                        inner: inners.into_iter().map(|t| t.lexeme).collect(),
+                    }),
+                    lexeme: new_token.lexeme,
+                    loc: new_token.loc,
+                };
+
+                println!("New Token: {new_token}");
+
+                Ok(Box::new(Expr::Operator { op: new_token }))
+            }
+            TokenKind::Operator(_) => Ok(Box::new(Expr::Operator { op: token })),
             TokenKind::Keyword(Keyword::Cast) => self.cast(token),
             TokenKind::Keyword(Keyword::If) => self.if_block(token),
             TokenKind::Keyword(Keyword::As) => self.as_block(token),

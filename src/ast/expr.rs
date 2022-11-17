@@ -990,7 +990,7 @@ impl Expr {
                                 typ: Some(map.get(&TypeId::new("T")).unwrap().clone()),
                             })
                         }
-                        Operator::Address(ident) => {
+                        Operator::Address { ident, inner: _ } => {
                             match frame.iter().enumerate().find(|(_, (id, _))| ident == id) {
                                 Some((idx, (_, tid))) => {
                                     let ptr = Type::Pointer { inner: tid.clone() };

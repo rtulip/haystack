@@ -1,6 +1,6 @@
 struct Str {
     pub u64: size
-    pub *char: data
+    pub &char: data
 }
 
 struct Arr<T> {
@@ -8,14 +8,19 @@ struct Arr<T> {
     pub *T: data
 }
 
+struct ConstArr<T> {
+    pub u64: size
+    pub &T: data
+}
+
 fn drop<T>(T: t) {}
-
 fn dup<T>(T: t) -> [T T]{ t t }
-
-
 fn swap<A B>(A: a B: b) -> [B A] { b a }
 fn over<A B>(A: a B: b) -> [A B A] {a b a}
-fn ptr+<T>(*T: ptr u64: n) -> [*T] {
+fn ptr+<T>(&T: ptr u64: n) -> [&T] {
+    ptr cast(u64) sizeOf(T) n * + cast(&T) 
+}
+fn ptr+_mut<T>(*T: ptr u64: n) -> [*T] {
     ptr cast(u64) sizeOf(T) n * + cast(*T) 
 }
 fn ptr-<T>(*T: ptr u64: n) -> [*T] {
@@ -29,15 +34,15 @@ fn ptr-diff<T>(*T: ptr1 *T:  ptr2) -> [u64] {
 fn memset<T>(T: value Arr<T>: range) {
     0 while dup range::size < {
         as [i]
-        value range::data i ptr+ !
+        value range::data i ptr+_mut !
         i 1 +
     } drop
 }
-fn memcpy<T>(u64: n *T: src *T: dest) {
+fn memcpy<T>(u64: n &T: src *T: dest) {
     0 while dup n < {
         as [i]
         src i ptr+ @
-        dest i ptr+ !
+        dest i ptr+_mut !
         i 1 + 
     } drop
 }

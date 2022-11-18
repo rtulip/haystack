@@ -75,28 +75,44 @@ pub enum Operator {
     Modulo,
     Read,
     Write,
-    Address { ident: String, inner: Vec<Token> },
+    Ampersand,
+    Unary(Box<Token>),
 }
 
 impl PartialEq for Operator {
     fn eq(&self, other: &Self) -> bool {
-        matches!(
-            (self, other),
+        match (self, other) {
             (Operator::Plus, Operator::Plus)
-                | (Operator::Minus, Operator::Minus)
-                | (Operator::Star, Operator::Star)
-                | (Operator::Slash, Operator::Slash)
-                | (Operator::LessThan, Operator::LessThan)
-                | (Operator::LessEqual, Operator::LessEqual)
-                | (Operator::GreaterThan, Operator::GreaterThan)
-                | (Operator::GreaterEqual, Operator::GreaterEqual)
-                | (Operator::Equal, Operator::Equal)
-                | (Operator::BangEqual, Operator::BangEqual)
-                | (Operator::Modulo, Operator::Modulo)
-                | (Operator::Read, Operator::Read)
-                | (Operator::Write, Operator::Write)
-                | (Operator::Address { .. }, Operator::Address { .. })
-        )
+            | (Operator::Minus, Operator::Minus)
+            | (Operator::Star, Operator::Star)
+            | (Operator::Slash, Operator::Slash)
+            | (Operator::LessThan, Operator::LessThan)
+            | (Operator::LessEqual, Operator::LessEqual)
+            | (Operator::GreaterThan, Operator::GreaterThan)
+            | (Operator::GreaterEqual, Operator::GreaterEqual)
+            | (Operator::Equal, Operator::Equal)
+            | (Operator::BangEqual, Operator::BangEqual)
+            | (Operator::Modulo, Operator::Modulo)
+            | (Operator::Read, Operator::Read)
+            | (Operator::Write, Operator::Write)
+            | (Operator::Ampersand, Operator::Ampersand)
+            | (Operator::Unary { .. }, Operator::Unary { .. }) => true,
+            (Operator::Plus, _)
+            | (Operator::Minus, _)
+            | (Operator::Star, _)
+            | (Operator::Slash, _)
+            | (Operator::LessThan, _)
+            | (Operator::LessEqual, _)
+            | (Operator::GreaterThan, _)
+            | (Operator::GreaterEqual, _)
+            | (Operator::Equal, _)
+            | (Operator::BangEqual, _)
+            | (Operator::Modulo, _)
+            | (Operator::Read, _)
+            | (Operator::Write, _)
+            | (Operator::Ampersand, _)
+            | (Operator::Unary { .. }, _) => false,
+        }
     }
 }
 
@@ -117,7 +133,9 @@ impl std::fmt::Display for Operator {
             Operator::Modulo => write!(f, "%")?,
             Operator::Read => write!(f, "@")?,
             Operator::Write => write!(f, "!")?,
-            Operator::Address { ident, inner } => write!(f, "&{ident}::{:?}", inner)?,
+            Operator::Ampersand => write!(f, "&")?,
+            Operator::Unary(op) => write!(f, "Unary({})", op.lexeme)?,
+            // Operator::Address { ident, inner } => write!(f, "&{ident}::{:?}", inner)?,
         }
         write!(f, "`")
     }
@@ -210,9 +228,18 @@ pub enum Literal {
 
 #[derive(Debug, Clone)]
 pub enum TypeToken {
-    Pointer(Box<TypeToken>),
-    Parameterized { base: String, inner: Vec<TypeToken> },
-    Array { base: Box<TypeToken>, size: usize },
+    Pointer {
+        inner: Box<TypeToken>,
+        mutable: bool,
+    },
+    Parameterized {
+        base: String,
+        inner: Vec<TypeToken>,
+    },
+    Array {
+        base: Box<TypeToken>,
+        size: usize,
+    },
     Base(String),
 }
 
@@ -220,7 +247,13 @@ impl std::fmt::Display for TypeToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             TypeToken::Base(s) => write!(f, "{s}"),
-            TypeToken::Pointer(p) => write!(f, "*{p}"),
+            TypeToken::Pointer { inner: p, mutable } => {
+                if *mutable {
+                    write!(f, "*{p}")
+                } else {
+                    write!(f, "&{p}")
+                }
+            }
             TypeToken::Parameterized { base, inner } => {
                 write!(f, "{base}<")?;
                 for inner_t in inner.iter().take(inner.len() - 1) {
@@ -243,6 +276,12 @@ pub enum TokenKind {
     Syscall(usize),
     Type(TypeToken),
     EoF,
+}
+
+impl Default for TokenKind {
+    fn default() -> Self {
+        TokenKind::EoF
+    }
 }
 
 impl TokenKind {
@@ -302,7 +341,7 @@ impl std::cmp::PartialEq for TokenKind {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Token {
     pub kind: TokenKind,
     pub lexeme: String,
@@ -378,6 +417,26 @@ impl Token {
             TokenKind::Keyword(kw) => Ok(*kw),
             _ => Err(HayError::new(
                 format!("Failed to destructure {} into a keyword", self.kind),
+                self.loc.clone(),
+            )),
+        }
+    }
+
+    pub fn operator(&self) -> Result<Operator, HayError> {
+        match &self.kind {
+            TokenKind::Operator(op) => Ok(op.clone()),
+            _ => Err(HayError::new(
+                format!("Failed to destructure {} into an operator", self.kind),
+                self.loc.clone(),
+            )),
+        }
+    }
+
+    pub fn unary_operator(&self) -> Result<Operator, HayError> {
+        match &self.kind {
+            TokenKind::Operator(Operator::Unary(unary_tok)) => unary_tok.operator(),
+            _ => Err(HayError::new(
+                format!("Failed to destructure {} into an operator", self.kind),
                 self.loc.clone(),
             )),
         }

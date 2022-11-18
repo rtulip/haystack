@@ -31,12 +31,12 @@ fn main() {
 
     12345 MyVec.new::<u64> "Hello World" as [n list str]
     0 while dup 10 < {
-        dup &list MyVec.push
+        dup *list MyVec.push
         1 +
     } drop
 
     0 while dup 10 < {
-        dup &list MyVec.get putlnu
+        dup *list MyVec.get putlnu
         1 +
     } drop
 

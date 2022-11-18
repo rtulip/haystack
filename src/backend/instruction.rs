@@ -217,6 +217,7 @@ impl Instruction {
                 let mut typ = &frame[idx].1;
                 if let Type::Pointer {
                     inner: inner_ptr_tid,
+                    ..
                 } = types.get(typ).unwrap()
                 {
                     typ = inner_ptr_tid;

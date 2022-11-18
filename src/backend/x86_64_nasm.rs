@@ -15,6 +15,7 @@ impl super::CodeGen for X86_64 {
             '+' => s.push_str("_plus_"),
             ' ' => s.push('_'),
             '*' => s.push_str("_star_"),
+            '&' => s.push_str("_amp_"),
             '_' => s.push_str("__"),
             c => s.push(c),
         });
@@ -160,7 +161,10 @@ impl super::CodeGen for X86_64 {
                     writeln!(file, "  cmovne rcx, rdx")?;
                     writeln!(file, "  push rcx")?;
                 }
-                Operator::Read | Operator::Write | Operator::Address { .. } => unreachable!(),
+                Operator::Ampersand => todo!(),
+                Operator::Unary { .. } => todo!(),
+                Operator::Read | Operator::Write => unreachable!(),
+                // Operator::Address { .. } => unreachable!(),
             },
             Instruction::Operator {
                 op,

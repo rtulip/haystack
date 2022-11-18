@@ -58,6 +58,15 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn unary(&mut self, op: Token) -> Result<Box<Expr>, HayError> {
+        let expr = self.expression()?;
+
+        Ok(Box::new(Expr::Unary {
+            op: Box::new(Expr::Operator { op }),
+            expr,
+        }))
+    }
+
     fn declaration(&mut self) -> Result<Vec<Stmt>, HayError> {
         let token = self.tokens.pop().unwrap();
         match &token.kind {
@@ -320,23 +329,40 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type(&mut self) -> Result<Option<Token>, HayError> {
-        if let Ok(star) = self.matches(TokenKind::Operator(Operator::Star)) {
-            match self.parse_type()? {
-                Some(typ) => {
-                    let lexeme = format!("*{}", typ.lexeme);
+        if let Ok(op) = self.matches(TokenKind::Operator(Operator::Unary(Box::new(
+            Token::default(),
+        )))) {
+            match (op.unary_operator()?, self.parse_type()?) {
+                (Operator::Ampersand, Some(typ)) => {
+                    let lexeme = format!("&{}", typ.lexeme);
                     Ok(Some(Token {
-                        kind: TokenKind::Type(TypeToken::Pointer(Box::new(typ.typ()?))),
+                        kind: TokenKind::Type(TypeToken::Pointer {
+                            inner: Box::new(typ.typ()?),
+                            mutable: false,
+                        }),
                         lexeme,
                         loc: typ.loc,
                     }))
                 }
-                None => Err(HayError::new(
+                (Operator::Star, Some(typ)) => {
+                    let lexeme = format!("*{}", typ.lexeme);
+                    Ok(Some(Token {
+                        kind: TokenKind::Type(TypeToken::Pointer {
+                            inner: Box::new(typ.typ()?),
+                            mutable: true,
+                        }),
+                        lexeme,
+                        loc: typ.loc,
+                    }))
+                }
+                (op, Some(_)) => unimplemented!("Unary {op} is not supported"),
+                (oper, None) => Err(HayError::new(
                     format!(
-                        "Expected type after {}, but found {} instead.",
-                        Operator::Star,
+                        "Expected type after {} , but found {} instead.",
+                        oper,
                         self.peek().kind
                     ),
-                    star.loc,
+                    op.loc,
                 )),
             }
         } else if let Ok(ident) = self.matches(TokenKind::ident()) {
@@ -435,6 +461,24 @@ impl<'a> Parser<'a> {
             } else {
                 Ok(Some(typ))
             }
+        } else if let Ok(tok) = self.matches(TokenKind::Operator(Operator::Ampersand)) {
+            return Err(HayError::new(
+                format!(
+                    "Expected type after {}, but found {} instead.",
+                    Operator::Ampersand,
+                    self.peek().kind
+                ),
+                tok.loc,
+            ));
+        } else if let Ok(tok) = self.matches(TokenKind::Operator(Operator::Star)) {
+            return Err(HayError::new(
+                format!(
+                    "Expected type after {}, but found {} instead.",
+                    Operator::Star,
+                    self.peek().kind
+                ),
+                tok.loc,
+            ));
         } else {
             Ok(None)
         }
@@ -502,7 +546,6 @@ impl<'a> Parser<'a> {
         let token = self.tokens.pop().unwrap();
         match &token.kind {
             TokenKind::Literal(_) => Ok(Box::new(Expr::Literal { value: token })),
-
             TokenKind::Syscall(n) => {
                 let n = *n;
                 Ok(Box::new(Expr::Syscall { token, n }))
@@ -611,54 +654,52 @@ impl<'a> Parser<'a> {
                     }))
                 }
             }
-            TokenKind::Operator(Operator::Address { ident, .. }) => {
-                let mut new_token = token.clone();
-                let mut inners = vec![];
-                while let Ok(dc) = self.matches(TokenKind::Marker(Marker::DoubleColon)) {
-                    let next = self.tokens.pop().unwrap();
-                    match &next.kind {
-                        TokenKind::Ident(_) => {
-                            let new_lexeme =
-                                format!("{}{}{}", new_token.lexeme, dc.lexeme, next.lexeme);
-                            new_token = Token {
-                                kind: new_token.kind.clone(),
-                                lexeme: new_lexeme,
-                                loc: Loc::new(
-                                    new_token.loc.file,
-                                    new_token.loc.line,
-                                    new_token.loc.span.start,
-                                    next.loc.span.end,
-                                ),
-                            };
+            TokenKind::Operator(Operator::Unary(op)) => self.unary(*op.clone()),
+            // TokenKind::Operator(Operator::Address { ident, .. }) => {
+            //     let mut new_token = token.clone();
+            //     let mut inners = vec![];
+            //     while let Ok(dc) = self.matches(TokenKind::Marker(Marker::DoubleColon)) {
+            //         let next = self.tokens.pop().unwrap();
+            //         match &next.kind {
+            //             TokenKind::Ident(_) => {
+            //                 let new_lexeme =
+            //                     format!("{}{}{}", new_token.lexeme, dc.lexeme, next.lexeme);
+            //                 new_token = Token {
+            //                     kind: new_token.kind.clone(),
+            //                     lexeme: new_lexeme,
+            //                     loc: Loc::new(
+            //                         new_token.loc.file,
+            //                         new_token.loc.line,
+            //                         new_token.loc.span.start,
+            //                         next.loc.span.end,
+            //                     ),
+            //                 };
 
-                            inners.push(next);
-                        }
-                        kind => {
-                            return Err(HayError::new(
-                                format!(
-                                    "Expected an identifier after {}, but found {} instead.",
-                                    Marker::DoubleColon,
-                                    kind
-                                ),
-                                next.loc,
-                            ));
-                        }
-                    }
-                }
+            //                 inners.push(next);
+            //             }
+            //             kind => {
+            //                 return Err(HayError::new(
+            //                     format!(
+            //                         "Expected an identifier after {}, but found {} instead.",
+            //                         Marker::DoubleColon,
+            //                         kind
+            //                     ),
+            //                     next.loc,
+            //                 ));
+            //             }
+            //         }
+            //     }
 
-                let new_token = Token {
-                    kind: TokenKind::Operator(Operator::Address {
-                        ident: ident.clone(),
-                        inner: inners,
-                    }),
-                    lexeme: new_token.lexeme,
-                    loc: new_token.loc,
-                };
-
-                // println!("New Token: {new_token}");
-
-                Ok(Box::new(Expr::Operator { op: new_token }))
-            }
+            //     let new_token = Token {
+            //         kind: TokenKind::Operator(Operator::Address {
+            //             ident: ident.clone(),
+            //             inner: inners,
+            //         }),
+            //         lexeme: new_token.lexeme,
+            //         loc: new_token.loc,
+            //     };
+            //     Ok(Box::new(Expr::Operator { op: new_token }))
+            // }
             TokenKind::Operator(_) => Ok(Box::new(Expr::Operator { op: token })),
             TokenKind::Keyword(Keyword::Cast) => self.cast(token),
             TokenKind::Keyword(Keyword::If) => self.if_block(token),

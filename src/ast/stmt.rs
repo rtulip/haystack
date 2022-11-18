@@ -276,6 +276,7 @@ impl Stmt {
                     let inner = TypeId::from_token(&typ, types, &vec![])?;
                     let ptr = Type::Pointer {
                         inner: inner.clone(),
+                        mutable: true,
                     };
                     let id = ptr.id();
                     types.insert(ptr.id(), ptr);

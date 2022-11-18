@@ -4,7 +4,7 @@ include "file.hay"
 fn cat(Str: path) {
     path File.str_from_path as [file_str]
     file_str putlns 
-    file_str::size file_str::data cast(Arr) free 
+    // Note: this leaks some memory
 }
 
 fn main() {

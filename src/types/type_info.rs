@@ -1043,16 +1043,21 @@ impl Type {
 
             for (tid, f) in fns {
                 let func = f.unchecked_function().clone();
+                // println!("Type Checking {}", func.name.lexeme);
                 let mut stack = vec![];
                 let mut frame = vec![];
 
-                func.inputs.iter().rev().for_each(|arg| {
-                    if arg.ident.is_some() {
+                if func.inputs.first().is_some() && func.inputs.first().unwrap().ident.is_some() {
+                    func.inputs.iter().rev().for_each(|arg| {
                         frame.push((arg.ident.as_ref().unwrap().lexeme.clone(), arg.typ.clone()))
-                    } else {
-                        stack.push(arg.typ.clone())
-                    }
-                });
+                    });
+                } else {
+                    func.inputs
+                        .iter()
+                        .for_each(|arg| stack.push(arg.typ.clone()));
+                }
+
+                // println!("    inputs: {:?}", stack);
 
                 let mut typed_body = vec![];
                 for expr in func.body.clone() {

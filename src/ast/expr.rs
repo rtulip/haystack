@@ -1106,12 +1106,23 @@ impl Expr {
                             })
                         }
                         Operator::Read => {
-                            let map = Signature::new_generic(
-                                vec![TypeId::new("&T")],
-                                vec![TypeId::new("T")],
-                                vec![TypeId::new("T")],
-                            )
-                            .evaluate(&op_tok, stack, types)?
+                            let map = Signature::evaluate_many(
+                                &vec![
+                                    Signature::new_generic(
+                                        vec![TypeId::new("&T")],
+                                        vec![TypeId::new("T")],
+                                        vec![TypeId::new("T")],
+                                    ),
+                                    Signature::new_generic(
+                                        vec![TypeId::new("*T")],
+                                        vec![TypeId::new("T")],
+                                        vec![TypeId::new("T")],
+                                    ),
+                                ],
+                                &op_tok,
+                                stack,
+                                types,
+                            )?
                             .unwrap();
 
                             Ok(TypedExpr::Operator {

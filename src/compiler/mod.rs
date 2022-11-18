@@ -233,4 +233,14 @@ mod tests {
     fn pointer_offsets() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "pointer_offsets")
     }
+
+    #[test]
+    fn generic_fn_with_const_ptr_arg() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "generic_fn_with_const_ptr_arg")
+    }
+
+    #[test]
+    fn valid_pointer_operations() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "valid_pointer_operations")
+    }
 }

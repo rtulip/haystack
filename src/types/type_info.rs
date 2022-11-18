@@ -601,24 +601,10 @@ impl TypeId {
                     mutable: inner_mutable,
                 }),
             ) => {
-                if mutable != inner_mutable {
-                    if mutable && !inner_mutable {
-                        return Err(HayError::new(
-                            "Cannot resolve immutable pointer to mutable.",
-                            token.loc.clone(),
-                        )
-                        .with_hint(format!(
-                            "Trying to resolve {} into {}",
-                            types.get(concrete).unwrap().id(),
-                            types.get(self).unwrap().id(),
-                        )));
-                    }
-                }
-
                 // Resolve the pointer's inner type.
                 let p = Type::Pointer {
                     inner: inner.resolve(token, &inner_concrete, map, types)?,
-                    mutable: inner_mutable && mutable,
+                    mutable: inner_mutable || mutable,
                 };
 
                 let tid = p.id();
@@ -1624,5 +1610,10 @@ mod tests {
     #[test]
     fn generic_record_size() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("type_check", "generic_record_size")
+    }
+
+    #[test]
+    fn immutable_pointer_write() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "immutable_pointer_write")
     }
 }

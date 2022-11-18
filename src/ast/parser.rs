@@ -356,14 +356,7 @@ impl<'a> Parser<'a> {
                     }))
                 }
                 (op, Some(_)) => unimplemented!("Unary {op} is not supported"),
-                (oper, None) => Err(HayError::new(
-                    format!(
-                        "Expected type after {} , but found {} instead.",
-                        oper,
-                        self.peek().kind
-                    ),
-                    op.loc,
-                )),
+                (op, None) => unreachable!("Unary {op} with no type???"),
             }
         } else if let Ok(ident) = self.matches(TokenKind::ident()) {
             let typ = if self
@@ -655,51 +648,6 @@ impl<'a> Parser<'a> {
                 }
             }
             TokenKind::Operator(Operator::Unary(op)) => self.unary(*op.clone()),
-            // TokenKind::Operator(Operator::Address { ident, .. }) => {
-            //     let mut new_token = token.clone();
-            //     let mut inners = vec![];
-            //     while let Ok(dc) = self.matches(TokenKind::Marker(Marker::DoubleColon)) {
-            //         let next = self.tokens.pop().unwrap();
-            //         match &next.kind {
-            //             TokenKind::Ident(_) => {
-            //                 let new_lexeme =
-            //                     format!("{}{}{}", new_token.lexeme, dc.lexeme, next.lexeme);
-            //                 new_token = Token {
-            //                     kind: new_token.kind.clone(),
-            //                     lexeme: new_lexeme,
-            //                     loc: Loc::new(
-            //                         new_token.loc.file,
-            //                         new_token.loc.line,
-            //                         new_token.loc.span.start,
-            //                         next.loc.span.end,
-            //                     ),
-            //                 };
-
-            //                 inners.push(next);
-            //             }
-            //             kind => {
-            //                 return Err(HayError::new(
-            //                     format!(
-            //                         "Expected an identifier after {}, but found {} instead.",
-            //                         Marker::DoubleColon,
-            //                         kind
-            //                     ),
-            //                     next.loc,
-            //                 ));
-            //             }
-            //         }
-            //     }
-
-            //     let new_token = Token {
-            //         kind: TokenKind::Operator(Operator::Address {
-            //             ident: ident.clone(),
-            //             inner: inners,
-            //         }),
-            //         lexeme: new_token.lexeme,
-            //         loc: new_token.loc,
-            //     };
-            //     Ok(Box::new(Expr::Operator { op: new_token }))
-            // }
             TokenKind::Operator(_) => Ok(Box::new(Expr::Operator { op: token })),
             TokenKind::Keyword(Keyword::Cast) => self.cast(token),
             TokenKind::Keyword(Keyword::If) => self.if_block(token),
@@ -1487,5 +1435,10 @@ mod tests {
     #[test]
     fn parse_bad_inner_address_of() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("parser", "parse_bad_inner_address_of")
+    }
+
+    #[test]
+    fn parse_bad_const_ptr_type() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_const_ptr_type")
     }
 }

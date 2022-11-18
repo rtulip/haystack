@@ -329,9 +329,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type(&mut self) -> Result<Option<Token>, HayError> {
-        if let Ok(op) = self.matches(TokenKind::Operator(Operator::Unary(Box::new(
-            Token::default(),
-        )))) {
+        if let Ok(op) = self.matches(TokenKind::Operator(Operator::Unary(Box::default()))) {
             match (op.unary_operator()?, self.parse_type()?) {
                 (Operator::Ampersand, Some(typ)) => {
                     let lexeme = format!("&{}", typ.lexeme);

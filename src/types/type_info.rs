@@ -1341,23 +1341,22 @@ impl<'pred> Signature<'pred> {
         // Check that each input matches the element on the stack.
         for (input, stk) in sig.inputs.iter().rev().zip(stack.iter().rev()) {
             if input != stk {
-                match (types.get(input), types.get(stk)) {
-                    (
-                        Some(Type::Pointer {
-                            inner: input_inner,
-                            mutable: false,
-                        }),
-                        Some(Type::Pointer {
-                            inner: stk_inner,
-                            mutable: true,
-                        }),
-                    ) => {
-                        if input_inner == stk_inner {
-                            continue;
-                        }
+                if let (
+                    Some(Type::Pointer {
+                        inner: input_inner,
+                        mutable: false,
+                    }),
+                    Some(Type::Pointer {
+                        inner: stk_inner,
+                        mutable: true,
+                    }),
+                ) = (types.get(input), types.get(stk))
+                {
+                    if input_inner == stk_inner {
+                        continue;
                     }
-                    _ => (),
                 }
+
                 return Err(HayError::new_type_err(
                     format!("Invalid inputs for `{}`", token.lexeme).as_str(),
                     token.loc.clone(),

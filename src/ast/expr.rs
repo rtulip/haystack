@@ -693,7 +693,7 @@ impl Expr {
                                 ..
                             },
                         ..
-                    } => op.clone(),
+                    } => op,
                     _ => panic!(),
                 };
 

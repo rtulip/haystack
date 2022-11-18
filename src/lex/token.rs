@@ -135,7 +135,6 @@ impl std::fmt::Display for Operator {
             Operator::Write => write!(f, "!")?,
             Operator::Ampersand => write!(f, "&")?,
             Operator::Unary(op) => write!(f, "Unary({})", op.lexeme)?,
-            // Operator::Address { ident, inner } => write!(f, "&{ident}::{:?}", inner)?,
         }
         write!(f, "`")
     }

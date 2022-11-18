@@ -161,10 +161,11 @@ impl super::CodeGen for X86_64 {
                     writeln!(file, "  cmovne rcx, rdx")?;
                     writeln!(file, "  push rcx")?;
                 }
-                Operator::Ampersand => todo!(),
-                Operator::Unary { .. } => todo!(),
+                Operator::Ampersand => unimplemented!("Bitwise `&` isn't implemented yet"),
+                Operator::Unary { .. } => unreachable!(
+                    "Unary expressions should have been converted into other instructions",
+                ),
                 Operator::Read | Operator::Write => unreachable!(),
-                // Operator::Address { .. } => unreachable!(),
             },
             Instruction::Operator {
                 op,

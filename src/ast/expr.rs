@@ -1145,8 +1145,6 @@ impl Expr {
                             })
                         }
                         Operator::Ampersand => todo!("{op_tok}"),
-                        // Operator::Address { ident, inner } => {
-                        // }
                         Operator::Unary { .. } => todo!("{op_tok}"),
                     }
                 }

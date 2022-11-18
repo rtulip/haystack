@@ -243,4 +243,9 @@ mod tests {
     fn valid_pointer_operations() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "valid_pointer_operations")
     }
+
+    #[test]
+    fn pointer_types() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "pointer_types")
+    }
 }

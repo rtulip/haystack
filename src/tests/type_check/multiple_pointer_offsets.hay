@@ -16,7 +16,7 @@ fn work(&Bar: bar) {
 
 fn main() {
 
-    12345 true cast(Foo) as [foo]
+    12345 true cast(Foo) as [mut foo]
     *foo cast(Bar) as [bar]
     &bar work
 

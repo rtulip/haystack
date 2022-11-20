@@ -5,7 +5,7 @@ use crate::lex::token::{Keyword, Loc, Marker, Operator, Token, TokenKind, TypeTo
 use crate::types::{FnTag, RecordKind};
 use std::collections::HashSet;
 
-use super::arg::UntypedArg;
+use super::arg::{IdentArg, UntypedArg};
 use super::member::UntypedMember;
 use super::visibility::Visitiliby;
 
@@ -325,6 +325,39 @@ impl<'a> Parser<'a> {
             ))
         } else {
             Ok(args)
+        }
+    }
+
+    fn maybe_mut_ident_list(&mut self) -> Result<Vec<IdentArg>, HayError> {
+        let mut args = vec![];
+        while let Some(arg) = self.maybe_mut_ident()? {
+            args.push(arg)
+        }
+
+        Ok(args)
+    }
+
+    fn maybe_mut_ident(&mut self) -> Result<Option<IdentArg>, HayError> {
+        let mutable = match self.matches(TokenKind::Keyword(Keyword::Mut)) {
+            Ok(tok) => Some(tok),
+            Err(_) => None,
+        };
+
+        match self.matches(TokenKind::ident()) {
+            Ok(ident) => Ok(Some(IdentArg {
+                token: ident,
+                mutable,
+            })),
+            Err(t) => match mutable {
+                Some(mut_tok) => Err(HayError::new(
+                    format!(
+                        "Expected an identifier after keyword {}, but found {} instead.",
+                        mut_tok.kind, t.kind
+                    ),
+                    t.loc,
+                )),
+                None => Ok(None),
+            },
         }
     }
 
@@ -1044,7 +1077,7 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        let args = self.unnamed_args_list(&token)?;
+        let idents = self.maybe_mut_ident_list()?;
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBracket)) {
             return Err(HayError::new(
@@ -1064,7 +1097,11 @@ impl<'a> Parser<'a> {
             None
         };
 
-        Ok(Box::new(Expr::As { token, args, block }))
+        Ok(Box::new(Expr::As {
+            token,
+            idents,
+            block,
+        }))
     }
 
     fn var(&mut self, token: Token) -> Result<Box<Expr>, HayError> {

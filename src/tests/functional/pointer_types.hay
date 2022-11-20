@@ -3,7 +3,7 @@ include "std.hay"
 fn my_write<T>(T *T) { ! }
 fn my_read<T>(&T) -> [T] { @ } 
 fn main() {
-    12345 as [n]
+    12345 as [mut n]
     // use `&ident` to get an immutable pointer to `ident`
     &n my_read putlnu
     // use `*ident` to get a mutable pointer to `ident`

@@ -6,7 +6,7 @@ use crate::lex::token::{Loc, Token, TokenKind, TypeToken};
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
 
-use super::{Function, GenericFunction, TypeMap, UncheckedFunction};
+use super::{FramedType, Function, GenericFunction, TypeMap, UncheckedFunction};
 
 /// Unique Identifier for types
 ///
@@ -1049,7 +1049,14 @@ impl Type {
 
                 if func.inputs.first().is_some() && func.inputs.first().unwrap().ident.is_some() {
                     func.inputs.iter().rev().for_each(|arg| {
-                        frame.push((arg.ident.as_ref().unwrap().lexeme.clone(), arg.typ.clone()))
+                        frame.push((
+                            arg.ident.as_ref().unwrap().lexeme.clone(),
+                            FramedType {
+                                origin: arg.token.clone(),
+                                typ: arg.typ.clone(),
+                                mutable: false,
+                            },
+                        ))
                     });
                 } else {
                     func.inputs

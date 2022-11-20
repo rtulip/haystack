@@ -54,6 +54,12 @@ pub struct TypedArg {
     pub typ: TypeId,
 }
 
+#[derive(Debug, Clone)]
+pub struct IdentArg {
+    pub token: Token,
+    pub mutable: Option<Token>,
+}
+
 impl UntypedArg {
     pub fn resolve(
         args: Vec<UntypedArg>,

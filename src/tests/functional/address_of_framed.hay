@@ -29,7 +29,7 @@ impl:
 
 fn main() {
 
-    12345 MyVec.new::<u64> "Hello World" as [n list str]
+    12345 MyVec.new::<u64> "Hello World" as [n mut list str]
     0 while dup 10 < {
         dup *list MyVec.push
         1 +

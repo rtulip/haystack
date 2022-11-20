@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use crate::{
     ast::{arg::TypedArg, expr::TypedExpr},
     lex::token::{Literal, Operator},
-    types::{FnTag, Function, RecordKind, Type, TypeId, TypeMap},
+    types::{FnTag, FramedType, Function, RecordKind, Type, TypeId, TypeMap},
 };
 
 #[derive(Debug, Clone)]
@@ -110,11 +110,11 @@ impl Instruction {
             TypedExpr::Framed { frame, idx, inner } => {
                 assert!(idx < frame.len());
                 let mut offset = 0;
-                for (_, tid) in &frame[idx + 1..] {
-                    offset += tid.size(types).unwrap();
+                for (_, FramedType { typ, .. }) in &frame[idx + 1..] {
+                    offset += typ.size(types).unwrap();
                 }
 
-                let mut typ = &frame[idx].1;
+                let mut typ = &frame[idx].1.typ;
                 let bytes = if let Some(inner) = &inner {
                     for inner in inner {
                         typ = if let Type::Record { members, kind, .. } = types.get(typ).unwrap() {
@@ -162,11 +162,11 @@ impl Instruction {
             TypedExpr::AddrFramed { frame, idx, inner } => {
                 assert!(idx < frame.len());
                 let mut offset = 0;
-                for (_, tid) in &frame[idx + 1..] {
-                    offset += tid.size(types).unwrap();
+                for (_, FramedType { typ, .. }) in &frame[idx + 1..] {
+                    offset += typ.size(types).unwrap();
                 }
 
-                let mut typ = &frame[idx].1;
+                let mut typ = &frame[idx].1.typ;
                 if let Some(inner) = &inner {
                     for inner in inner {
                         typ = if let Type::Record { members, kind, .. } = types.get(typ).unwrap() {
@@ -210,11 +210,11 @@ impl Instruction {
                 assert!(idx < frame.len());
                 let mut frame_offset = 0;
                 let mut ptr_offset = 0;
-                for (_, tid) in &frame[idx + 1..] {
+                for (_, FramedType { typ: tid, .. }) in &frame[idx + 1..] {
                     frame_offset += tid.size(types).unwrap();
                 }
 
-                let mut typ = &frame[idx].1;
+                let mut typ = &frame[idx].1.typ;
                 if let Type::Pointer {
                     inner: inner_ptr_tid,
                     ..
@@ -260,7 +260,7 @@ impl Instruction {
 
                 ops.push(Instruction::PushFromFrame {
                     offset_from_end: frame_offset,
-                    bytes: frame[idx].1.size(types).unwrap(),
+                    bytes: frame[idx].1.typ.size(types).unwrap(),
                 });
                 ops.push(Instruction::PushU64(ptr_offset as u64 * 8));
                 ops.push(Instruction::Operator {

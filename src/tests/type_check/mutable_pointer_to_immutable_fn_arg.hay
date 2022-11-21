@@ -1,0 +1,9 @@
+fn foo(u64: n) {
+    5 *n !
+}
+
+fn main() {
+
+    0 foo
+
+}

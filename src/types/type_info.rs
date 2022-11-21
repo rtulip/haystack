@@ -6,7 +6,7 @@ use crate::lex::token::{Loc, Token, TokenKind, TypeToken};
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
 
-use super::{Function, GenericFunction, TypeMap, UncheckedFunction};
+use super::{FramedType, Function, GenericFunction, TypeMap, UncheckedFunction};
 
 /// Unique Identifier for types
 ///
@@ -36,7 +36,7 @@ impl TypeId {
                 | Type::UncheckedFunction { .. }
                 | Type::Never,
             ) => false,
-            Some(Type::Pointer { inner }) => inner.is_generic(types),
+            Some(Type::Pointer { inner, .. }) => inner.is_generic(types),
             Some(
                 Type::GenericRecordBase { .. }
                 | Type::GenericRecordInstance { .. }
@@ -176,11 +176,12 @@ impl TypeId {
                     )),
                 }
             }
-            TypeToken::Pointer(inner) => {
+            TypeToken::Pointer { inner, mutable } => {
                 // Get the TypeId of the inner type to create the pointer type.
                 let inner_typ_id = TypeId::from_type_token(token, inner, types, local_types)?;
                 let t = Type::Pointer {
                     inner: inner_typ_id,
+                    mutable: *mutable,
                 };
 
                 let tid = t.id();
@@ -397,10 +398,10 @@ impl TypeId {
 
                     Ok(tid)
                 }
-                Type::Pointer { inner } => {
+                Type::Pointer { inner, mutable } => {
                     // Assign to the inner type and generate a new type if needed.
                     let inner = inner.assign(token, map, types)?;
-                    let t = Type::Pointer { inner };
+                    let t = Type::Pointer { inner, mutable };
                     let id: TypeId = t.id();
 
                     types.insert(id.clone(), t);
@@ -453,6 +454,7 @@ impl TypeId {
                     for input in func.inputs {
                         assigned_inputs.push(TypedArg {
                             token: input.token,
+                            mutable: input.mutable,
                             ident: input.ident,
                             typ: input.typ.assign(token, map, types)?,
                         });
@@ -462,6 +464,7 @@ impl TypeId {
                     for output in func.outputs {
                         assigned_outputs.push(TypedArg {
                             token: output.token,
+                            mutable: output.mutable,
                             ident: output.ident,
                             typ: output.typ.assign(token, map, types)?,
                         });
@@ -594,15 +597,18 @@ impl TypeId {
             | (Some(Type::Char), Some(Type::Char))
             | (Some(Type::Bool), Some(Type::Bool)) => Ok(concrete.clone()),
             (
-                Some(Type::Pointer { inner }),
+                Some(Type::Pointer { inner, mutable }),
                 Some(Type::Pointer {
                     inner: inner_concrete,
+                    mutable: inner_mutable,
                 }),
             ) => {
                 // Resolve the pointer's inner type.
                 let p = Type::Pointer {
                     inner: inner.resolve(token, &inner_concrete, map, types)?,
+                    mutable: inner_mutable || mutable,
                 };
+
                 let tid = p.id();
                 types.insert(tid.clone(), p);
                 Ok(tid)
@@ -772,6 +778,7 @@ impl TypeId {
         types: &'a BTreeMap<TypeId, Type>,
     ) -> Result<Self, HayError> {
         let mut typ = self;
+
         for inner_member in inner {
             if let Type::Record {
                 name,
@@ -896,6 +903,7 @@ pub enum Type {
     Pointer {
         /// The type being pointed to.
         inner: TypeId,
+        mutable: bool,
     },
     /// Record types represent struct and union.
     Record {
@@ -970,7 +978,13 @@ impl Type {
             Type::Enum { name, .. }
             | Type::GenericRecordBase { name, .. }
             | Type::Record { name, .. } => TypeId::new(&name.lexeme),
-            Type::Pointer { inner } => TypeId::new(format!("*{}", inner.0)),
+            Type::Pointer { inner, mutable } => {
+                if *mutable {
+                    TypeId::new(format!("*{}", inner.0))
+                } else {
+                    TypeId::new(format!("&{}", inner.0))
+                }
+            }
             Type::GenericRecordInstance {
                 base, alias_list, ..
             } => {
@@ -997,6 +1011,20 @@ impl Type {
         types.insert(Type::U8.id(), Type::U8);
         types.insert(Type::Bool.id(), Type::Bool);
         types.insert(Type::Char.id(), Type::Char);
+        types.insert(
+            TypeId::new("&T"),
+            Type::Pointer {
+                inner: TypeId::new("T"),
+                mutable: false,
+            },
+        );
+        types.insert(
+            TypeId::new("*T"),
+            Type::Pointer {
+                inner: TypeId::new("T"),
+                mutable: true,
+            },
+        );
 
         types
     }
@@ -1020,13 +1048,22 @@ impl Type {
                 let mut stack = vec![];
                 let mut frame = vec![];
 
-                func.inputs.iter().rev().for_each(|arg| {
-                    if arg.ident.is_some() {
-                        frame.push((arg.ident.as_ref().unwrap().lexeme.clone(), arg.typ.clone()))
-                    } else {
-                        stack.push(arg.typ.clone())
-                    }
-                });
+                if func.inputs.first().is_some() && func.inputs.first().unwrap().ident.is_some() {
+                    func.inputs.iter().rev().for_each(|arg| {
+                        frame.push((
+                            arg.ident.as_ref().unwrap().lexeme.clone(),
+                            FramedType {
+                                origin: arg.token.clone(),
+                                typ: arg.typ.clone(),
+                                mutable: arg.mutable.is_some(),
+                            },
+                        ))
+                    });
+                } else {
+                    func.inputs
+                        .iter()
+                        .for_each(|arg| stack.push(arg.typ.clone()));
+                }
 
                 let mut typed_body = vec![];
                 for expr in func.body.clone() {
@@ -1312,12 +1349,27 @@ impl<'pred> Signature<'pred> {
         } else {
             self
         };
-
         // Check that each input matches the element on the stack.
         for (input, stk) in sig.inputs.iter().rev().zip(stack.iter().rev()) {
             if input != stk {
+                if let (
+                    Some(Type::Pointer {
+                        inner: input_inner,
+                        mutable: false,
+                    }),
+                    Some(Type::Pointer {
+                        inner: stk_inner,
+                        mutable: true,
+                    }),
+                ) = (types.get(input), types.get(stk))
+                {
+                    if input_inner == stk_inner {
+                        continue;
+                    }
+                }
+
                 return Err(HayError::new_type_err(
-                    format!("Type Error - Invalid inputs for {:?}", token.lexeme).as_str(),
+                    format!("Invalid inputs for `{}`", token.lexeme).as_str(),
                     token.loc.clone(),
                 )
                 .with_hint(format!("Expected: {:?}", sig.inputs))
@@ -1337,7 +1389,7 @@ impl<'pred> Signature<'pred> {
         if let Some((pred, msg)) = &sig.predicate {
             if !pred(&sig.inputs, types) {
                 return Err(HayError::new_type_err(
-                    format!("Type Error - Invalid inputs for {:?}", token.lexeme).as_str(),
+                    format!("Invalid inputs for {:?}", token.lexeme).as_str(),
                     token.loc.clone(),
                 )
                 .with_hint(format!("Expected: {:?} where {msg}", sig.inputs))
@@ -1568,5 +1620,10 @@ mod tests {
     #[test]
     fn generic_record_size() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("type_check", "generic_record_size")
+    }
+
+    #[test]
+    fn immutable_pointer_write() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "immutable_pointer_write")
     }
 }

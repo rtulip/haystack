@@ -1,5 +1,5 @@
 {
   "exit_code": 0,
-  "stdout": "Hello World!\n",
+  "stdout": "12345\n54321\n",
   "stderr": ""
 }

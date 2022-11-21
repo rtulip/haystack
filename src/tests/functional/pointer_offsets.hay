@@ -37,7 +37,7 @@ fn test_ptr_offset(*Bar: bar) {
 fn main() {
 
     123u8 'q' true "Hello World!" cast(Foo) as [f]
-    false f 54321 cast(Bar) as [bar]
-    &bar test_ptr_offset
+    false f 54321 cast(Bar) as [mut bar]
+    *bar test_ptr_offset
 
 }

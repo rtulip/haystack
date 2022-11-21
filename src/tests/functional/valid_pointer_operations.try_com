@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "[CMD]: nasm -felf64 src/tests/functional/valid_pointer_operations.asm\n[CMD]: ld -o valid_pointer_operations src/tests/functional/valid_pointer_operations.o\n",
+  "stderr": ""
+}

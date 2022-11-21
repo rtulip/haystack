@@ -130,7 +130,23 @@ impl Scanner {
                     self.add_token(TokenKind::Operator(Operator::Minus))
                 }
             }
-            '*' => self.add_token(TokenKind::Operator(Operator::Star)),
+            '*' => {
+                let c = self.peek(0);
+                if c.is_alphabetic() || c == '*' || c == '&' {
+                    let tok = Token::new(
+                        TokenKind::Operator(Operator::Star),
+                        &self.source[self.start..self.current],
+                        &self.file,
+                        self.line,
+                        self.token_start,
+                        self.token_end,
+                    );
+
+                    self.add_token(TokenKind::Operator(Operator::Unary(Box::new(tok))));
+                } else {
+                    self.add_token(TokenKind::Operator(Operator::Star))
+                }
+            }
             '/' => {
                 if self.matches('/') {
                     // skip the comment
@@ -175,23 +191,19 @@ impl Scanner {
             }
             '@' => self.add_token(TokenKind::Operator(Operator::Read)),
             '&' => {
-                if self.peek(0).is_alphabetic() {
-                    // Pushes either Keyword, Syscall, or Ident
-                    self.identifier()?;
-                    let ident = match self.tokens.pop().unwrap() {
-                        Token {
-                            kind: TokenKind::Ident(ident),
-                            ..
-                        } => ident,
-                        _ => unreachable!(),
-                    };
-
-                    self.add_token(TokenKind::Operator(Operator::Address {
-                        ident: String::from(&ident[1..]),
-                        inner: vec![],
-                    }))
+                let c = self.peek(0);
+                if c.is_alphabetic() || c == '*' || c == '&' {
+                    let tok = Token::new(
+                        TokenKind::Operator(Operator::Ampersand),
+                        &self.source[self.start..self.current],
+                        &self.file,
+                        self.line,
+                        self.token_start,
+                        self.token_end,
+                    );
+                    self.add_token(TokenKind::Operator(Operator::Unary(Box::new(tok))))
                 } else {
-                    unimplemented!("Binary and operator isn't implemented yet")
+                    self.add_token(TokenKind::Operator(Operator::Ampersand))
                 }
             }
             ' ' | '\t' | '\r' => (),

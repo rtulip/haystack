@@ -1,14 +1,16 @@
 include "std.hay"
 fn main() {
 
-    "hello World!\n" as [word]
+    var char[64]: chars
+
+    "Hello World!" as [word]
     0 while dup word::size < {
         as [i]
-        word::data i ptr+ @ cast(u64) putlnu
-        'X' word::data i ptr+ !
+        word::data i ptr+ @ 
+        chars::data @ i ptr+_mut !
         i 1 + 
     } drop
 
-    word putlns
+    word::size chars::data @ cast(Str) putlns
 
 }

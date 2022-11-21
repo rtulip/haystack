@@ -1,0 +1,17 @@
+include "std.hay"
+fn main() {
+
+    1 2 3 4 5 as [mut one mut two mut three mut four mut five]
+    11 *one !
+    22 *two !
+    33 *three !
+    44 *four !
+    55 *five !
+
+    one   putlnu
+    two   putlnu
+    three putlnu
+    four  putlnu
+    five  putlnu 
+
+}

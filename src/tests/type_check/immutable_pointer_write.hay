@@ -1,0 +1,6 @@
+fn main() {
+
+    "Hello World" as [s]
+    'M' s::data !
+
+}

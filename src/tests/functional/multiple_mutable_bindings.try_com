@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "[CMD]: nasm -felf64 src/tests/functional/multiple_mutable_bindings.asm\n[CMD]: ld -o multiple_mutable_bindings src/tests/functional/multiple_mutable_bindings.o\n",
+  "stderr": ""
+}

@@ -16,12 +16,12 @@ fn main() {
         i 1 + 
     } drop
     
-    "aaaaabbbbbccccc" as [s] { s::size s::data } cast(Arr)
+    "aaaaabbbbbccccc" as [s] { s::size s::data } cast(ConstArr)
     as [str_arr]
 
     0 while dup str_arr::size < {
         as [i]
-        i str_arr Arr.get cast(u64) putlnu
+        i str_arr ConstArr.get cast(u64) putlnu
         i 1 +
     } drop
 

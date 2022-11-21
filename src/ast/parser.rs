@@ -5,7 +5,7 @@ use crate::lex::token::{Keyword, Loc, Marker, Operator, Token, TokenKind, TypeTo
 use crate::types::{FnTag, RecordKind};
 use std::collections::HashSet;
 
-use super::arg::UntypedArg;
+use super::arg::{IdentArg, UntypedArg};
 use super::member::UntypedMember;
 use super::visibility::Visitiliby;
 
@@ -56,6 +56,15 @@ impl<'a> Parser<'a> {
         } else {
             Err(self.tokens.last().unwrap().clone())
         }
+    }
+
+    fn unary(&mut self, op: Token) -> Result<Box<Expr>, HayError> {
+        let expr = self.expression()?;
+
+        Ok(Box::new(Expr::Unary {
+            op: Box::new(Expr::Operator { op }),
+            expr,
+        }))
     }
 
     fn declaration(&mut self) -> Result<Vec<Stmt>, HayError> {
@@ -319,25 +328,66 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn maybe_mut_ident_list(&mut self) -> Result<Vec<IdentArg>, HayError> {
+        let mut args = vec![];
+        while let Some(arg) = self.maybe_mut_ident()? {
+            args.push(arg)
+        }
+
+        Ok(args)
+    }
+
+    fn maybe_mut_ident(&mut self) -> Result<Option<IdentArg>, HayError> {
+        let mutable = match self.matches(TokenKind::Keyword(Keyword::Mut)) {
+            Ok(tok) => Some(tok),
+            Err(_) => None,
+        };
+
+        match self.matches(TokenKind::ident()) {
+            Ok(ident) => Ok(Some(IdentArg {
+                token: ident,
+                mutable,
+            })),
+            Err(t) => match mutable {
+                Some(mut_tok) => Err(HayError::new(
+                    format!(
+                        "Expected an identifier after keyword {}, but found {} instead.",
+                        mut_tok.kind, t.kind
+                    ),
+                    mut_tok.loc,
+                )),
+                None => Ok(None),
+            },
+        }
+    }
+
     fn parse_type(&mut self) -> Result<Option<Token>, HayError> {
-        if let Ok(star) = self.matches(TokenKind::Operator(Operator::Star)) {
-            match self.parse_type()? {
-                Some(typ) => {
-                    let lexeme = format!("*{}", typ.lexeme);
+        if let Ok(op) = self.matches(TokenKind::Operator(Operator::Unary(Box::default()))) {
+            match (op.unary_operator()?, self.parse_type()?) {
+                (Operator::Ampersand, Some(typ)) => {
+                    let lexeme = format!("&{}", typ.lexeme);
                     Ok(Some(Token {
-                        kind: TokenKind::Type(TypeToken::Pointer(Box::new(typ.typ()?))),
+                        kind: TokenKind::Type(TypeToken::Pointer {
+                            inner: Box::new(typ.typ()?),
+                            mutable: false,
+                        }),
                         lexeme,
                         loc: typ.loc,
                     }))
                 }
-                None => Err(HayError::new(
-                    format!(
-                        "Expected type after {}, but found {} instead.",
-                        Operator::Star,
-                        self.peek().kind
-                    ),
-                    star.loc,
-                )),
+                (Operator::Star, Some(typ)) => {
+                    let lexeme = format!("*{}", typ.lexeme);
+                    Ok(Some(Token {
+                        kind: TokenKind::Type(TypeToken::Pointer {
+                            inner: Box::new(typ.typ()?),
+                            mutable: true,
+                        }),
+                        lexeme,
+                        loc: typ.loc,
+                    }))
+                }
+                (op, Some(_)) => unimplemented!("Unary {op} is not supported"),
+                (op, None) => unreachable!("Unary {op} with no type???"),
             }
         } else if let Ok(ident) = self.matches(TokenKind::ident()) {
             let typ = if self
@@ -435,6 +485,24 @@ impl<'a> Parser<'a> {
             } else {
                 Ok(Some(typ))
             }
+        } else if let Ok(tok) = self.matches(TokenKind::Operator(Operator::Ampersand)) {
+            return Err(HayError::new(
+                format!(
+                    "Expected type after {}, but found {} instead.",
+                    Operator::Ampersand,
+                    self.peek().kind
+                ),
+                tok.loc,
+            ));
+        } else if let Ok(tok) = self.matches(TokenKind::Operator(Operator::Star)) {
+            return Err(HayError::new(
+                format!(
+                    "Expected type after {}, but found {} instead.",
+                    Operator::Star,
+                    self.peek().kind
+                ),
+                tok.loc,
+            ));
         } else {
             Ok(None)
         }
@@ -445,9 +513,12 @@ impl<'a> Parser<'a> {
         match self.parse_type()? {
             Some(token) => {
                 if self.matches(TokenKind::Marker(Marker::Colon)).is_ok() {
+                    let mutable = self.matches(TokenKind::Keyword(Keyword::Mut)).ok();
+
                     match self.matches(TokenKind::ident()) {
                         Ok(ident) => Ok(Some(UntypedArg {
                             token,
+                            mutable,
                             ident: Some(ident),
                         })),
                         Err(t) => Err(HayError::new(
@@ -460,7 +531,11 @@ impl<'a> Parser<'a> {
                         )),
                     }
                 } else {
-                    Ok(Some(UntypedArg { token, ident: None }))
+                    Ok(Some(UntypedArg {
+                        token,
+                        mutable: None,
+                        ident: None,
+                    }))
                 }
             }
             None => Ok(None),
@@ -502,7 +577,6 @@ impl<'a> Parser<'a> {
         let token = self.tokens.pop().unwrap();
         match &token.kind {
             TokenKind::Literal(_) => Ok(Box::new(Expr::Literal { value: token })),
-
             TokenKind::Syscall(n) => {
                 let n = *n;
                 Ok(Box::new(Expr::Syscall { token, n }))
@@ -611,54 +685,7 @@ impl<'a> Parser<'a> {
                     }))
                 }
             }
-            TokenKind::Operator(Operator::Address { ident, .. }) => {
-                let mut new_token = token.clone();
-                let mut inners = vec![];
-                while let Ok(dc) = self.matches(TokenKind::Marker(Marker::DoubleColon)) {
-                    let next = self.tokens.pop().unwrap();
-                    match &next.kind {
-                        TokenKind::Ident(_) => {
-                            let new_lexeme =
-                                format!("{}{}{}", new_token.lexeme, dc.lexeme, next.lexeme);
-                            new_token = Token {
-                                kind: new_token.kind.clone(),
-                                lexeme: new_lexeme,
-                                loc: Loc::new(
-                                    new_token.loc.file,
-                                    new_token.loc.line,
-                                    new_token.loc.span.start,
-                                    next.loc.span.end,
-                                ),
-                            };
-
-                            inners.push(next);
-                        }
-                        kind => {
-                            return Err(HayError::new(
-                                format!(
-                                    "Expected an identifier after {}, but found {} instead.",
-                                    Marker::DoubleColon,
-                                    kind
-                                ),
-                                next.loc,
-                            ));
-                        }
-                    }
-                }
-
-                let new_token = Token {
-                    kind: TokenKind::Operator(Operator::Address {
-                        ident: ident.clone(),
-                        inner: inners,
-                    }),
-                    lexeme: new_token.lexeme,
-                    loc: new_token.loc,
-                };
-
-                // println!("New Token: {new_token}");
-
-                Ok(Box::new(Expr::Operator { op: new_token }))
-            }
+            TokenKind::Operator(Operator::Unary(op)) => self.unary(*op.clone()),
             TokenKind::Operator(_) => Ok(Box::new(Expr::Operator { op: token })),
             TokenKind::Keyword(Keyword::Cast) => self.cast(token),
             TokenKind::Keyword(Keyword::If) => self.if_block(token),
@@ -1057,7 +1084,7 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        let args = self.unnamed_args_list(&token)?;
+        let idents = self.maybe_mut_ident_list()?;
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBracket)) {
             return Err(HayError::new(
@@ -1077,7 +1104,11 @@ impl<'a> Parser<'a> {
             None
         };
 
-        Ok(Box::new(Expr::As { token, args, block }))
+        Ok(Box::new(Expr::As {
+            token,
+            idents,
+            block,
+        }))
     }
 
     fn var(&mut self, token: Token) -> Result<Box<Expr>, HayError> {
@@ -1446,5 +1477,20 @@ mod tests {
     #[test]
     fn parse_bad_inner_address_of() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("parser", "parse_bad_inner_address_of")
+    }
+
+    #[test]
+    fn parse_bad_const_ptr_type() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_const_ptr_type")
+    }
+
+    #[test]
+    fn parse_missing_mutable_ident_in_as() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_missing_mutable_ident_in_as")
+    }
+
+    #[test]
+    fn parse_mut_in_fn_output() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_mut_in_fn_output")
     }
 }

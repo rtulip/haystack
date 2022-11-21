@@ -9,15 +9,15 @@ struct Bar {
     pub *Foo: foo_p
 }
 
-fn work(*Bar: bar) {
+fn work(&Bar: bar) {
     bar::foo_p::bar @ putlnu
     bar::foo_p::baz @ putlnb 
 }
 
 fn main() {
 
-    12345 true cast(Foo) as [foo]
-    &foo cast(Bar) as [bar]
+    12345 true cast(Foo) as [mut foo]
+    *foo cast(Bar) as [bar]
     &bar work
 
 }

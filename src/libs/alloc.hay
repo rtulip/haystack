@@ -179,7 +179,7 @@ fn mmap_new_chunk(u64: n) -> [*Chunk] {
     new_chunk n_chunks chunks Arr.set
     n_chunks 1 + n_chunks_p !
 
-    n_chunks chunks Arr.get_ref
+    n_chunks chunks Arr.get_ref_mut
 
 }
 
@@ -208,7 +208,7 @@ fn malloc<T>(u64: count) -> [Arr<T>] {
         {
             // clear the previous option and capture the index
             as [idx] drop
-            idx chunks Arr.get_ref as [chunk_p]
+            idx chunks Arr.get_ref_mut as [chunk_p]
 
             n chunk_p Chunk.try_alloc
             idx 1 +
@@ -248,7 +248,7 @@ fn find_chunk<T>(Arr<T>: arr) -> [Opt<*Chunk>] {
         
         arr::data cast(u64) chunk::start cast(u64) >=
         arr::data cast(u64) chunk::start cast(u64) chunk::cap + <= land if {
-            n chunks Arr.get_ref Opt.Some 
+            n chunks Arr.get_ref_mut Opt.Some 
         } else {
             Opt.None::<*Chunk>
         }

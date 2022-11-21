@@ -1,0 +1,9 @@
+include "std.hay"
+fn main() {
+
+    12345 as [mut number]
+    &number @ putlnu
+    *number @ putlnu
+    54321 *number !
+    &number @ putlnu
+}

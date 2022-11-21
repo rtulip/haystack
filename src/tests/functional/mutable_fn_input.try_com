@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "[CMD]: nasm -felf64 src/tests/functional/mutable_fn_input.asm\n[CMD]: ld -o mutable_fn_input src/tests/functional/mutable_fn_input.o\n",
+  "stderr": ""
+}

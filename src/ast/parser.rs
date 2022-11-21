@@ -1498,4 +1498,9 @@ mod tests {
     fn parse_pub_in_union() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("parser", "parse_pub_in_union")
     }
+
+    #[test]
+    fn parse_partially_named_args() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_partially_named_args")
+    }
 }

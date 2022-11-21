@@ -275,4 +275,9 @@ mod tests {
         );
         Ok(())
     }
+
+    #[test]
+    fn address_of_union() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "address_of_union")
+    }
 }

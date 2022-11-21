@@ -4,23 +4,9 @@ use crate::error::HayError;
 use crate::lex::token::Token;
 use std::collections::{BTreeMap, HashMap};
 
-use super::{FramedType, Function, GenericFunction, TypeId, TypeMap, UncheckedFunction};
-
-/// Representation of the different kinds of records.
-#[derive(Debug, Clone, Copy)]
-pub enum RecordKind {
-    Struct,
-    Union,
-}
-
-impl std::fmt::Display for RecordKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            RecordKind::Struct => write!(f, "struct"),
-            RecordKind::Union => write!(f, "union"),
-        }
-    }
-}
+use super::{
+    FramedType, Function, GenericFunction, RecordKind, TypeId, TypeMap, UncheckedFunction,
+};
 
 /// Representation of Types within Haystack.
 ///

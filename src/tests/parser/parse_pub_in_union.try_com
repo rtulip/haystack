@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parser/parse_pub_in_union.hay:2:5] Error: Unexpected Keyword `pub` in union definition.\n"
+}

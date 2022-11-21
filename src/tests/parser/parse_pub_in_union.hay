@@ -1,0 +1,3 @@
+union Foo {
+    pub u64: bar
+}

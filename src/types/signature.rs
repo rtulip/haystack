@@ -1,10 +1,9 @@
 use crate::error::HayError;
 use crate::lex::token::Token;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
-use super::{Type, TypeId};
-
-type Predicate = dyn Fn(&Vec<TypeId>, &BTreeMap<TypeId, Type>) -> bool;
+use super::{Type, TypeId, TypeMap};
+type Predicate = dyn Fn(&Vec<TypeId>, &TypeMap) -> bool;
 
 /// A Structure to describe changes to the stack.
 ///
@@ -175,7 +174,7 @@ impl<'pred> Signature<'pred> {
         &self,
         token: &Token,
         stack: &mut Vec<TypeId>,
-        types: &mut BTreeMap<TypeId, Type>,
+        types: &mut TypeMap,
     ) -> Result<Option<HashMap<TypeId, TypeId>>, HayError> {
         // Make sure the stack has at least as many elements as the inputs.
         // This ensures that the stack doesn't underflow.
@@ -278,7 +277,7 @@ impl<'pred> Signature<'pred> {
         sigs: &[Signature],
         token: &Token,
         stack: &mut Vec<TypeId>,
-        types: &mut BTreeMap<TypeId, Type>,
+        types: &mut TypeMap,
     ) -> Result<Option<HashMap<TypeId, TypeId>>, HayError> {
         // Make sure that each signature has the same "shape"
         // This might not be strctly nessisary.
@@ -345,7 +344,7 @@ impl<'pred> Signature<'pred> {
         &mut self,
         token: &Token,
         stack: &mut [TypeId],
-        types: &mut BTreeMap<TypeId, Type>,
+        types: &mut TypeMap,
     ) -> Result<Option<HashMap<TypeId, TypeId>>, HayError> {
         // No work to do if the signature isn't generic.
         if self.generics.is_none() {
@@ -385,7 +384,7 @@ impl<'pred> Signature<'pred> {
         &mut self,
         token: &Token,
         annotations: &[TypeId],
-        types: &mut BTreeMap<TypeId, Type>,
+        types: &mut TypeMap,
     ) -> Result<(), HayError> {
         // Check that the signature is generic. Doesn't make sense to assign
         // geneircs to a non-geneirc Signature.
@@ -450,33 +449,5 @@ impl<'pred> std::fmt::Debug for Signature<'pred> {
         }
 
         Ok(())
-    }
-}
-
-mod tests {
-
-    #[test]
-    fn record_record_resolution() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("type_check", "record_record_resolution")
-    }
-
-    #[test]
-    fn generic_record_record_resolution() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("type_check", "generic_record_record_resolution")
-    }
-
-    #[test]
-    fn enum_enum_resolution() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("type_check", "enum_enum_resolution")
-    }
-
-    #[test]
-    fn generic_record_size() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("type_check", "generic_record_size")
-    }
-
-    #[test]
-    fn immutable_pointer_write() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("type_check", "immutable_pointer_write")
     }
 }

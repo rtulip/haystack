@@ -253,4 +253,9 @@ mod tests {
     fn mutable_fn_input() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "mutable_fn_input")
     }
+
+    #[test]
+    fn multiple_mutable_bindings() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "multiple_mutable_bindings")
+    }
 }

@@ -1695,4 +1695,19 @@ mod tests {
     fn multiple_pointer_offsets() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("type_check", "multiple_pointer_offsets")
     }
+
+    #[test]
+    fn mutable_pointer_to_immutable_framed() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "mutable_pointer_to_immutable_framed")
+    }
+
+    #[test]
+    fn mutable_pointer_to_immutable_framed_inner() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "mutable_pointer_to_immutable_framed_inner")
+    }
+
+    #[test]
+    fn mutable_pointer_to_immutable_fn_arg() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "mutable_pointer_to_immutable_fn_arg")
+    }
 }

@@ -354,7 +354,7 @@ impl<'a> Parser<'a> {
                         "Expected an identifier after keyword {}, but found {} instead.",
                         mut_tok.kind, t.kind
                     ),
-                    t.loc,
+                    mut_tok.loc,
                 )),
                 None => Ok(None),
             },
@@ -1475,5 +1475,10 @@ mod tests {
     #[test]
     fn parse_bad_const_ptr_type() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("parser", "parse_bad_const_ptr_type")
+    }
+
+    #[test]
+    fn parse_missing_mutable_ident_in_as() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_missing_mutable_ident_in_as")
     }
 }

@@ -280,4 +280,9 @@ mod tests {
     fn address_of_union() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "address_of_union")
     }
+
+    #[test]
+    fn empty_string() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "empty_string")
+    }
 }

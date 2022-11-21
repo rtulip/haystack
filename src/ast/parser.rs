@@ -1503,4 +1503,9 @@ mod tests {
     fn parse_partially_named_args() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("parser", "parse_partially_named_args")
     }
+
+    #[test]
+    fn parse_bad_sizeof_operand() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_sizeof_operand")
+    }
 }

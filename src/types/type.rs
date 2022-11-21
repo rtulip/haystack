@@ -4,9 +4,7 @@ use crate::error::HayError;
 use crate::lex::token::Token;
 use std::collections::BTreeMap;
 
-use super::{
-    FramedType, Function, GenericFunction, RecordKind, TypeId, TypeMap, UncheckedFunction,
-};
+use super::{Function, GenericFunction, RecordKind, TypeId, TypeMap, UncheckedFunction};
 
 /// Representation of Types within Haystack.
 ///
@@ -181,70 +179,8 @@ impl Type {
 
             for (tid, f) in fns {
                 let func = f.unchecked_function().clone();
-                let mut stack = vec![];
-                let mut frame = vec![];
-
-                if func.inputs.first().is_some() && func.inputs.first().unwrap().ident.is_some() {
-                    func.inputs.iter().rev().for_each(|arg| {
-                        frame.push((
-                            arg.ident.as_ref().unwrap().lexeme.clone(),
-                            FramedType {
-                                origin: arg.token.clone(),
-                                typ: arg.typ.clone(),
-                                mutable: arg.mutable.is_some(),
-                            },
-                        ))
-                    });
-                } else {
-                    func.inputs
-                        .iter()
-                        .for_each(|arg| stack.push(arg.typ.clone()));
-                }
-
-                let mut typed_body = vec![];
-                for expr in func.body.clone() {
-                    typed_body.push(expr.type_check(
-                        &mut stack,
-                        &mut frame,
-                        &func,
-                        global_env,
-                        types,
-                        &func.generic_map,
-                    )?);
-                }
-                let stack_tids = stack.iter().collect::<Vec<&TypeId>>();
-                let output_tids = func
-                    .outputs
-                    .iter()
-                    .map(|arg| &arg.typ)
-                    .collect::<Vec<&TypeId>>();
-
-                if !stack_tids.contains(&&Type::Never.id()) && stack_tids != output_tids {
-                    return Err(HayError::new_type_err(
-                        format!(
-                            "Function `{}` doesn't produce the correct outputs",
-                            func.name.lexeme
-                        ),
-                        func.name.loc,
-                    )
-                    .with_hint(format!("Expected final stack: {:?}", output_tids))
-                    .with_hint(format!("Function produced:    {:?}", stack_tids)));
-                }
-
-                types.insert(
-                    tid,
-                    Type::Function {
-                        func: Function {
-                            token: func.token,
-                            name: func.name,
-                            inputs: func.inputs,
-                            outputs: func.outputs,
-                            body: typed_body,
-                            generic_map: func.generic_map,
-                            tags: func.tags,
-                        },
-                    },
-                );
+                let func = func.type_check(global_env, types)?;
+                types.insert(tid, Type::Function { func });
             }
         }
 

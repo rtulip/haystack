@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parser/parse_partially_named_args.hay:1:7] Error: Either all arguments or no arguments in args list must have an identifier.\n"
+}

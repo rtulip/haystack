@@ -97,7 +97,6 @@ fn check_for_entry_point(types: &TypeMap, input_path: &String) -> Result<(), Hay
 }
 
 mod tests {
-
     #[test]
     fn early_return_basic() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "early_return_basic")
@@ -257,5 +256,33 @@ mod tests {
     #[test]
     fn multiple_mutable_bindings() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "multiple_mutable_bindings")
+    }
+
+    #[test]
+    fn inline_impl_fn() -> Result<(), std::io::Error> {
+        use crate::backend::{CodeGen, X86_64};
+        super::test_tools::run_test("functional", "inline_impl_fn")?;
+
+        let asm = std::fs::read_to_string("src/tests/functional/inline_impl_fn.asm").unwrap();
+        let fn_name = X86_64::encode_name("Foo.add");
+        assert!(
+            asm.find(format!("call {fn_name}").as_str()).is_none(),
+            "Found a call to `{fn_name}` in the generated assembly!"
+        );
+        assert!(
+            asm.find(format!("{fn_name}:").as_str()).is_some(),
+            "Didn't find any definition of `{fn_name}` in generated assembly"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn address_of_union() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "address_of_union")
+    }
+
+    #[test]
+    fn empty_string() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "empty_string")
     }
 }

@@ -1348,7 +1348,7 @@ impl Expr {
                         token.loc.clone(),
                     )
                     .with_hint(format!("Frame Before: {}", FramedType::frame_to_string(&frame_before)))
-                    .with_hint(format!("Frame After : {}", FramedType::frame_to_string(&frame))));
+                    .with_hint(format!("Frame After : {}", FramedType::frame_to_string(frame))));
                 }
 
                 if stack.contains(&Type::Never.id()) {

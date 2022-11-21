@@ -513,9 +513,12 @@ impl<'a> Parser<'a> {
         match self.parse_type()? {
             Some(token) => {
                 if self.matches(TokenKind::Marker(Marker::Colon)).is_ok() {
+                    let mutable = self.matches(TokenKind::Keyword(Keyword::Mut)).ok();
+
                     match self.matches(TokenKind::ident()) {
                         Ok(ident) => Ok(Some(UntypedArg {
                             token,
+                            mutable,
                             ident: Some(ident),
                         })),
                         Err(t) => Err(HayError::new(
@@ -528,7 +531,11 @@ impl<'a> Parser<'a> {
                         )),
                     }
                 } else {
-                    Ok(Some(UntypedArg { token, ident: None }))
+                    Ok(Some(UntypedArg {
+                        token,
+                        mutable: None,
+                        ident: None,
+                    }))
                 }
             }
             None => Ok(None),
@@ -1480,5 +1487,10 @@ mod tests {
     #[test]
     fn parse_missing_mutable_ident_in_as() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("parser", "parse_missing_mutable_ident_in_as")
+    }
+
+    #[test]
+    fn parse_mut_in_fn_output() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_mut_in_fn_output")
     }
 }

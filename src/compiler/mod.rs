@@ -248,4 +248,9 @@ mod tests {
     fn pointer_types() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "pointer_types")
     }
+
+    #[test]
+    fn mutable_fn_input() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "mutable_fn_input")
+    }
 }

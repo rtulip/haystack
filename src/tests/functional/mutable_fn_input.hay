@@ -1,0 +1,12 @@
+include "std.hay"
+fn foo(u64: mut n) {
+    n putlnu
+    12345 *n !
+    n putlnu
+}
+
+fn main() {
+
+    0 foo
+
+}

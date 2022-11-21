@@ -454,6 +454,7 @@ impl TypeId {
                     for input in func.inputs {
                         assigned_inputs.push(TypedArg {
                             token: input.token,
+                            mutable: input.mutable,
                             ident: input.ident,
                             typ: input.typ.assign(token, map, types)?,
                         });
@@ -463,6 +464,7 @@ impl TypeId {
                     for output in func.outputs {
                         assigned_outputs.push(TypedArg {
                             token: output.token,
+                            mutable: output.mutable,
                             ident: output.ident,
                             typ: output.typ.assign(token, map, types)?,
                         });
@@ -1043,7 +1045,6 @@ impl Type {
 
             for (tid, f) in fns {
                 let func = f.unchecked_function().clone();
-                // println!("Type Checking {}", func.name.lexeme);
                 let mut stack = vec![];
                 let mut frame = vec![];
 
@@ -1054,7 +1055,7 @@ impl Type {
                             FramedType {
                                 origin: arg.token.clone(),
                                 typ: arg.typ.clone(),
-                                mutable: false,
+                                mutable: arg.mutable.is_some(),
                             },
                         ))
                     });
@@ -1063,8 +1064,6 @@ impl Type {
                         .iter()
                         .for_each(|arg| stack.push(arg.typ.clone()));
                 }
-
-                // println!("    inputs: {:?}", stack);
 
                 let mut typed_body = vec![];
                 for expr in func.body.clone() {

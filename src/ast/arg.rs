@@ -43,6 +43,8 @@ use crate::{
 pub struct UntypedArg {
     /// The token of the argument
     pub token: Token,
+    /// An optional mutable keyword,
+    pub mutable: Option<Token>,
     /// An optional identifier.
     pub ident: Option<Token>,
 }
@@ -50,6 +52,7 @@ pub struct UntypedArg {
 #[derive(Debug, Clone)]
 pub struct TypedArg {
     pub token: Token,
+    pub mutable: Option<Token>,
     pub ident: Option<Token>,
     pub typ: TypeId,
 }
@@ -72,6 +75,7 @@ impl UntypedArg {
             let typ = TypeId::from_token(&arg.token, types, local_types)?;
             out.push(TypedArg {
                 token: arg.token,
+                mutable: arg.mutable,
                 ident: arg.ident,
                 typ,
             });

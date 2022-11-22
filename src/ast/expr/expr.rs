@@ -1,4 +1,4 @@
-use crate::ast::arg::{IdentArg, UntypedArg};
+use crate::ast::arg::UntypedArg;
 use crate::ast::stmt::StmtKind;
 use crate::error::HayError;
 use crate::lex::token::{Literal, Operator, Token};
@@ -6,8 +6,8 @@ use crate::types::{Frame, FramedType, Signature, Stack, Type, TypeId, TypeMap, U
 use std::collections::HashMap;
 
 use super::{
-    ExprAccessor, ExprCast, ExprIdent, ExprIf, ExprLiteral, ExprOperator, ExprSizeOf, ExprSyscall,
-    ExprUnary,
+    ExprAccessor, ExprAs, ExprCast, ExprIdent, ExprIf, ExprLiteral, ExprOperator, ExprSizeOf,
+    ExprSyscall, ExprUnary,
 };
 
 /// Haystack's Expression Representation
@@ -49,16 +49,6 @@ pub enum Expr {
     AnnotatedCall(ExprAnnotatedCall),
     SizeOf(ExprSizeOf),
     Return(ExprReturn),
-}
-
-#[derive(Debug, Clone)]
-pub struct ExprAs {
-    /// Token of the `as` keyword
-    pub token: Token,
-    /// The non-empty list of identifiers.
-    pub idents: Vec<IdentArg>,
-    /// The optional temporary scope.
-    pub block: Option<Vec<Expr>>,
 }
 
 #[derive(Debug, Clone)]
@@ -242,74 +232,10 @@ impl Expr {
 
                 Ok(TypedExpr::Call { func: tid.0 })
             }
-            Expr::As(ExprAs {
-                token,
-                idents,
-                block,
-            }) => {
-                let initial_frame = frame.clone();
-                if stack.len() < idents.len() {
-                    let e = HayError::new_type_err(
-                        "Insufficient elements on the stack to bind",
-                        token.loc,
-                    )
-                    .with_hint(format!(
-                        "Expected {} elements to bind to idents: {:?}",
-                        idents.len(),
-                        idents
-                            .iter()
-                            .map(|arg| &arg.token.lexeme)
-                            .collect::<Vec<&String>>()
-                    ))
-                    .with_hint(format!("Found: {:?}", stack));
-
-                    return Err(e);
-                }
-
-                let mut typed_args = vec![];
-                idents.iter().rev().for_each(|arg| {
-                    let t = stack.pop().unwrap();
-                    frame.push((
-                        arg.token.lexeme.clone(),
-                        FramedType {
-                            origin: arg.token.clone(),
-                            typ: t.clone(),
-                            mutable: arg.mutable.is_some(),
-                        },
-                    ));
-                    typed_args.push(t);
-                });
-
-                let mut typed_block = None;
-                if let Some(blk) = block {
-                    let mut tmp = vec![];
-                    for e in blk {
-                        tmp.push(e.type_check(
-                            stack,
-                            frame,
-                            func,
-                            global_env,
-                            types,
-                            generic_map,
-                        )?);
-                    }
-
-                    for _ in 0..idents.len() {
-                        frame.pop();
-                    }
-
-                    typed_block = Some(tmp);
-                    *frame = initial_frame;
-                }
-
-                Ok(TypedExpr::As {
-                    args: typed_args,
-                    block: typed_block,
-                })
-            }
+            Expr::As(e) => e.type_check(stack, frame, func, global_env, types, generic_map),
             Expr::Cast(e) => e.type_check(stack, types, generic_map),
             Expr::Ident(e) => e.type_check(stack, frame, types, global_env),
-            Expr::If(e) => e.type_check(stack, frame, types, func, global_env, generic_map),
+            Expr::If(e) => e.type_check(stack, frame, func, global_env, types, generic_map),
             Expr::Literal(e) => e.type_check(stack),
             Expr::Unary(e) => e.type_check(stack, frame, types, func),
             Expr::Operator(e) => e.type_check(stack, types),

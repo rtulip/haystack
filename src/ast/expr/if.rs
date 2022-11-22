@@ -27,9 +27,9 @@ impl ExprIf {
         self,
         stack: &mut Stack,
         frame: &mut Frame,
-        types: &mut TypeMap,
         func: &UncheckedFunction,
         global_env: &HashMap<String, (StmtKind, Signature)>,
+        types: &mut TypeMap,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<TypedExpr, HayError> {
         let sig = Signature::new(vec![Type::Bool.id()], vec![]);

@@ -1,4 +1,5 @@
 mod accessor;
+mod r#as;
 mod cast;
 mod expr;
 mod ident;
@@ -15,6 +16,7 @@ pub use expr::*;
 pub use ident::*;
 pub use literal::*;
 pub use operator::*;
+pub use r#as::*;
 pub use r#if::*;
 pub use size_of::*;
 pub use syscall::*;

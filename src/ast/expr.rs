@@ -30,11 +30,7 @@ use super::stmt::StmtKind;
 /// * [`Expr::Return`] returns from a function.
 #[derive(Debug, Clone)]
 pub enum Expr {
-    Literal {
-        /// The token where the literal value is instantiated.
-        /// Note: the token kind will be [`TokenKind::Literal`]
-        value: Token,
-    },
+    Literal(ExprLiteral),
     Operator {
         /// The token of the operator.
         op: Token,
@@ -134,10 +130,18 @@ pub enum Expr {
     },
 }
 
+#[derive(Debug, Clone)]
+pub struct ExprLiteral{
+    pub literal: Literal,
+    pub token: Token,
+}
+
 impl Expr {
+    
+    /// Helper function to quickly get the most pertinent token from an [`Expr`]
     pub fn token(&self) -> &Token {
         match self {
-            Expr::Literal { value: token }
+            Expr::Literal(ExprLiteral { token, .. })
             | Expr::Operator { op: token }
             | Expr::Syscall { token, .. }
             | Expr::Cast { token, .. }
@@ -156,9 +160,111 @@ impl Expr {
             Expr::Unary { op, .. } => op.token(),
         }
     }
-}
 
-impl Expr {
+
+    fn type_check_accessor_expression(
+        token: Token,
+        ident: Token,
+        inner: Vec<Token>,
+        stack: &mut Vec<TypeId>,
+        frame: &mut Vec<(String, FramedType)>,
+        func: &UncheckedFunction,
+        types: &mut TypeMap,
+    ) -> Result<TypedExpr, HayError> {
+        // Three cases for an accessor
+        // 1. Ident is a framed record or pointer
+        // 2. Ident is an enum found in types.
+        // 3. Ident is unrecognized.
+
+        if let Some((i, (_, ft))) = frame
+            .iter()
+            .enumerate()
+            .find(|(_, (k, _))| k == &ident.lexeme)
+        {
+            match types.get(&ft.typ).unwrap() {
+                Type::Record { .. } => {
+                    let final_tid = ft
+                        .typ
+                        .type_check_inner_accessors(token, &inner, func, types)?;
+
+                    stack.push(final_tid);
+                    Ok(TypedExpr::Framed {
+                        frame: frame.clone(),
+                        idx: i,
+                        inner: Some(inner.iter().map(|t| t.lexeme.clone()).collect()),
+                    })
+                }
+                Type::Pointer {
+                    inner: pointer_inner_tid,
+                    mutable: pointer_inner_mut,
+                } => {
+                    let final_tid = pointer_inner_tid
+                        .type_check_inner_accessors(token, &inner, func, types)?;
+
+                    let ptr_type = Type::Pointer {
+                        inner: final_tid,
+                        mutable: *pointer_inner_mut,
+                    };
+                    let ptr_tid = ptr_type.id();
+                    types.insert(ptr_type.id(), ptr_type);
+                    stack.push(ptr_tid);
+                    Ok(TypedExpr::FramedPointerOffset {
+                        frame: frame.clone(),
+                        idx: i,
+                        inner: inner.iter().map(|t| t.lexeme.clone()).collect(),
+                    })
+                }
+                _ => Err(HayError::new_type_err(
+                    format!("Cannot access into non-record type `{ft}`"),
+                    token.loc,
+                )),
+            }
+        } else if let Some(Type::Enum { variants, .. }) =
+            types.get(&TypeId::new(&ident.lexeme))
+        {
+            if inner.len() != 1 {
+                return Err(HayError::new(
+                    "Cannot have multiple inner accessor for an enum type.",
+                    token.loc,
+                )
+                .with_hint(format!(
+                    "Found accessors: {:?}",
+                    inner.iter().map(|t| &t.lexeme).collect::<Vec<&String>>()
+                )));
+            }
+
+            if !variants.iter().any(|v| v.lexeme == inner[0].lexeme) {
+                return Err(HayError::new(
+                    format!("Unknown enum variant `{}`", inner[0].lexeme),
+                    token.loc,
+                )
+                .with_hint(format!(
+                    "Enum {} has variants: {:?}",
+                    ident.lexeme,
+                    variants.iter().map(|t| &t.lexeme).collect::<Vec<&String>>()
+                )));
+            }
+
+            stack.push(TypeId::new(&ident.lexeme));
+
+            Ok(TypedExpr::Enum {
+                typ: TypeId::new(&ident.lexeme),
+                variant: variants
+                    .iter()
+                    .find(|t| t.lexeme == inner[0].lexeme)
+                    .unwrap()
+                    .lexeme
+                    .clone(),
+            })
+        } else {
+            Err(HayError::new(
+                format!("Unknown identifier `{}`", ident.lexeme),
+                token.loc,
+            ))
+        }
+    }
+
+    /// Type checks an expression
     pub fn type_check(
         self,
         stack: &mut Vec<TypeId>,
@@ -168,6 +274,8 @@ impl Expr {
         types: &mut TypeMap,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<TypedExpr, HayError> {
+        // If the stack has a Never type this expression is unreachable.
+        // Don't allow unreachable expressions.
         if stack.contains(&Type::Never.id()) {
             return Err(HayError::new(
                 "Unreachable expression.",
@@ -175,98 +283,20 @@ impl Expr {
             ));
         }
 
+        // Type checking is different for each kind of expression.
         match self {
             Expr::Accessor {
                 token,
                 ident,
                 inner,
             } => {
-                if let Some((i, (_, ft))) = frame
-                    .iter()
-                    .enumerate()
-                    .find(|(_, (k, _))| k == &ident.lexeme)
-                {
-                    match types.get(&ft.typ).unwrap() {
-                        Type::Record { .. } => {
-                            let final_tid = ft
-                                .typ
-                                .type_check_inner_accessors(token, &inner, func, types)?;
-
-                            stack.push(final_tid);
-                            Ok(TypedExpr::Framed {
-                                frame: frame.clone(),
-                                idx: i,
-                                inner: Some(inner.iter().map(|t| t.lexeme.clone()).collect()),
-                            })
-                        }
-                        Type::Pointer {
-                            inner: pointer_inner_tid,
-                            mutable: pointer_inner_mut,
-                        } => {
-                            let final_tid = pointer_inner_tid
-                                .type_check_inner_accessors(token, &inner, func, types)?;
-
-                            let ptr_type = Type::Pointer {
-                                inner: final_tid,
-                                mutable: *pointer_inner_mut,
-                            };
-                            let ptr_tid = ptr_type.id();
-                            types.insert(ptr_type.id(), ptr_type);
-                            stack.push(ptr_tid);
-                            Ok(TypedExpr::FramedPointerOffset {
-                                frame: frame.clone(),
-                                idx: i,
-                                inner: inner.iter().map(|t| t.lexeme.clone()).collect(),
-                            })
-                        }
-                        _ => Err(HayError::new_type_err(
-                            format!("Cannot access into non-record type `{ft}`"),
-                            token.loc,
-                        )),
-                    }
-                } else if let Some(Type::Enum { variants, .. }) =
-                    types.get(&TypeId::new(&ident.lexeme))
-                {
-                    if inner.len() != 1 {
-                        return Err(HayError::new(
-                            "Cannot have multiple inner accessor for an enum type.",
-                            token.loc,
-                        )
-                        .with_hint(format!(
-                            "Found accessors: {:?}",
-                            inner.iter().map(|t| &t.lexeme).collect::<Vec<&String>>()
-                        )));
-                    }
-
-                    if !variants.iter().any(|v| v.lexeme == inner[0].lexeme) {
-                        return Err(HayError::new(
-                            format!("Unknown enum variant `{}`", inner[0].lexeme),
-                            token.loc,
-                        )
-                        .with_hint(format!(
-                            "Enum {} has variants: {:?}",
-                            ident.lexeme,
-                            variants.iter().map(|t| &t.lexeme).collect::<Vec<&String>>()
-                        )));
-                    }
-
-                    stack.push(TypeId::new(&ident.lexeme));
-
-                    Ok(TypedExpr::Enum {
-                        typ: TypeId::new(&ident.lexeme),
-                        variant: variants
-                            .iter()
-                            .find(|t| t.lexeme == inner[0].lexeme)
-                            .unwrap()
-                            .lexeme
-                            .clone(),
-                    })
-                } else {
-                    Err(HayError::new(
-                        format!("Unknown identifier `{}`", ident.lexeme),
-                        token.loc,
-                    ))
-                }
+                Expr::type_check_accessor_expression(
+                    token, ident, inner,
+                    stack,
+                    frame,
+                    func,
+                    types
+                )
             }
             Expr::AnnotatedCall {
                 token,
@@ -735,26 +765,16 @@ impl Expr {
                     finally: typed_finally,
                 })
             }
-            Expr::Literal { value } => {
-                if let TokenKind::Literal(lit) = &value.kind {
-                    match lit {
-                        Literal::Bool(_) => stack.push(Type::Bool.id()),
-                        Literal::Char(_) => stack.push(Type::Char.id()),
-                        Literal::U64(_) => stack.push(Type::U64.id()),
-                        Literal::U8(_) => stack.push(Type::U8.id()),
-                        Literal::String(_) => stack.push(TypeId::new("Str")),
-                    }
-
-                    Ok(TypedExpr::Literal { value: lit.clone() })
-                } else {
-                    Err(HayError::new(
-                        format!(
-                            "Logic Error -- Literal without TokenKind::Literal. Found {} instead",
-                            value.kind
-                        ),
-                        value.loc.clone(),
-                    ))
+            Expr::Literal(ExprLiteral { literal, .. }) => {
+                match &literal {
+                    Literal::Bool(_) => stack.push(Type::Bool.id()),
+                    Literal::Char(_) => stack.push(Type::Char.id()),
+                    Literal::U64(_) => stack.push(Type::U64.id()),
+                    Literal::U8(_) => stack.push(Type::U8.id()),
+                    Literal::String(_) => stack.push(TypeId::new("Str")),
                 }
+
+                Ok(TypedExpr::Literal { value: literal })
             }
             Expr::Unary { op: op_expr, expr } => {
                 let op_tok = op_expr.token().clone();
@@ -1483,7 +1503,7 @@ impl Expr {
 impl std::fmt::Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Expr::Literal { value: token }
+            Expr::Literal(ExprLiteral { token,..  })
             | Expr::Operator { op: token }
             | Expr::Syscall { token, .. }
             | Expr::Cast { token, .. }

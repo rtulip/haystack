@@ -6,6 +6,7 @@ use crate::types::{FnTag, RecordKind};
 use std::collections::HashSet;
 
 use super::arg::{IdentArg, UntypedArg};
+use super::expr::ExprLiteral;
 use super::member::UntypedMember;
 use super::visibility::Visitiliby;
 
@@ -576,7 +577,10 @@ impl<'a> Parser<'a> {
     fn expression(&mut self) -> Result<Box<Expr>, HayError> {
         let token = self.tokens.pop().unwrap();
         match &token.kind {
-            TokenKind::Literal(_) => Ok(Box::new(Expr::Literal { value: token })),
+            TokenKind::Literal(l) => Ok(Box::new(Expr::Literal(ExprLiteral {
+                literal: l.clone(),
+                token,
+            }))),
             TokenKind::Syscall(n) => {
                 let n = *n;
                 Ok(Box::new(Expr::Syscall { token, n }))

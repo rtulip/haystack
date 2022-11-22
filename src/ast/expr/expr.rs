@@ -1,9 +1,11 @@
 use crate::error::HayError;
 use crate::lex::token::{Keyword, Literal, Operator, Token};
-use crate::types::{FramedType, RecordKind, Signature, Type, TypeId, TypeMap, UncheckedFunction};
+use crate::types::{FramedType, RecordKind, Signature, Type, TypeId, TypeMap, UncheckedFunction, Stack, Frame};
 use std::collections::HashMap;
-use super::arg::{IdentArg, UntypedArg};
-use super::stmt::StmtKind;
+use crate::ast::arg::{IdentArg, UntypedArg};
+use crate::ast::stmt::StmtKind;
+
+use super::ExprLiteral;
 
 /// Haystack's Expression Representation
 /// 
@@ -44,12 +46,6 @@ pub enum Expr {
     AnnotatedCall(ExprAnnotatedCall),
     SizeOf(ExprSizeOf),
     Return(ExprReturn),
-}
-
-#[derive(Debug, Clone)]
-pub struct ExprLiteral {
-    pub literal: Literal,
-    pub token: Token,
 }
 
 #[derive(Debug, Clone)]
@@ -292,8 +288,8 @@ impl Expr {
     /// Type checks an expression
     pub fn type_check(
         self,
-        stack: &mut Vec<TypeId>,
-        frame: &mut Vec<(String, FramedType)>,
+        stack: &mut Stack,
+        frame: &mut Frame,
         func: &UncheckedFunction,
         global_env: &HashMap<String, (StmtKind, Signature)>,
         types: &mut TypeMap,
@@ -792,17 +788,7 @@ impl Expr {
                     finally: typed_finally,
                 })
             }
-            Expr::Literal(ExprLiteral { literal, .. }) => {
-                match &literal {
-                    Literal::Bool(_) => stack.push(Type::Bool.id()),
-                    Literal::Char(_) => stack.push(Type::Char.id()),
-                    Literal::U64(_) => stack.push(Type::U64.id()),
-                    Literal::U8(_) => stack.push(Type::U8.id()),
-                    Literal::String(_) => stack.push(TypeId::new("Str")),
-                }
-
-                Ok(TypedExpr::Literal { value: literal })
-            }
+            Expr::Literal(e) => e.type_check(stack),
             Expr::Unary( ExprUnary { op: ExprOperator { op, token: op_tok }, expr }) => {
                 match (&op, *expr) {
                     (Operator::Ampersand | Operator::Star, Expr::Accessor(ExprAccessor { ident, inner, .. })) => {

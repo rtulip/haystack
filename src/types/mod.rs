@@ -14,6 +14,8 @@ use std::collections::BTreeMap;
 pub use type_id::*;
 
 pub type TypeMap = BTreeMap<TypeId, Type>;
+pub type Stack = Vec<TypeId>;
+pub type Frame = Vec<(String, FramedType)>;
 
 mod tests {
 

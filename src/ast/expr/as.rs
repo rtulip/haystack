@@ -36,7 +36,7 @@ impl ExprAs {
                 self.token.loc,
             )
             .with_hint(format!(
-                "Expected {} elements to bind to self.idents: {:?}",
+                "Expected {} elements to bind to idents: {:?}",
                 self.idents.len(),
                 self.idents
                     .iter()

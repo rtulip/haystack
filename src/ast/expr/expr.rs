@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use super::{
     ExprAccessor, ExprAs, ExprCast, ExprIdent, ExprIf, ExprLiteral, ExprOperator, ExprSizeOf,
-    ExprSyscall, ExprUnary,
+    ExprSyscall, ExprUnary, ExprVar,
 };
 
 /// Haystack's Expression Representation
@@ -49,16 +49,6 @@ pub enum Expr {
     AnnotatedCall(ExprAnnotatedCall),
     SizeOf(ExprSizeOf),
     Return(ExprReturn),
-}
-
-#[derive(Debug, Clone)]
-pub struct ExprVar {
-    /// The token of the `var` keyword
-    pub token: Token,
-    /// The token of the type of the var
-    pub typ: Token,
-    /// The token of the name of the var.
-    pub ident: Token,
 }
 
 #[derive(Debug, Clone)]
@@ -241,49 +231,7 @@ impl Expr {
             Expr::Operator(e) => e.type_check(stack, types),
             Expr::SizeOf(e) => e.type_check(stack, types, generic_map),
             Expr::Syscall(e) => e.type_check(stack, types),
-            Expr::Var(ExprVar { typ, ident, .. }) => {
-                let typ_id = TypeId::from_token(&typ, types, &vec![])?;
-                if types.get(&typ_id).is_none() {
-                    return Err(HayError::new(
-                        format!("Unrecognized type `{typ_id}`"),
-                        typ.loc.clone(),
-                    ));
-                }
-
-                let ptr = Type::Pointer {
-                    inner: typ_id.clone(),
-                    mutable: true,
-                };
-                let id = ptr.id();
-
-                if !types.contains_key(&id) {
-                    types.insert(id.clone(), ptr);
-                }
-
-                let origin = ident.clone();
-                frame.push((
-                    ident.lexeme,
-                    FramedType {
-                        origin,
-                        typ: id,
-                        mutable: false,
-                    },
-                ));
-
-                let typ_size = typ_id.size(types)?;
-                let data = if let Some((dimension, tt)) = typ.dimension()? {
-                    let inner_typ = TypeId::from_type_token(&typ, &tt, types, &vec![])?;
-                    Some((inner_typ.size(types)? * dimension, inner_typ.width()))
-                } else {
-                    None
-                };
-
-                Ok(TypedExpr::Var {
-                    size: typ_size,
-                    width: typ_id.width(),
-                    data,
-                })
-            }
+            Expr::Var(e) => e.type_check(frame, types),
             Expr::While(ExprWhile { token, cond, body }) => {
                 let stack_before = stack.clone();
                 let frame_before = frame.clone();

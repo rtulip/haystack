@@ -9,6 +9,7 @@ mod operator;
 mod size_of;
 mod syscall;
 mod unary;
+mod var;
 
 pub use accessor::*;
 pub use cast::*;
@@ -21,3 +22,4 @@ pub use r#if::*;
 pub use size_of::*;
 pub use syscall::*;
 pub use unary::*;
+pub use var::*;

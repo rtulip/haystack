@@ -1,0 +1,173 @@
+use std::collections::HashMap;
+
+use crate::{
+    ast::stmt::StmtKind,
+    error::HayError,
+    lex::token::Token,
+    types::{Frame, Signature, Stack, Type, TypeId, TypeMap, UncheckedFunction},
+};
+
+use super::{Expr, TypedExpr};
+
+#[derive(Debug, Clone)]
+pub struct ExprIf {
+    /// Token of the `If` keyword
+    pub token: Token,
+    /// A list of expressions to execute if true.
+    pub then: Vec<Expr>,
+    /// A list of expressions for each else-if case
+    /// Note: these are guaranteed to be [`Expr::ElseIf`]
+    pub otherwise: Vec<ExprElseIf>,
+    /// An optional final `else` case.
+    pub finally: Option<Vec<Expr>>,
+}
+
+impl ExprIf {
+    pub fn type_check(
+        self,
+        stack: &mut Stack,
+        frame: &mut Frame,
+        types: &mut TypeMap,
+        func: &UncheckedFunction,
+        global_env: &HashMap<String, (StmtKind, Signature)>,
+        generic_map: &Option<HashMap<TypeId, TypeId>>,
+    ) -> Result<TypedExpr, HayError> {
+        let sig = Signature::new(vec![Type::Bool.id()], vec![]);
+        sig.evaluate(&self.token, stack, types)?;
+
+        let initial_stack = stack.clone();
+        let initial_frame = frame.clone();
+
+        let mut end_stacks = vec![];
+
+        let mut typed_then = vec![];
+        let then_end_tok = match self.then.iter().last() {
+            Some(e) => e.token().clone(),
+            None => self.token.clone(),
+        };
+        for e in self.then {
+            typed_then.push(e.type_check(stack, frame, func, global_env, types, generic_map)?);
+        }
+
+        if !stack.contains(&Type::Never.id()) {
+            end_stacks.push((self.token.clone(), stack.clone()));
+        }
+
+        let mut typed_otherwise = vec![];
+        for case in self.otherwise {
+            let case_token = case.token.clone();
+            *stack = initial_stack.clone();
+            *frame = initial_frame.clone();
+
+            typed_otherwise.push(case.type_check(
+                stack,
+                frame,
+                types,
+                func,
+                global_env,
+                generic_map,
+            )?);
+
+            if !stack.contains(&Type::Never.id()) {
+                end_stacks.push((case_token, stack.clone()));
+            }
+        }
+
+        let mut typed_finally = None;
+        if let Some(finally) = self.finally {
+            let first_tok = finally[0].token().clone();
+            *stack = initial_stack;
+            *frame = initial_frame.clone();
+            let mut tmp = vec![];
+            for e in finally {
+                tmp.push(e.type_check(stack, frame, func, global_env, types, generic_map)?);
+            }
+
+            typed_finally = Some(tmp);
+            if !stack.contains(&Type::Never.id()) {
+                end_stacks.push((first_tok, stack.clone()));
+            }
+        } else {
+            *stack = initial_stack.clone();
+            end_stacks.push((then_end_tok, initial_stack));
+        }
+
+        if !(0..end_stacks.len() - 1)
+            .into_iter()
+            .all(|i| end_stacks[i].1 == end_stacks[i + 1].1)
+        {
+            let mut err = HayError::new_type_err(
+                "If block creates stacks of diferent shapes",
+                self.token.loc,
+            )
+            .with_hint("Each branch of if block must evaluate to the same stack layout.");
+
+            for (i, (tok, stk)) in end_stacks.iter().enumerate() {
+                err = err.with_hint(format!("{} Branch {}: {:?}", tok.loc, i + 1, stk));
+            }
+
+            return Err(err);
+        }
+
+        *frame = initial_frame;
+
+        Ok(TypedExpr::If {
+            then: typed_then,
+            otherwise: typed_otherwise,
+            finally: typed_finally,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ExprElseIf {
+    /// Token of the `else` keyword
+    pub token: Token,
+    /// The expressions to evaluate before the next `if`.
+    pub condition: Vec<Expr>,
+    /// The body of the `else` expression
+    pub block: Vec<Expr>,
+}
+
+impl ExprElseIf {
+    fn type_check(
+        self,
+        stack: &mut Stack,
+        frame: &mut Frame,
+        types: &mut TypeMap,
+        func: &UncheckedFunction,
+        global_env: &HashMap<String, (StmtKind, Signature)>,
+        generic_map: &Option<HashMap<TypeId, TypeId>>,
+    ) -> Result<TypedExpr, HayError> {
+        let mut typed_condition = vec![];
+        for expr in self.condition {
+            typed_condition.push(expr.type_check(
+                stack,
+                frame,
+                func,
+                global_env,
+                types,
+                generic_map,
+            )?);
+        }
+
+        Signature::new(vec![Type::Bool.id()], vec![]).evaluate(&self.token, stack, types)?;
+
+        let mut typed_block = vec![];
+        for expr in self.block {
+            typed_block.push(expr.type_check(
+                stack,
+                frame,
+                func,
+                global_env,
+                types,
+                generic_map,
+            )?);
+        }
+
+        Ok(TypedExpr::ElseIf {
+            condition: typed_condition,
+            block: typed_block,
+        })
+    }
+}

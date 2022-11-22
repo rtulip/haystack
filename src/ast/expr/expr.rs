@@ -1,4 +1,3 @@
-use crate::ast::arg::UntypedArg;
 use crate::ast::stmt::StmtKind;
 use crate::error::HayError;
 use crate::lex::token::{Literal, Operator, Token};
@@ -6,8 +5,8 @@ use crate::types::{Frame, FramedType, Signature, Stack, Type, TypeId, TypeMap, U
 use std::collections::HashMap;
 
 use super::{
-    ExprAccessor, ExprAs, ExprCast, ExprIdent, ExprIf, ExprLiteral, ExprOperator, ExprSizeOf,
-    ExprSyscall, ExprUnary, ExprVar, ExprWhile,
+    ExprAccessor, ExprAnnotatedCall, ExprAs, ExprCast, ExprIdent, ExprIf, ExprLiteral,
+    ExprOperator, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile,
 };
 
 /// Haystack's Expression Representation
@@ -49,16 +48,6 @@ pub enum Expr {
     AnnotatedCall(ExprAnnotatedCall),
     SizeOf(ExprSizeOf),
     Return(ExprReturn),
-}
-
-#[derive(Debug, Clone)]
-pub struct ExprAnnotatedCall {
-    /// The token for the entire annotated call.
-    pub token: Token,
-    /// The base identifier token
-    pub base: Token,
-    /// The list of annotations
-    pub annotations: Vec<UntypedArg>,
 }
 
 #[derive(Debug, Clone)]
@@ -112,106 +101,7 @@ impl Expr {
         // Type checking is different for each kind of expression.
         match self {
             Expr::Accessor(e) => e.type_check(stack, frame, func, types),
-            Expr::AnnotatedCall(ExprAnnotatedCall {
-                token,
-                base,
-                annotations,
-            }) => {
-                let (_, mut sig) = global_env
-                    .get(&base.lexeme)
-                    .unwrap_or_else(|| panic!("Should have found function: {base}"))
-                    .clone();
-
-                let (annotations, tid) = if annotations
-                    .iter()
-                    .any(|arg| TypeId::new(&arg.token.lexeme).is_generic(types))
-                {
-                    if let Some(map) = generic_map {
-                        let ann = annotations
-                            .iter()
-                            .map(|arg| {
-                                let tid = TypeId::new(&arg.token.lexeme);
-                                tid.assign(&token, map, types)
-                            })
-                            .collect::<Vec<Result<TypeId, HayError>>>();
-
-                        let gen_fn_tid = TypeId::new(&base.lexeme);
-                        let func = gen_fn_tid.assign(&token, map, types)?;
-
-                        (ann, func)
-                    } else {
-                        return Err(HayError::new_type_err(
-                            "Unresolved generic types in annotations",
-                            token.loc.clone(),
-                        )
-                        .with_hint(format!(
-                            "Found annotations: {:?}",
-                            annotations
-                                .iter()
-                                .map(|arg| &arg.token.lexeme)
-                                .collect::<Vec<&String>>()
-                        ))
-                        .with_hint(format!(
-                            "         Of which: {:?} are generic",
-                            annotations
-                                .iter()
-                                .map(|arg| TypeId::new(&arg.token.lexeme))
-                                .filter(|tid| tid.is_generic(types))
-                                .map(|t| t.0)
-                                .collect::<Vec<String>>()
-                        )));
-                    }
-                } else {
-                    let ann = annotations
-                        .iter()
-                        .map(|arg| Ok(TypeId::new(&arg.token.lexeme)))
-                        .collect::<Vec<Result<TypeId, HayError>>>();
-                    let gen_fn_tid = TypeId::new(&base.lexeme);
-                    let func = if let Ok(func) = types
-                        .get(&gen_fn_tid)
-                        .unwrap_or_else(|| panic!("bad generic_fn_tid: {gen_fn_tid}"))
-                        .try_generic_function(&token)
-                    {
-                        let map: HashMap<TypeId, TypeId> = HashMap::from_iter(
-                            func.generics
-                                .iter()
-                                .zip(&annotations)
-                                .map(|(k, v)| (k.clone(), TypeId::new(&v.token.lexeme))),
-                        );
-
-                        gen_fn_tid.assign(&token, &map, types)?
-                    } else {
-                        return Err(HayError::new_type_err(
-                            format!(
-                                "Cannot provide annotations to non generic function `{}`",
-                                base.lexeme
-                            ),
-                            token.loc.clone(),
-                        ));
-                    };
-
-                    (ann, func)
-                };
-
-                for ann in &annotations {
-                    if let Err(e) = ann {
-                        return Err(e.clone());
-                    }
-                }
-
-                let annotations = annotations
-                    .into_iter()
-                    .map(|a| if let Ok(tid) = a { tid } else { unreachable!() })
-                    .collect::<Vec<TypeId>>();
-
-                sig.assign(&token, &annotations, types)?;
-
-                if let Some(_map) = sig.evaluate(&token, stack, types)? {
-                    todo!("Make a concrete version of the call")
-                }
-
-                Ok(TypedExpr::Call { func: tid.0 })
-            }
+            Expr::AnnotatedCall(e) => e.type_check(stack, global_env, types, generic_map),
             Expr::As(e) => e.type_check(stack, frame, func, global_env, types, generic_map),
             Expr::Cast(e) => e.type_check(stack, types, generic_map),
             Expr::Ident(e) => e.type_check(stack, frame, types, global_env),

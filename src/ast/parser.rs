@@ -6,7 +6,10 @@ use crate::types::{FnTag, RecordKind};
 use std::collections::HashSet;
 
 use super::arg::{IdentArg, UntypedArg};
-use super::expr::ExprLiteral;
+use super::expr::{
+    ExprAccessor, ExprAnnotatedCall, ExprAs, ExprCast, ExprElseIf, ExprIdent, ExprIf, ExprLiteral,
+    ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile,
+};
 use super::member::UntypedMember;
 use super::visibility::Visitiliby;
 
@@ -62,10 +65,13 @@ impl<'a> Parser<'a> {
     fn unary(&mut self, op: Token) -> Result<Box<Expr>, HayError> {
         let expr = self.expression()?;
 
-        Ok(Box::new(Expr::Unary {
-            op: Box::new(Expr::Operator { op }),
+        Ok(Box::new(Expr::Unary(ExprUnary {
+            op: ExprOperator {
+                op: op.operator()?,
+                token: op,
+            },
             expr,
-        }))
+        })))
     }
 
     fn declaration(&mut self) -> Result<Vec<Stmt>, HayError> {
@@ -581,10 +587,7 @@ impl<'a> Parser<'a> {
                 literal: l.clone(),
                 token,
             }))),
-            TokenKind::Syscall(n) => {
-                let n = *n;
-                Ok(Box::new(Expr::Syscall { token, n }))
-            }
+            TokenKind::Syscall(n) => Ok(Box::new(Expr::Syscall(ExprSyscall { n: *n, token }))),
             TokenKind::Ident(_) => {
                 let mut new_token = token.clone();
                 let mut inners = vec![];
@@ -640,11 +643,11 @@ impl<'a> Parser<'a> {
                                 ),
                             };
 
-                            return Ok(Box::new(Expr::AnnotatedCall {
+                            return Ok(Box::new(Expr::AnnotatedCall(ExprAnnotatedCall {
                                 token: new_token,
                                 base: token,
                                 annotations,
-                            }));
+                            })));
                         }
                         TokenKind::Ident(_) => {
                             let new_lexeme =
@@ -680,24 +683,27 @@ impl<'a> Parser<'a> {
                 }
 
                 if inners.is_empty() {
-                    Ok(Box::new(Expr::Ident { ident: token }))
+                    Ok(Box::new(Expr::Ident(ExprIdent { ident: token })))
                 } else {
-                    Ok(Box::new(Expr::Accessor {
+                    Ok(Box::new(Expr::Accessor(ExprAccessor {
                         token: new_token,
                         ident: token,
                         inner: inners,
-                    }))
+                    })))
                 }
             }
             TokenKind::Operator(Operator::Unary(op)) => self.unary(*op.clone()),
-            TokenKind::Operator(_) => Ok(Box::new(Expr::Operator { op: token })),
+            TokenKind::Operator(op) => Ok(Box::new(Expr::Operator(ExprOperator {
+                op: op.clone(),
+                token,
+            }))),
             TokenKind::Keyword(Keyword::Cast) => self.cast(token),
             TokenKind::Keyword(Keyword::If) => self.if_block(token),
             TokenKind::Keyword(Keyword::As) => self.as_block(token),
-            TokenKind::Keyword(Keyword::Var) => self.var(token),
+            TokenKind::Keyword(Keyword::Var) => Ok(Box::new(Expr::Var(self.var(token)?))),
             TokenKind::Keyword(Keyword::While) => self.parse_while(token),
             TokenKind::Keyword(Keyword::SizeOf) => self.size_of(token),
-            TokenKind::Keyword(Keyword::Return) => Ok(Box::new(Expr::Return { token })),
+            TokenKind::Keyword(Keyword::Return) => Ok(Box::new(Expr::Return(ExprReturn { token }))),
             kind => Err(HayError::new(
                 format!("Not sure how to parse expression from {} yet", kind),
                 token.loc,
@@ -765,7 +771,7 @@ impl<'a> Parser<'a> {
             ),
         };
 
-        Ok(Box::new(Expr::Cast { token, typ }))
+        Ok(Box::new(Expr::Cast(ExprCast { token, typ })))
     }
 
     // enum -> "enum" IDENT "{" IDENT+ "}"
@@ -1042,8 +1048,8 @@ impl<'a> Parser<'a> {
                     let cond = self.else_if_condition()?;
                     let body = self.block()?;
 
-                    otherwise.push(Expr::ElseIf {
-                        else_tok,
+                    otherwise.push(ExprElseIf {
+                        token: else_tok,
                         condition: cond,
                         block: body,
                     });
@@ -1051,12 +1057,12 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Ok(Box::new(Expr::If {
+        Ok(Box::new(Expr::If(ExprIf {
             token,
             then,
             otherwise,
             finally,
-        }))
+        })))
     }
 
     fn else_if_condition(&mut self) -> Result<Vec<Expr>, HayError> {
@@ -1108,14 +1114,14 @@ impl<'a> Parser<'a> {
             None
         };
 
-        Ok(Box::new(Expr::As {
+        Ok(Box::new(Expr::As(ExprAs {
             token,
             idents,
             block,
-        }))
+        })))
     }
 
-    fn var(&mut self, token: Token) -> Result<Box<Expr>, HayError> {
+    fn var(&mut self, token: Token) -> Result<ExprVar, HayError> {
         let typ = match self.parse_type()? {
             Some(t) => t,
             None => {
@@ -1155,7 +1161,7 @@ impl<'a> Parser<'a> {
             }
         };
 
-        Ok(Box::new(Expr::Var { token, typ, ident }))
+        Ok(ExprVar { token, typ, ident })
     }
 
     fn parse_while(&mut self, token: Token) -> Result<Box<Expr>, HayError> {
@@ -1166,7 +1172,7 @@ impl<'a> Parser<'a> {
 
         let body = self.block()?;
 
-        Ok(Box::new(Expr::While { token, cond, body }))
+        Ok(Box::new(Expr::While(ExprWhile { token, cond, body })))
     }
 
     fn size_of(&mut self, token: Token) -> Result<Box<Expr>, HayError> {
@@ -1209,7 +1215,7 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        Ok(Box::new(Expr::SizeOf { token, typ }))
+        Ok(Box::new(Expr::SizeOf(ExprSizeOf { token, typ })))
     }
 }
 

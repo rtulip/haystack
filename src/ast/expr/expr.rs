@@ -1,19 +1,21 @@
-use crate::error::HayError;
-use crate::lex::token::{Keyword, Literal, Operator, Token};
-use crate::types::{FramedType, RecordKind, Signature, Type, TypeId, TypeMap, UncheckedFunction, Stack, Frame};
-use std::collections::HashMap;
 use crate::ast::arg::{IdentArg, UntypedArg};
 use crate::ast::stmt::StmtKind;
+use crate::error::HayError;
+use crate::lex::token::{Literal, Operator, Token};
+use crate::types::{
+    Frame, FramedType, RecordKind, Signature, Stack, Type, TypeId, TypeMap, UncheckedFunction,
+};
+use std::collections::HashMap;
 
-use super::{ExprLiteral, ExprOperator};
+use super::{ExprLiteral, ExprOperator, ExprUnary};
 
 /// Haystack's Expression Representation
-/// 
+///
 /// Every line of code in haystack that is not a top-level statement is an Expression.
-/// 
-/// During compilation, each `Expr` will be converted into a `TypedExpr`, which carries 
+///
+/// During compilation, each `Expr` will be converted into a `TypedExpr`, which carries
 /// over type information which is needed for code generation.
-/// 
+///
 /// Here's a summary of the different kinds of Expressions:
 /// * [`Expr::Literal`] represents literal values, such as integers, booleans, and strings
 /// * [`Expr::Operator`] represents the different operators, such as `+`, `-`, `@` and `!
@@ -46,12 +48,6 @@ pub enum Expr {
     AnnotatedCall(ExprAnnotatedCall),
     SizeOf(ExprSizeOf),
     Return(ExprReturn),
-}
-
-#[derive(Debug, Clone)]
-pub struct ExprUnary {
-    pub op: ExprOperator,
-    pub expr: Box<Expr>,
 }
 
 #[derive(Debug, Clone)]
@@ -116,11 +112,11 @@ pub struct ExprAs {
     /// The non-empty list of identifiers.
     pub idents: Vec<IdentArg>,
     /// The optional temporary scope.
-    pub block: Option<Vec<Expr>>,    
+    pub block: Option<Vec<Expr>>,
 }
 
 #[derive(Debug, Clone)]
-pub struct ExprVar  {
+pub struct ExprVar {
     /// The token of the `var` keyword
     pub token: Token,
     /// The token of the type of the var
@@ -155,7 +151,6 @@ pub struct ExprReturn {
 }
 
 impl Expr {
-    
     /// Helper function to quickly get the most pertinent token from an [`Expr`]
     pub fn token(&self) -> &Token {
         match self {
@@ -171,11 +166,13 @@ impl Expr {
             | Expr::While(ExprWhile { token, .. })
             | Expr::AnnotatedCall(ExprAnnotatedCall { token, .. })
             | Expr::SizeOf(ExprSizeOf { token, .. })
-            | Expr::Return(ExprReturn { token }) 
-            | Expr::Unary(ExprUnary { op: ExprOperator { token, .. }, ..}) => token,
+            | Expr::Return(ExprReturn { token })
+            | Expr::Unary(ExprUnary {
+                op: ExprOperator { token, .. },
+                ..
+            }) => token,
         }
     }
-
 
     fn type_check_accessor_expression(
         token: Token,
@@ -213,8 +210,8 @@ impl Expr {
                     inner: pointer_inner_tid,
                     mutable: pointer_inner_mut,
                 } => {
-                    let final_tid = pointer_inner_tid
-                        .type_check_inner_accessors(token, &inner, func, types)?;
+                    let final_tid =
+                        pointer_inner_tid.type_check_inner_accessors(token, &inner, func, types)?;
 
                     let ptr_type = Type::Pointer {
                         inner: final_tid,
@@ -234,9 +231,7 @@ impl Expr {
                     token.loc,
                 )),
             }
-        } else if let Some(Type::Enum { variants, .. }) =
-            types.get(&TypeId::new(&ident.lexeme))
-        {
+        } else if let Some(Type::Enum { variants, .. }) = types.get(&TypeId::new(&ident.lexeme)) {
             if inner.len() != 1 {
                 return Err(HayError::new(
                     "Cannot have multiple inner accessor for an enum type.",
@@ -305,13 +300,7 @@ impl Expr {
                 ident,
                 inner,
             }) => {
-                Expr::type_check_accessor_expression(
-                    token, ident, inner,
-                    stack,
-                    frame,
-                    func,
-                    types
-                )
+                Expr::type_check_accessor_expression(token, ident, inner, stack, frame, func, types)
             }
             Expr::AnnotatedCall(ExprAnnotatedCall {
                 token,
@@ -711,7 +700,6 @@ impl Expr {
 
                 let mut typed_otherwise = vec![];
                 for case in otherwise {
-                    
                     todo!();
                     // let case_token = case.token().clone();
                     // *stack = initial_stack.clone();
@@ -783,200 +771,8 @@ impl Expr {
                 })
             }
             Expr::Literal(e) => e.type_check(stack),
-            Expr::Unary( ExprUnary { op: ExprOperator { op, token: op_tok }, expr }) => {
-                match (&op, *expr) {
-                    (Operator::Ampersand | Operator::Star, Expr::Accessor(ExprAccessor { ident, inner, .. })) => {
-                        match frame
-                            .iter()
-                            .enumerate()
-                            .find(|(_, (id, _))| &ident.lexeme == id)
-                        {
-                            Some((
-                                idx,
-                                (
-                                    _,
-                                    FramedType {
-                                        origin,
-                                        typ,
-                                        mutable,
-                                    },
-                                ),
-                            )) => {
-                                if matches!((&op, mutable), (Operator::Star, false)) {
-                                    return Err(
-                                        HayError::new_type_err(
-                                            format!("Cannot take mutable reference to immutable ident: `{}`", ident.lexeme),
-                                            op_tok.loc
-                                        )
-                                        .with_hint_and_custom_note(
-                                            format!(
-                                                "Consider adding {} in binding of `{}`", 
-                                                Keyword::Mut, 
-                                                &ident.lexeme
-                                            ), 
-                                            format!("{}", &origin.loc)
-                                        )
-                                    );
-                                }
-
-                                let mut typ = typ;
-                                for inner_member in &inner {
-                                    if let Type::Record {
-                                        name,
-                                        members,
-                                        kind,
-                                        ..
-                                    } = types.get(typ).unwrap()
-                                    {
-                                        if let Some(m) = members
-                                            .iter()
-                                            .find(|m| m.ident.lexeme == inner_member.lexeme)
-                                        {
-                                            if !m.is_public() {
-                                                match &func.impl_on {
-                                        Some(typ) => if &m.parent != typ {
-                                            return Err(
-                                                HayError::new_type_err(
-                                                    format!("Cannot access {kind} `{}` member `{}` as it is declared as private.", name.lexeme, m.ident.lexeme),
-                                                    op_tok.loc
-                                                ).with_hint_and_custom_note(format!("{kind} `{}` declared here", name.lexeme), format!("{}", name.loc))
-                                            )
-                                        }
-                                        _ => return Err(
-                                            HayError::new_type_err(
-                                                format!("Cannot access {kind} `{}` member `{}` as it is declared as private.", name.lexeme, m.ident.lexeme),
-                                                op_tok.loc
-                                            ).with_hint_and_custom_note(format!("{kind} `{}` declared here", name.lexeme), format!("{}", name.loc))
-                                        )
-                                    }
-                                            }
-
-                                            typ = &m.typ;
-                                        } else {
-                                            return Err(HayError::new_type_err(
-                                                format!(
-                                                    "{} `{}` doesn't have a member `{}`",
-                                                    match kind {
-                                                        RecordKind::Union => "Union",
-                                                        RecordKind::Struct => "Struct",
-                                                    },
-                                                    name.lexeme,
-                                                    inner_member.lexeme,
-                                                ),
-                                                op_tok.loc,
-                                            )
-                                            .with_hint(format!(
-                                                "`{}` has the following members: {:?}",
-                                                name.lexeme,
-                                                members
-                                                    .iter()
-                                                    .map(|m| &m.ident.lexeme)
-                                                    .collect::<Vec<&String>>()
-                                            )));
-                                        }
-                                    } else {
-                                        return Err(HayError::new(
-                                            format!("Cannot access into non-record type `{typ}`"),
-                                            op_tok.loc,
-                                        ));
-                                    }
-                                }
-
-                                let ptr = Type::Pointer {
-                                    inner: typ.clone(),
-                                    mutable: match op {
-                                        Operator::Star => true,
-                                        Operator::Ampersand => false,
-                                        _ => unreachable!(),
-                                    },
-                                };
-                                let ptr_tid = ptr.id();
-
-                                types.insert(ptr_tid.clone(), ptr);
-                                stack.push(ptr_tid);
-
-                                Ok(TypedExpr::AddrFramed {
-                                    frame: frame.clone(),
-                                    idx,
-                                    inner: if inner.is_empty() {
-                                        None
-                                    } else {
-                                        Some(inner.iter().map(|t| t.lexeme.clone()).collect())
-                                    },
-                                })
-                            }
-                            None => Err(HayError::new_type_err(
-                                format!("Can't take address of unknown identifier: `{ident}`"),
-                                op_tok.loc,
-                            )),
-                        }
-                    }
-                    (Operator::Ampersand | Operator::Star, Expr::Ident (ExprIdent { ident })) => {
-                        match frame
-                            .iter()
-                            .enumerate()
-                            .find(|(_, (id, _))| &ident.lexeme == id)
-                        {
-                            Some((
-                                idx,
-                                (
-                                    _,
-                                    FramedType {
-                                        origin,
-                                        typ,
-                                        mutable,
-                                    },
-                                ),
-                            )) => {
-                                if matches!((&op, mutable), (Operator::Star, false)) {
-                                    return Err(
-                                        HayError::new_type_err(
-                                            format!("Cannot take mutable reference to immutable ident: `{}`", ident.lexeme),
-                                            op_tok.loc
-                                        )
-                                        .with_hint_and_custom_note(
-                                            format!(
-                                                "Consider adding {} in binding of `{}`", 
-                                                Keyword::Mut, 
-                                                &ident.lexeme
-                                            ), 
-                                            format!("{}", &origin.loc)
-                                        )
-                                    );
-                                }
-
-                                let ptr = Type::Pointer {
-                                    inner: typ.clone(),
-                                    mutable: match op {
-                                        Operator::Star => true,
-                                        Operator::Ampersand => false,
-                                        _ => unreachable!(),
-                                    },
-                                };
-                                let ptr_tid = ptr.id();
-
-                                types.insert(ptr_tid.clone(), ptr);
-                                stack.push(ptr_tid);
-
-                                Ok(TypedExpr::AddrFramed {
-                                    frame: frame.clone(),
-                                    idx,
-                                    inner: None,
-                                })
-                            }
-                            None => Err(HayError::new_type_err(
-                                format!(
-                                    "Can't take address of unknown identifier: `{}`",
-                                    ident.lexeme
-                                ),
-                                op_tok.loc,
-                            )),
-                        }
-                    }
-                    _ => unimplemented!(),
-                }
-            }
-            Expr::Operator(op) => op.type_check(stack, types),
+            Expr::Unary(e) => e.type_check(stack, frame, types, func),
+            Expr::Operator(e) => e.type_check(stack, types),
             Expr::SizeOf(ExprSizeOf { token, typ }) => {
                 let tid = match TypeId::from_token(&typ, types, &vec![]) {
                     Ok(tid) => tid,
@@ -1102,8 +898,14 @@ impl Expr {
                         "Frame cannot change within the while loop condition.",
                         token.loc.clone(),
                     )
-                    .with_hint(format!("Frame Before: {}", FramedType::frame_to_string(&frame_before)))
-                    .with_hint(format!("Frame After : {}", FramedType::frame_to_string(frame))));
+                    .with_hint(format!(
+                        "Frame Before: {}",
+                        FramedType::frame_to_string(&frame_before)
+                    ))
+                    .with_hint(format!(
+                        "Frame After : {}",
+                        FramedType::frame_to_string(frame)
+                    )));
                 }
 
                 if stack.contains(&Type::Never.id()) {
@@ -1178,10 +980,10 @@ impl Expr {
 impl std::fmt::Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Expr::Literal(ExprLiteral { token,..  })
+            Expr::Literal(ExprLiteral { token, .. })
             | Expr::Operator(ExprOperator { token, .. })
-            | Expr::Syscall (ExprSyscall{ token, .. })
-            | Expr::Cast (ExprCast { token, .. })
+            | Expr::Syscall(ExprSyscall { token, .. })
+            | Expr::Cast(ExprCast { token, .. })
             | Expr::Ident(ExprIdent { ident: token })
             | Expr::Accessor(ExprAccessor { token, .. })
             | Expr::If(ExprIf { token, .. })
@@ -1455,7 +1257,10 @@ mod tests {
 
     #[test]
     fn mutable_pointer_to_immutable_framed_inner() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("type_check", "mutable_pointer_to_immutable_framed_inner")
+        crate::compiler::test_tools::run_test(
+            "type_check",
+            "mutable_pointer_to_immutable_framed_inner",
+        )
     }
 
     #[test]

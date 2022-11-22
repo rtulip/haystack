@@ -5,7 +5,7 @@ use crate::lex::token::{Literal, Operator, Token};
 use crate::types::{Frame, FramedType, Signature, Stack, Type, TypeId, TypeMap, UncheckedFunction};
 use std::collections::HashMap;
 
-use super::{ExprCast, ExprLiteral, ExprOperator, ExprSyscall, ExprUnary};
+use super::{ExprCast, ExprIdent, ExprLiteral, ExprOperator, ExprSyscall, ExprUnary};
 
 /// Haystack's Expression Representation
 ///
@@ -46,11 +46,6 @@ pub enum Expr {
     AnnotatedCall(ExprAnnotatedCall),
     SizeOf(ExprSizeOf),
     Return(ExprReturn),
-}
-
-#[derive(Debug, Clone)]
-pub struct ExprIdent {
-    pub ident: Token,
 }
 
 #[derive(Debug, Clone)]
@@ -490,45 +485,7 @@ impl Expr {
             //         block: typed_block,
             //     })
             // }
-            Expr::Ident(ExprIdent { ident }) => {
-                if let Some((kind, sig)) = global_env.get(&ident.lexeme) {
-                    let typed_expr = if let Some(map) = sig.evaluate(&ident, stack, types)? {
-                        assert!(matches!(kind, StmtKind::Function));
-                        let gen_fn_tid = TypeId::new(&ident.lexeme);
-                        let monomorphised = gen_fn_tid.assign(&ident, &map, types)?;
-                        Ok(TypedExpr::Call {
-                            func: monomorphised.0,
-                        })
-                    } else {
-                        match kind {
-                            StmtKind::Var => Ok(TypedExpr::Global {
-                                ident: ident.lexeme,
-                            }),
-                            StmtKind::Function => Ok(TypedExpr::Call { func: ident.lexeme }),
-                        }
-                    };
-
-                    return typed_expr;
-                }
-
-                if let Some((i, (_, tid))) = frame
-                    .iter()
-                    .enumerate()
-                    .find(|(_, (id, _))| &ident.lexeme == id)
-                {
-                    stack.push(tid.typ.clone());
-                    return Ok(TypedExpr::Framed {
-                        frame: frame.clone(),
-                        idx: i,
-                        inner: None,
-                    });
-                }
-
-                Err(HayError::new_type_err(
-                    format!("Unrecognized word `{}`", ident.lexeme),
-                    ident.loc.clone(),
-                ))
-            }
+            Expr::Ident(e) => e.type_check(stack, frame, types, global_env),
             Expr::If(ExprIf {
                 token,
                 then,

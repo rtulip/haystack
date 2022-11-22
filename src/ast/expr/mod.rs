@@ -1,3 +1,4 @@
+mod accessor;
 mod cast;
 mod expr;
 mod ident;
@@ -6,6 +7,7 @@ mod operator;
 mod syscall;
 mod unary;
 
+pub use accessor::*;
 pub use cast::*;
 pub use expr::*;
 pub use ident::*;

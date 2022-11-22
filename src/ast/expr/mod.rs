@@ -10,6 +10,7 @@ mod size_of;
 mod syscall;
 mod unary;
 mod var;
+mod r#while;
 
 pub use accessor::*;
 pub use cast::*;
@@ -19,6 +20,7 @@ pub use literal::*;
 pub use operator::*;
 pub use r#as::*;
 pub use r#if::*;
+pub use r#while::*;
 pub use size_of::*;
 pub use syscall::*;
 pub use unary::*;

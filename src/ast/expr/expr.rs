@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use super::{
     ExprAccessor, ExprAs, ExprCast, ExprIdent, ExprIf, ExprLiteral, ExprOperator, ExprSizeOf,
-    ExprSyscall, ExprUnary, ExprVar,
+    ExprSyscall, ExprUnary, ExprVar, ExprWhile,
 };
 
 /// Haystack's Expression Representation
@@ -49,16 +49,6 @@ pub enum Expr {
     AnnotatedCall(ExprAnnotatedCall),
     SizeOf(ExprSizeOf),
     Return(ExprReturn),
-}
-
-#[derive(Debug, Clone)]
-pub struct ExprWhile {
-    /// The token of the `while` keyword
-    pub token: Token,
-    /// The condition expressions before the body
-    pub cond: Vec<Expr>,
-    /// The body of the `while` loop.
-    pub body: Vec<Expr>,
 }
 
 #[derive(Debug, Clone)]
@@ -232,78 +222,7 @@ impl Expr {
             Expr::SizeOf(e) => e.type_check(stack, types, generic_map),
             Expr::Syscall(e) => e.type_check(stack, types),
             Expr::Var(e) => e.type_check(frame, types),
-            Expr::While(ExprWhile { token, cond, body }) => {
-                let stack_before = stack.clone();
-                let frame_before = frame.clone();
-                // Evaluate up to the body
-                let mut typed_cond = vec![];
-                for expr in cond {
-                    typed_cond.push(expr.type_check(
-                        stack,
-                        frame,
-                        func,
-                        global_env,
-                        types,
-                        generic_map,
-                    )?);
-                }
-
-                if *frame != frame_before {
-                    return Err(HayError::new_type_err(
-                        "Frame cannot change within the while loop condition.",
-                        token.loc.clone(),
-                    )
-                    .with_hint(format!(
-                        "Frame Before: {}",
-                        FramedType::frame_to_string(&frame_before)
-                    ))
-                    .with_hint(format!(
-                        "Frame After : {}",
-                        FramedType::frame_to_string(frame)
-                    )));
-                }
-
-                if stack.contains(&Type::Never.id()) {
-                    *frame = frame_before;
-                    return Ok(TypedExpr::While {
-                        cond: typed_cond,
-                        body: vec![],
-                    });
-                }
-
-                Signature::new(vec![Type::Bool.id()], vec![]).evaluate(&token, stack, types)?;
-
-                let mut typed_body = vec![];
-                for expr in body {
-                    typed_body.push(expr.type_check(
-                        stack,
-                        frame,
-                        func,
-                        global_env,
-                        types,
-                        generic_map,
-                    )?);
-                }
-
-                if !stack.contains(&Type::Never.id())
-                    && (stack.len() != stack_before.len()
-                        || stack.iter().zip(&stack_before).any(|(t1, t2)| t1 != t2))
-                {
-                    return Err(HayError::new(
-                        "While loop must not change stack between iterations.",
-                        token.loc.clone(),
-                    )
-                    .with_hint(format!("Stack before loop: {:?}", stack_before))
-                    .with_hint(format!("Stack after loop:  {:?}", stack)));
-                }
-
-                *frame = frame_before;
-
-                Ok(TypedExpr::While {
-                    cond: typed_cond,
-                    body: typed_body,
-                })
-            }
+            Expr::While(e) => e.type_check(stack, frame, func, global_env, types, generic_map),
             Expr::Return(ExprReturn { token }) => {
                 let stack_expected = func
                     .outputs

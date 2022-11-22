@@ -2,74 +2,134 @@ use crate::error::HayError;
 use crate::lex::token::{Keyword, Literal, Operator, Token, TokenKind};
 use crate::types::{FramedType, RecordKind, Signature, Type, TypeId, TypeMap, UncheckedFunction};
 use std::collections::HashMap;
-
 use super::arg::{IdentArg, UntypedArg};
 use super::stmt::StmtKind;
 
+/// Haystack's Expression Representation
+/// 
+/// Every line of code in haystack that is not a top-level statement is an Expression.
+/// 
+/// During compilation, each `Expr` will be converted into a `TypedExpr`, which carries 
+/// over type information which is needed for code generation.
+/// 
+/// Here's a summary of the different kinds of Expressions:
+/// * [`Expr::Literal`] represents literal values, such as integers, booleans, and strings
+/// * [`Expr::Operator`] represents the different operators, such as `+`, `-`, `@` and `!
+/// * [`Expr::Unary`] represents unary operations, such as the address of operators `&` and `*`
+/// * [`Expr::Syscall`] represents syscall operations
+/// * [`Expr::Cast`] is for casting to different types
+/// * [`Expr::Ident`] represents words and identifiers, be it functions, vars, or framed values
+/// * [`Expr::Accessor`] is similar to ident, but is used to get at inner members of framed values or types
+/// * [`Expr::If`] is a recursively defined Expression for branching
+/// * [`Expr::ElseIf`] represents the code executed in a non-final else-branch
+/// * [`Expr::As`] represents the action of binding values to be framed
+/// * [`Expr::Var`] represents creating vars at a function level
+/// * [`Expr::While`] represents a whlie loop including and the associated conditional.
+/// * [`Expr::AnnotatedCall`] Similar to [`Expr::Accessor`], but for specifying types to function calls.
+/// * [`Expr::SizeOf`] is for taking the size of a type
+/// * [`Expr::Return`] returns from a function.
 #[derive(Debug, Clone)]
 pub enum Expr {
     Literal {
+        /// The token where the literal value is instantiated.
+        /// Note: the token kind will be [`TokenKind::Literal`]
         value: Token,
     },
     Operator {
+        /// The token of the operator.
         op: Token,
     },
     Unary {
+        /// The Expression with the operator.
+        /// Note: currently only [`Expr::Operator`] is handled.
         op: Box<Expr>,
+        /// The Expression which is being operated upon.
         expr: Box<Expr>,
     },
     Syscall {
+        /// The `syscall` token.
         token: Token,
+        /// The number of arguments to accept
         n: usize,
     },
     Cast {
+        /// The `Cast` token 
         token: Token,
+        /// The token of the type to cast to.
         typ: Token,
     },
     Ident {
+        /// The token of the identifier.
         ident: Token,
     },
     Accessor {
+        /// The whole token including the inner idents 
         token: Token,
+        /// The token of the identifier
         ident: Token,
+        /// A list of tokens for the inner values.
+        /// Note: this is guaranteed to have at least one member.
         inner: Vec<Token>,
     },
     If {
+        /// Token of the `If` keyword
         token: Token,
+        /// A list of expressions to execute if true.
         then: Vec<Expr>,
+        /// A list of expressions for each else-if case
+        /// Note: these are guaranteed to be [`Expr::ElseIf`]
         otherwise: Vec<Expr>,
+        /// An optional final `else` case.
         finally: Option<Vec<Expr>>,
     },
     ElseIf {
+        /// Token of the `else` keyword
         else_tok: Token,
+        /// The expressions to evaluate before the next `if`.
         condition: Vec<Expr>,
+        /// The body of the `else` expression
         block: Vec<Expr>,
     },
     As {
+        /// Token of the `as` keyword
         token: Token,
+        /// The non-empty list of identifiers.
         idents: Vec<IdentArg>,
+        /// The optional temporary scope.
         block: Option<Vec<Expr>>,
     },
     Var {
+        /// The token of the `var` keyword
         token: Token,
+        /// The token of the type of the var
         typ: Token,
+        /// The token of the name of the var.
         ident: Token,
     },
     While {
+        /// The token of the `while` keyword
         token: Token,
+        /// The condition expressions before the body
         cond: Vec<Expr>,
+        /// The body of the `while` loop.
         body: Vec<Expr>,
     },
     AnnotatedCall {
+        /// The token for the entire annotated call.
         token: Token,
+        /// The base identifier token
         base: Token,
+        /// The list of annotations
         annotations: Vec<UntypedArg>,
     },
     SizeOf {
+        /// The token of the `sizeOf` keyword
         token: Token,
+        /// The token of the type
         typ: Token,
     },
     Return {
+        /// The token of the `return` keyword
         token: Token,
     },
 }

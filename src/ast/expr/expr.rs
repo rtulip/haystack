@@ -2,12 +2,10 @@ use crate::ast::arg::{IdentArg, UntypedArg};
 use crate::ast::stmt::StmtKind;
 use crate::error::HayError;
 use crate::lex::token::{Literal, Operator, Token};
-use crate::types::{
-    Frame, FramedType, RecordKind, Signature, Stack, Type, TypeId, TypeMap, UncheckedFunction,
-};
+use crate::types::{Frame, FramedType, Signature, Stack, Type, TypeId, TypeMap, UncheckedFunction};
 use std::collections::HashMap;
 
-use super::{ExprLiteral, ExprOperator, ExprSyscall, ExprUnary};
+use super::{ExprCast, ExprLiteral, ExprOperator, ExprSyscall, ExprUnary};
 
 /// Haystack's Expression Representation
 ///
@@ -48,12 +46,6 @@ pub enum Expr {
     AnnotatedCall(ExprAnnotatedCall),
     SizeOf(ExprSizeOf),
     Return(ExprReturn),
-}
-
-#[derive(Debug, Clone)]
-pub struct ExprCast {
-    pub token: Token,
-    pub typ: Token,
 }
 
 #[derive(Debug, Clone)]
@@ -461,128 +453,7 @@ impl Expr {
                     block: typed_block,
                 })
             }
-            Expr::Cast(ExprCast { token, typ }) => {
-                let typ_id = TypeId::from_token(&typ, types, &vec![])?;
-                let typ_id = if let Some(map) = generic_map {
-                    if let Ok(tid) = typ_id.assign(&token, map, types) {
-                        // try to assign for annotated casts
-                        tid
-                    } else {
-                        // If annotation fails, need to use resolution.
-                        typ_id
-                    }
-                } else {
-                    typ_id
-                };
-                let cast_type = types.get(&typ_id).unwrap().clone();
-
-                match &cast_type {
-                    Type::Record { members, kind, .. } => match kind {
-                        RecordKind::Struct => {
-                            Signature::new(
-                                members.iter().map(|m| m.typ.clone()).collect(),
-                                vec![typ_id.clone()],
-                            )
-                            .evaluate(&token, stack, types)?;
-                            Ok(TypedExpr::Cast { typ: typ_id })
-                        }
-                        RecordKind::Union => {
-                            let mut sigs = vec![];
-
-                            members.iter().for_each(|m| {
-                                sigs.push(Signature::new(
-                                    vec![m.typ.clone()],
-                                    vec![typ_id.clone()],
-                                ));
-                            });
-
-                            let padding =
-                                typ_id.size(types)? - stack.iter().last().unwrap().size(types)?;
-                            Signature::evaluate_many(&sigs, &token, stack, types)?;
-
-                            Ok(TypedExpr::Pad { padding })
-                        }
-                    },
-
-                    Type::U64 => {
-                        Signature::evaluate_many(
-                            &vec![
-                                Signature::new(vec![Type::U64.id()], vec![Type::U64.id()]),
-                                Signature::new(vec![Type::U8.id()], vec![Type::U64.id()]),
-                                Signature::new(vec![Type::Bool.id()], vec![Type::U64.id()]),
-                                Signature::new(vec![Type::Char.id()], vec![Type::U64.id()]),
-                                Signature::new_generic(
-                                    vec![TypeId::new("*T")],
-                                    vec![Type::U64.id()],
-                                    vec![TypeId::new("T")],
-                                ),
-                                Signature::new_generic(
-                                    vec![TypeId::new("&T")],
-                                    vec![Type::U64.id()],
-                                    vec![TypeId::new("T")],
-                                ),
-                            ],
-                            &token,
-                            stack,
-                            types,
-                        )?;
-                        Ok(TypedExpr::Cast { typ: typ_id })
-                    }
-                    Type::U8 => {
-                        Signature::evaluate_many(
-                            &vec![
-                                Signature::new(vec![Type::U64.id()], vec![Type::U8.id()]),
-                                Signature::new(vec![Type::U8.id()], vec![Type::U8.id()]),
-                                Signature::new(vec![Type::Bool.id()], vec![Type::U8.id()]),
-                                Signature::new(vec![Type::Char.id()], vec![Type::U8.id()]),
-                            ],
-                            &token,
-                            stack,
-                            types,
-                        )?;
-                        Ok(TypedExpr::Cast { typ: typ_id })
-                    }
-                    Type::Char => {
-                        Signature::evaluate_many(
-                            &vec![
-                                Signature::new(vec![Type::U8.id()], vec![Type::Char.id()]),
-                                Signature::new(vec![Type::U64.id()], vec![Type::Char.id()]),
-                                Signature::new(vec![Type::Char.id()], vec![Type::Char.id()]),
-                            ],
-                            &token,
-                            stack,
-                            types,
-                        )?;
-                        Ok(TypedExpr::Cast { typ: typ_id })
-                    }
-                    Type::Pointer { .. } => {
-                        Signature::new(vec![Type::U64.id()], vec![typ_id.clone()])
-                            .evaluate(&token, stack, types)?;
-                        Ok(TypedExpr::Cast { typ: typ_id })
-                    }
-                    Type::GenericRecordBase {
-                        generics, members, ..
-                    } => {
-                        Signature::new_generic(
-                            members.iter().map(|m| m.typ.clone()).collect(),
-                            vec![typ_id.clone()],
-                            generics.clone(),
-                        )
-                        .evaluate(&token, stack, types)?;
-                        Ok(TypedExpr::Cast { typ: typ_id })
-                    }
-                    Type::Enum { .. } => Err(HayError::new_type_err(
-                        "Casting to enums is unsupported.",
-                        token.loc.clone(),
-                    )),
-                    Type::Bool => unimplemented!(),
-                    Type::GenericFunction { .. }
-                    | Type::UncheckedFunction { .. }
-                    | Type::Function { .. }
-                    | Type::GenericRecordInstance { .. } => unreachable!(),
-                    Type::Never => unreachable!("Casting to never types is not supported"),
-                }
-            }
+            Expr::Cast(e) => e.type_check(stack, types, generic_map),
             // Expr::ElseIf {
             //     else_tok,
             //     condition,

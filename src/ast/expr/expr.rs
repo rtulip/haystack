@@ -5,7 +5,10 @@ use crate::lex::token::{Literal, Operator, Token};
 use crate::types::{Frame, FramedType, Signature, Stack, Type, TypeId, TypeMap, UncheckedFunction};
 use std::collections::HashMap;
 
-use super::{ExprAccessor, ExprCast, ExprIdent, ExprLiteral, ExprOperator, ExprSyscall, ExprUnary};
+use super::{
+    ExprAccessor, ExprCast, ExprIdent, ExprLiteral, ExprOperator, ExprSizeOf, ExprSyscall,
+    ExprUnary,
+};
 
 /// Haystack's Expression Representation
 ///
@@ -46,14 +49,6 @@ pub enum Expr {
     AnnotatedCall(ExprAnnotatedCall),
     SizeOf(ExprSizeOf),
     Return(ExprReturn),
-}
-
-#[derive(Debug, Clone)]
-pub struct ExprSizeOf {
-    /// The token of the `sizeOf` keyword
-    pub token: Token,
-    /// The token of the type
-    pub typ: Token,
 }
 
 #[derive(Debug, Clone)]
@@ -482,36 +477,7 @@ impl Expr {
             Expr::Literal(e) => e.type_check(stack),
             Expr::Unary(e) => e.type_check(stack, frame, types, func),
             Expr::Operator(e) => e.type_check(stack, types),
-            Expr::SizeOf(ExprSizeOf { token, typ }) => {
-                let tid = match TypeId::from_token(&typ, types, &vec![]) {
-                    Ok(tid) => tid,
-                    Err(_) => match generic_map {
-                        None => {
-                            return Err(HayError::new_type_err(
-                                format!("Cannot get the size of unknown type {}", typ.lexeme),
-                                token.loc.clone(),
-                            ));
-                        }
-                        Some(map) => {
-                            let tid = TypeId::new(&typ.lexeme);
-
-                            if let Some(tid) = map.get(&tid) {
-                                tid.clone()
-                            } else {
-                                return Err(HayError::new_type_err(
-                                    format!("Cannot get size of unknown type: {}", typ.lexeme),
-                                    token.loc.clone(),
-                                ));
-                            }
-                        }
-                    },
-                };
-
-                Signature::new(vec![], vec![Type::U64.id()]).evaluate(&token, stack, types)?;
-                Ok(TypedExpr::Literal {
-                    value: Literal::U64((tid.size(types)? * tid.width()) as u64),
-                })
-            }
+            Expr::SizeOf(e) => e.type_check(stack, types, generic_map),
             Expr::Syscall(e) => e.type_check(stack, types),
             Expr::Var(ExprVar { typ, ident, .. }) => {
                 let typ_id = TypeId::from_token(&typ, types, &vec![])?;

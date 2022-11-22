@@ -7,7 +7,7 @@ use crate::types::{
 };
 use std::collections::HashMap;
 
-use super::{ExprLiteral, ExprOperator, ExprUnary};
+use super::{ExprLiteral, ExprOperator, ExprSyscall, ExprUnary};
 
 /// Haystack's Expression Representation
 ///
@@ -48,12 +48,6 @@ pub enum Expr {
     AnnotatedCall(ExprAnnotatedCall),
     SizeOf(ExprSizeOf),
     Return(ExprReturn),
-}
-
-#[derive(Debug, Clone)]
-pub struct ExprSyscall {
-    pub n: usize,
-    pub token: Token,
 }
 
 #[derive(Debug, Clone)]
@@ -803,37 +797,7 @@ impl Expr {
                     value: Literal::U64((tid.size(types)? * tid.width()) as u64),
                 })
             }
-            Expr::Syscall(ExprSyscall { token, n }) => {
-                if stack.len() < n + 1 {
-                    return Err(HayError::new_type_err(
-                        format!(
-                            "{} requires at least {} elements on the stack. Found {}",
-                            token.lexeme,
-                            n + 1,
-                            stack.len()
-                        ),
-                        token.loc.clone(),
-                    ));
-                }
-
-                Signature::new(vec![Type::U64.id()], vec![]).evaluate(&token, stack, types)?;
-
-                for _ in 0..n {
-                    let t = stack.pop().unwrap();
-                    let size = t.size(types)?;
-                    if size != 1 {
-                        return Err(HayError::new(
-                            format!("`{}` can only accept types of size 1.", token.lexeme),
-                            token.loc.clone(),
-                        )
-                        .with_hint(format!("Found type `{t}` which has size {size}")));
-                    }
-                }
-
-                stack.push(Type::U64.id());
-
-                Ok(TypedExpr::Syscall { n })
-            }
+            Expr::Syscall(e) => e.type_check(stack, types),
             Expr::Var(ExprVar { typ, ident, .. }) => {
                 let typ_id = TypeId::from_token(&typ, types, &vec![])?;
                 if types.get(&typ_id).is_none() {

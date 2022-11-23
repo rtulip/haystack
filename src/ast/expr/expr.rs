@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use super::{
     ExprAccessor, ExprAnnotatedCall, ExprAs, ExprCast, ExprIdent, ExprIf, ExprLiteral,
-    ExprOperator, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile,
+    ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile,
 };
 
 /// Haystack's Expression Representation
@@ -48,11 +48,6 @@ pub enum Expr {
     AnnotatedCall(ExprAnnotatedCall),
     SizeOf(ExprSizeOf),
     Return(ExprReturn),
-}
-
-#[derive(Debug, Clone)]
-pub struct ExprReturn {
-    pub token: Token,
 }
 
 impl Expr {
@@ -113,30 +108,7 @@ impl Expr {
             Expr::Syscall(e) => e.type_check(stack, types),
             Expr::Var(e) => e.type_check(frame, types),
             Expr::While(e) => e.type_check(stack, frame, func, global_env, types, generic_map),
-            Expr::Return(ExprReturn { token }) => {
-                let stack_expected = func
-                    .outputs
-                    .iter()
-                    .map(|arg| &arg.typ)
-                    .collect::<Vec<&TypeId>>();
-                let stack_real = stack.iter().collect::<Vec<&TypeId>>();
-
-                if stack_real != stack_expected {
-                    return Err(HayError::new_type_err(
-                        "Early return type check failure.",
-                        token.loc,
-                    )
-                    .with_hint(format!(
-                        "Function `{}` expects return type(s): {:?}",
-                        func.name.lexeme, stack_expected
-                    ))
-                    .with_hint(format!("Found the following stack: {:?}", stack_real)));
-                }
-
-                stack.push(Type::Never.id());
-
-                Ok(TypedExpr::Return)
-            }
+            Expr::Return(e) => e.type_check(stack, func),
         }
     }
 }

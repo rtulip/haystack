@@ -113,37 +113,6 @@ impl Expr {
     }
 }
 
-impl std::fmt::Display for Expr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Expr::Literal(ExprLiteral { token, .. })
-            | Expr::Operator(ExprOperator { token, .. })
-            | Expr::Syscall(ExprSyscall { token, .. })
-            | Expr::Cast(ExprCast { token, .. })
-            | Expr::Ident(ExprIdent { ident: token })
-            | Expr::Accessor(ExprAccessor { token, .. })
-            | Expr::If(ExprIf { token, .. })
-            | Expr::As(ExprAs { token, .. })
-            | Expr::Var(ExprVar { token, .. })
-            | Expr::While(ExprWhile { token, .. })
-            | Expr::SizeOf(ExprSizeOf { token, .. })
-            | Expr::Return(ExprReturn { token }) => {
-                write!(f, "{token}")
-            }
-            Expr::Unary(ExprUnary { expr, .. }) => write!(f, "{expr}"),
-            Expr::AnnotatedCall(ExprAnnotatedCall {
-                base, annotations, ..
-            }) => {
-                write!(f, "{}<", base.lexeme)?;
-                for arg in &annotations[0..annotations.len() - 1] {
-                    write!(f, "{} ", arg.token.lexeme)?;
-                }
-                write!(f, "{}>", annotations.last().unwrap().token.lexeme)
-            }
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum TypedExpr {
     Literal {

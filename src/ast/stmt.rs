@@ -322,62 +322,6 @@ impl Stmt {
     }
 }
 
-impl std::fmt::Debug for Stmt {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Stmt::Function {
-                token, name, body, ..
-            } => {
-                writeln!(f, "[{}] fn {}:", token.loc, name.lexeme)?;
-                for e in body {
-                    writeln!(f, "  {e}")?;
-                }
-
-                Ok(())
-            }
-            Stmt::Record {
-                token,
-                name,
-                members,
-                kind,
-                ..
-            } => {
-                writeln!(
-                    f,
-                    "[{}] {} {}:",
-                    token.loc,
-                    match kind {
-                        RecordKind::Union => "union",
-                        RecordKind::Struct => "struct",
-                    },
-                    name.lexeme
-                )?;
-                for mem in members {
-                    writeln!(f, "  {}: {}", mem.token.lexeme, mem.ident.lexeme)?;
-                }
-
-                Ok(())
-            }
-            Stmt::Enum {
-                token,
-                name,
-                variants,
-            } => {
-                writeln!(f, "[{}] enum {}:", token.loc, name.lexeme)?;
-                for v in variants {
-                    writeln!(f, "  {}", v.lexeme)?;
-                }
-
-                Ok(())
-            }
-            Stmt::Var { token: _, expr: _ } => {
-                todo!();
-                // write!(f, "[{}] {expr}", token.loc)
-            }
-        }
-    }
-}
-
 mod tests {
 
     #[test]

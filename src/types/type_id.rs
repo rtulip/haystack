@@ -769,7 +769,7 @@ impl TypeId {
         }
     }
 
-    pub fn type_check_inner_accessors<'a>(
+    pub fn get_inner_accessors<'a>(
         &'a self,
         token: Token,
         inner: &Vec<Token>,

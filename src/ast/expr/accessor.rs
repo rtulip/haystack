@@ -33,9 +33,10 @@ impl ExprAccessor {
         {
             match types.get(&ft.typ).unwrap() {
                 Type::Record { .. } => {
+                    // find the type of the inner accessor
                     let final_tid =
                         ft.typ
-                            .type_check_inner_accessors(self.token, &self.inner, func, types)?;
+                            .get_inner_accessors(self.token, &self.inner, func, types)?;
 
                     stack.push(final_tid);
                     Ok(TypedExpr::Framed {
@@ -48,7 +49,7 @@ impl ExprAccessor {
                     inner: pointer_inner_tid,
                     mutable: pointer_inner_mut,
                 } => {
-                    let final_tid = pointer_inner_tid.type_check_inner_accessors(
+                    let final_tid = pointer_inner_tid.get_inner_accessors(
                         self.token,
                         &self.inner,
                         func,

@@ -122,18 +122,14 @@ impl ExprUnary {
                             }
                         }
 
-                        let ptr = Type::Pointer {
-                            inner: typ.clone(),
-                            mutable: match self.op.op {
+                        stack.push(typ.clone().ptr_of(
+                            match self.op.op {
                                 Operator::Star => true,
                                 Operator::Ampersand => false,
                                 _ => unreachable!(),
                             },
-                        };
-                        let ptr_tid = ptr.id();
-
-                        types.insert(ptr_tid.clone(), ptr);
-                        stack.push(ptr_tid);
+                            types,
+                        ));
 
                         Ok(TypedExpr::AddrFramed {
                             frame: frame.clone(),
@@ -185,18 +181,14 @@ impl ExprUnary {
                         ));
                     }
 
-                    let ptr = Type::Pointer {
-                        inner: typ.clone(),
-                        mutable: match self.op.op {
+                    stack.push(typ.clone().ptr_of(
+                        match self.op.op {
                             Operator::Star => true,
                             Operator::Ampersand => false,
                             _ => unreachable!(),
                         },
-                    };
-                    let ptr_tid = ptr.id();
-
-                    types.insert(ptr_tid.clone(), ptr);
-                    stack.push(ptr_tid);
+                        types,
+                    ));
 
                     Ok(TypedExpr::AddrFramed {
                         frame: frame.clone(),

@@ -276,14 +276,8 @@ impl Stmt {
                 ..
             } => {
                 let inner = TypeId::from_token(&typ, types, &vec![])?;
-                let ptr = Type::Pointer {
-                    inner: inner.clone(),
-                    mutable: true,
-                };
-                let id = ptr.id();
-                types.insert(ptr.id(), ptr);
-
-                let sig = Signature::new(vec![], vec![id]);
+                let inner_size = inner.size(types)?;
+                let sig = Signature::new(vec![], vec![inner.ptr_of(true, types)]);
 
                 if let Some((dimension, tt)) = typ.dimension()? {
                     let inner_typ = TypeId::from_type_token(&typ, &tt, types, &vec![])?;
@@ -302,8 +296,7 @@ impl Stmt {
                         },
                     );
                 } else {
-                    uninit_data
-                        .insert(ident.lexeme.clone(), UninitData::Region(inner.size(types)?));
+                    uninit_data.insert(ident.lexeme.clone(), UninitData::Region(inner_size));
                 }
 
                 match global_env.insert(ident.lexeme.clone(), (StmtKind::Var, sig)) {

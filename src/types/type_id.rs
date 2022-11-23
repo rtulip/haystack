@@ -21,6 +21,17 @@ impl TypeId {
         TypeId(id.into())
     }
 
+    pub fn ptr_of(self, mutable: bool, types: &mut TypeMap) -> Self {
+        let ptr_typ = Type::Pointer {
+            inner: self,
+            mutable,
+        };
+
+        let ptr_tid = ptr_typ.id();
+        types.insert(ptr_typ.id(), ptr_typ);
+        ptr_tid
+    }
+
     // Checks to see if a TypeId is generic.
     pub fn is_generic(&self, types: &TypeMap) -> bool {
         match types.get(self) {
@@ -178,15 +189,7 @@ impl TypeId {
             TypeToken::Pointer { inner, mutable } => {
                 // Get the TypeId of the inner type to create the pointer type.
                 let inner_typ_id = TypeId::from_type_token(token, inner, types, local_types)?;
-                let t = Type::Pointer {
-                    inner: inner_typ_id,
-                    mutable: *mutable,
-                };
-
-                let tid = t.id();
-                types.insert(tid.clone(), t);
-
-                Ok(tid)
+                Ok(inner_typ_id.ptr_of(*mutable, types))
             }
         }
     }
@@ -400,11 +403,7 @@ impl TypeId {
                 Type::Pointer { inner, mutable } => {
                     // Assign to the inner type and generate a new type if needed.
                     let inner = inner.assign(token, map, types)?;
-                    let t = Type::Pointer { inner, mutable };
-                    let id: TypeId = t.id();
-
-                    types.insert(id.clone(), t);
-                    Ok(id)
+                    Ok(inner.ptr_of(mutable, types))
                 }
                 Type::Char
                 | Type::U64
@@ -601,17 +600,9 @@ impl TypeId {
                     inner: inner_concrete,
                     mutable: inner_mutable,
                 }),
-            ) => {
-                // Resolve the pointer's inner type.
-                let p = Type::Pointer {
-                    inner: inner.resolve(token, &inner_concrete, map, types)?,
-                    mutable: inner_mutable || mutable,
-                };
-
-                let tid = p.id();
-                types.insert(tid.clone(), p);
-                Ok(tid)
-            }
+            ) => Ok(inner
+                .resolve(token, &inner_concrete, map, types)?
+                .ptr_of(inner_mutable || mutable, types)),
             (Some(Type::Record { kind, .. }), Some(Type::Record { .. })) => {
                 // Make sure it's the same record.
                 if self != concrete {

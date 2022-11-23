@@ -1,7 +1,7 @@
 use crate::{
     error::HayError,
     lex::token::Token,
-    types::{Frame, FramedType, Type, TypeId, TypeMap},
+    types::{Frame, FramedType, TypeId, TypeMap},
 };
 
 use super::TypedExpr;
@@ -19,6 +19,8 @@ pub struct ExprVar {
 impl ExprVar {
     pub fn type_check(self, frame: &mut Frame, types: &mut TypeMap) -> Result<TypedExpr, HayError> {
         let typ_id = TypeId::from_token(&self.typ, types, &vec![])?;
+        let typ_size = typ_id.size(types)?;
+        let typ_width = typ_id.width();
         if types.get(&typ_id).is_none() {
             return Err(HayError::new(
                 format!("Unrecognized type `{typ_id}`"),
@@ -26,15 +28,7 @@ impl ExprVar {
             ));
         }
 
-        let ptr = Type::Pointer {
-            inner: typ_id.clone(),
-            mutable: true,
-        };
-        let id = ptr.id();
-
-        if !types.contains_key(&id) {
-            types.insert(id.clone(), ptr);
-        }
+        let id = typ_id.ptr_of(true, types);
 
         let origin = self.ident.clone();
         frame.push((
@@ -46,7 +40,6 @@ impl ExprVar {
             },
         ));
 
-        let typ_size = typ_id.size(types)?;
         let data = if let Some((dimension, tt)) = self.typ.dimension()? {
             let inner_typ = TypeId::from_type_token(&self.typ, &tt, types, &vec![])?;
             Some((inner_typ.size(types)? * dimension, inner_typ.width()))
@@ -56,7 +49,7 @@ impl ExprVar {
 
         Ok(TypedExpr::Var {
             size: typ_size,
-            width: typ_id.width(),
+            width: typ_width,
             data,
         })
     }

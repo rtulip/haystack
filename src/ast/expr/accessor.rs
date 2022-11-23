@@ -49,20 +49,14 @@ impl ExprAccessor {
                     inner: pointer_inner_tid,
                     mutable: pointer_inner_mut,
                 } => {
-                    let final_tid = pointer_inner_tid.get_inner_accessors(
+                    let inner_tid = pointer_inner_tid.get_inner_accessors(
                         self.token,
                         &self.inner,
                         func,
                         types,
                     )?;
 
-                    let ptr_type = Type::Pointer {
-                        inner: final_tid,
-                        mutable: *pointer_inner_mut,
-                    };
-                    let ptr_tid = ptr_type.id();
-                    types.insert(ptr_type.id(), ptr_type);
-                    stack.push(ptr_tid);
+                    stack.push(inner_tid.ptr_of(*pointer_inner_mut, types));
                     Ok(TypedExpr::FramedPointerOffset {
                         frame: frame.clone(),
                         idx: i,

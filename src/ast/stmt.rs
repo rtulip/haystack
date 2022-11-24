@@ -1,5 +1,5 @@
 use super::arg::UntypedArg;
-use super::expr::Expr;
+use super::expr::{Expr, ExprVar};
 use super::member::UntypedMember;
 use super::parser::Parser;
 use crate::backend::{InitData, InitDataMap, UninitData, UninitDataMap};
@@ -45,7 +45,7 @@ pub enum Stmt {
     },
     Var {
         token: Token,
-        expr: Box<Expr>,
+        expr: ExprVar,
     },
 }
 
@@ -271,113 +271,47 @@ impl Stmt {
                     }
                 }
             }
-            Stmt::Var { token, expr } => {
-                if let Expr::Var { token, typ, ident } = *expr {
-                    let inner = TypeId::from_token(&typ, types, &vec![])?;
-                    let ptr = Type::Pointer {
-                        inner: inner.clone(),
-                        mutable: true,
-                    };
-                    let id = ptr.id();
-                    types.insert(ptr.id(), ptr);
+            Stmt::Var {
+                expr: ExprVar { token, typ, ident },
+                ..
+            } => {
+                let inner = TypeId::from_token(&typ, types, &vec![])?;
+                let inner_size = inner.size(types)?;
+                let sig = Signature::new(vec![], vec![inner.ptr_of(true, types)]);
 
-                    let sig = Signature::new(vec![], vec![id]);
+                if let Some((dimension, tt)) = typ.dimension()? {
+                    let inner_typ = TypeId::from_type_token(&typ, &tt, types, &vec![])?;
+                    let inner_size = inner_typ.size(types)?;
 
-                    if let Some((dimension, tt)) = typ.dimension()? {
-                        let inner_typ = TypeId::from_type_token(&typ, &tt, types, &vec![])?;
-                        let inner_size = inner_typ.size(types)?;
-
-                        let data_id = uninit_data.len();
-                        uninit_data.insert(
-                            format!("data_{data_id}"),
-                            UninitData::Region(inner_size * dimension),
-                        );
-                        init_data.insert(
-                            ident.lexeme.clone(),
-                            InitData::Arr {
-                                size: dimension,
-                                pointer: format!("data_{data_id}"),
-                            },
-                        );
-                    } else {
-                        uninit_data
-                            .insert(ident.lexeme.clone(), UninitData::Region(inner.size(types)?));
-                    }
-
-                    match global_env.insert(ident.lexeme.clone(), (StmtKind::Var, sig)) {
-                        None => (),
-                        Some(_) => {
-                            return Err(HayError::new(
-                                format!("Var conflict. `{}` defined elsewhere", ident.lexeme),
-                                token.loc,
-                            ))
-                        }
-                    }
+                    let data_id = uninit_data.len();
+                    uninit_data.insert(
+                        format!("data_{data_id}"),
+                        UninitData::Region(inner_size * dimension),
+                    );
+                    init_data.insert(
+                        ident.lexeme.clone(),
+                        InitData::Arr {
+                            size: dimension,
+                            pointer: format!("data_{data_id}"),
+                        },
+                    );
                 } else {
-                    return Err(HayError::new(
-                        format!("{}: Logic Error -- Assertion failed. Expected Expr::Var from Stmt::Var", line!()),
-                        token.loc,
-                    ));
+                    uninit_data.insert(ident.lexeme.clone(), UninitData::Region(inner_size));
+                }
+
+                match global_env.insert(ident.lexeme.clone(), (StmtKind::Var, sig)) {
+                    None => (),
+                    Some(_) => {
+                        return Err(HayError::new(
+                            format!("Var conflict. `{}` defined elsewhere", ident.lexeme),
+                            token.loc,
+                        ))
+                    }
                 }
             }
         }
 
         Ok(())
-    }
-}
-
-impl std::fmt::Debug for Stmt {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Stmt::Function {
-                token, name, body, ..
-            } => {
-                writeln!(f, "[{}] fn {}:", token.loc, name.lexeme)?;
-                for e in body {
-                    writeln!(f, "  {e}")?;
-                }
-
-                Ok(())
-            }
-            Stmt::Record {
-                token,
-                name,
-                members,
-                kind,
-                ..
-            } => {
-                writeln!(
-                    f,
-                    "[{}] {} {}:",
-                    token.loc,
-                    match kind {
-                        RecordKind::Union => "union",
-                        RecordKind::Struct => "struct",
-                    },
-                    name.lexeme
-                )?;
-                for mem in members {
-                    writeln!(f, "  {}: {}", mem.token.lexeme, mem.ident.lexeme)?;
-                }
-
-                Ok(())
-            }
-            Stmt::Enum {
-                token,
-                name,
-                variants,
-            } => {
-                writeln!(f, "[{}] enum {}:", token.loc, name.lexeme)?;
-                for v in variants {
-                    writeln!(f, "  {}", v.lexeme)?;
-                }
-
-                Ok(())
-            }
-            Stmt::Var { token, expr } => {
-                write!(f, "[{}] {expr}", token.loc)
-            }
-        }
     }
 }
 

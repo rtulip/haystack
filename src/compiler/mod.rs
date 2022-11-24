@@ -290,4 +290,9 @@ mod tests {
     fn vec() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "vec")
     }
+
+    #[test]
+    fn result() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "result")
+    }
 }

@@ -1,0 +1,5 @@
+struct Foo<T>:
+
+struct Foo {
+    u64: bar
+}

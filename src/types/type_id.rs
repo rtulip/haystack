@@ -846,6 +846,87 @@ impl TypeId {
         }
         Ok(typ.clone())
     }
+
+    pub fn validate_redeclaration(
+        &self,
+        token: &Token,
+        pre_decl_kind: &RecordKind,
+        pre_decl_token: &Token,
+        pre_decl_generics: &Vec<TypeId>,
+        decl_kind: &RecordKind,
+        decl_token: &Token,
+        decl_generics: Option<&Vec<TypeId>>,
+    ) -> Result<(), HayError> {
+        if decl_kind != pre_decl_kind {
+            return Err(HayError::new(
+                "Type Declaration doesn't match Pre-Declaration.",
+                token.loc.clone(),
+            )
+            .with_hint_and_custom_note(
+                format!("Type {self} was predeclared as a {pre_decl_kind}",),
+                format!("{}", pre_decl_token.loc),
+            )
+            .with_hint_and_custom_note(
+                format!("Type {self} was defined as a {decl_kind}",),
+                format!("{}", decl_token.loc),
+            ));
+        }
+
+        match (pre_decl_generics.len(), decl_generics) {
+            (0, Some(generics)) => {
+                return Err(HayError::new(
+                    "Type Declaration doesn't match Pre-Declaration.",
+                    token.loc.clone(),
+                )
+                .with_hint_and_custom_note(
+                    format!("Type {self} was not predeclared as generic",),
+                    format!("{}", pre_decl_token.loc.clone()),
+                )
+                .with_hint_and_custom_note(
+                    format!("Type {self} was defined as generic over {:?}", generics),
+                    format!("{}", decl_token.loc.clone()),
+                ));
+            }
+            (n, Some(generics)) => {
+                if n != generics.len() {
+                    return Err(HayError::new(
+                        "Type Declaration doesn't match Pre-Declaration.",
+                        token.loc.clone(),
+                    )
+                    .with_hint_and_custom_note(
+                        format!(
+                            "Type {self} was predeclared as generic over {:?}",
+                            pre_decl_generics
+                        ),
+                        format!("{}", pre_decl_token.loc.clone()),
+                    )
+                    .with_hint_and_custom_note(
+                        format!("Type {self} was not defined as generic over {:?}", generics),
+                        format!("{}", decl_token.loc.clone()),
+                    ));
+                }
+            }
+            (_, None) => {
+                return Err(HayError::new(
+                    "Type Declaration doesn't match Pre-Declaration.",
+                    token.loc.clone(),
+                )
+                .with_hint_and_custom_note(
+                    format!(
+                        "Type {self} was predeclared as generic over {:?}",
+                        pre_decl_generics
+                    ),
+                    format!("{}", pre_decl_token.loc.clone()),
+                )
+                .with_hint_and_custom_note(
+                    format!("Type {self} was not defined as generic"),
+                    format!("{}", token.loc.clone()),
+                ));
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl std::fmt::Debug for TypeId {

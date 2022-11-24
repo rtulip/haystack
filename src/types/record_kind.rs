@@ -1,5 +1,5 @@
 /// Representation of the different kinds of records.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum RecordKind {
     Struct,
     Union,

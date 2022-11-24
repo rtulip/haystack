@@ -51,6 +51,12 @@ pub enum Type {
         /// A flag to indicate if the record is a struct or union.
         kind: RecordKind,
     },
+    RecordPreDeclaration {
+        token: Token,
+        name: Token,
+        kind: RecordKind,
+        generics: Vec<TypeId>,
+    },
     /// Type to represent the definition of a generic record.
     GenericRecordBase {
         /// The token of the `struct` or `union` keywords.
@@ -135,6 +141,7 @@ impl Type {
             | Type::Function { .. } => {
                 unimplemented!("Haven't implemented name from Functions.")
             }
+            Type::RecordPreDeclaration { .. } => unreachable!(),
         }
     }
 

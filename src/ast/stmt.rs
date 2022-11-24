@@ -31,6 +31,12 @@ pub enum Stmt {
         tags: Vec<FnTag>,
         impl_on: Option<Token>,
     },
+    PreDeclaration {
+        token: Token,
+        name: Token,
+        kind: RecordKind,
+        annotations: Option<Vec<UntypedArg>>,
+    },
     Record {
         token: Token,
         name: Token,
@@ -144,7 +150,7 @@ impl Stmt {
                     0 => types.insert(
                         TypeId::new(&name.lexeme),
                         Type::Record {
-                            token,
+                            token: token.clone(),
                             name: name.clone(),
                             members,
                             kind,
@@ -153,7 +159,7 @@ impl Stmt {
                     _ => types.insert(
                         TypeId::new(&name.lexeme),
                         Type::GenericRecordBase {
-                            token,
+                            token: token.clone(),
                             name: name.clone(),
                             generics,
                             members,
@@ -164,6 +170,46 @@ impl Stmt {
 
                 match prev {
                     None => (),
+                    Some(Type::RecordPreDeclaration {
+                        token: pre_decl_token,
+                        kind: pre_decl_kind,
+                        generics,
+                        ..
+                    }) => {
+                        let tid = TypeId::new(&name.lexeme);
+                        if kind != pre_decl_kind {
+                            return Err(HayError::new(
+                                "Type Declaration doesn't match Pre-Declaration.",
+                                token.loc.clone(),
+                            )
+                            .with_hint_and_custom_note(
+                                format!("Type {tid} was predeclared as a {pre_decl_kind}",),
+                                format!("{}", pre_decl_token.loc),
+                            )
+                            .with_hint_and_custom_note(
+                                format!("Type {tid} was defined as a {kind}",),
+                                format!("{}", token.loc),
+                            ));
+                        }
+
+                        if generics.len() != 0 {
+                            return Err(HayError::new(
+                                "Type Declaration doesn't match Pre-Declaration.",
+                                token.loc.clone(),
+                            )
+                            .with_hint_and_custom_note(
+                                format!(
+                                    "Type {tid} was predeclared as generic over {:?}",
+                                    generics
+                                ),
+                                format!("{}", pre_decl_token.loc.clone()),
+                            )
+                            .with_hint_and_custom_note(
+                                format!("Type {tid} was not defined generic",),
+                                format!("{}", token.loc.clone()),
+                            ));
+                        }
+                    }
                     Some(_) => {
                         return Err(HayError::new(
                             format!("Name conflict: `{}` defined elsewhere.", name.lexeme),
@@ -172,6 +218,120 @@ impl Stmt {
                     }
                 }
             }
+            Stmt::PreDeclaration {
+                token,
+                name,
+                kind,
+                annotations,
+            } => {
+                let tid = TypeId::new(&name.lexeme);
+                let generics = Stmt::bulid_local_generics(annotations, types)?;
+                match types.get(&tid) {
+                    Some(Type::Record {
+                        token: decl_token,
+                        kind: decl_kind,
+                        ..
+                    }) => {
+                        if decl_kind != &kind {
+                            return Err(HayError::new(
+                                "Type Declaration doesn't match Pre-Declaration.",
+                                token.loc.clone(),
+                            )
+                            .with_hint_and_custom_note(
+                                format!("Type {tid} was predeclared as a {kind}",),
+                                format!("{}", token.loc.clone()),
+                            )
+                            .with_hint_and_custom_note(
+                                format!("Type {tid} was defined as a {decl_kind}",),
+                                format!("{}", decl_token.loc.clone()),
+                            ));
+                        }
+
+                        if generics.len() != 0 {
+                            return Err(HayError::new(
+                                "Type Declaration doesn't match Pre-Declaration.",
+                                token.loc.clone(),
+                            )
+                            .with_hint_and_custom_note(
+                                format!(
+                                    "Type {tid} was predeclared as generic over {:?}",
+                                    generics
+                                ),
+                                format!("{}", token.loc.clone()),
+                            )
+                            .with_hint_and_custom_note(
+                                format!("Type {tid} was not defined generic",),
+                                format!("{}", decl_token.loc.clone()),
+                            ));
+                        }
+
+                        return Ok(());
+                    }
+
+                    Some(Type::GenericRecordBase {
+                        token: decl_token,
+                        kind: decl_kind,
+                        generics: decl_generics,
+                        ..
+                    }) => {
+                        if decl_kind != &kind {
+                            return Err(HayError::new(
+                                "Type Declaration doesn't match Pre-Declaration.",
+                                token.loc.clone(),
+                            )
+                            .with_hint_and_custom_note(
+                                format!("Type {tid} was predeclared as a {kind}",),
+                                format!("{}", token.loc.clone()),
+                            )
+                            .with_hint_and_custom_note(
+                                format!("Type {tid} was defined as a {decl_kind}",),
+                                format!("{}", decl_token.loc.clone()),
+                            ));
+                        }
+
+                        if generics.len() != decl_generics.len() {
+                            return Err(HayError::new(
+                                "Type Declaration doesn't match Pre-Declaration.",
+                                token.loc.clone(),
+                            )
+                            .with_hint_and_custom_note(
+                                format!(
+                                    "Type {tid} was predeclared as generic over {:?}",
+                                    generics
+                                ),
+                                format!("{}", token.loc.clone()),
+                            )
+                            .with_hint_and_custom_note(
+                                format!(
+                                    "Type {tid} was defined as generic over {:?}",
+                                    decl_generics
+                                ),
+                                format!("{}", decl_token.loc.clone()),
+                            ));
+                        }
+
+                        return Ok(());
+                    }
+                    Some(_) => {
+                        return Err(HayError::new(
+                            format!("Name conflict: `{}` defined elsewhere.", name.lexeme),
+                            name.loc,
+                        ))
+                    }
+                    None => (),
+                }
+
+                types.insert(
+                    tid,
+                    Type::RecordPreDeclaration {
+                        token,
+                        name,
+                        kind,
+                        generics,
+                    },
+                );
+            }
+
             Stmt::Enum {
                 token,
                 name,

@@ -53,6 +53,7 @@ impl TypeId {
                 | Type::GenericFunction { .. },
             )
             | None => true,
+            Some(Type::RecordPreDeclaration { generics, .. }) => generics.len() != 0,
         }
     }
 
@@ -180,6 +181,9 @@ impl TypeId {
                         token.loc.clone(),
                     )),
                     Some(Type::Never) => unreachable!("Never types aren't representable"),
+                    Some(Type::RecordPreDeclaration { .. }) => {
+                        unreachable!("Pre declarations aren't allowed past parsing.")
+                    }
                     None => Err(HayError::new(
                         format!("Unrecognized base type: {base}"),
                         token.loc.clone(),
@@ -494,6 +498,9 @@ impl TypeId {
                     unreachable!("Should never assign to non-generic function!")
                 }
                 Type::Never => unreachable!("Never types should never be assigned!"),
+                Type::RecordPreDeclaration { .. } => {
+                    unreachable!("Pre-declarations should never be assigned")
+                }
             },
             None => {
                 if !map.contains_key(self) {
@@ -701,6 +708,9 @@ impl TypeId {
             (Some(Type::Never), _) => {
                 unreachable!("Never types should not be part of type resolution.")
             }
+            (Some(Type::RecordPreDeclaration { .. }), _) => {
+                unreachable!("Pre-Declarations types should not be part of type resolution.")
+            }
         }
     }
 
@@ -747,6 +757,10 @@ impl TypeId {
             | Type::GenericFunction { .. }
             | Type::Function { .. } => Err(HayError::new(
                 "Functions do not have a size",
+                Loc::new("", 0, 0, 0),
+            )),
+            Type::RecordPreDeclaration { .. } => Err(HayError::new(
+                "Pre-Declared types does not have a size",
                 Loc::new("", 0, 0, 0),
             )),
         }

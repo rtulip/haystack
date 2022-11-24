@@ -46,7 +46,6 @@ impl std::fmt::Display for Marker {
         write!(f, "`")?;
         match self {
             Marker::LeftBrace => write!(f, "{{")?,
-
             Marker::RightBrace => write!(f, "}}")?,
             Marker::LeftParen => write!(f, "(")?,
             Marker::RightParen => write!(f, ")")?,

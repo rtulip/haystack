@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/stmt/dangling_pre_declaration.hay:2:1] Error: The following types were never declared:\n    [src/tests/stmt/dangling_pre_declaration.hay:2:1]: Bar\n    [src/tests/stmt/dangling_pre_declaration.hay:3:1]: Baz\n    [src/tests/stmt/dangling_pre_declaration.hay:1:1]: Foo\n"
+}

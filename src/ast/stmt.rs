@@ -31,6 +31,12 @@ pub enum Stmt {
         tags: Vec<FnTag>,
         impl_on: Option<Token>,
     },
+    PreDeclaration {
+        token: Token,
+        name: Token,
+        kind: RecordKind,
+        annotations: Option<Vec<UntypedArg>>,
+    },
     Record {
         token: Token,
         name: Token,
@@ -119,6 +125,32 @@ impl Stmt {
             )?;
         }
 
+        let unimpl_decls = types
+            .iter()
+            .filter(|(_, t)| matches!(t, Type::RecordPreDeclaration { .. }))
+            .collect::<Vec<(&TypeId, &Type)>>();
+
+        if !unimpl_decls.is_empty() {
+            let token = match unimpl_decls.first().unwrap().1 {
+                Type::RecordPreDeclaration { token, .. } => token,
+                _ => unreachable!(),
+            };
+            let mut e = HayError::new(
+                "The following types were never declared:",
+                token.loc.clone(),
+            );
+            for (tid, t) in unimpl_decls {
+                match t {
+                    Type::RecordPreDeclaration { token, .. } => {
+                        e = e.with_hint_and_custom_note(format!("{tid}"), format!("{}", token.loc))
+                    }
+                    _ => unreachable!(),
+                }
+            }
+
+            return Err(e);
+        }
+
         Ok((types, global_env, init_data, uninit_data))
     }
 
@@ -144,7 +176,7 @@ impl Stmt {
                     0 => types.insert(
                         TypeId::new(&name.lexeme),
                         Type::Record {
-                            token,
+                            token: token.clone(),
                             name: name.clone(),
                             members,
                             kind,
@@ -153,9 +185,9 @@ impl Stmt {
                     _ => types.insert(
                         TypeId::new(&name.lexeme),
                         Type::GenericRecordBase {
-                            token,
+                            token: token.clone(),
                             name: name.clone(),
-                            generics,
+                            generics: generics.clone(),
                             members,
                             kind,
                         },
@@ -164,6 +196,26 @@ impl Stmt {
 
                 match prev {
                     None => (),
+                    Some(Type::RecordPreDeclaration {
+                        token: pre_decl_token,
+                        kind: pre_decl_kind,
+                        generics: pre_decl_generics,
+                        ..
+                    }) => {
+                        TypeId::new(&name.lexeme).validate_redeclaration(
+                            &token,
+                            (&pre_decl_kind, &pre_decl_token, &pre_decl_generics),
+                            (
+                                &kind,
+                                &token,
+                                if generics.is_empty() {
+                                    None
+                                } else {
+                                    Some(&generics)
+                                },
+                            ),
+                        )?;
+                    }
                     Some(_) => {
                         return Err(HayError::new(
                             format!("Name conflict: `{}` defined elsewhere.", name.lexeme),
@@ -172,6 +224,60 @@ impl Stmt {
                     }
                 }
             }
+            Stmt::PreDeclaration {
+                token,
+                name,
+                kind,
+                annotations,
+            } => {
+                let tid = TypeId::new(&name.lexeme);
+                let generics = Stmt::bulid_local_generics(annotations, types)?;
+                match types.get(&tid) {
+                    Some(Type::Record {
+                        token: decl_token,
+                        kind: decl_kind,
+                        ..
+                    }) => {
+                        tid.validate_redeclaration(
+                            &token,
+                            (&kind, &token, &generics),
+                            (decl_kind, decl_token, None),
+                        )?;
+                        return Ok(());
+                    }
+                    Some(Type::GenericRecordBase {
+                        token: decl_token,
+                        kind: decl_kind,
+                        generics: decl_generics,
+                        ..
+                    }) => {
+                        tid.validate_redeclaration(
+                            &token,
+                            (&kind, &token, &generics),
+                            (decl_kind, decl_token, Some(decl_generics)),
+                        )?;
+                        return Ok(());
+                    }
+                    Some(_) => {
+                        return Err(HayError::new(
+                            format!("Name conflict: `{}` defined elsewhere.", name.lexeme),
+                            name.loc,
+                        ))
+                    }
+                    None => (),
+                }
+
+                types.insert(
+                    tid,
+                    Type::RecordPreDeclaration {
+                        token,
+                        name,
+                        kind,
+                        generics,
+                    },
+                );
+            }
+
             Stmt::Enum {
                 token,
                 name,
@@ -335,5 +441,45 @@ mod tests {
     #[test]
     fn var_name_conflict() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("stmt", "var_name_conflict")
+    }
+
+    #[test]
+    fn pre_declare_generics_mismatch() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "pre_declare_generics_mismatch")
+    }
+
+    #[test]
+    fn pre_declare_generics_mismatch2() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "pre_declare_generics_mismatch2")
+    }
+
+    #[test]
+    fn pre_declare_generics_mismatch3() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "pre_declare_generics_mismatch3")
+    }
+
+    #[test]
+    fn pre_declare_generics_mismatch4() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "pre_declare_generics_mismatch4")
+    }
+
+    #[test]
+    fn pre_declare_kind_mismatch() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "pre_declare_kind_mismatch")
+    }
+
+    #[test]
+    fn pre_declare_kind_mismatch2() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "pre_declare_kind_mismatch2")
+    }
+
+    #[test]
+    fn dangling_pre_declaration() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "dangling_pre_declaration")
+    }
+
+    #[test]
+    fn pre_decl_name_conflict() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "pre_decl_name_conflict")
     }
 }

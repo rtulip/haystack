@@ -1,0 +1,5 @@
+struct Foo<T> {
+    T: bar
+}
+
+struct Foo<A B>:

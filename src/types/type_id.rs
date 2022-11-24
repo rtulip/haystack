@@ -53,6 +53,7 @@ impl TypeId {
                 | Type::GenericFunction { .. },
             )
             | None => true,
+            Some(Type::RecordPreDeclaration { generics, .. }) => !generics.is_empty(),
         }
     }
 
@@ -180,6 +181,9 @@ impl TypeId {
                         token.loc.clone(),
                     )),
                     Some(Type::Never) => unreachable!("Never types aren't representable"),
+                    Some(Type::RecordPreDeclaration { .. }) => {
+                        unreachable!("Pre declarations aren't allowed past parsing.")
+                    }
                     None => Err(HayError::new(
                         format!("Unrecognized base type: {base}"),
                         token.loc.clone(),
@@ -494,6 +498,9 @@ impl TypeId {
                     unreachable!("Should never assign to non-generic function!")
                 }
                 Type::Never => unreachable!("Never types should never be assigned!"),
+                Type::RecordPreDeclaration { .. } => {
+                    unreachable!("Pre-declarations should never be assigned")
+                }
             },
             None => {
                 if !map.contains_key(self) {
@@ -701,6 +708,9 @@ impl TypeId {
             (Some(Type::Never), _) => {
                 unreachable!("Never types should not be part of type resolution.")
             }
+            (Some(Type::RecordPreDeclaration { .. }), _) => {
+                unreachable!("Pre-Declarations types should not be part of type resolution.")
+            }
         }
     }
 
@@ -747,6 +757,10 @@ impl TypeId {
             | Type::GenericFunction { .. }
             | Type::Function { .. } => Err(HayError::new(
                 "Functions do not have a size",
+                Loc::new("", 0, 0, 0),
+            )),
+            Type::RecordPreDeclaration { .. } => Err(HayError::new(
+                "Pre-Declared types does not have a size",
                 Loc::new("", 0, 0, 0),
             )),
         }
@@ -831,6 +845,86 @@ impl TypeId {
             }
         }
         Ok(typ.clone())
+    }
+
+    pub fn validate_redeclaration(
+        &self,
+        token: &Token,
+        pre_decl: (&RecordKind, &Token, &Vec<TypeId>),
+        decl: (&RecordKind, &Token, Option<&Vec<TypeId>>),
+    ) -> Result<(), HayError> {
+        let (pre_decl_kind, pre_decl_token, pre_decl_generics) = pre_decl;
+        let (decl_kind, decl_token, decl_generics) = decl;
+        if decl_kind != pre_decl_kind {
+            return Err(HayError::new(
+                "Type Declaration doesn't match Pre-Declaration.",
+                token.loc.clone(),
+            )
+            .with_hint_and_custom_note(
+                format!("Type {self} was predeclared as a {pre_decl_kind}",),
+                format!("{}", pre_decl_token.loc),
+            )
+            .with_hint_and_custom_note(
+                format!("Type {self} was defined as a {decl_kind}",),
+                format!("{}", decl_token.loc),
+            ));
+        }
+
+        match (pre_decl_generics.len(), decl_generics) {
+            (0, Some(generics)) => {
+                return Err(HayError::new(
+                    "Type Declaration doesn't match Pre-Declaration.",
+                    token.loc.clone(),
+                )
+                .with_hint_and_custom_note(
+                    format!("Type {self} was not predeclared as generic",),
+                    format!("{}", pre_decl_token.loc.clone()),
+                )
+                .with_hint_and_custom_note(
+                    format!("Type {self} was defined as generic over {:?}", generics),
+                    format!("{}", decl_token.loc.clone()),
+                ));
+            }
+            (n, Some(generics)) => {
+                if n != generics.len() {
+                    return Err(HayError::new(
+                        "Type Declaration doesn't match Pre-Declaration.",
+                        token.loc.clone(),
+                    )
+                    .with_hint_and_custom_note(
+                        format!(
+                            "Type {self} was predeclared as generic over {:?}",
+                            pre_decl_generics
+                        ),
+                        format!("{}", pre_decl_token.loc.clone()),
+                    )
+                    .with_hint_and_custom_note(
+                        format!("Type {self} was not defined as generic over {:?}", generics),
+                        format!("{}", decl_token.loc.clone()),
+                    ));
+                }
+            }
+            (n, None) if n > 0 => {
+                return Err(HayError::new(
+                    "Type Declaration doesn't match Pre-Declaration.",
+                    token.loc.clone(),
+                )
+                .with_hint_and_custom_note(
+                    format!(
+                        "Type {self} was predeclared as generic over {:?}",
+                        pre_decl_generics
+                    ),
+                    format!("{}", pre_decl_token.loc.clone()),
+                )
+                .with_hint_and_custom_note(
+                    format!("Type {self} was not defined as generic"),
+                    format!("{}", token.loc.clone()),
+                ));
+            }
+            _ => (),
+        }
+
+        Ok(())
     }
 }
 

@@ -841,6 +841,7 @@ impl<'a> Parser<'a> {
         } else {
             RecordKind::Struct
         };
+
         let name = match self.matches(TokenKind::ident()) {
             Ok(t) => t,
             Err(t) => {
@@ -872,11 +873,21 @@ impl<'a> Parser<'a> {
             None
         };
 
+        if self.matches(TokenKind::Marker(Marker::Colon)).is_ok() {
+            return Ok(vec![Stmt::PreDeclaration {
+                token: start,
+                name,
+                kind,
+                annotations,
+            }]);
+        }
+
         if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
             return Err(HayError::new(
                 format!(
-                    "Expected {} after structure name, but found {} instead.",
+                    "Expected {} after {} name, but found {} instead.",
                     Marker::LeftBrace,
+                    kind,
                     t.kind
                 ),
                 t.loc,

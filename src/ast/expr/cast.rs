@@ -58,7 +58,6 @@ impl ExprCast {
                     Ok(TypedExpr::Pad { padding })
                 }
             },
-
             Type::U64 => {
                 Signature::evaluate_many(
                     &vec![
@@ -139,6 +138,7 @@ impl ExprCast {
             | Type::Function { .. }
             | Type::GenericRecordInstance { .. } => unreachable!(),
             Type::Never => unreachable!("Casting to never types is not supported"),
+            Type::RecordPreDeclaration { .. } => unreachable!(),
         }
     }
 }

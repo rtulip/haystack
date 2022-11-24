@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/stmt/pre_declare_kind_mismatch2.hay:5:1] Error: Type Declaration doesn't match Pre-Declaration.\n    [src/tests/stmt/pre_declare_kind_mismatch2.hay:5:1]: Type Foo was predeclared as a union\n    [src/tests/stmt/pre_declare_kind_mismatch2.hay:1:1]: Type Foo was defined as a struct\n"
+}

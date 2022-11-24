@@ -18,6 +18,10 @@ impl:
         chars cast(HString)
     }
 
+    fn HString.clone(&HString: self) -> [HString] {
+        self HString.as_str HString.new
+    }
+
     fn HString.delete(&HString: self) {
         self::chars Vec.delete
     }

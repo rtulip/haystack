@@ -1,0 +1,15 @@
+include "result.hay"
+include "assert.hay"
+fn main() {
+
+    12345 Result.Ok::<u64 Str> as [r] {
+        r Result.is_ok assert 
+        r Result.unwrap putlnu
+    } 
+
+    "Error Result!" Result.Err::<u64 Str> as [r] {
+        r Result.is_err assert 
+        r Result.unwrap_err putlns
+    }
+
+}

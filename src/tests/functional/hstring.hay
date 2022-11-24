@@ -1,0 +1,16 @@
+include "hstring.hay"
+
+fn main() {
+
+    "Hello World" as [s] 
+    s HString.new as [hs]
+    Heap.debug_summary
+
+    s::size          putlnu
+    &hs HString.size putlnu
+    s                  putlns
+    &hs HString.as_str putlns
+    &hs HString.delete
+    Heap.debug_summary
+
+}

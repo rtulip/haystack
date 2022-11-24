@@ -1,0 +1,7 @@
+include "std.hay"
+fn assert(bool) {
+    lnot if {
+        "Assertion failed" putlns
+        1 exit 
+    }
+}

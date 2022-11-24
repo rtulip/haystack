@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "Initial capacity: 8\nHeap after pushing: \nHeap:\n  * [ | 4072 false | ] 4096\n  * [ | 4072 false | ] 4096\n  * [ | 8168 false | ] 8192\n  * [ | 12264 false | ] 12288\n  * [ | 20456 false | ] 20480\n  * [ | 32768 true |  | 4048 false | ] 36864\nElement 1234: 1234\nElement 2345: 2345\nElement 4068: 4068\nPopped: 4069 elements\nHeap after freeing: \nHeap:\n  * [ | 4072 false | ] 4096\n  * [ | 4072 false | ] 4096\n  * [ | 8168 false | ] 8192\n  * [ | 12264 false | ] 12288\n  * [ | 20456 false | ] 20480\n  * [ | 36840 false | ] 36864\n",
+  "stderr": ""
+}

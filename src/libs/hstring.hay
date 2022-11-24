@@ -1,0 +1,35 @@
+include "vec.hay"
+struct HString {
+    Vec<char>: chars
+
+impl:
+    fn HString.new(Str: s) -> [HString] {
+        Vec.new::<char> as [mut chars]
+        s::size 0 > if {
+            0 while dup s::size < {
+                as [i]
+                s::data i ptr+ @ *chars Vec.push
+                i 1 +
+            } drop
+        } else {
+            "Heap-allocated zero sized strings aren't supported" putlns
+            1 exit 
+        }
+        chars cast(HString)
+    }
+
+    fn HString.delete(&HString: self) {
+        self::chars Vec.delete
+    }
+
+    fn HString.size(&HString: self) -> [u64] {
+        self::chars Vec.len
+    }
+
+    fn HString.as_str(&HString: self) -> [Str] {
+        self HString.size
+        0 self::chars Vec.get Opt.unwrap
+        cast(Str)
+    }
+}
+

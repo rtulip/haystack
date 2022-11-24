@@ -295,4 +295,9 @@ mod tests {
     fn result() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "result")
     }
+
+    #[test]
+    fn hstring() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "hstring")
+    }
 }

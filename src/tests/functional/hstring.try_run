@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "Heap:\n  * [ | 8 false |  | 16 true |  | 4000 false | ] 4096\n11\n11\nHello World\nHello World\nHeap:\n  * [ | 4072 false | ] 4096\n",
+  "stderr": ""
+}

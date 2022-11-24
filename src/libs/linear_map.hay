@@ -1,113 +1,63 @@
-include "stack.hay"
+include "vec.hay" 
+include "str.hay"
 include "std.hay"
-include "opt.hay"
 
 struct Map<T> {
-    *Stack<Str>: keys
-    *Stack<T>: values
+    
+    Vec<Str>: keys
+    Vec<T>: values
 
 impl:
-    fn Map.new<T>() -> [*Map<T>] {
-        malloc_obj::<Map<T>> as [map_p]
-        map_p Map.init
-        map_p
+    inline fn Map.new<T>() -> [Map<T>] {
+        Vec.new::<Str>
+        Vec.new::<T>
+        cast(Map)
     }
 
-    fn Map.init<T>(*Map<T>: map_p) {
-        malloc_obj::<Stack<Str>> as [keys_p]
-        malloc_obj::<Stack<T>> as [values_p] 
-        
-        keys_p   Stack.init
-        values_p Stack.init
-        keys_p values_p cast(Map) map_p !
+    inline fn Map.contains<T>(Str &Map<T>) -> [bool] {
+        Map.find Opt.is_some 
     }
 
-    fn Map.destroy<T>(*Map<T>: map_p) {
-        map_p @ as [map]
-        map::keys   Stack.destroy
-        map::values Stack.destroy
-        map::keys   free_obj
-        map::values free_obj
-    }
+    fn Map.insert<T>(Str: key T: value *Map<T>: self) -> [Opt<T>] {
 
-    fn Map.idx_of<T>(Str: key *Map<T>: map_p) -> [Opt<u64>] {
-    
-        map_p @ as [map]
-        false 0 while as [result idx] { result idx
-            result lnot
-            idx map::keys Stack.len < land
-        } {
-            as [result idx]
-            idx map::keys Stack.get Opt.unwrap key Str.equals 
-            idx 1 + 
-        }
-    
-        as [result idx] 
-    
-        result if {
-            idx 1 - Opt.Some
+        key self Map.find_mut as [maybe_val]
+        maybe_val Opt.is_some if {
+            maybe_val Opt.unwrap as [val]
+            val @ Opt.Some
+            value val !
         } else {
-            Opt.None::<u64>
-        }
-    
-    }
 
-    fn Map.contains<T>(Str: key *Map<T>: map_p) -> [bool] {
-        key map_p Map.idx_of Opt.is_some
-    }
-
-    fn Map.get_ref<T>(Str: key *Map<T>: map_p) -> [Opt<*T>] {
-        map_p @ as [map]
-        map::values @ as [values]
-        key map_p Map.idx_of as [maybe_idx] 
-        maybe_idx Opt.is_some if {
-            maybe_idx Opt.unwrap values::slice Arr.get_ref Opt.Some
-        } else {
-            Opt.None::<*T>
-        }
-    }
-
-    fn Map.get<T>(Str: key *Map<T>: map_p) -> [Opt<T>] {
-        map_p @ as [map]
-        key map_p Map.idx_of as [maybe_idx] 
-        maybe_idx Opt.is_some if {
-            maybe_idx Opt.unwrap map::values Stack.get
-        } else {
+            key   self::keys   Vec.push
+            value self::values Vec.push
             Opt.None::<T>
         }
-
     }
 
-    fn Map.insert<T>(Str: key T: value *Map<T>: map_p) -> [Opt<T>] {
-        map_p @ as [map]
-        
-        key map_p Map.idx_of as [maybe_idx]
-        maybe_idx Opt.is_some if {
-            maybe_idx Opt.unwrap as [idx]
-            idx map::values Stack.get
-            value idx map::values Stack.set
-        } else {
-            key map::keys Stack.push
-            value map::values Stack.push
-            Opt.None::<T>
-        }
+    fn Map.find_mut<T>(Str: key *Map<T>: self) -> [Opt<*T>] {
+        0 while dup self::keys Vec.len < {
+            as [i]
 
+            key i self::keys Vec.at Opt.unwrap Str.equals if {
+                i self::values Vec.get_mut return 
+            }
+
+            i 1 + 
+        } drop
+
+        Opt.None::<*T>
     }
 
-    fn Map.reverse_lookup<T>(*T: value_p *Map<T>: map_p) -> [Str] {
-        map_p @ as [map]
-        map::keys @ map::values @ as [keys values]
-        keys::arr::data                     // Linear map is two stacks
-        value_p values::arr::data ptr-diff  // Find the index of the type in the values
-        ptr+ @                              // Offset to the same key and read
-    }
+    fn Map.find<T>(Str: key &Map<T>: self) -> [Opt<&T>] {
+        0 while dup self::keys Vec.len < {
+            as [i]
+            key i self::keys Vec.at Opt.unwrap Str.equals if {
+                i self::values Vec.get return 
+            }
 
-    fn Map.len<T>(*Map<T>: map_p) -> [u64] {
-        map_p @ as [map]
-        map::keys @ as [keys]
-        keys::len
-    }
+            i 1 + 
+        } drop
 
+        Opt.None::<&T>
+    }
 
 }
-

@@ -4,12 +4,26 @@ struct Vec<T> {
     Arr<T>: slice
     u64: len
 impl:
-    fn Vec.new<T>() -> [Vec<T>] {
+    inline fn Vec.new<T>() -> [Vec<T>] {
         8 malloc::<T> 0 cast(Vec) 
     }
 
-    fn Vec.delete<T>(&Vec<T>: self) {
+    inline fn Vec.with_capacity<T>(u64) -> [Vec<T>] {
+        malloc::<T> 0 cast(Vec)
+    }
+
+    inline fn Vec.delete<T>(&Vec<T>: self) {
         self::slice @ free
+    }
+
+    inline fn Vec.slice_mut<T>(*Vec<T>: self) -> [Arr<T>] {
+        self::slice @
+    }
+
+    inline fn Vec.slice<T>(&Vec<T>: self) -> [ConstArr<T>] {
+        self::slice::size @
+        self::slice::data @
+        cast(ConstArr)
     }
 
     fn Vec.push<T>(T: value *Vec<T>: self) {

@@ -300,4 +300,9 @@ mod tests {
     fn hstring() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "hstring")
     }
+
+    #[test]
+    fn pre_declare() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "pre_declare")
+    }
 }

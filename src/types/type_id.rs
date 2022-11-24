@@ -906,7 +906,7 @@ impl TypeId {
                     ));
                 }
             }
-            (_, None) => {
+            (n, None) if n > 0 => {
                 return Err(HayError::new(
                     "Type Declaration doesn't match Pre-Declaration.",
                     token.loc.clone(),
@@ -923,6 +923,7 @@ impl TypeId {
                     format!("{}", token.loc.clone()),
                 ));
             }
+            _ => (),
         }
 
         Ok(())

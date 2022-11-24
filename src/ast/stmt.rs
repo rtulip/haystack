@@ -456,6 +456,16 @@ mod tests {
     }
 
     #[test]
+    fn pre_declare_generics_mismatch3() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "pre_declare_generics_mismatch3")
+    }
+
+    #[test]
+    fn pre_declare_generics_mismatch4() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "pre_declare_generics_mismatch4")
+    }
+
+    #[test]
     fn pre_declare_kind_mismatch() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("stmt", "pre_declare_kind_mismatch")
     }
@@ -468,5 +478,10 @@ mod tests {
     #[test]
     fn dangling_pre_declaration() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("stmt", "dangling_pre_declaration")
+    }
+
+    #[test]
+    fn pre_decl_name_conflict() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "pre_decl_name_conflict")
     }
 }

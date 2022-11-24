@@ -2,4 +2,4 @@ struct Foo<T> {
     T: bar
 }
 
-struct Foo:
+struct Foo<A B>:

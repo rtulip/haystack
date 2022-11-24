@@ -1,0 +1,71 @@
+include "hstring.hay"
+enum LiteralTag {
+    Bool
+    Char
+    String
+    U8
+    U64
+}
+
+union LiteralKind {
+    bool: bool
+    char: char
+    HString: string
+    u8: u8
+    u64: u64
+}
+
+struct Literal {
+    LiteralKind: kind
+    LiteralTag: tag
+    
+impl:
+    inline fn Literal.Bool(bool) -> [Literal] {
+        cast(LiteralKind)
+        LiteralTag::Bool
+        cast(Literal)
+    }
+
+    inline fn Literal.Char(char) -> [Literal] {
+        cast(LiteralKind)
+        LiteralTag::Char
+        cast(Literal)
+    }
+
+    inline fn Literal.String(HString) -> [Literal] {
+        cast(LiteralKind)
+        LiteralTag::String
+        cast(Literal)
+    }
+
+    inline fn Literal.U8(u8) -> [Literal] {
+        cast(LiteralKind)
+        LiteralTag::U8
+        cast(Literal)
+    }
+
+    inline fn Literal.U64(u64) -> [Literal] {
+        cast(LiteralKind)
+        LiteralTag::U64
+        cast(Literal)
+    }
+
+    fn Literal.fput(&Literal: self u64: fd) {
+
+        self::tag @ LiteralTag::Bool == if {
+            self::kind::bool @ fd fputb
+        } else self::tag @ LiteralTag::Char == if {
+            self::kind::char @ fd fputc 
+        } else self::tag @ LiteralTag::String == if {
+            self::kind::string HString.as_str fd fputs
+        } else self::tag @ LiteralTag::U8 == if {
+            self::kind::u8 @ fd fputu8
+        } else self::tag @ LiteralTag::U64 == if {
+            self::kind::u64 @ fd fputu
+        } else {
+            "Literal.fput unreahcable!" putlns
+            1 exit 
+        } 
+    }
+
+}

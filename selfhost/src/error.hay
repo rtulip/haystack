@@ -1,0 +1,18 @@
+include "std.hay"
+
+enum ErrorKind {
+    Error
+}
+
+fn ErrorKind.fput(ErrorKind: e u64: fd) {
+    e ErrorKind::Error == if {
+        "Error" fd fputs
+    } else {
+        "ErrorKind.fput unreachable!" putlns
+        1 exit
+    }
+}
+
+fn ErrorKind.put(ErrorKind: e) {
+    e 1 ErrorKind.fput
+}

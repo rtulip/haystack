@@ -1,0 +1,7 @@
+include "std.hay"
+include "selfhost/src/lex/token.hay"
+fn main() {
+
+    "Hello World" putlns
+
+}

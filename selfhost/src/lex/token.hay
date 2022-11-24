@@ -1,0 +1,32 @@
+include "hstring.hay"
+include "range.hay"
+include "selfhost/src/lex/loc.hay"
+include "selfhost/src/lex/token_kind.hay"
+
+struct Token {
+    pub TokenKind: kind
+    pub HString: lexeme
+    pub Loc: loc
+
+impl:
+    fn Token.new(
+        TokenKind: kind
+        HString: lexeme
+        HString: file
+        u64: line
+        u64: start
+        u64: end
+    ) -> [Token] {
+        
+        kind
+        lexeme
+        file
+        line
+        start
+        end
+        cast(Range)
+        cast(Loc)
+        cast(Token)
+    }
+
+}

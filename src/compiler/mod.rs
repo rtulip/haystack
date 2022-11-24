@@ -285,4 +285,9 @@ mod tests {
     fn empty_string() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "empty_string")
     }
+
+    #[test]
+    fn vec() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "vec")
+    }
 }

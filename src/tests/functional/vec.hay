@@ -1,0 +1,33 @@
+include "vec.hay"
+fn main() {
+
+    Vec.new::<u64> as [mut vec]
+    "Initial capacity: " puts &vec Vec.capacity putlnu
+    
+    0 while dup 4069 < {
+        as [i]
+        i *vec Vec.push
+        i 1 +
+    } drop
+    "Heap after pushing: " putlns
+    Heap.debug_summary
+
+    "Element 1234: " puts 1234 &vec Vec.get     Opt.unwrap @ putlnu
+    "Element 2345: " puts 2345 *vec Vec.get_mut Opt.unwrap @ putlnu
+    "Element 4068: " puts 4068 &vec Vec.at      Opt.unwrap   putlnu
+
+    4069 &vec Vec.get     Opt.is_none assert
+    4069 *vec Vec.get_mut Opt.is_none assert
+    4069 &vec Vec.at      Opt.is_none assert
+
+    0 while *vec Vec.pop Opt.is_some {
+        1 + 
+    }
+
+    "Popped: " puts putu " elements" putlns
+
+    &vec Vec.delete
+    "Heap after freeing: " putlns
+    Heap.debug_summary
+
+}

@@ -1,0 +1,63 @@
+include "alloc.hay"
+include "assert.hay"
+struct Vec<T> {
+    Arr<T>: slice
+    u64: len
+impl:
+    fn Vec.new<T>() -> [Vec<T>] {
+        8 malloc::<T> 0 cast(Vec) 
+    }
+
+    fn Vec.delete<T>(&Vec<T>: self) {
+        self::slice @ free
+    }
+
+    fn Vec.push<T>(T: value *Vec<T>: self) {
+        self::len @ self::slice::size @ == if {
+            self::slice::size @ 2 * self::slice @ realloc self::slice !
+        }
+        value self::len @ self::slice @ Arr.set
+        self::len @ 1 + self::len !
+    }
+
+    fn Vec.pop<T>(*Vec<T>: self) -> [Opt<T>] {
+        self::len @ 0 == if {
+            Opt.None::<T>
+        } else {
+            self::len @ 1 - self::len !
+            self::len @ self::slice @ Arr.get Opt.Some
+        }
+    }
+
+    fn Vec.get<T>(u64: idx &Vec<T>: self) -> [Opt<&T>] {
+        idx self::len @ >= if {
+            Opt.None::<&T>
+        } else {
+            idx self::slice @ Arr.get_ref Opt.Some
+        }
+    }
+
+    fn Vec.get_mut<T>(u64: idx *Vec<T>: self) -> [Opt<*T>] {
+        idx self::len @ >= if {
+            Opt.None::<*T>
+        } else {
+            idx self::slice @ Arr.get_ref_mut Opt.Some
+        }
+    }
+
+    fn Vec.at<T>(u64: idx &Vec<T>: self) -> [Opt<T>] {
+        idx self::len @ >= if {
+            Opt.None::<T>
+        } else {
+            idx self::slice @ Arr.get Opt.Some
+        }
+    }
+
+    fn Vec.capacity<T>(&Vec<T>: self) -> [u64] {
+        self::slice::size @
+    }
+
+    fn Vec.len<T>(&Vec<T>: self) -> [u64] {
+        self::len @
+    }
+}

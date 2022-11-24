@@ -53,7 +53,7 @@ impl TypeId {
                 | Type::GenericFunction { .. },
             )
             | None => true,
-            Some(Type::RecordPreDeclaration { generics, .. }) => generics.len() != 0,
+            Some(Type::RecordPreDeclaration { generics, .. }) => !generics.is_empty(),
         }
     }
 
@@ -850,13 +850,11 @@ impl TypeId {
     pub fn validate_redeclaration(
         &self,
         token: &Token,
-        pre_decl_kind: &RecordKind,
-        pre_decl_token: &Token,
-        pre_decl_generics: &Vec<TypeId>,
-        decl_kind: &RecordKind,
-        decl_token: &Token,
-        decl_generics: Option<&Vec<TypeId>>,
+        pre_decl: (&RecordKind, &Token, &Vec<TypeId>),
+        decl: (&RecordKind, &Token, Option<&Vec<TypeId>>),
     ) -> Result<(), HayError> {
+        let (pre_decl_kind, pre_decl_token, pre_decl_generics) = pre_decl;
+        let (decl_kind, decl_token, decl_generics) = decl;
         if decl_kind != pre_decl_kind {
             return Err(HayError::new(
                 "Type Declaration doesn't match Pre-Declaration.",

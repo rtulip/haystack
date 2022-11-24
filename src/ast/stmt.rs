@@ -130,7 +130,7 @@ impl Stmt {
             .filter(|(_, t)| matches!(t, Type::RecordPreDeclaration { .. }))
             .collect::<Vec<(&TypeId, &Type)>>();
 
-        if unimpl_decls.len() != 0 {
+        if !unimpl_decls.is_empty() {
             let token = match unimpl_decls.first().unwrap().1 {
                 Type::RecordPreDeclaration { token, .. } => token,
                 _ => unreachable!(),
@@ -204,16 +204,16 @@ impl Stmt {
                     }) => {
                         TypeId::new(&name.lexeme).validate_redeclaration(
                             &token,
-                            &pre_decl_kind,
-                            &pre_decl_token,
-                            &pre_decl_generics,
-                            &kind,
-                            &token,
-                            if generics.len() == 0 {
-                                None
-                            } else {
-                                Some(&generics)
-                            },
+                            (&pre_decl_kind, &pre_decl_token, &pre_decl_generics),
+                            (
+                                &kind,
+                                &token,
+                                if generics.is_empty() {
+                                    None
+                                } else {
+                                    Some(&generics)
+                                },
+                            ),
                         )?;
                     }
                     Some(_) => {
@@ -239,7 +239,9 @@ impl Stmt {
                         ..
                     }) => {
                         tid.validate_redeclaration(
-                            &token, &kind, &token, &generics, decl_kind, decl_token, None,
+                            &token,
+                            (&kind, &token, &generics),
+                            (decl_kind, decl_token, None),
                         )?;
                         return Ok(());
                     }
@@ -251,12 +253,8 @@ impl Stmt {
                     }) => {
                         tid.validate_redeclaration(
                             &token,
-                            &kind,
-                            &token,
-                            &generics,
-                            decl_kind,
-                            decl_token,
-                            Some(decl_generics),
+                            (&kind, &token, &generics),
+                            (decl_kind, decl_token, Some(decl_generics)),
                         )?;
                         return Ok(());
                     }

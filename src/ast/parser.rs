@@ -873,7 +873,7 @@ impl<'a> Parser<'a> {
             None
         };
 
-        if let Ok(_) = self.matches(TokenKind::Marker(Marker::Colon)) {
+        if self.matches(TokenKind::Marker(Marker::Colon)).is_ok() {
             return Ok(vec![Stmt::PreDeclaration {
                 token: start,
                 name,

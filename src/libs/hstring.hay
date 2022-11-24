@@ -35,5 +35,17 @@ impl:
         0 self::chars Vec.get Opt.unwrap
         cast(Str)
     }
+
+    fn HString.push(char: c *HString: self) {
+        c self::chars Vec.push
+    }
+
+    fn HString.push_str(Str: s *HString: self) {
+        0 while dup s::size < {
+            as [i]
+            s::data i ptr+ @ self HString.push
+            i 1 +
+        } drop
+    }
 }
 

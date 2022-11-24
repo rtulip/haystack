@@ -1,5 +1,7 @@
 include "hstring.hay"
 include "range.hay"
+include "result.hay"
+include "selfhost/src/error.hay"
 include "selfhost/src/lex/loc.hay"
 include "selfhost/src/lex/token_kind.hay"
 

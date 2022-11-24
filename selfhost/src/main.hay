@@ -1,5 +1,6 @@
 include "std.hay"
 include "selfhost/src/lex/token.hay"
+include "selfhost/src/error.hay"
 fn main() {
 
     "Hello World" putlns

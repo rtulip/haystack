@@ -1,0 +1,8 @@
+include "vec.hay"
+include "selfhost/src/lex/token.hay"
+
+struct EnumStmt {
+    pub Token: token
+    pub Token: name
+    pub Vec<Token>: variants
+}

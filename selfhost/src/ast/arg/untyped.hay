@@ -1,0 +1,8 @@
+include "selfhost/src/lex/token.hay"
+include "opt.hay"
+
+struct UntypedArg {
+    pub Token: token
+    pub Opt<Token>: mutable
+    pub Opt<Token>: ident
+}

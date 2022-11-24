@@ -1,0 +1,17 @@
+include "opt.hay"
+include "vec.hay"
+include "selfhost/src/ast/arg/untyped.hay"
+include "selfhost/src/ast/expr/expr.hay"
+include "selfhost/src/lex/token.hay"
+include "selfhost/src/types/function/fn_tag.hay"
+
+struct FunctionStmt {
+    Token: token
+    Token: name
+    Vec<UntypedArg>: inputs
+    Vec<UntypedArg>: outputs
+    Opt<Vec<UntypedArg>>: annotations
+    Vec<Expr>: body
+    Vec<FnTag>: tags
+    Opt<Token>: impl_on
+}

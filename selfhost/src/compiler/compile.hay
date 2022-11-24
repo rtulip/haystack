@@ -1,0 +1,11 @@
+
+include "std.hay"
+include "opt.hay"
+include "selfhost/src/error.hay"
+include "selfhost/src/ast/stmt/stmt.hay"
+
+fn compile_haystack(Str: input_path bool: run) -> [Opt<HayError>] {
+
+    Opt.None::<HayError>
+
+}

@@ -258,6 +258,20 @@ impl Stmt {
                         )?;
                         return Ok(());
                     }
+                    Some(Type::RecordPreDeclaration {
+                        kind: prev_decl_kind,
+                        generics: prev_decl_generics,
+                        token: prev_decl_token,
+                        ..
+                    }) => {
+                        if kind != *prev_decl_kind || prev_decl_generics.len() != generics.len() {
+                            return Err(HayError::new("Conflicting Pre-Declarations.", token.loc)
+                                .with_hint_and_custom_note(
+                                    format!("{tid} originally defined here"),
+                                    format!("{}", &prev_decl_token.loc),
+                                ));
+                        }
+                    }
                     Some(_) => {
                         return Err(HayError::new(
                             format!("Name conflict: `{}` defined elsewhere.", name.lexeme),

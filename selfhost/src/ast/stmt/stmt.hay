@@ -1,0 +1,33 @@
+include "result.hay"
+include "vec.hay"
+include "selfhost/src/error.hay" 
+include "selfhost/src/ast/stmt/enum.hay"
+include "selfhost/src/ast/stmt/function.hay"
+include "selfhost/src/ast/stmt/pre_declaration.hay"
+include "selfhost/src/ast/stmt/record.hay"
+include "selfhost/src/ast/stmt/var.hay"
+
+enum StmtTag {
+    Function
+    PreDeclaration
+    Record
+    Enum
+    Var
+}
+
+union StmtKind {
+    FunctionStmt: Function
+    PreDeclarationStmt: PreDeclaration
+    RecordStmt: Record
+    EnumStmt: Enum
+    VarStmt: Var
+}
+
+
+struct Stmt {
+    StmtKind: kind
+    StmtTag: tag
+
+impl:   
+}
+

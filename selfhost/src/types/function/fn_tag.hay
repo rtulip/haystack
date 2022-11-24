@@ -1,0 +1,5 @@
+enum FnTag {
+    Inline
+    OnCopy
+    OnDrop
+}

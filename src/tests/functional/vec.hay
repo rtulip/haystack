@@ -16,12 +16,13 @@ fn main() {
     "Element 2345: " puts 2345 *vec Vec.get_mut Opt.unwrap @ putlnu
     "Element 4068: " puts 4068 &vec Vec.at      Opt.unwrap   putlnu
 
-    4069 &vec Vec.get     Opt.is_none assert
-    4069 *vec Vec.get_mut Opt.is_none assert
-    4069 &vec Vec.at      Opt.is_none assert
+    4069 &vec Vec.get     as [x] &x Opt.is_none assert
+    4069 *vec Vec.get_mut as [x] &x Opt.is_none assert
+    4069 &vec Vec.at      as [x] &x Opt.is_none assert
 
-    0 while *vec Vec.pop Opt.is_some {
-        1 + 
+    0 while &vec Vec.len 0 > {
+        *vec Vec.pop Opt.unwrap drop
+        1 +
     }
 
     "Popped: " puts putu " elements" putlns

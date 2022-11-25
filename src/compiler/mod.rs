@@ -183,11 +183,6 @@ mod tests {
     }
 
     #[test]
-    fn stacks() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "stacks")
-    }
-
-    #[test]
     fn struct_accessors() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "struct_accessors")
     }

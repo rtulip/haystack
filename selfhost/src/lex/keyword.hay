@@ -22,54 +22,53 @@ enum Keyword {
     Mut
 }
 
-fn Keyword.fput(Keyword: self u64: fd) {
-    '`' fd fputc
+fn Keyword.format(HString: s Keyword: self) -> [HString] {
+    s '`' HString.push
 
     self Keyword::Function == if {
-        "fn" fd fputs
+        "fn" HString.push_str
     } else self Keyword::Var == if {
-        "var" fd fputs
+        "var" HString.push_str
     } else self Keyword::As == if {
-        "as" fd fputs
+        "as" HString.push_str
     } else self Keyword::If == if {
-        "if" fd fputs
+        "if" HString.push_str
     } else self Keyword::Else == if {
-        "else" fd fputs
+        "else" HString.push_str
     } else self Keyword::While == if {
-        "while" fd fputs
+        "while" HString.push_str
     } else self Keyword::Struct == if {
-        "struct" fd fputs
+        "struct" HString.push_str
     } else self Keyword::Union == if {
-        "union" fd fputs
+        "union" HString.push_str
     } else self Keyword::Enum == if {
-        "enum" fd fputs
+        "enum" HString.push_str
     } else self Keyword::Cast == if {
-        "cast" fd fputs
+        "cast" HString.push_str
     } else self Keyword::Syscall == if {
-        "syscall" fd fputs
+        "syscall" HString.push_str
     } else self Keyword::Include == if {
-        "include" fd fputs
+        "include" HString.push_str
     } else self Keyword::SizeOf == if {
-        "sizeOf" fd fputs
+        "sizeOf" HString.push_str
     } else self Keyword::Pub == if {
-        "pub" fd fputs
+        "pub" HString.push_str
     } else self Keyword::Impl == if {
-        "impl" fd fputs
+        "impl" HString.push_str
     } else self Keyword::Inline == if {
-        "inline" fd fputs
+        "inline" HString.push_str
     } else self Keyword::Return == if {
-        "return" fd fputs
+        "return" HString.push_str
     } else self Keyword::Mut == if {
-        "mut" fd fputs
+        "mut" HString.push_str
     } else {
         "\nKeyword.fput unreachable!" putlns
         1 exit 
     }
-    '`' fd fputc
+    '`' HString.push
 }
 
 struct TokenKind:
-
 fn Keyword.keywords() -> [Map<TokenKind>] {
 
     Map.new::<TokenKind> as [mut map]

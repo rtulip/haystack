@@ -40,10 +40,9 @@ impl:
     }
 
     fn HayError.new_type_err(HString: message Loc: loc) -> [HayError] {
-        "Type Error: " HString.new as [mut msg]
-        &message HString.as_str *msg HString.push_str
+        "Type Error: " HString.new 
+        &message HString.as_str HString.push_str
         
-        msg 
         ErrorKind::Error
         loc
         Vec.new::<Hint>
@@ -66,28 +65,28 @@ impl:
         self
     }
 
-    fn HayError.fput(&HayError: self u64: fd) {
-        "[" fd fputs
-        self::loc fd Loc.fput
-        "] " fd fputs
-        self::kind @ fd ErrorKind.fput
-        ": " fd fputs
-        self::message HString.as_str fd fputs
+    //fn HayError.fput(&HayError: self u64: fd) {
+    //    "[" fd fputs
+    //    self::loc fd Loc.fput
+    //    "] " fd fputs
+    //    self::kind @ fd ErrorKind.fput
+    //    ": " fd fputs
+    //    self::message HString.as_str fd fputs
+    //
+    //    0 while dup self::hints Vec.len < {
+    //        as [i]
+    //        i self::hints Vec.get Opt.unwrap as [hint]
+    //        
+    //        "    ["                   fd fputs
+    //        hint::note HString.as_str fd fputs
+    //        "]: "                     fd fputs
+    //        hint::hint HString.as_str fd fputs
+    //        i 1 +
+    //    } drop 
+    //}
 
-        0 while dup self::hints Vec.len < {
-            as [i]
-            i self::hints Vec.get Opt.unwrap as [hint]
-            
-            "    ["                   fd fputs
-            hint::note HString.as_str fd fputs
-            "]: "                     fd fputs
-            hint::hint HString.as_str fd fputs
-            i 1 +
-        } drop 
-    }
-
-    inline fn HayError.report(&HayError) {
-        2 HayError.fput
-    }
+    //inline fn HayError.report(&HayError) {
+    //    2 HayError.fput
+    //}
 
 }

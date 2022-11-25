@@ -1,6 +1,7 @@
 include "std.hay"
 include "hstring.hay"
 include "range.hay"
+include "utils.hay"
 
 struct Loc {
     pub HString: file
@@ -14,15 +15,12 @@ impl:
         cast(Loc)
     }
 
-    fn Loc.fput(&Loc: self u64: fd) {
-        self::file HString.as_str fd fputs
-        ":" fd fputs
-        self::line @ fd fputu
-        ":" fd fputs
-        self::span::start @ fd fputu
+    fn Loc.format(HString: s &Loc: self) -> [HString] {
+        s self::file HString.as_str HString.push_str
+        ':' HString.push
+        self::line @ u64.format
+        ':' HString.push
+        self::span::start @ u64.format
     }
-
-    fn Loc.put(&Loc) {
-        1 Loc.fput
-    } 
+ 
 }

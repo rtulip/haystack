@@ -11,29 +11,29 @@ enum Marker {
     Arrow
 }
 
-fn Marker.format(Marker: self *HString: s) {
-    '`' s HString.push
+fn Marker.format(HString: s Marker: self) -> [HString] {
+    s '`' HString.push
     self Marker::LeftBrace == if {
-        '{' s HString.push
+        '{' HString.push
     } else self Marker::RightBrace == if {
-        '}' s HString.push
+        '}' HString.push
     } else self Marker::LeftParen == if {
-        '(' s HString.push
+        '(' HString.push
     } else self Marker::RightParen == if {
-        ')' s HString.push
+        ')' HString.push
     } else self Marker::LeftBracket == if {
-        '[' s HString.push
+        '[' HString.push
     } else self Marker::RightBracket == if {
-        ']' s HString.push
+        ']' HString.push
     } else self Marker::Colon == if {
-        ':' s HString.push
+        ':' HString.push
     } else self Marker::DoubleColon == if {
-        "::" s HString.push_str
+        "::"  HString.push_str
     } else self Marker::Arrow == if {
-        "->" s HString.push_str
+        "->" HString.push_str
     } else {
         "\nMarker.fput Unreachable!" putlns
         1 exit
     }
-    '`' s HString.push
+    '`' HString.push
 }

@@ -29,56 +29,135 @@ struct Operator {
     OperatorKind: kind
     OperatorTag: tag
 impl:
-    fn Operator.Plus() -> [Operator] {
+    inline fn Operator.Plus() -> [Operator] {
         0 cast(OperatorKind)
         OperatorTag::Plus
         cast(Operator)
     }
 
-    fn Operator.fput(Operator: self u64: fd) {
-        '`' fd fputc
-        self::tag OperatorTag::Plus == if {
-            '+' fd fputc
-        } else self::tag OperatorTag::Minus == if {
-            '-' fd fputc
-        } else self::tag OperatorTag::Star == if {
-            '*' fd fputc
-        } else self::tag OperatorTag::Slash == if {
-            '/' fd fputc
-        } else self::tag OperatorTag::LessThan == if {
-            '<' fd fputc
-        } else self::tag OperatorTag::LessEqual == if {
-            "<=" fd fputs
-        } else self::tag OperatorTag::GreaterThan == if {
-            '>' fd fputc
-        } else self::tag OperatorTag::GreaterEqual == if {
-            ">=" fd fputs
-        } else self::tag OperatorTag::Equal == if {
-            "==" fd fputs
-        } else self::tag OperatorTag::BangEqual == if {
-            "!=" fd fputs
-        } else self::tag OperatorTag::Modulo == if {
-            '%' fd fputc
-        } else self::tag OperatorTag::Read == if {
-            '@' fd fputc
-        } else self::tag OperatorTag::Write == if {
-            '!' fd fputc
-        } else self::tag OperatorTag::Ampersand == if {
-            '&' fd fputc
-        } else self::tag OperatorTag::Unary == if {
-            "Unary(" fd fputs 
-            self::kind::unary @ as [token]
-            &token::lexeme HString.as_str fd fputs
-            ")" fd fputs
+    inline fn Operator.Minus() -> [Operator] {
+        0 cast(OperatorKind)
+        OperatorTag::Minus
+        cast(Operator)
+    }
+
+    inline fn Operator.Star() -> [Operator] {
+        0 cast(OperatorKind)
+        OperatorTag::Star
+        cast(Operator)
+    }
+
+    inline fn Operator.Slash() -> [Operator] {
+        0 cast(OperatorKind)
+        OperatorTag::Slash
+        cast(Operator)
+    }
+
+    inline fn Operator.LessThan() -> [Operator] {
+        0 cast(OperatorKind)
+        OperatorTag::LessThan
+        cast(Operator)
+    }
+
+    inline fn Operator.LessEqual() -> [Operator] {
+        0 cast(OperatorKind)
+        OperatorTag::LessEqual
+        cast(Operator)
+    }
+
+    inline fn Operator.GreaterThan() -> [Operator] {
+        0 cast(OperatorKind)
+        OperatorTag::GreaterThan
+        cast(Operator)
+    }
+
+    inline fn Operator.GreaterEqual() -> [Operator] {
+        0 cast(OperatorKind)
+        OperatorTag::GreaterEqual
+        cast(Operator)
+    }
+
+    inline fn Operator.Equal() -> [Operator] {
+        0 cast(OperatorKind)
+        OperatorTag::Equal
+        cast(Operator)
+    }
+
+    inline fn Operator.BangEqual() -> [Operator] {
+        0 cast(OperatorKind)
+        OperatorTag::BangEqual
+        cast(Operator)
+    }
+    inline fn Operator.Modulo() -> [Operator] {
+        0 cast(OperatorKind)
+        OperatorTag::Modulo
+        cast(Operator)
+    }
+    inline fn Operator.Read() -> [Operator] {
+        0 cast(OperatorKind)
+        OperatorTag::Read
+        cast(Operator)
+    }
+    inline fn Operator.Write() -> [Operator] {
+        0 cast(OperatorKind)
+        OperatorTag::Write
+        cast(Operator)
+    }
+
+    inline fn Operator.Ampersand() -> [Operator] {
+        0 cast(OperatorKind)
+        OperatorTag::Ampersand
+        cast(Operator)
+    }
+
+    inline fn Operator.Unary(&Token) -> [Operator] {
+        cast(OperatorKind)
+        OperatorTag::Unary
+        cast(Operator)
+    }
+
+    fn Operator.format(HString: s &Operator: self) -> [HString] {
+        
+        s '`' HString.push
+        self::tag @ OperatorTag::Plus == if {
+            '+' HString.push
+        } else self::tag @ OperatorTag::Minus == if {
+            '-' HString.push
+        } else self::tag @ OperatorTag::Star == if {
+            '*' HString.push
+        } else self::tag @ OperatorTag::Slash == if {
+            '/' HString.push
+        } else self::tag @ OperatorTag::LessThan == if {
+            '<' HString.push
+        } else self::tag @ OperatorTag::LessEqual == if {
+            "<=" HString.push_str
+        } else self::tag @ OperatorTag::GreaterThan == if {
+            '>' HString.push
+        } else self::tag @ OperatorTag::GreaterEqual == if {
+            ">=" HString.push_str
+        } else self::tag @ OperatorTag::Equal == if {
+            "==" HString.push_str
+        } else self::tag @ OperatorTag::BangEqual == if {
+            "!=" HString.push_str
+        } else self::tag @ OperatorTag::Modulo == if {
+            '%' HString.push
+        } else self::tag @ OperatorTag::Read == if {
+            '@' HString.push
+        } else self::tag @ OperatorTag::Write == if {
+            '!' HString.push
+        } else self::tag @ OperatorTag::Ampersand == if {
+            '&' HString.push
+        } else self::tag @ OperatorTag::Unary == if {
+            "Unary(" HString.push_str 
+            self::kind::unary @ @ as [token]
+            &token::lexeme HString.as_str HString.push_str
+            ")" HString.push_str
         } else {
             "\nOperator.fput unreachable!" putlns
             1 exit 
         }
-        '`' fd fputc
+        '`' HString.push
     }
     
-    inline fn Operator.put(Operator) {
-        1 Operator.fput
-    }
 }
 

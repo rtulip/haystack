@@ -85,6 +85,7 @@ impl Instruction {
                         't' => new_s.push('\t'),
                         'r' => new_s.push('\r'),
                         '0' => new_s.push('\0'),
+                        '\\' => new_s.push('\\'),
                         _ => unreachable!(),
                     }
                 }

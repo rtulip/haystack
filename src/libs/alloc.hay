@@ -135,7 +135,7 @@ fn Chunk.consolidate(*Chunk: chunk_p) {
 
 }
 
-var Chunk[2048]: chunks_p
+var Chunk[100000]: chunks_p
 var u64: n_chunks_p
 
 fn mmap_new_chunk(u64: n) -> [*Chunk] {

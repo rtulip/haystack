@@ -6,17 +6,16 @@ struct HString {
 impl:
     fn HString.new(Str: s) -> [HString] {
         Vec.new::<char> as [mut chars]
-        s::size 0 > if {
-            0 while dup s::size < {
-                as [i]
-                s::data i ptr+ @ *chars Vec.push
-                i 1 +
-            } drop
-        } else {
-            "Heap-allocated zero sized strings aren't supported" putlns
-            1 exit 
-        }
+        0 while dup s::size < {
+            as [i]
+            s::data i ptr+ @ *chars Vec.push
+            i 1 +
+        } drop
         chars cast(HString)
+    }
+
+    fn HString.debug(&HString: self) {
+        self::chars Vec.debug
     }
 
     fn HString.clone(&HString: self) -> [HString] {
@@ -39,16 +38,18 @@ impl:
         cast(Str)
     }
 
-    fn HString.push(char: c *HString: self) {
-        c self::chars Vec.push
+    inline fn HString.push(HString: mut self char: c) -> [HString] {
+        c *self::chars Vec.push
+        self
     }
 
-    fn HString.push_str(Str: s *HString: self) {
+    fn HString.push_str(HString: mut self Str: s) -> [HString] {
         0 while dup s::size < {
             as [i]
-            s::data i ptr+ @ self HString.push
+            s::data i ptr+ @ *self::chars Vec.push
             i 1 +
         } drop
+        self
     }
 
     fn HString.from_file(Str: path) -> [HString] {

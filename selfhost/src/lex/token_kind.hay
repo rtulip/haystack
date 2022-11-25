@@ -97,4 +97,30 @@ impl:
         TokenKind.Literal
     }
 
+    fn TokenKind.format(HString: s &TokenKind: self) -> [HString] {
+        s
+        self::tag @ TokenKindTag::Ident == if {
+            self::kind::ident HString.as_str HString.push_str
+        } else self::tag @ TokenKindTag::Marker == if {
+            self::kind::marker @ Marker.format
+        } else self::tag @ TokenKindTag::Operator == if {
+            self::kind::operator Operator.format
+        } else self::tag @ TokenKindTag::Keyword == if {
+            self::kind::keyword @ Keyword.format
+        } else self::tag @ TokenKindTag::Literal == if {
+            self::kind::literal Literal.format
+        } else self::tag @ TokenKindTag::Syscall == if {
+            "syscall(" HString.push_str
+            self::kind::n @ u64.format
+            ')' HString.push 
+        } else self::tag @ TokenKindTag::Type == if {
+            self::kind::type TypeToken.format
+        } else self::tag @ TokenKindTag::EoF == if {
+            "End of File" HString.push_str
+        } else {
+            "unreachable state in TokenKind.format" putlns
+            1 exit 
+        } 
+    }
+
 }

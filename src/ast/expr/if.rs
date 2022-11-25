@@ -84,6 +84,7 @@ impl ExprIf {
             }
 
             typed_finally = Some(tmp);
+
             if !stack.contains(&Type::Never.id()) {
                 end_stacks.push((first_tok, stack.clone()));
             }
@@ -111,6 +112,7 @@ impl ExprIf {
         }
 
         *frame = initial_frame;
+        *stack = end_stacks[0].1.clone();
 
         Ok(TypedExpr::If {
             then: typed_then,

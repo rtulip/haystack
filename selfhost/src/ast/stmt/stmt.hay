@@ -46,8 +46,16 @@ impl:
         Scanner.scan_tokens as [result] {
             &result Result.is_err if {
                 result Result.unwrap_err Result.Err::<Vec<Stmt> HayError> return 
+            } else {
+                result Result.unwrap
             }
-        }
+        } as [mut tokens]
+
+        0 while dup &tokens Vec.len < {
+            as [i]
+            i &tokens Vec.get Opt.unwrap Token.putln
+            i 1 +
+        } drop
 
         Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError>
 

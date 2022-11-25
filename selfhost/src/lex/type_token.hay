@@ -60,43 +60,40 @@ impl:
         cast(TypeToken)
     }
 
-    fn TypeToken.fput(&TypeToken: self u64: fd) {
-        
+    fn TypeToken.format(HString: s &TypeToken: self) -> [HString] {
+        s
         self::tag @ TypeTokenTag::Pointer == if {
             self::kind::pointer::mutable @ if {
-                '*' fd fputc
-                self::kind::pointer::inner @ fd TypeToken.fput
+                '*' HString.push
+                self::kind::pointer::inner @ TypeToken.format
             } else {
-                '&' fd fputc
-                self::kind::pointer::inner @ fd TypeToken.fput
+                '&' HString.push
+                self::kind::pointer::inner @ TypeToken.format
             }
         } else self::tag @ TypeTokenTag::Parameterized == if {
-            self::kind::parameterized::base HString.as_str fd fputs
-            '<' fd fputc
+            self::kind::parameterized::base HString.as_str HString.push_str
+            '<' HString.push
             0 while dup self::kind::parameterized::inner Vec.len 1 - < {
                 as [i]
-                i self::kind::parameterized::inner Vec.get Opt.unwrap fd
-                TypeToken.fput
-                ' ' fd fputc
+                i self::kind::parameterized::inner Vec.get 
+                Opt.unwrap TypeToken.format
+                ' ' HString.push
                 i 1 +
             }
             self::kind::parameterized::inner Vec.get Opt.unwrap
-            fd TypeToken.fput
-            '>' fd fputc
+            TypeToken.format
+            '>' HString.push
         } else self::tag @ TypeTokenTag::Array == if {
-            self::kind::array::base @ fd TypeToken.fput
-            '[' fd fputc
-            self::kind::array::size @ fd fputu
-            ']' fd fputc
+            self::kind::array::base @ TypeToken.format
+            '[' HString.push
+            self::kind::array::size @ u64.format
+            ']' HString.push
         } else self::tag @ TypeTokenTag::Base == if {
-            self::kind::base HString.as_str fd fputs 
+            self::kind::base HString.as_str HString.push_str 
         } else {
             "TypeToken.fput unreachable!" putlns
             1 exit
         }
     }
 
-    fn TypeToken.put(&TypeToken) {
-        1 TypeToken.fput
-    }
 }

@@ -37,7 +37,7 @@ impl:
 
     fn Result.unwrap<T E>(Result<T E>: self) -> [T] {
 
-        self Result.is_err if {
+        &self Result.is_err if {
             "Tried to `unwrap` an Error result" putlns
             1 exit
         }

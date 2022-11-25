@@ -2,9 +2,11 @@ include "result.hay"
 include "vec.hay"
 include "hstring.hay"
 include "linear_map.hay"
-include "selfhost/src/error.hay" 
+include "selfhost/src/error.hay"
+include "selfhost/src/utils/sets.hay" 
 include "selfhost/src/ast/stmt/enum.hay"
 include "selfhost/src/ast/stmt/function.hay"
+include "selfhost/src/ast/stmt/parser.hay"
 include "selfhost/src/ast/stmt/pre_declaration.hay"
 include "selfhost/src/ast/stmt/record.hay"
 include "selfhost/src/ast/stmt/var.hay"
@@ -33,13 +35,13 @@ struct Stmt {
 
 impl:
 
-    fn Stmt.from_file(*Map<HString>: visited &HString: path) -> [Result<Vec<Stmt> HayError>] {
-        path HString.as_str visited Map.contains if {
+    fn Stmt.from_file(*Set: visited &HString: path) -> [Result<Vec<Stmt> HayError>] {
+        path visited Set.contains if {
             Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError> return 
         }
 
         path HString.as_str HString.from_file as [source]
-        path HString.as_str path HString.clone visited Map.insert drop
+        path HString.clone visited Set.insert drop
 
         path HString.clone source 
         Scanner.new
@@ -49,24 +51,35 @@ impl:
             } else {
                 result Result.unwrap
             }
-        } as [mut tokens]
+        }
 
-        0 while dup &tokens Vec.len < {
-            as [i]
-            i &tokens Vec.get Opt.unwrap Token.putln
-            i 1 +
-        } drop
-
-        Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError>
+        visited Parser.new Parser.parse
 
     }
 
     fn Stmt.from_file_with_prelude(&HString: input_path) -> [Result<Vec<Stmt> HayError>] {
-        Map.new::<HString> 
+        Set.new
         "src/libs/prelude.hay" HString.new
         as [mut visited prelude_path]
         
-        *visited &prelude_path Stmt.from_file
+        *visited &prelude_path Stmt.from_file as [result] {
+            &result Result.is_err if {
+                result Result.unwrap_err Result.Err::<Vec<Stmt> HayError> return
+            } else {
+                result Result.unwrap
+            }
+        } as [mut stmts] 
+        *visited input_path Stmt.from_file as [result] {
+            &result Result.is_err if {
+                result Result.unwrap_err Result.Err::<Vec<Stmt> HayError> return
+            } else {
+                result Result.unwrap as [mut input_stmts]
+                *input_stmts *stmts Vec.append
+                &input_stmts Vec.delete
+            }
+        }
+
+        stmts Result.Ok::<Vec<Stmt> HayError>
 
     }
 

@@ -1,0 +1,90 @@
+include "vec.hay"
+include "selfhost/src/error.hay"
+include "selfhost/src/utils/sets.hay"
+include "selfhost/src/lex/token.hay"
+include "selfhost/src/ast/stmt/stmt.hay"
+
+struct Stmt:
+struct Parser {
+    *Set      : visited
+    Vec<Token>: tokens
+    Vec<Stmt> : stmts
+    
+
+impl:
+
+    inline fn Parser.new(Vec<Token>: tokens *Set: visited) -> [Parser] {
+        visited
+        tokens Vec.reverse
+        Vec.new::<Stmt>
+        cast(Parser)
+    }
+
+    fn Parser.parse(Parser: mut self) -> [Result<Vec<Stmt> HayError>] {
+
+        "Starting parsing" putlns
+        while &self Parser.is_at_end lnot {
+
+            *self Parser.declaration as [result]
+            &result Result.is_ok if {
+                result Result.unwrap as [mut stmts]
+                *stmts *self::stmts Vec.append
+                &stmts Vec.delete 
+            } else {
+                result return
+            }
+
+        }
+
+        Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError>
+    }
+
+    inline fn Parser.is_at_end(&Parser: self) -> [bool] {
+        self::tokens Vec.last Opt.unwrap as [tok]
+        tok::kind @ TokenKind.EoF TokenKind.equals
+    }
+
+    fn Parser.declaration(*Parser: self) -> [Result<Vec<Stmt> HayError>] {
+        
+        self::tokens Vec.pop Opt.unwrap as [token]
+        "Parsing Declaration" putlns
+        &token Token.putln
+        Keyword::Inline TokenKind.Keyword token::kind TokenKind.equals if {
+            "todo: Parser.inline" putlns
+            1 exit
+            Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError> 
+        } else Keyword::Function TokenKind.Keyword token::kind TokenKind.equals if {
+            "todo: Parser.function" putlns
+            1 exit
+            Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError> 
+        } else Keyword::Struct TokenKind.Keyword token::kind TokenKind.equals if {
+            "todo: Parser.record" putlns
+            1 exit
+            Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError> 
+        } else Keyword::Union TokenKind.Keyword token::kind TokenKind.equals if {
+            "todo: Parser.record" putlns
+            1 exit
+            Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError> 
+        } else Keyword::Enum TokenKind.Keyword token::kind TokenKind.equals if {
+            "todo: Parser.enum" putlns
+            1 exit
+            Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError> 
+        } else Keyword::Include TokenKind.Keyword token::kind TokenKind.equals if {
+            "todo: Parser.include" putlns
+            1 exit
+            Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError> 
+        } else Keyword::Var TokenKind.Keyword token::kind TokenKind.equals if {
+            "todo: Parser.var" putlns
+            1 exit
+            Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError> 
+        } else {
+            "Unexpected top level token: " HString.new
+            &token::kind TokenKind.format
+            token::loc
+            HayError.new Result.Err::<Vec<Stmt> HayError>
+        }
+
+        
+
+    }
+}

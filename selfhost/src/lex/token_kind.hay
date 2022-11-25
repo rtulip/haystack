@@ -97,6 +97,34 @@ impl:
         TokenKind.Literal
     }
 
+    inline fn TokenKind.equals(TokenKind: left TokenKind: right) -> [bool] {
+        left::tag right::tag == if {
+            left::tag TokenKindTag::Ident == if {
+                true
+            } else left::tag TokenKindTag::Marker == if {
+                left::kind::marker right::kind::marker ==
+            } else left::tag TokenKindTag::Operator == if {
+                left::kind::operator right::kind::operator Operator.equals
+            } else left::tag TokenKindTag::Keyword == if {
+                left::kind::keyword right::kind::keyword ==
+            } else left::tag TokenKindTag::Literal == if {
+                left::kind::literal right::kind::literal Literal.equals
+            } else left::tag TokenKindTag::Syscall == if {
+                true
+            } else left::tag TokenKindTag::Type == if {
+                false
+            } else left::tag TokenKindTag::EoF == if {
+                true
+            } else {
+                false
+                "unreahcable TokenKind.equals" putlns
+                1 exit 
+            }
+        } else {
+            false
+        }
+    }
+
     fn TokenKind.format(HString: s &TokenKind: self) -> [HString] {
         s
         self::tag @ TokenKindTag::Ident == if {

@@ -50,6 +50,10 @@ impl:
         cast(Literal)
     }
 
+    inline fn Literal.equals(Literal: left Literal:right) -> [bool] {
+        left::tag right::tag == 
+    }
+
     fn Literal.format(HString: s &Literal: self) -> [HString] {
         s
         self::tag @ LiteralTag::Bool == if {

@@ -116,6 +116,10 @@ impl:
         cast(Operator)
     }
 
+    fn Operator.equals(Operator: left Operator: right) -> [bool] {
+        left::tag right::tag == 
+    }
+
     fn Operator.format(HString: s &Operator: self) -> [HString] {
         
         s '`' HString.push

@@ -1,0 +1,37 @@
+include "opt.hay"
+fn char.is_alphabetic(char: c) -> [bool] {
+
+    c 'a' >= c 'z' <= land
+    c 'A' >= c 'Z' <= land
+    lor
+
+}
+
+fn char.parse_u8(char: c) -> [Opt<u8>] {
+
+    c '0' == if {
+        0u8 Opt.Some
+    } else c '1' == if {
+        1u8 Opt.Some
+    } else c '2' == if {
+        2u8 Opt.Some
+    } else c '3' == if {
+        3u8 Opt.Some
+    } else c '4' == if {
+        4u8 Opt.Some
+    } else c '5' == if {
+        5u8 Opt.Some
+    } else c '6' == if {
+        6u8 Opt.Some
+    } else c '7' == if {
+        7u8 Opt.Some
+    } else c '8' == if {
+        8u8 Opt.Some
+    } else c '9' == if {
+        9u8 Opt.Some
+    } else {
+        Opt.None::<u8>
+    }
+
+
+}

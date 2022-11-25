@@ -74,4 +74,18 @@ impl:
     fn Vec.len<T>(&Vec<T>: self) -> [u64] {
         self::len @
     }
+
+    fn Vec.contains<T>(T: item &Vec<T>: self) -> [bool] {
+
+        0 while dup self Vec.len < {
+            as [i]
+            i self Vec.at Opt.unwrap item == if {
+                true return
+            }
+            i 1 +
+        } drop
+
+        false
+
+    }
 }

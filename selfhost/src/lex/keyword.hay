@@ -1,3 +1,6 @@
+include "linear_map.hay"
+include "selfhost/src/lex/literal.hay"
+
 enum Keyword {
     Function
     Var
@@ -63,4 +66,36 @@ fn Keyword.fput(Keyword: self u64: fd) {
         1 exit 
     }
     '`' fd fputc
+}
+
+struct TokenKind:
+
+fn Keyword.keywords() -> [Map<TokenKind>] {
+
+    Map.new::<TokenKind> as [mut map]
+
+    "fn"      Keyword::Function TokenKind.Keyword *map Map.insert drop
+    "var"     Keyword::Var      TokenKind.Keyword *map Map.insert drop
+    "as"      Keyword::As       TokenKind.Keyword *map Map.insert drop
+    "if"      Keyword::If       TokenKind.Keyword *map Map.insert drop
+    "else"    Keyword::Else     TokenKind.Keyword *map Map.insert drop
+    "while"   Keyword::While    TokenKind.Keyword *map Map.insert drop
+    "struct"  Keyword::Struct   TokenKind.Keyword *map Map.insert drop
+    "union"   Keyword::Union    TokenKind.Keyword *map Map.insert drop
+    "enum"    Keyword::Enum     TokenKind.Keyword *map Map.insert drop
+    "cast"    Keyword::Cast     TokenKind.Keyword *map Map.insert drop
+    "include" Keyword::Include  TokenKind.Keyword *map Map.insert drop
+    "sizeOf"  Keyword::SizeOf   TokenKind.Keyword *map Map.insert drop
+    "pub"     Keyword::Pub      TokenKind.Keyword *map Map.insert drop
+    "impl"    Keyword::Impl     TokenKind.Keyword *map Map.insert drop
+    "inline"  Keyword::Inline   TokenKind.Keyword *map Map.insert drop
+    "return"  Keyword::Return   TokenKind.Keyword *map Map.insert drop
+    "mut"     Keyword::Mut      TokenKind.Keyword *map Map.insert drop
+
+    "true"  true  Literal.Bool TokenKind.Literal *map Map.insert drop
+    "false" false Literal.Bool TokenKind.Literal *map Map.insert drop
+    "syscall" 0 TokenKind.Syscall *map Map.insert drop
+    
+    map
+
 }

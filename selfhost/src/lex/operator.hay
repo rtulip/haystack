@@ -29,6 +29,12 @@ struct Operator {
     OperatorKind: kind
     OperatorTag: tag
 impl:
+    fn Operator.Plus() -> [Operator] {
+        0 cast(OperatorKind)
+        OperatorTag::Plus
+        cast(Operator)
+    }
+
     fn Operator.fput(Operator: self u64: fd) {
         '`' fd fputc
         self::tag OperatorTag::Plus == if {

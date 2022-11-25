@@ -27,12 +27,12 @@ impl:
         cast(Result<T E>)
     }
 
-    fn Result.is_ok<T E>(Result<T E>: self) -> [bool] {
-        self::tag ResultTag::Ok ==
+    fn Result.is_ok<T E>(&Result<T E>: self) -> [bool] {
+        self::tag @ ResultTag::Ok ==
     }
 
-    fn Result.is_err<T E>(Result<T E>: self) -> [bool] {
-        self::tag ResultTag::Err ==
+    fn Result.is_err<T E>(&Result<T E>: self) -> [bool] {
+        self::tag @ ResultTag::Err ==
     }
 
     fn Result.unwrap<T E>(Result<T E>: self) -> [T] {
@@ -46,7 +46,7 @@ impl:
 
     fn Result.unwrap_err<T E>(Result<T E>: self) -> [E] {
 
-        self Result.is_ok if {
+        &self Result.is_ok if {
             "Tried to `unwrap_err` on an Ok result" putlns
             1 exit
         }

@@ -60,7 +60,10 @@ impl:
         file File.close
 
         buffer size cast(Vec<char>) cast(HString)
+    }
 
+    fn HString.at(u64: idx &HString: self) -> [Opt<char>] {
+        idx self::chars Vec.at
     }
 }
 

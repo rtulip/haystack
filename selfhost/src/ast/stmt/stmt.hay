@@ -8,6 +8,7 @@ include "selfhost/src/ast/stmt/function.hay"
 include "selfhost/src/ast/stmt/pre_declaration.hay"
 include "selfhost/src/ast/stmt/record.hay"
 include "selfhost/src/ast/stmt/var.hay"
+include "selfhost/src/lex/scanner.hay"
 
 enum StmtTag {
     Function
@@ -37,8 +38,16 @@ impl:
             Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError> return 
         }
 
-        path HString.as_str HString.from_file as [file_str]
+        path HString.as_str HString.from_file as [source]
         path HString.as_str path HString.clone visited Map.insert drop
+
+        path HString.clone source 
+        Scanner.new
+        Scanner.scan_tokens as [result] {
+            &result Result.is_err if {
+                result Result.unwrap_err Result.Err::<Vec<Stmt> HayError> return 
+            }
+        }
 
         Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError>
 

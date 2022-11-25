@@ -7,8 +7,8 @@ struct Loc {
     pub u64: line
     pub Range<u64>: span
 impl:
-    fn Loc.new(Str: file u64: line u64: start u64: end) -> [Loc] {
-        file HString.new
+    fn Loc.new(HString: file u64: line u64: start u64: end) -> [Loc] {
+        file
         line
         start end cast(Range)
         cast(Loc)

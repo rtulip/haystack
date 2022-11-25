@@ -15,13 +15,14 @@ impl:
     }
 
     inline fn Map.contains<T>(Str &Map<T>) -> [bool] {
-        Map.find Opt.is_some 
+        Map.get as [opt]
+        &opt Opt.is_some 
     }
 
     fn Map.insert<T>(Str: key T: value *Map<T>: self) -> [Opt<T>] {
 
-        key self Map.find_mut as [maybe_val]
-        maybe_val Opt.is_some if {
+        key self Map.get_mut as [maybe_val]
+        &maybe_val Opt.is_some if {
             maybe_val Opt.unwrap as [val]
             val @ Opt.Some
             value val !
@@ -33,7 +34,7 @@ impl:
         }
     }
 
-    fn Map.find_mut<T>(Str: key *Map<T>: self) -> [Opt<*T>] {
+    fn Map.get_mut<T>(Str: key *Map<T>: self) -> [Opt<*T>] {
         0 while dup self::keys Vec.len < {
             as [i]
 
@@ -47,7 +48,7 @@ impl:
         Opt.None::<*T>
     }
 
-    fn Map.find<T>(Str: key &Map<T>: self) -> [Opt<&T>] {
+    fn Map.get<T>(Str: key &Map<T>: self) -> [Opt<&T>] {
         0 while dup self::keys Vec.len < {
             as [i]
             key i self::keys Vec.at Opt.unwrap Str.equals if {

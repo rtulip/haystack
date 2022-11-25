@@ -31,4 +31,23 @@ impl:
         cast(Token)
     }
 
+    fn Token.format(HString: s &Token: self) -> [HString] {
+        s '[' HString.push
+        self::loc Loc.format
+        "]: " HString.push_str 
+        self::kind TokenKind.format
+    }
+
+    fn Token.put(&Token: self) {
+        "" HString.new
+        self Token.format as [s]
+        &s HString.as_str puts
+        &s HString.delete
+    }
+
+    inline fn Token.putln(&Token) {
+        Token.put
+        "\n" puts
+    } 
+
 }

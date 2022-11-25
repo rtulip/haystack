@@ -101,6 +101,10 @@ impl ExprOperator {
                     Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::Bool.id()]),
                     // u8 == u8   -> bool
                     Signature::new(vec![Type::U8.id(), Type::U8.id()], vec![Type::Bool.id()]),
+                    Signature::new(
+                        vec![Type::Char.id(), Type::Char.id()],
+                        vec![Type::Bool.id()],
+                    ),
                 ];
 
                 // TODO: Comparison between pointers
@@ -176,6 +180,10 @@ impl ExprOperator {
                         Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::Bool.id()]),
                         // u8 == u8   -> bool
                         Signature::new(vec![Type::U8.id(), Type::U8.id()], vec![Type::Bool.id()]),
+                        Signature::new(
+                            vec![Type::Char.id(), Type::Char.id()],
+                            vec![Type::Bool.id()],
+                        ),
                         Signature::new_generic(
                             vec![TypeId::new("*T"), TypeId::new("*T")],
                             vec![Type::Bool.id()],

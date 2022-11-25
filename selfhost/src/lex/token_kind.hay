@@ -27,7 +27,7 @@ union TokenKindKind {
 
 struct TokenKind {
     TokenKindKind: kind
-    TokenKindTag: tag
+    pub TokenKindTag: tag
 impl:
     inline fn TokenKind.Ident(HString) -> [TokenKind] {
         cast(TokenKindKind)
@@ -97,32 +97,30 @@ impl:
         TokenKind.Literal
     }
 
-    fn TokenKind.fput(&TokenKind: self u64: fd) {
-
+    fn TokenKind.format(HString: s &TokenKind: self) -> [HString] {
+        s
         self::tag @ TokenKindTag::Ident == if {
-            "an identifier (" fd fputs
-            self::kind::ident HString.as_str fd fputs
-            ")" fd fputs
+            self::kind::ident HString.as_str HString.push_str
         } else self::tag @ TokenKindTag::Marker == if {
-            self::kind::marker @ fd Marker.fput
+            self::kind::marker @ Marker.format
         } else self::tag @ TokenKindTag::Operator == if {
-            self::kind::operator @ fd Operator.fput
+            self::kind::operator Operator.format
         } else self::tag @ TokenKindTag::Keyword == if {
-            self::kind::keyword @ fd Keyword.fput
+            self::kind::keyword @ Keyword.format
         } else self::tag @ TokenKindTag::Literal == if {
-            self::kind::literal fd Literal.fput
+            self::kind::literal Literal.format
         } else self::tag @ TokenKindTag::Syscall == if {
-            "syscall(" fd fputs
-            self::kind::n @ fd fputu
-            ")" fd fputs
+            "syscall(" HString.push_str
+            self::kind::n @ u64.format
+            ')' HString.push 
         } else self::tag @ TokenKindTag::Type == if {
-            self::kind::type fd TypeToken.fput
+            self::kind::type TypeToken.format
         } else self::tag @ TokenKindTag::EoF == if {
-            "end of file" fd fputs
+            "End of File" HString.push_str
         } else {
-            "TokenKind.fput unreahcable!" putlns
+            "unreachable state in TokenKind.format" putlns
             1 exit 
-        }
+        } 
     }
 
 }

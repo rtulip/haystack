@@ -1,28 +1,26 @@
 include "std.hay"
 include "hstring.hay"
 include "range.hay"
+include "utils.hay"
 
 struct Loc {
     pub HString: file
     pub u64: line
     pub Range<u64>: span
 impl:
-    fn Loc.new(Str: file u64: line u64: start u64: end) -> [Loc] {
-        file HString.new
+    fn Loc.new(HString: file u64: line u64: start u64: end) -> [Loc] {
+        file
         line
         start end cast(Range)
         cast(Loc)
     }
 
-    fn Loc.fput(&Loc: self u64: fd) {
-        self::file HString.as_str fd fputs
-        ":" fd fputs
-        self::line @ fd fputu
-        ":" fd fputs
-        self::span::start @ fd fputu
+    fn Loc.format(HString: s &Loc: self) -> [HString] {
+        s self::file HString.as_str HString.push_str
+        ':' HString.push
+        self::line @ u64.format
+        ':' HString.push
+        self::span::start @ u64.format
     }
-
-    fn Loc.put(&Loc) {
-        1 Loc.fput
-    } 
+ 
 }

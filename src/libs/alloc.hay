@@ -60,7 +60,7 @@ fn Chunk.try_alloc(u64: n *Chunk: chunk_p) -> [Opt<Arr<u8>>] {
     
     chunk::start cast(u64) chunk::cap + cast(u64) cast(*Block) as [end]
     Opt.None::<Arr<u8>> chunk::start while as [maybe_alloc ptr] { maybe_alloc ptr
-        maybe_alloc Opt.is_none 
+        &maybe_alloc Opt.is_none 
         ptr cast(u64) end cast(u64) < land
     }
     {
@@ -135,7 +135,7 @@ fn Chunk.consolidate(*Chunk: chunk_p) {
 
 }
 
-var Chunk[2048]: chunks_p
+var Chunk[100000]: chunks_p
 var u64: n_chunks_p
 
 fn mmap_new_chunk(u64: n) -> [*Chunk] {
@@ -203,7 +203,7 @@ fn malloc<T>(u64: count) -> [Arr<T>] {
         n_chunks_p @ chunks_p @ as [n_chunks chunks]
         Opt.None::<Arr<u8>> 0 while as [maybe_chunk idx] { maybe_chunk idx
             idx n_chunks <
-            maybe_chunk Opt.is_none land
+            &maybe_chunk Opt.is_none land
         }
         {
             // clear the previous option and capture the index
@@ -216,7 +216,7 @@ fn malloc<T>(u64: count) -> [Arr<T>] {
 
         as [maybe_alloc]
 
-        maybe_alloc Opt.is_some if {
+        &maybe_alloc Opt.is_some if {
             maybe_alloc Opt.unwrap
         } else {
             n sizeOf(Block) + align mmap_new_chunk as [new_chunk_p]
@@ -239,7 +239,7 @@ fn find_chunk<T>(Arr<T>: arr) -> [Opt<*Chunk>] {
 
     n_chunks_p @ chunks_p @ as [n_chunks chunks]
     Opt.None::<*Chunk> 0 while as [maybe_blk n] { maybe_blk n 
-        maybe_blk Opt.is_none
+        &maybe_blk Opt.is_none
         n n_chunks < land
     }
     {
@@ -260,7 +260,7 @@ fn find_chunk<T>(Arr<T>: arr) -> [Opt<*Chunk>] {
 
 fn free<T>(Arr<T>: arr) {
     arr find_chunk as [maybe_chunk]
-    maybe_chunk Opt.is_some if {
+    &maybe_chunk Opt.is_some if {
         maybe_chunk Opt.unwrap as [chunk_p] 
         chunk_p @ as [chunk]
         arr::data cast(u64) sizeOf(Block) - cast(*Block) as [blk_p]

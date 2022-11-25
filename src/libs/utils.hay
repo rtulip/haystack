@@ -1,0 +1,125 @@
+include "opt.hay"
+include "hstring.hay"
+include "vec.hay"
+
+inline fn char.is_alphabetic(char: c) -> [bool] {
+    c 'a' >= c 'z' <= land
+    c 'A' >= c 'Z' <= land
+    lor
+}
+
+inline fn char.is_ascii_digit(char: c) -> [bool] {
+    c '0' >= c '9' <= land
+}
+
+fn char.from_digit(u64: digit) -> [Opt<char>] {
+    digit 0 == if {
+        '0' Opt.Some
+    } else digit 1 == if {
+        '1' Opt.Some
+    } else digit 2 == if {
+        '2' Opt.Some
+    } else digit 3 == if {
+        '3' Opt.Some
+    } else digit 4 == if {
+        '4' Opt.Some
+    } else digit 5 == if {
+        '5' Opt.Some
+    } else digit 6 == if {
+        '6' Opt.Some
+    } else digit 7 == if {
+        '7' Opt.Some
+    } else digit 8 == if {
+        '8' Opt.Some
+    } else digit 9 == if {
+        '9' Opt.Some
+    } else {
+        Opt.None::<char>
+    }
+}
+
+fn char.parse_u8(char: c) -> [Opt<u8>] {
+
+    c '0' == if {
+        0u8 Opt.Some
+    } else c '1' == if {
+        1u8 Opt.Some
+    } else c '2' == if {
+        2u8 Opt.Some
+    } else c '3' == if {
+        3u8 Opt.Some
+    } else c '4' == if {
+        4u8 Opt.Some
+    } else c '5' == if {
+        5u8 Opt.Some
+    } else c '6' == if {
+        6u8 Opt.Some
+    } else c '7' == if {
+        7u8 Opt.Some
+    } else c '8' == if {
+        8u8 Opt.Some
+    } else c '9' == if {
+        9u8 Opt.Some
+    } else {
+        Opt.None::<u8>
+    }
+}
+
+fn Str.parse_u64(Str: s) -> [Opt<u64>] {
+
+    0 as [mut n]
+
+    0 while dup s::size < {
+        as [i]
+
+        s::data i ptr+ @ as [c]
+        c char.parse_u8 as [maybe_n]
+        &maybe_n Opt.is_some if {
+            10 n * *n !
+            maybe_n Opt.unwrap cast(u64) n + *n !
+        } else {
+            Opt.None::<u64> return
+        }
+
+        i 1 +
+    } drop
+
+    n Opt.Some
+
+}
+
+fn u8.try_from_u64(u64: n) -> [Opt<u8>] {
+    n 255 < if {
+        n cast(u8) Opt.Some
+    } else {
+        Opt.None::<u8>
+    }
+}
+
+fn u64.format(HString: s u64: mut self) -> [HString] {
+
+    Vec.new::<char> as [mut v]
+    while self 0 > {
+
+        self 10 % char.from_digit 
+        Opt.unwrap *v Vec.push
+        self 10 / *self !
+    }
+
+    s while &v Vec.len 0 > {
+        *v Vec.pop Opt.unwrap HString.push
+    }
+    &v Vec.delete
+}
+
+inline fn u8.format(HString u8) -> [HString] {
+    cast(u64) u64.format
+}
+
+fn bool.format(HString bool) -> [HString] {
+    if {
+        "true" HString.push_str
+    } else {
+        "false" HString.push_str
+    }
+}

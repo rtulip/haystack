@@ -1,0 +1,9 @@
+include "vec.hay"
+include "selfhost/src/ast/arg/untyped.hay"
+include "selfhost/src/lex/token.hay"
+
+struct AnnotatedCallExpr {
+    pub Token: token
+    pub Token: base
+    pub Vec<UntypedArg>: annotations
+}

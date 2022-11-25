@@ -1,0 +1,43 @@
+include "std.hay"
+enum Marker {
+    LeftBrace
+    RightBrace
+    LeftParen
+    RightParen
+    LeftBracket
+    RightBracket
+    Colon
+    DoubleColon
+    Arrow
+}
+
+fn Marker.fput(Marker: self u64: fd) {
+    '`' fd fputc
+    self Marker::LeftBrace == if {
+        '{' fd fputc
+    } else self Marker::RightBrace == if {
+        '}' fd fputc
+    } else self Marker::LeftParen == if {
+        '(' fd fputc
+    } else self Marker::RightParen == if {
+        ')' fd fputc
+    } else self Marker::LeftBracket == if {
+        '[' fd fputc
+    } else self Marker::RightBracket == if {
+        ']' fd fputc
+    } else self Marker::Colon == if {
+        ':' fd fputc
+    } else self Marker::DoubleColon == if {
+        "::" fd fputs
+    } else self Marker::Arrow == if {
+        "->" fd fputs
+    } else {
+        "\nMarker.fput Unreachable!" putlns
+        1 exit
+    }
+    '`' fd fputc
+}
+
+fn Marker.put(Marker) {
+    1 Marker.fput
+}

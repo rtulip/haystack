@@ -1,0 +1,66 @@
+enum Keyword {
+    Function
+    Var
+    As
+    If
+    Else
+    While
+    Struct
+    Union
+    Enum
+    Cast
+    Syscall
+    Include
+    SizeOf
+    Pub
+    Impl
+    Inline
+    Return
+    Mut
+}
+
+fn Keyword.fput(Keyword: self u64: fd) {
+    '`' fd fputc
+
+    self Keyword::Function == if {
+        "fn" fd fputs
+    } else self Keyword::Var == if {
+        "var" fd fputs
+    } else self Keyword::As == if {
+        "as" fd fputs
+    } else self Keyword::If == if {
+        "if" fd fputs
+    } else self Keyword::Else == if {
+        "else" fd fputs
+    } else self Keyword::While == if {
+        "while" fd fputs
+    } else self Keyword::Struct == if {
+        "struct" fd fputs
+    } else self Keyword::Union == if {
+        "union" fd fputs
+    } else self Keyword::Enum == if {
+        "enum" fd fputs
+    } else self Keyword::Cast == if {
+        "cast" fd fputs
+    } else self Keyword::Syscall == if {
+        "syscall" fd fputs
+    } else self Keyword::Include == if {
+        "include" fd fputs
+    } else self Keyword::SizeOf == if {
+        "sizeOf" fd fputs
+    } else self Keyword::Pub == if {
+        "pub" fd fputs
+    } else self Keyword::Impl == if {
+        "impl" fd fputs
+    } else self Keyword::Inline == if {
+        "inline" fd fputs
+    } else self Keyword::Return == if {
+        "return" fd fputs
+    } else self Keyword::Mut == if {
+        "mut" fd fputs
+    } else {
+        "\nKeyword.fput unreachable!" putlns
+        1 exit 
+    }
+    '`' fd fputc
+}

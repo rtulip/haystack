@@ -1,0 +1,102 @@
+include "hstring.hay"
+include "vec.hay"
+enum TypeTokenTag {
+    Pointer
+    Parameterized
+    Array
+    Base
+}
+
+struct TypeToken:
+
+struct TypeTokenPointer {
+    pub &TypeToken: inner
+    pub bool: mutable
+}
+
+struct TypeTokenParameterized {
+    pub HString: base
+    pub Vec<TypeToken>: inner
+}
+
+struct TypeTokenArray {
+    pub &TypeToken: base
+    pub u64: size
+}
+
+union TypeTokenKind {
+    TypeTokenPointer: pointer
+    TypeTokenParameterized: parameterized 
+    TypeTokenArray: array
+    HString: base 
+}
+
+struct TypeToken {
+    TypeTokenKind: kind
+    TypeTokenTag: tag
+
+impl:
+    inline fn TypeToken.Pointer(&TypeToken bool) -> [TypeToken] {
+        cast(TypeTokenPointer) cast(TypeTokenKind)
+        TypeTokenTag::Pointer
+        cast(TypeToken)
+    }
+
+    inline fn TypeToken.Parameterized(HString Vec<TypeToken>) -> [TypeToken] {
+        cast(TypeTokenParameterized) cast(TypeTokenKind)
+        TypeTokenTag::Parameterized
+        cast(TypeToken)
+    }
+
+    inline fn TypeToken.Array(&TypeToken u64) -> [TypeToken] {
+        cast(TypeTokenArray) cast(TypeTokenKind)
+        TypeTokenTag::Array
+        cast(TypeToken)
+    }
+
+    inline fn TypeToken.Base(HString) -> [TypeToken] {
+        cast(TypeTokenKind)
+        TypeTokenTag::Base
+        cast(TypeToken)
+    }
+
+    fn TypeToken.fput(&TypeToken: self u64: fd) {
+        
+        self::tag @ TypeTokenTag::Pointer == if {
+            self::kind::pointer::mutable @ if {
+                '*' fd fputc
+                self::kind::pointer::inner @ fd TypeToken.fput
+            } else {
+                '&' fd fputc
+                self::kind::pointer::inner @ fd TypeToken.fput
+            }
+        } else self::tag @ TypeTokenTag::Parameterized == if {
+            self::kind::parameterized::base HString.as_str fd fputs
+            '<' fd fputc
+            0 while dup self::kind::parameterized::inner Vec.len 1 - < {
+                as [i]
+                i self::kind::parameterized::inner Vec.get Opt.unwrap fd
+                TypeToken.fput
+                ' ' fd fputc
+                i 1 +
+            }
+            self::kind::parameterized::inner Vec.get Opt.unwrap
+            fd TypeToken.fput
+            '>' fd fputc
+        } else self::tag @ TypeTokenTag::Array == if {
+            self::kind::array::base @ fd TypeToken.fput
+            '[' fd fputc
+            self::kind::array::size @ fd fputu
+            ']' fd fputc
+        } else self::tag @ TypeTokenTag::Base == if {
+            self::kind::base HString.as_str fd fputs 
+        } else {
+            "TypeToken.fput unreachable!" putlns
+            1 exit
+        }
+    }
+
+    fn TypeToken.put(&TypeToken) {
+        1 TypeToken.fput
+    }
+}

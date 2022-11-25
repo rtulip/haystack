@@ -1,0 +1,9 @@
+include "selfhost/src/ast/visibility.hay"
+include "selfhost/src/lex/token.hay"
+
+struct UntypedMember {
+    pub Token: parent
+    pub Visibility: vis
+    pub Token: token
+    pub Token: ident
+}

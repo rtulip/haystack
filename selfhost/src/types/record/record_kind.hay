@@ -1,0 +1,4 @@
+enum RecordKind {
+    Struct
+    Union
+}

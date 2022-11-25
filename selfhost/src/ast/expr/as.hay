@@ -1,0 +1,13 @@
+include "vec.hay"
+include "opt.hay"
+include "selfhost/src/ast/arg/ident.hay"
+include "selfhost/src/lex/token.hay"
+
+struct Expr:
+
+struct AsExpr {
+    pub Token: token
+    pub Vec<IdentArg>: idents
+    pub Opt<Vec<Expr>>: block
+}
+

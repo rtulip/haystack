@@ -1,0 +1,128 @@
+include "hstring.hay"
+include "selfhost/src/lex/marker.hay"
+include "selfhost/src/lex/operator.hay"
+include "selfhost/src/lex/keyword.hay"
+include "selfhost/src/lex/literal.hay"
+include "selfhost/src/lex/type_token.hay"
+enum TokenKindTag {
+    Ident
+    Marker
+    Operator
+    Keyword
+    Literal
+    Syscall
+    Type
+    EoF
+}
+
+union TokenKindKind {
+    HString  : ident
+    Marker   : marker
+    Operator : operator
+    Keyword  : keyword
+    Literal  : literal
+    TypeToken: type
+    u64      : n
+}
+
+struct TokenKind {
+    TokenKindKind: kind
+    TokenKindTag: tag
+impl:
+    inline fn TokenKind.Ident(HString) -> [TokenKind] {
+        cast(TokenKindKind)
+        TokenKindTag::Ident
+        cast(TokenKind)
+    }
+
+    inline fn TokenKind.Marker(Marker) -> [TokenKind] {
+        cast(TokenKindKind)
+        TokenKindTag::Marker
+        cast(TokenKind)
+    }
+
+    inline fn TokenKind.Operator(Operator) -> [TokenKind] {
+        cast(TokenKindKind)
+        TokenKindTag::Operator
+        cast(TokenKind)
+    }
+
+    inline fn TokenKind.Keyword(Keyword) -> [TokenKind] {
+        cast(TokenKindKind)
+        TokenKindTag::Keyword
+        cast(TokenKind)
+    }
+
+    inline fn TokenKind.Literal(Literal) -> [TokenKind] {
+        cast(TokenKindKind)
+        TokenKindTag::Literal
+        cast(TokenKind)
+    }
+
+    inline fn TokenKind.Syscall(u64) -> [TokenKind] {
+        cast(TokenKindKind)
+        TokenKindTag::Syscall
+        cast(TokenKind)
+    }
+
+    inline fn TokenKind.Type(TypeToken) -> [TokenKind] {
+        cast(TokenKindKind)
+        TokenKindTag::Type
+        cast(TokenKind)
+    }
+
+    inline fn TokenKind.EoF() -> [TokenKind] {
+        0 cast(TokenKindKind)
+        TokenKindTag::EoF
+        cast(TokenKind)
+    }
+
+    inline fn TokenKind.Default() -> [TokenKind] {
+        TokenKind.EoF
+    }
+
+    inline fn TokenKind.string() -> [TokenKind] {
+        "" HString.new
+        Literal.String
+        TokenKind.Literal
+    }
+
+    inline fn TokenKind.ident() -> [TokenKind] {
+        "" HString.new
+        TokenKind.Ident
+    }
+
+    inline fn TokenKind.u64() -> [TokenKind] {
+        0 Literal.U64
+        TokenKind.Literal
+    }
+
+    fn TokenKind.fput(&TokenKind: self u64: fd) {
+
+        self::tag @ TokenKindTag::Ident == if {
+            "an identifier (" fd fputs
+            self::kind::ident HString.as_str fd fputs
+            ")" fd fputs
+        } else self::tag @ TokenKindTag::Marker == if {
+            self::kind::marker @ fd Marker.fput
+        } else self::tag @ TokenKindTag::Operator == if {
+            self::kind::operator @ fd Operator.fput
+        } else self::tag @ TokenKindTag::Keyword == if {
+            self::kind::keyword @ fd Keyword.fput
+        } else self::tag @ TokenKindTag::Literal == if {
+            self::kind::literal fd Literal.fput
+        } else self::tag @ TokenKindTag::Syscall == if {
+            "syscall(" fd fputs
+            self::kind::n @ fd fputu
+            ")" fd fputs
+        } else self::tag @ TokenKindTag::Type == if {
+            self::kind::type fd TypeToken.fput
+        } else self::tag @ TokenKindTag::EoF == if {
+            "end of file" fd fputs
+        } else {
+            "TokenKind.fput unreahcable!" putlns
+            1 exit 
+        }
+    }
+
+}

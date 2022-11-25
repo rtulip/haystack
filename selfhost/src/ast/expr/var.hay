@@ -1,0 +1,7 @@
+include "selfhost/src/lex/token.hay"
+
+struct VarExpr {
+    pub Token: token
+    pub Token: type
+    pub Token: ident
+}

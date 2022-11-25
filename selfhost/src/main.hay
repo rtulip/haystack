@@ -1,0 +1,10 @@
+include "std.hay"
+
+include "selfhost/src/compiler/compile.hay"
+include "selfhost/src/error.hay"
+include "selfhost/src/lex/token.hay"
+fn main() {
+
+    "selfhost/src/main.hay" false compile_haystack drop
+
+}

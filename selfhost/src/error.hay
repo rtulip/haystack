@@ -1,0 +1,93 @@
+include "std.hay"
+include "hstring.hay"
+include "selfhost/src/lex/loc.hay"
+
+enum ErrorKind {
+    Error
+}
+
+fn ErrorKind.fput(ErrorKind: e u64: fd) {
+    e ErrorKind::Error == if {
+        "Error" fd fputs
+    } else {
+        "ErrorKind.fput unreachable!" putlns
+        1 exit
+    }
+}
+
+fn ErrorKind.put(ErrorKind: e) {
+    e 1 ErrorKind.fput
+}
+
+struct Hint {
+    pub HString: note
+    pub HString: hint
+}
+
+struct HayError {
+    HString: message
+    ErrorKind: kind
+    Loc: loc
+    Vec<Hint>: hints
+impl:
+
+    fn HayError.new(HString: message Loc: loc) -> [HayError] {
+        message
+        ErrorKind::Error
+        loc
+        Vec.new::<Hint>
+        cast(HayError)
+    }
+
+    fn HayError.new_type_err(HString: message Loc: loc) -> [HayError] {
+        "Type Error: " HString.new as [mut msg]
+        &message HString.as_str *msg HString.push_str
+        
+        msg 
+        ErrorKind::Error
+        loc
+        Vec.new::<Hint>
+        cast(HayError)
+    }
+
+    fn HayError.with_hint(HString: hint HayError: mut self) -> [HayError] {
+        "Note" HString.new
+        hint
+        cast(Hint) *self::hints Vec.push
+        self
+    }
+
+    fn HayError.with_hint_and_custom_note(
+        HString: hint 
+        HString: note 
+        HayError: mut self
+    ) -> [HayError] {
+        note hint cast(Hint) *self::hints Vec.push
+        self
+    }
+
+    fn HayError.fput(&HayError: self u64: fd) {
+        "[" fd fputs
+        self::loc fd Loc.fput
+        "] " fd fputs
+        self::kind @ fd ErrorKind.fput
+        ": " fd fputs
+        self::message HString.as_str fd fputs
+
+        0 while dup self::hints Vec.len < {
+            as [i]
+            i self::hints Vec.get Opt.unwrap as [hint]
+            
+            "    ["                   fd fputs
+            hint::note HString.as_str fd fputs
+            "]: "                     fd fputs
+            hint::hint HString.as_str fd fputs
+            i 1 +
+        } drop 
+    }
+
+    inline fn HayError.report(&HayError) {
+        2 HayError.fput
+    }
+
+}

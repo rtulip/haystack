@@ -1,0 +1,8 @@
+include "vec.hay" 
+include "selfhost/src/lex/token.hay"
+
+struct AccessorExpr {
+    pub Token: token
+    pub Token: ident
+    pub Vec<Token>: inner
+}

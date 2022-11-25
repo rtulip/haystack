@@ -1,0 +1,18 @@
+include "vec.hay"
+include "opt.hay"
+include "selfhost/src/lex/token.hay"
+
+struct Expr:
+
+struct ElseIfExpr {
+    pub Token: token
+    pub Vec<Expr>: condition
+    pub Vec<Expr>: body
+}
+
+struct IfExpr {
+    pub Token: token
+    pub Vec<Expr>: then
+    pub Vec<ElseIfExpr>: otherwise
+    pub Opt<Vec<Expr>>: finally
+}

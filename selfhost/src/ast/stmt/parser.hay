@@ -275,8 +275,22 @@ impl:
                 Result.unwrap as [dc]
                 self::tokens Vec.pop Opt.unwrap as [next]
                 next::kind::tag TokenKindTag::Ident == if {
-                    "Ident after Ident isn't implemented yet" putlns
-                    1 exit
+                    "" HString.new
+                    &new_token::lexeme HString.as_str HString.push_str
+                    &dc::lexeme        HString.as_str HString.push_str
+                    &next::lexeme      HString.as_str HString.push_str
+                    as [new_lexeme]
+                    
+                    &new_lexeme HString.clone TokenKind.Ident
+                    new_lexeme
+                    new_token::loc::file
+                    new_token::loc::line
+                    new_token::loc::span::start
+                    next::loc::span::end
+                    Token.new *new_token !
+
+                    next *inners Vec.push
+
                 } else next::kind::tag TokenKindTag::Marker == if {
                     "Marker after Ident isn't implemented yet" putlns
                     1 exit
@@ -335,6 +349,8 @@ impl:
                 token self Parser.cast
             } else kw Keyword::SizeOf == if {
                 token self Parser.size_of
+            } else kw Keyword::While == if {
+                token self Parser.while
             } else {
                 "Not sure how to parse expression from " HString.new
                 &token::kind TokenKind.format
@@ -362,6 +378,34 @@ impl:
             1 exit
             token cast(IdentExpr) Expr.Ident Result.Ok::<Expr HayError>
         }
+    }
+
+    fn Parser.while(Token: token *Parser: self) -> [Result<Expr HayError>] {
+
+        Vec.new::<Expr> as [mut cond]
+        while self Parser.is_at_end lnot
+            Marker::LeftBrace TokenKind.Marker self Parser.check lnot
+            land
+        {
+            self Parser.expression as [result]
+            &result Result.is_ok if {
+                result Result.unwrap
+            } else {
+                result return
+            }
+            *cond Vec.push
+        }
+
+        self Parser.block as [result] {
+            &result Result.is_ok if {
+                result Result.unwrap
+            } else {
+                result Result.unwrap_err Result.Err::<Expr HayError> return
+            }
+        } as [body]
+
+        token cond body cast(WhileExpr) Expr.While Result.Ok::<Expr HayError>
+
     }
 
     fn Parser.unary(Token: op *Parser: self) -> [Result<Expr HayError>] {

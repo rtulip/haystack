@@ -93,4 +93,10 @@ impl:
         ExprTag::Literal
         cast(Expr)
     }
-}
+
+    inline fn Expr.While(WhileExpr) -> [Expr] {
+        cast(ExprKind)
+        ExprTag::While
+        cast(Expr)
+    }
+}   

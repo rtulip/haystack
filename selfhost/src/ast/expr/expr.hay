@@ -81,4 +81,10 @@ impl:
         ExprTag::Operator
         cast(Expr)
     }
+
+    inline fn Expr.Unary(UnaryExpr) -> [Expr] {
+        cast(ExprKind)
+        ExprTag::Unary
+        cast(Expr)
+    }
 }

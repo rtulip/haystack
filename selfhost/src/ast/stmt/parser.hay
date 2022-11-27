@@ -315,13 +315,14 @@ impl:
             1 exit
             token cast(IdentExpr) Expr.Ident Result.Ok::<Expr HayError>
         } else token::kind::tag TokenKindTag::Operator == if {
-            &token Token.operator Result.unwrap as [op]
             
+            &token Token.operator Result.unwrap as [op]
             op::tag OperatorTag::Unary == if {
-                "Unary Operator Expressions aren't implemented yet" putlns
-                1 exit
-                token cast(IdentExpr) Expr.Ident Result.Ok::<Expr HayError>
+                &op Operator.unary Opt.unwrap as [unary_tok]
+
+                unary_tok Token.clone self Parser.unary
             } else {
+                
                 &op Operator.clone
                 token
                 cast(OperatorExpr) Expr.Operator Result.Ok::<Expr HayError>
@@ -361,6 +362,32 @@ impl:
             1 exit
             token cast(IdentExpr) Expr.Ident Result.Ok::<Expr HayError>
         }
+    }
+
+    fn Parser.unary(Token: op *Parser: self) -> [Result<Expr HayError>] {
+        self Parser.expression as [result] {
+            &result Result.is_ok if {
+                result Result.unwrap
+            } else {
+                result return
+            }
+        } as [expr]
+
+        malloc_obj::<Expr> as [e]
+        expr e !
+
+        &op Token.operator as [result] {
+            &result Result.is_ok if {
+                result Result.unwrap
+            } else {
+                result Result.unwrap_err Result.Err::<Expr HayError> return
+            }
+        }
+        op
+        cast(OperatorExpr) 
+        e
+        cast(UnaryExpr) Expr.Unary Result.Ok::<Expr HayError>
+
     }
 
     fn Parser.size_of(Token: token *Parser: self) -> [Result<Expr HayError>] {

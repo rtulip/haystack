@@ -423,7 +423,7 @@ impl TypeId {
 
                     // Make sure that each generic is mapped.
                     if !func.generics.iter().all(|tid| map.contains_key(tid))
-                        || map.len() != func.generics.len()
+                        || map.len() < func.generics.len()
                     {
                         return Err(HayError::new(
                             "Bad mapping to monomporphize funcion",

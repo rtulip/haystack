@@ -12,23 +12,51 @@ struct TypeToken:
 struct TypeTokenPointer {
     pub &TypeToken: inner
     pub bool: mutable
+impl:
+    fn TypeTokenPointer.clone(&TypeTokenPointer: self) -> [TypeTokenPointer] {
+        malloc_obj::<TypeToken> as [tok]
+        self::inner @ TypeToken.clone tok !
+        tok
+        self::mutable @
+        cast(TypeTokenPointer)
+    }
 }
 
 struct TypeTokenParameterized {
     pub HString: base
     pub Vec<TypeToken>: inner
+impl:
+    fn TypeTokenParameterized.clone(&TypeTokenParameterized: self) -> [TypeTokenParameterized] {
+        self::base HString.clone
+        Vec.new::<TypeToken> as [mut inner]
+        0 while dup self::inner Vec.len < {
+            as [i]
+            i self::inner Vec.get Opt.unwrap TypeToken.clone *inner Vec.push
+            i 1 +
+        } drop
+        inner
+        cast(TypeTokenParameterized)
+    }
 }
 
 struct TypeTokenArray {
     pub &TypeToken: base
     pub u64: size
+impl:
+    fn TypeTokenArray.clone(&TypeTokenArray: self) -> [TypeTokenArray] {
+        malloc_obj::<TypeToken> as [tok]
+        self::base @ TypeToken.clone tok !
+        tok
+        self::size @
+        cast(TypeTokenArray)
+    }
 }
 
 union TypeTokenKind {
     TypeTokenPointer: pointer
     TypeTokenParameterized: parameterized 
     TypeTokenArray: array
-    HString: base 
+    HString: base
 }
 
 struct TypeToken {
@@ -58,6 +86,30 @@ impl:
         cast(TypeTokenKind)
         TypeTokenTag::Base
         cast(TypeToken)
+    }
+
+    fn TypeToken.clone(&TypeToken: self) -> [TypeToken] {
+        self::tag @ TypeTokenTag::Pointer == if {
+            self::kind::pointer TypeTokenPointer.clone cast(TypeTokenKind)
+            self::tag @
+            cast(TypeToken)
+        } else self::tag @ TypeTokenTag::Parameterized == if {
+            self::kind::parameterized TypeTokenParameterized.clone  cast(TypeTokenKind)
+            self::tag @
+            cast(TypeToken)
+        } else self::tag @ TypeTokenTag::Array == if {
+            self::kind::array TypeTokenArray.clone cast(TypeTokenKind)
+            self::tag @
+            cast(TypeToken)
+        } else self::tag @ TypeTokenTag::Base == if {
+            self::kind::base HString.clone cast(TypeTokenKind)
+            self::tag @
+            cast(TypeToken)
+        } else {
+            "TypeToken.clone unreachable" putlns
+            1 exit
+            self @
+        } 
     }
 
     fn TypeToken.format(HString: s &TypeToken: self) -> [HString] {

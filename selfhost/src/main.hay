@@ -6,6 +6,10 @@ include "selfhost/src/lex/token.hay"
 
 fn main() {
 
-    "selfhost/src/main.hay" HString.new false compile_haystack drop
+    "selfhost/src/main.hay" HString.new false compile_haystack as [err]
+    &err Opt.is_some if {
+        err Opt.unwrap HayError.report
+        1 exit
+    }
 
 }

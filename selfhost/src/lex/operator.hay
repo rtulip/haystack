@@ -116,6 +116,24 @@ impl:
         cast(Operator)
     }
 
+    fn Operator.clone(&Operator: self) -> [Operator] {
+        self::tag @ OperatorTag::Unary == if {
+            malloc_obj::<Token> as [tok]
+            self::kind::unary @ Token.clone tok !
+            tok Operator.Unary
+        } else {
+            self @
+        }
+    }
+
+    inline fn Operator.unary(&Operator: self) -> [Opt<&Token>] {
+        self::tag @ OperatorTag::Unary == if {
+            self::kind::unary @ Opt.Some
+        } else {
+            Opt.None::<&Token>
+        }
+    }
+
     fn Operator.equals(Operator: left Operator: right) -> [bool] {
         left::tag right::tag == 
     }
@@ -161,6 +179,18 @@ impl:
             1 exit 
         }
         '`' HString.push
+    }
+
+    inline fn Operator.take_format(HString:s Operator: self) -> [HString] {
+        s &self Operator.format
+        //todo self Operator.delete
+    } 
+
+    inline fn Operator.putln(&Operator: op) {
+        "" HString.new op Operator.format
+        as [s]
+        &s HString.as_str putlns
+        &s HString.delete
     }
     
 }

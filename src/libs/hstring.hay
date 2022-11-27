@@ -52,6 +52,16 @@ impl:
         self
     }
 
+    fn HString.format(HString: mut self HString: other) -> [HString] {
+        self 
+        0 while dup &other HString.size < {
+            as [i]
+            i &other::chars Vec.at Opt.unwrap HString.push
+            i 1 +
+        } drop
+        &other HString.delete
+    } 
+
     fn HString.from_file(Str: path) -> [HString] {
         0 0 path File.open as [file]
         file File.size as [size] 

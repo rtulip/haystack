@@ -2,7 +2,10 @@ include "vec.hay"
 include "selfhost/src/error.hay"
 include "selfhost/src/utils/sets.hay"
 include "selfhost/src/lex/token.hay"
+include "selfhost/src/ast/member/untyped.hay"
 include "selfhost/src/ast/stmt/stmt.hay"
+include "selfhost/src/ast/visibility.hay"
+include "selfhost/src/types/record/record_kind.hay"
 
 struct Stmt:
 struct Parser {
@@ -22,7 +25,6 @@ impl:
 
     fn Parser.parse(Parser: mut self) -> [Result<Vec<Stmt> HayError>] {
 
-        "Starting parsing" putlns
         while &self Parser.is_at_end lnot {
 
             *self Parser.declaration as [result]
@@ -44,11 +46,30 @@ impl:
         tok::kind @ TokenKind.EoF TokenKind.equals
     }
 
+    inline fn Parser.peek(&Parser: self) -> [&Token] {
+        self::tokens Vec.last Opt.unwrap 
+    }
+
+    inline fn Parser.check(TokenKind: kind &Parser: self) -> [bool] {
+        self Parser.is_at_end if {
+            false
+        } else {
+            self Parser.peek as [tok]
+            tok::kind @ kind TokenKind.equals
+        }
+    }
+
+    inline fn Parser.matches(TokenKind: kind *Parser: self) -> [Result<Token Token>] {
+        kind self Parser.check if {
+            self::tokens Vec.pop Opt.unwrap Result.Ok::<Token Token>
+        } else {
+            self::tokens Vec.last Opt.unwrap @ Result.Err::<Token Token>
+        }
+    }
+
     fn Parser.declaration(*Parser: self) -> [Result<Vec<Stmt> HayError>] {
         
         self::tokens Vec.pop Opt.unwrap as [token]
-        "Parsing Declaration" putlns
-        &token Token.putln
         Keyword::Inline TokenKind.Keyword token::kind TokenKind.equals if {
             "todo: Parser.inline" putlns
             1 exit
@@ -58,13 +79,9 @@ impl:
             1 exit
             Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError> 
         } else Keyword::Struct TokenKind.Keyword token::kind TokenKind.equals if {
-            "todo: Parser.record" putlns
-            1 exit
-            Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError> 
+            token self Parser.record
         } else Keyword::Union TokenKind.Keyword token::kind TokenKind.equals if {
-            "todo: Parser.record" putlns
-            1 exit
-            Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError> 
+            token self Parser.record
         } else Keyword::Enum TokenKind.Keyword token::kind TokenKind.equals if {
             "todo: Parser.enum" putlns
             1 exit
@@ -83,8 +100,609 @@ impl:
             token::loc
             HayError.new Result.Err::<Vec<Stmt> HayError>
         }
+    }
 
+    fn Parser.parse_type(*Parser: self) -> [Result<Opt<Token> HayError>] {
+        0 cast(*Token) Operator.Unary TokenKind.Operator      self Parser.matches as [unary_match]                     
+        Operator.Star                 TokenKind.Operator      self Parser.matches as [star_match] 
+        &unary_match Result.is_ok if {
+            unary_match Result.unwrap as [op_tok]
+            
+            &op_tok Token.unary_operator as [result] {
+                &result Result.is_err if {
+                    result Result.unwrap_err Result.Err::<Opt<Token> HayError> return
+                } else {
+                    result Result.unwrap
+                }
+            }
+            self Parser.parse_type as [result] {
+                &result Result.is_err if {
+                    drop
+                    result Result.unwrap_err Result.Err::<Opt<Token> HayError> return
+                } else {
+                    result Result.unwrap
+                }
+            }
+            as [op maybe_type]
+            &maybe_type Opt.is_some if {
+                maybe_type Opt.unwrap as [type]
+                op Operator.Ampersand Operator.equals if {
+                    malloc_obj::<TypeToken> as [inner]
+                    &type Token.type as [result] {
+                        &result Result.is_err if {
+                            result Result.unwrap_err Result.Err::<Opt<Token> HayError> return
+                        } else {
+                            result Result.unwrap
+                        }
+                    }
+                    inner !
+                    inner false TypeToken.Pointer TokenKind.Type
+                    "&" HString.new
+                    &type::lexeme HString.clone HString.format
+                    type::loc
+                    cast(Token) Opt.Some Result.Ok::<Opt<Token> HayError>
+                } else op Operator.Star Operator.equals if {
+                    malloc_obj::<TypeToken> as [inner]
+                    &type Token.type as [result] {
+                        &result Result.is_err if {
+                            result Result.unwrap_err Result.Err::<Opt<Token> HayError> return
+                        } else {
+                            result Result.unwrap
+                        }
+                    }
+                    inner !
+                    inner true TypeToken.Pointer TokenKind.Type
+                    "*" HString.new
+                    &type::lexeme HString.clone HString.format
+                    type::loc
+                    cast(Token) Opt.Some Result.Ok::<Opt<Token> HayError>
+                } else {
+                    "Unary "            HString.new
+                    &op                 Operator.format
+                    " is not supported" HString.push_str
+                    op_tok::loc
+                    HayError.new Result.Err::<Opt<Token> HayError>
+                }
+            } else {
+                "Internal Error: Unary op with no type" putlns
+                &op_tok Token.putln
+                1 exit
+                Opt.None::<Token> Result.Ok::<Opt<Token> HayError>
+            }
+        } else TokenKind.ident_default self Parser.matches as [ident_match]{
+            ident_match
+            &ident_match Result.is_ok
+        } if {
+            Result.unwrap as [ident]
+            Operator.LessThan TokenKind.Operator self Parser.matches 
+            Result.take_is_ok if {
+                Vec.new::<TypeToken> as [mut inner]
+
+                while self Parser.parse_type as [result] {
+                    &result Result.is_err if {
+                        result return
+                    } else {
+                        result Result.unwrap as [maybe_tok]
+                        maybe_tok
+                        &maybe_tok Opt.is_some
+                    }
+                }
+                {
+                    Opt.unwrap as [t] {
+                        &t Token.type as [result] {
+                            &result Result.is_err if {
+                                result Result.unwrap_err Result.Err::<Opt<Token> HayError> return
+                            } else {
+                                result Result.unwrap *inner Vec.push
+                            }
+                        }
+                        // todo &t Token.delete
+                    }
+                }
+
+                Operator.GreaterThan TokenKind.Operator self 
+                Parser.matches as [result] {
+                    &result Result.is_ok if {
+                        result Result.unwrap
+                    } else {
+                        result Result.unwrap_err as [t]
+                        "Expected "                          HString.new
+                        Operator.GreaterThan                 Operator.take_format
+                        " after type parameters, but found " HString.push_str
+                        &t::kind                             TokenKind.format
+                        t::loc
+                        HayError.new Result.Err::<Opt<Token> HayError> return
+                    }
+                } as [close]
+
+                &ident Token.ident as [result] {
+                    &result Result.is_ok if {
+                        result Result.unwrap
+                    } else {
+                        result Result.unwrap_err Result.Err::<Opt<Token> HayError> return
+                    }
+                }
+                inner TypeToken.Parameterized TokenKind.Type as [kind]
+                "" HString.new
+                &kind TokenKind.format as [lexeme]
+
+                kind
+                lexeme
+                &ident::loc::file HString.clone
+                ident::loc::line
+                ident::loc::span::start
+                close::loc::span::end
+                Token.new
+                //todo: &ident Token.delete
+            } else {
+                &ident::lexeme HString.clone
+                TypeToken.Base TokenKind.Type
+                &ident::lexeme HString.clone
+                ident::loc
+                cast(Token)
+            } as [type]
+
+            Marker::LeftBracket TokenKind.Marker self Parser.matches 
+            Result.take_is_ok if {
+
+                TokenKind.u64_default self Parser.matches as [match]
+                &match Result.is_ok if {
+                    match Result.unwrap as [n]
+                    &n Token.u64 as [result] {
+                        &result Result.is_ok if {
+                            result Result.unwrap 
+                        } else {
+                            result Result.unwrap_err Result.Err::<Opt<Token> HayError> return
+                        }
+                    }
+                } else {
+                    match Result.unwrap_err as [t]
+                    "Expected array size after " HString.new
+                    Marker::LeftBracket          Marker.format
+                    ", but found "               HString.push_str
+                    &t::kind                     TokenKind.format
+                    t::loc
+                    HayError.new Result.Err::<Opt<Token> HayError> return
+                } as [n]
+
+                Marker::RightBracket TokenKind.Marker self Parser.matches
+                as [match] {
+                    &match Result.is_ok if {
+                        match Result.unwrap
+                    } else {
+                        match Result.unwrap_err as [t]
+                        "Expected "                    HString.new
+                        Marker::RightBracket           Marker.format 
+                        "after array size, but found " HString.push_str
+                        &t::kind                       TokenKind.format
+                        t::loc
+                        HayError.new Result.Err::<Opt<Token> HayError> return
+                    }
+                } as [close]
+
+                malloc_obj::<TypeToken> as [box]
+                &type Token.type as [result] {
+                    &result Result.is_ok if {
+                        result Result.unwrap
+                    } else {
+                        result Result.unwrap_err Result.Err::<Opt<Token> HayError> return
+                    }
+                } 
+                box !
+                
+                box n TypeToken.Array TokenKind.Type as [kind]
+                "" HString.new
+                &kind TokenKind.format
+                kind 
+
+                swap
+                &type::loc::file HString.clone
+                type::loc::line
+                type::loc::span::start
+                close::loc::span::end
+                Token.new Opt.Some Result.Ok::<Opt<Token> HayError>
+
+            } else {
+                type Opt.Some Result.Ok::<Opt<Token> HayError>
+            }
+
+        } else Operator.Ampersand TokenKind.Operator self Parser.matches as [ampersand_match] {
+          ampersand_match  
+          &ampersand_match Result.is_ok
+        } if {
+            Result.unwrap as [token]
+            "Expected type after "  HString.new
+            Operator.Star           Operator.take_format
+            ", but found "          HString.push_str
+            &token::kind            TokenKind.format
+            " instead."             HString.push_str
+            token::loc
+            HayError.new Result.Err::<Opt<Token> HayError>
+        } else Operator.Star TokenKind.Operator self Parser.matches as [star_match] {
+          star_match  
+          &star_match Result.is_ok
+        } if {
+            Result.unwrap as [token]
+            "Expected type after "  HString.new
+            Operator.Star           Operator.take_format
+            ", but found "          HString.push_str
+            &token::kind            TokenKind.format
+            " instead."             HString.push_str
+            token::loc
+            HayError.new Result.Err::<Opt<Token> HayError>
+        } else {
+            Opt.None::<Token> Result.Ok::<Opt<Token> HayError>
+        }
+
+    }
+
+    fn Parser.parse_arg(*Parser: self) -> [Result<Opt<UntypedArg> HayError>] {
+        self Parser.parse_type as [result] {
+            &result Result.is_ok if {
+                result Result.unwrap
+            } else {
+                result Result.unwrap_err Result.Err::<Opt<UntypedArg> HayError> return
+            }
+        } as [maybe_token] {
+            &maybe_token Opt.is_some if {
+                maybe_token Opt.unwrap as [token]
+                Marker::Colon TokenKind.Marker self Parser.matches as [match] {
+                    &match Result.is_ok 
+                }
+
+                if  {
+                    Keyword::Mut TokenKind.Keyword self Parser.matches Result.ok as [mutable]
+                    TokenKind.ident_default self Parser.matches as [result] {
+                        &result Result.is_ok if {
+                            result Result.unwrap as [ident]
+                            token
+                            mutable
+                            ident Opt.Some
+                            cast(UntypedArg) Opt.Some Result.Ok::<Opt<UntypedArg> HayError>
+                        } else {
+                            result Result.unwrap_err as [t]
+                            "Expected an identifier after " HString.new
+                            Marker::Colon Marker.format
+                            ", but found " HString.push_str
+                            &t::kind TokenKind.format
+                            " instead." HString.push_str
+                            t::loc
+                            HayError.new Result.Err::<Opt<UntypedArg> HayError>
+                        }
+                    }
+                } else {
+                    token
+                    Opt.None::<Token>
+                    Opt.None::<Token>
+                    cast(UntypedArg) Opt.Some Result.Ok::<Opt<UntypedArg> HayError>
+                }
+
+            } else {
+                Opt.None::<UntypedArg> Result.Ok::<Opt<UntypedArg> HayError>
+            }
+        }
+    }
+
+    fn Parser.args_list(&Token: token *Parser: self) -> [Result<Vec<UntypedArg> HayError>] {
+        Vec.new::<UntypedArg> as [mut args]
+        while self Parser.parse_arg as [result] {
+            &result Result.is_ok if {
+                result Result.unwrap as [maybe_arg]
+                &maybe_arg Opt.is_some if {
+                    maybe_arg
+                    true
+                } else {
+                    Opt.None::<UntypedArg>
+                    false
+                }
+            } else {
+                result Result.unwrap_err Result.Err::<Vec<UntypedArg> HayError> return
+            }
+        }
+        {
+            Opt.unwrap *args Vec.push
+        } 
+
+        true true
+        0 while dup &args Vec.len < {
+            as [all none i]
+
+            i &args Vec.get Opt.unwrap as [arg]
+            arg::ident Opt.is_some all  land
+            arg::ident Opt.is_none none land
+
+            i 1 +
+        } drop as [all none]
         
+        all none lor lnot if {
+            "Either all arguments or no arguments in args list must have an identifier." HString.new
+            token::loc @ 
+            HayError.new Result.Err::<Vec<UntypedArg> HayError> 
+        } else {
+            args Result.Ok::<Vec<UntypedArg> HayError>
+        }
+
+    }
+
+    fn Parser.unnamed_args_list(&Token: token *Parser: self) -> [Result<Vec<UntypedArg> HayError>] {
+
+        token self Parser.args_list as [result] {
+            &result Result.is_ok if {
+                result Result.unwrap
+            } else {
+                result Result.unwrap_err Result.Err::<Vec<UntypedArg> HayError> return
+            }
+        } as [args]
+
+        0 while dup &args Vec.len < {
+            as [i]
+            i &args Vec.get Opt.unwrap as [arg] 
+            arg::ident Opt.is_some if {
+                "Not all arguments are unnamed" HString.new
+                arg::token::loc @
+                HayError.new Result.Err::<Vec<UntypedArg> HayError> return 
+            }
+            i 1 +
+        } drop 
+
+        args Result.Ok::<Vec<UntypedArg> HayError>
+
+    }
+
+    fn Parser.member(
+        &Token: type
+        &RecordKind: kind
+        *Parser: self
+    ) -> [Result<Opt<UntypedMember> HayError>] {
+        Keyword::Pub TokenKind.Keyword self Parser.matches as [match] {
+            &match Result.is_ok if {
+                Visibility::Public match Result.unwrap Opt.Some
+            } else {
+                Visibility::Private Opt.None::<Token>
+            }
+        } as [vis vis_tok]
+
+        vis Visibility::Public ==
+        kind @ RecordKind::Union == land if {
+            vis_tok Opt.unwrap as [tok]
+            "Unexpected Keyword `pub` in union definition." HString.new
+            tok::loc
+            HayError.new Result.Err::<Opt<UntypedMember> HayError> return
+        }
+
+        self Parser.parse_type as [result] {
+            &result Result.is_ok if {
+                result Result.unwrap
+            } else {
+                result Result.unwrap_err Result.Err::<Opt<UntypedMember> HayError> return 
+            }
+        } as [maybe_type] {
+            &maybe_type Opt.is_some if {
+                maybe_type Opt.unwrap
+            } else {
+                vis Visibility::Public == if {
+                    self Parser.peek as [peek]
+                    vis_tok Opt.unwrap as [tok]
+                    "Expected a type after " HString.new
+                    Keyword::Pub             Keyword.format
+                    ", but found "           HString.push_str
+                    peek::kind               TokenKind.format
+                    " instead."              HString.push_str
+                    tok::loc
+                    HayError.new Result.Err::<Opt<UntypedMember> HayError> return
+                } else {
+                    Opt.None::<UntypedMember> Result.Ok::<Opt<UntypedMember> HayError> return
+                }
+            }
+        } as [token]
+
+        Marker::Colon TokenKind.Marker self Parser.matches as [result] {
+            &result Result.is_err if {
+                result Result.unwrap_err as [t]
+                "Expected " HString.new
+                Marker::Colon Marker.format
+                " after type, but found " HString.push_str
+                &t::kind TokenKind.format
+                " instead." HString.push_str
+                t::loc
+                HayError.new Result.Err::<Opt<UntypedMember> HayError> return
+            }
+        }
+
+        TokenKind.ident_default self Parser.matches as [match] {
+            &match Result.is_ok if {
+                match Result.unwrap 
+            } else {
+                match Result.unwrap_err as [t]
+                "Expected an identifier, but found " HString.new
+                &t::kind TokenKind.format
+                t::loc
+                HayError.new Result.Err::<Opt<UntypedMember> HayError> return
+            }
+        } as [ident]
+
+        type Token.clone
+        kind @ RecordKind::Union == if {
+            Visibility::Public
+        } else {
+            vis
+        }
+        token
+        ident
+        cast(UntypedMember) Opt.Some Result.Ok::<Opt<UntypedMember> HayError>
+
+    }
+
+    fn Parser.members(
+        &Token: start_tok 
+        &Token: type_tok 
+        &RecordKind: kind 
+        *Parser: self
+    ) -> [Result<Vec<UntypedMember> HayError>] {
+        Vec.new::<UntypedMember> as [mut members]
+        while type_tok kind self Parser.member as [result] {
+            
+            &result Result.is_err if {
+                result Result.unwrap_err Result.Err::<Vec<UntypedMember> HayError> return
+            } else {
+                result Result.unwrap as [member]
+                member
+                &member Opt.is_some
+            }
+        }
+        {
+            Opt.unwrap *members Vec.push
+        }
+
+        *members Vec.is_empty if {
+            "Record members canot be empty." HString.new
+            start_tok::loc @
+            HayError.new Result.Err::<Vec<UntypedMember> HayError>
+        } else {
+            members Result.Ok::<Vec<UntypedMember> HayError>
+        }
+    }
+
+    fn Parser.impl_section(&Token: impl_on *Parser: self) -> [Result<Opt<Vec<Stmt>> HayError>]
+    {
+
+        Keyword::Impl TokenKind.Keyword self Parser.matches Result.take_is_ok if {
+            "Impl sections aren't implemented yet" putlns
+            1 exit 
+            Opt.None::<Vec<Stmt>> Result.Ok::<Opt<Vec<Stmt>> HayError>
+        } else {
+            Opt.None::<Vec<Stmt>> Result.Ok::<Opt<Vec<Stmt>> HayError>
+        }
+
+    }
+
+    fn Parser.record(Token: start *Parser: self) -> [Result<Vec<Stmt> HayError>] {
+        &start Token.keyword as [r] {
+            &r Result.is_err if {
+                r Result.unwrap_err Result.Err::<Vec<Stmt> HayError> return
+            } else {
+                r Result.unwrap 
+            }
+        } as [kw]
+
+        kw Keyword::Union == if {
+            RecordKind::Union
+        } else {
+            RecordKind::Struct
+        } as [kind]
+
+        TokenKind.ident_default self Parser.matches as [match] {
+            &match Result.is_ok if {
+                match Result.unwrap
+            } else {
+                match Result.unwrap_err as [t]
+                "Expected an identifier after " HString.new
+                kw                              Keyword.format
+                ", but found"                   HString.push_str
+                &t::kind                        TokenKind.format
+                " instead"                      HString.push_str
+                t::loc
+                HayError.new Result.Err::<Vec<Stmt> HayError> return 
+            }
+        } as [name]
+
+        Operator.LessThan TokenKind.Operator self Parser.matches as [match] {
+            &match Result.is_ok if {
+                match Result.unwrap as [annotation_start]
+                &annotation_start self Parser.unnamed_args_list as [result] {
+                    &result Result.is_ok if {
+                        result Result.unwrap
+                    } else {
+                        result Result.unwrap_err Result.Err::<Vec<Stmt> HayError> return
+                    }
+                }
+                Opt.Some
+
+                Operator.GreaterThan TokenKind.Operator self Parser.matches as [ann_end_match]
+                &ann_end_match Result.is_err if {
+                    drop ann_end_match Result.unwrap_err as [t]
+                    "Expected " HString.new
+                    Operator.GreaterThan Operator.take_format
+                    " after " HString.push_str
+                    kw Keyword.format
+                    " generics, but found " HString.push_str
+                    &t::kind TokenKind.format
+                    " instead." HString.push_str
+                    t::loc
+                    HayError.new Result.Err::<Vec<Stmt> HayError> return
+                }
+
+            } else {
+                Opt.None::<Vec<UntypedArg>>
+            }
+        } as [annotations]
+
+        Marker::Colon TokenKind.Marker self Parser.matches Result.take_is_ok if {
+            Vec.new::<Stmt> as [mut stmts]
+            start name kind annotations Stmt.PreDeclaration *stmts Vec.push
+            stmts Result.Ok::<Vec<Stmt> HayError> return
+        }
+
+        Marker::LeftBrace TokenKind.Marker self Parser.matches as [match]{
+        &match Result.is_err if {
+            match Result.unwrap_err as [t]
+            "Expected "         HString.new
+            Marker::LeftBrace   Marker.format
+            " after "           HString.push_str
+            kind                RecordKind.format
+            " name, but found " HString.push_str
+            &t::kind            TokenKind.format
+            " instead."         HString.push_str
+            t::loc
+            HayError.new Result.Err::<Vec<Stmt> HayError> return
+        }}
+
+        &start &name &kind self Parser.members as [result] {
+            &result Result.is_err if {
+                result Result.unwrap_err Result.Err::<Vec<Stmt> HayError> return
+            } else {
+                result Result.unwrap
+            }
+        } as [members]
+
+        &name self Parser.impl_section as [result] {
+            &result Result.is_err if {
+                result Result.unwrap_err Result.Err::<Vec<Stmt> HayError> return
+            } else {
+                result Result.unwrap
+            }
+        } as [impls]
+
+        Marker::RightBrace TokenKind.Marker self Parser.matches as [result] {
+            &result Result.is_err if {
+                result Result.unwrap_err as [t]
+                "Expected " HString.new
+                Marker::RightBrace Marker.format
+                " to close " HString.push_str
+                kind RecordKind.format
+                ", but found " HString.push_str
+                &t::kind TokenKind.format
+                "instead." HString.push_str
+                t::loc
+                HayError.new Result.Err::<Vec<Stmt> HayError> return
+            }
+        }
+
+        Vec.new::<Stmt> as [mut stmts]
+        start
+        name
+        annotations
+        members
+        kind
+        Stmt.Record *stmts Vec.push
+
+        &impls Opt.is_some if {
+            impls Opt.unwrap as [mut impl_fns]
+            *impl_fns *stmts Vec.append
+            &impl_fns Vec.delete 
+        }
+
+        stmts Result.Ok::<Vec<Stmt> HayError> 
 
     }
 }

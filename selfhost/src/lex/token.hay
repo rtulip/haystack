@@ -31,6 +31,23 @@ impl:
         cast(Token)
     }
 
+    inline fn Token.default() -> [Token] {
+        TokenKind.EoF
+        "" HString.new
+        "" HString.new
+        0
+        0
+        0
+        Token.new
+    }
+
+    fn Token.clone(&Token: self) -> [Token] {
+        self::kind TokenKind.clone
+        self::lexeme HString.clone
+        self::loc Loc.clone
+        cast(Token)
+    }
+
     fn Token.format(HString: s &Token: self) -> [HString] {
         s '[' HString.push
         self::loc Loc.format
@@ -49,5 +66,94 @@ impl:
         Token.put
         "\n" puts
     } 
+
+    fn Token.keyword(&Token: self) -> [Result<Keyword HayError>] {
+        self::kind TokenKind.keyword as [kw]
+        &kw Opt.is_some if {
+            kw Opt.unwrap Result.Ok::<Keyword HayError>
+        } else {
+            "Failed to destructure " HString.new
+            self::kind               TokenKind.format
+            " into a keyword"        HString.push_str
+            self::loc @
+            HayError.new Result.Err::<Keyword HayError>
+        }
+    }
+
+    fn Token.u64(&Token: self) -> [Result<u64 HayError>] {
+        self::kind TokenKind.u64 as [n]
+        &n Opt.is_some if {
+            n Opt.unwrap Result.Ok::<u64 HayError>
+        } else {
+            "Failed to destructure " HString.new
+            self::kind               TokenKind.format
+            " into a u64"            HString.push_str
+            self::loc @
+            HayError.new Result.Err::<u64 HayError>
+        }
+    }
+
+    fn Token.operator(&Token: self) -> [Result<Operator HayError>] {
+        self::kind TokenKind.operator as [op]
+        &op Opt.is_some if {
+            op Opt.unwrap Result.Ok::<Operator HayError>
+        } else {
+            "Failed to destructure " HString.new
+            self::kind               TokenKind.format
+            " into an operator"        HString.push_str
+            self::loc @
+            HayError.new Result.Err::<Operator HayError>
+        }
+    }
+
+    fn Token.ident(&Token: self) -> [Result<HString HayError>] {
+        self::kind TokenKind.ident as [ident]
+        &ident Opt.is_some if {
+            ident Opt.unwrap Result.Ok::<HString HayError>
+        } else {
+            "Failed to destructure " HString.new
+            self::kind               TokenKind.format
+            " into an identifier"    HString.push_str
+            self::loc @
+            HayError.new Result.Err::<HString HayError>
+        }
+    }
+
+    fn Token.type(&Token: self) -> [Result<TypeToken HayError>] {
+        self::kind TokenKind.type as [type]
+        &type Opt.is_some if {
+            type Opt.unwrap Result.Ok::<TypeToken HayError>
+        } else {
+            "Failed to destructure " HString.new
+            self::kind               TokenKind.format
+            " into a Type"           HString.push_str
+            self::loc @
+            HayError.new Result.Err::<TypeToken HayError>
+        }
+    }
+
+    fn Token.unary_operator(&Token: self) -> [Result<Operator HayError>] {
+        self Token.operator as [outer_op]
+        &outer_op Result.is_ok if {
+            outer_op Result.unwrap as [unary_op]
+            &unary_op Operator.unary as [maybe_unary_tok]
+            &maybe_unary_tok Opt.is_some if {
+                maybe_unary_tok Opt.unwrap as [unary_tok]
+                unary_tok Token.operator
+            } else {
+                "Failed to destructure " HString.new
+                self::kind               TokenKind.format
+                " into a unary operator" HString.push_str
+                self::loc @
+                HayError.new Result.Err::<Operator HayError>
+            }
+        } else {
+            "Failed to destructure " HString.new
+            self::kind               TokenKind.format
+            " into an operator"        HString.push_str
+            self::loc @
+            HayError.new Result.Err::<Operator HayError>
+        }
+    }
 
 }

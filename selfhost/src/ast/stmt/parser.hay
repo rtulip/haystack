@@ -351,6 +351,8 @@ impl:
                 token self Parser.size_of
             } else kw Keyword::While == if {
                 token self Parser.while
+            } else kw Keyword::As == if {
+                token self Parser.as
             } else {
                 "Not sure how to parse expression from " HString.new
                 &token::kind TokenKind.format
@@ -378,6 +380,110 @@ impl:
             1 exit
             token cast(IdentExpr) Expr.Ident Result.Ok::<Expr HayError>
         }
+    }
+
+    fn Parser.maybe_mut_ident(*Parser: self) -> [Result<Opt<IdentArg> HayError>]{
+        Keyword::Mut TokenKind.Keyword self Parser.matches as [match] {
+            &match Result.is_ok if {
+                match Result.unwrap Opt.Some
+            } else {
+                Opt.None::<Token>
+            }
+        } as [mutable]
+
+        TokenKind.ident_default self Parser.matches as [match] {
+            &match Result.is_ok if {
+                match Result.unwrap mutable cast(IdentArg) Opt.Some
+                Result.Ok::<Opt<IdentArg> HayError>
+            } else {
+                &mutable Opt.is_some if {
+                    mutable Opt.unwrap as [mut_tok]
+                    match Result.unwrap_err as [t]
+                    "Expected an identifier after keyword" HString.new
+                    &mut_tok::kind TokenKind.format
+                    ", but found " HString.push_str
+                    &t::kind TokenKind.format
+                    " instead." HString.push_str
+                    mut_tok::loc
+                    HayError.new Result.Err::<Opt<IdentArg> HayError>
+                } else {
+                    Opt.None::<IdentArg> Result.Ok::<Opt<IdentArg> HayError> 
+                }
+            }
+        }
+    }
+
+    fn Parser.maybe_mut_ident_list(*Parser: self) -> [Result<Vec<IdentArg> HayError>] {
+        Vec.new::<IdentArg> as [mut args]
+        while self Parser.maybe_mut_ident as [result] {
+            &result Result.is_ok if {
+                result Result.unwrap as [opt]
+                opt &opt Opt.is_some 
+            } else {
+                result Result.unwrap_err Result.Err::<Vec<IdentArg> HayError> return
+            }
+        }
+        {
+            Opt.unwrap *args Vec.push
+        }
+
+        args Result.Ok::<Vec<IdentArg> HayError>
+    }
+
+    fn Parser.as(Token: token *Parser: self) -> [Result<Expr HayError>] {
+
+        Marker::LeftBracket TokenKind.Marker self Parser.matches as [match] {
+            &match Result.is_err if {
+                match Result.unwrap_err as [t]
+                "Expected " HString.new
+                Marker::LeftBracket Marker.format
+                " after " HString.push_str
+                Keyword::As Keyword.format
+                ", but found " HString.push_str
+                &t::kind TokenKind.format
+                " instead." HString.push_str
+                t::loc
+                HayError.new Result.Err::<Expr HayError> return
+            }
+        }
+
+        self Parser.maybe_mut_ident_list as [result] {
+            &result Result.is_ok if {
+                result Result.unwrap
+            } else {
+                result Result.unwrap_err Result.Err::<Expr HayError> return
+            }
+        } as [idents]
+
+        Marker::RightBracket TokenKind.Marker self Parser.matches as [match] {
+            &match Result.is_err if {
+                match Result.unwrap_err as [t]
+                "Expected " HString.new
+                Marker::RightBracket Marker.format
+                " after " HString.push_str
+                Keyword::As Keyword.format
+                ", but found " HString.push_str
+                &t::kind TokenKind.format
+                " instead." HString.push_str
+                t::loc
+                HayError.new Result.Err::<Expr HayError> return
+            }
+        }
+
+        Marker::LeftBrace TokenKind.Marker self Parser.check if {
+            self Parser.block as [result] {
+                &result Result.is_ok if {
+                    result Result.unwrap Opt.Some
+                } else {
+                    result Result.unwrap_err Result.Err::<Expr HayError> return
+                }
+            }
+        } else {
+            Opt.None::<Vec<Expr>>
+        } as [block]
+
+        token idents block cast(AsExpr) Expr.As Result.Ok::<Expr HayError>
+
     }
 
     fn Parser.while(Token: token *Parser: self) -> [Result<Expr HayError>] {

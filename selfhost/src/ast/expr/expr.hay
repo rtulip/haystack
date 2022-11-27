@@ -99,4 +99,10 @@ impl:
         ExprTag::While
         cast(Expr)
     }
+
+    inline fn Expr.As(AsExpr) -> [Expr] {
+        cast(ExprKind)
+        ExprTag::As
+        cast(Expr)
+    }
 }   

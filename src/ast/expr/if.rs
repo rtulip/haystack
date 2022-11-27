@@ -112,8 +112,9 @@ impl ExprIf {
         }
 
         *frame = initial_frame;
-        *stack = end_stacks[0].1.clone();
-
+        if !end_stacks.is_empty() {
+            *stack = end_stacks[0].1.clone();
+        }
         Ok(TypedExpr::If {
             then: typed_then,
             otherwise: typed_otherwise,

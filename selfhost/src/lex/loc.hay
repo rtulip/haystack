@@ -15,6 +15,10 @@ impl:
         cast(Loc)
     }
 
+    fn Loc.delete(&Loc: self) {
+        self::file HString.delete
+    }
+
     fn Loc.format(HString: s &Loc: self) -> [HString] {
         s self::file HString.as_str HString.push_str
         ':' HString.push
@@ -23,4 +27,11 @@ impl:
         self::span::start @ u64.format
     }
  
+    fn Loc.clone(&Loc: self) -> [Loc] {
+        self::file HString.clone
+        self::line @
+        self::span @
+        cast(Loc)
+    }
+
 }

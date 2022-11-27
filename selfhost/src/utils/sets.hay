@@ -1,0 +1,63 @@
+include "vec.hay"
+
+struct Set {
+    Vec<HString>: keys
+
+impl:
+    
+    fn Set.new() -> [Set] {
+        Vec.new::<HString> cast(Set)
+    }
+
+    fn Set.find_mut(&HString: key *Set: self) -> [Opt<*HString>] {
+
+        0 while dup self::keys Vec.len < {
+            as [i]
+            i self::keys Vec.get_mut 
+            Opt.unwrap HString.as_str
+            key HString.as_str
+            Str.equals if {
+                i self::keys Vec.get_mut return
+            }
+            i 1 +
+        } drop
+
+        Opt.None::<*HString>
+
+    }
+
+    fn Set.find(&HString: key &Set: self) -> [Opt<&HString>] {
+
+        0 while dup self::keys Vec.len < {
+            as [i]
+            i self::keys Vec.get 
+            Opt.unwrap HString.as_str
+            key HString.as_str
+            Str.equals if {
+                i self::keys Vec.get return
+            }
+            i 1 +
+        } drop
+
+        Opt.None::<&HString>
+    }
+
+    fn Set.contains(&HString &Set) -> [bool] {
+        Set.find as [r] &r Opt.is_some
+    }
+
+    fn Set.insert(HString: item *Set: self) -> [Opt<HString>] {
+
+        &item self Set.find_mut as [maybe_prev]
+        &maybe_prev Opt.is_some if {
+            maybe_prev Opt.unwrap as [prev]
+            prev @ Opt.Some
+            item prev !
+        } else {
+            item self::keys Vec.push
+            Opt.None::<HString>
+        }
+
+    }
+
+}

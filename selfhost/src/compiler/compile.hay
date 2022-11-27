@@ -6,7 +6,16 @@ include "selfhost/src/ast/stmt/stmt.hay"
 
 fn compile_haystack(HString: input_path bool: run) -> [Opt<HayError>] {
 
-    &input_path Stmt.from_file_with_prelude drop
+    &input_path Stmt.from_file_with_prelude as [result] {
+        &result Result.is_err if {
+            result Result.unwrap_err Opt.Some return
+        } else {
+            result Result.unwrap
+        }
+    } as [stmts]
+
+    "compile_haystack is unfinished" putlns
+    1 exit
 
     Opt.None::<HayError>
 

@@ -1,4 +1,4 @@
-
+include "opt.hay"
 enum ResultTag {
     Ok
     Err
@@ -35,6 +35,14 @@ impl:
         self::tag @ ResultTag::Err ==
     }
 
+    fn Result.take_is_ok<T E>(Result<T E>: self) -> [bool] {
+        &self Result.is_ok
+    }
+
+    fn Result.take_is_err<T E>(Result<T E>: self) -> [bool] {
+        &self Result.is_err
+    }
+
     fn Result.unwrap<T E>(Result<T E>: self) -> [T] {
 
         &self Result.is_err if {
@@ -52,4 +60,13 @@ impl:
         }
         self::kind::err
     }
+
+    fn Result.ok<T E>(Result<T E>: self) -> [Opt<T>] {
+        &self Result.is_ok if {
+            self Result.unwrap Opt.Some
+        } else {
+            Opt.None::<T>
+        }
+    }
+
 }

@@ -22,6 +22,10 @@ impl:
         self::slice @ free
     }
 
+    inline fn Vec.is_empty<T>(&Vec<T>: self) -> [bool] {
+        self::len @ 0 ==
+    }
+
     inline fn Vec.slice_mut<T>(*Vec<T>: self) -> [Arr<T>] {
         self::slice @
     }
@@ -73,6 +77,10 @@ impl:
         }
     }
 
+    inline fn Vec.last<T>(&Vec<T>: self) -> [Opt<&T>] {
+        self::len @ 1- self Vec.get
+    }
+
     fn Vec.capacity<T>(&Vec<T>: self) -> [u64] {
         self::slice::size @
     }
@@ -92,6 +100,33 @@ impl:
         } drop
 
         false
+
+    }
+
+    fn Vec.append<T>(*Vec<T>: other *Vec<T>: self) {
+        Vec.new::<T> as [mut temp]
+
+        while other Vec.is_empty lnot {
+            other Vec.pop Opt.unwrap *temp Vec.push
+        }
+
+        while &temp Vec.is_empty lnot {
+            *temp Vec.pop Opt.unwrap self Vec.push
+        }
+
+        &temp Vec.delete
+
+    }
+
+    fn Vec.reverse<T>(Vec<T>: mut self) -> [Vec<T>] {
+
+        Vec.new::<T> as [mut rev]
+        while &self Vec.is_empty lnot {
+            *self Vec.pop Opt.unwrap *rev Vec.push
+        }
+
+        &self Vec.delete
+        rev
 
     }
 }

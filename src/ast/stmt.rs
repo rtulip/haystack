@@ -69,9 +69,7 @@ impl Stmt {
             let scanner = Scanner::new(input_path, &source);
             let tokens = scanner.scan_tokens()?;
             let parser = Parser::new(tokens, visited);
-            let stmts = parser.parse()?;
-
-            Ok(stmts)
+            parser.parse()
         } else {
             Err(HayError::new(
                 format!("Failed to read from file: {input_path}"),

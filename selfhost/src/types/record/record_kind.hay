@@ -2,3 +2,16 @@ enum RecordKind {
     Struct
     Union
 }
+
+fn RecordKind.format(HString RecordKind) -> [HString] {
+    as [kind]
+    kind RecordKind::Struct == if {
+        "struct" HString.push_str
+    } else kind RecordKind::Union == if {
+        "union"  HString.push_str
+    } else {
+        "RecordKind.format unreachable!" putlns
+        1 exit
+    }
+
+}

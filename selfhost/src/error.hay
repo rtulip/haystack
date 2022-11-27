@@ -6,17 +6,14 @@ enum ErrorKind {
     Error
 }
 
-fn ErrorKind.fput(ErrorKind: e u64: fd) {
-    e ErrorKind::Error == if {
-        "Error" fd fputs
+fn ErrorKind.format(HString &ErrorKind) -> [HString] {
+    as [self]
+    self @ ErrorKind::Error == if {
+        "Error" HString.push_str
     } else {
         "ErrorKind.fput unreachable!" putlns
         1 exit
     }
-}
-
-fn ErrorKind.put(ErrorKind: e) {
-    e 1 ErrorKind.fput
 }
 
 struct Hint {
@@ -37,6 +34,18 @@ impl:
         loc
         Vec.new::<Hint>
         cast(HayError)
+    }
+
+    fn HayError.delete(*HayError: self) {
+        self::message HString.delete
+        self::loc Loc.delete
+        while self::hints Vec.is_empty lnot {
+            self::hints Vec.pop Opt.unwrap as [hint]
+            &hint::note HString.delete
+            &hint::hint HString.delete
+        }
+
+        self::hints Vec.delete
     }
 
     fn HayError.new_type_err(HString: message Loc: loc) -> [HayError] {
@@ -63,6 +72,36 @@ impl:
     ) -> [HayError] {
         note hint cast(Hint) *self::hints Vec.push
         self
+    }
+
+    fn HayError.format(HString &HayError) -> [HString] {
+        as [self]
+        '[' HString.push
+        self::loc Loc.format
+        "] " HString.push_str
+        self::kind ErrorKind.format
+        ": " HString.push_str
+        self::message HString.as_str HString.push_str
+        '\n' HString.push
+
+        0 while dup self::hints Vec.len < {
+            as [i]
+            i self::hints Vec.get Opt.unwrap as [hint]
+            "    [" HString.push_str
+            hint::note HString.as_str HString.push_str
+            "]: " HString.push_str
+            hint::hint HString.as_str HString.push_str
+            '\n' HString.push
+            i 1 +
+        } drop   
+    }
+
+    fn HayError.report(HayError: mut self) {
+        "" HString.new
+        &self HayError.format as [s]
+        &s HString.as_str puts
+        &s HString.delete
+        *self HayError.delete
     }
 
     //fn HayError.fput(&HayError: self u64: fd) {

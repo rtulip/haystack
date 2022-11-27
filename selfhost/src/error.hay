@@ -99,7 +99,7 @@ impl:
     fn HayError.report(HayError: mut self) {
         "" HString.new
         &self HayError.format as [s]
-        &s HString.as_str putlns
+        &s HString.as_str puts
         &s HString.delete
         *self HayError.delete
     }

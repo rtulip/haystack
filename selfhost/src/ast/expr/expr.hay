@@ -48,6 +48,37 @@ union ExprKind {
 }
 
 struct Expr {
-    ExprTag: tag
     ExprKind: kind
+    ExprTag: tag
+
+impl:
+    inline fn Expr.Ident(IdentExpr) -> [Expr] {
+        cast(ExprKind)
+        ExprTag::Ident
+        cast(Expr)
+    }
+
+    inline fn Expr.Accessor(AccessorExpr) -> [Expr] {
+        cast(ExprKind)
+        ExprTag::Accessor
+        cast(Expr)
+    }
+
+    inline fn Expr.Cast(CastExpr) -> [Expr] {
+        cast(ExprKind)
+        ExprTag::Cast
+        cast(Expr)
+    }
+
+    inline fn Expr.SizeOf(SizeOfExpr) -> [Expr] {
+        cast(ExprKind)
+        ExprTag::SizeOf
+        cast(Expr)
+    }
+
+    inline fn Expr.Operator(OperatorExpr) -> [Expr] {
+        cast(ExprKind)
+        ExprTag::Operator
+        cast(Expr)
+    }
 }

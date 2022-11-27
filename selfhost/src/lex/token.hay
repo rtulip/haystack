@@ -48,6 +48,15 @@ impl:
         cast(Token)
     }
 
+    fn Token.opt_clone(Opt<&Token>: option) -> [Opt<Token>] {
+        &option Opt.is_some if {
+            option Opt.unwrap as [self]
+            self Token.clone Opt.Some
+        } else {
+            Opt.None::<Token>
+        }
+    }
+
     fn Token.format(HString: s &Token: self) -> [HString] {
         s '[' HString.push
         self::loc Loc.format

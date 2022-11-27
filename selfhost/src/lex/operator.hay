@@ -27,7 +27,7 @@ union OperatorKind {
 
 struct Operator {
     OperatorKind: kind
-    OperatorTag: tag
+    pub OperatorTag: tag
 impl:
     inline fn Operator.Plus() -> [Operator] {
         0 cast(OperatorKind)

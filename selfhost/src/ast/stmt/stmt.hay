@@ -52,6 +52,21 @@ impl:
         cast(Stmt)
     }
 
+    fn Stmt.Function(
+        Token
+        Token
+        Vec<UntypedArg>
+        Vec<UntypedArg>
+        Opt<Vec<UntypedArg>>
+        Vec<Expr>
+        Vec<FnTag>
+        Opt<Token>
+    ) -> [Stmt] {
+        cast(FunctionStmt) cast(StmtKind)
+        StmtTag::Function
+        cast(Stmt)
+    }
+
     fn Stmt.from_file(*Set: visited &HString: path) -> [Result<Vec<Stmt> HayError>] {
         path visited Set.contains if {
             Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError> return 

@@ -162,6 +162,14 @@ impl:
         }
     }
 
+    inline fn TokenKind.literal(&TokenKind: self) -> [Opt<Literal>] {
+        self::tag @ TokenKindTag::Literal == if {
+            self::kind::literal @ Opt.Some
+        } else {
+            Opt.None::<Literal>
+        }
+    }
+
     inline fn TokenKind.equals(TokenKind: left TokenKind: right) -> [bool] {
         left::tag right::tag == if {
             left::tag TokenKindTag::Ident == if {

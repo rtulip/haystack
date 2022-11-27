@@ -342,9 +342,9 @@ impl:
                 HayError.new Result.Err::<Expr HayError>
             }
         } else token::kind::tag TokenKindTag::Literal == if {
-            "TokenKind Literal is not implemented yet" putlns
-            1 exit
-            token cast(IdentExpr) Expr.Ident Result.Ok::<Expr HayError>
+            &token Token.literal Result.unwrap
+            token
+            cast(LiteralExpr) Expr.Literal Result.Ok::<Expr HayError>
         } else token::kind::tag TokenKindTag::Syscall == if {
             "TokenKind Syscall is not implemented yet" putlns
             1 exit

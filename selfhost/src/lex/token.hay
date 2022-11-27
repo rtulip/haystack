@@ -89,6 +89,19 @@ impl:
         }
     }
 
+    fn Token.literal(&Token: self) -> [Result<Literal HayError>] {
+        self::kind TokenKind.literal as [lit]
+        &lit Opt.is_some if {
+            lit Opt.unwrap Result.Ok::<Literal HayError>
+        } else {
+            "Failed to destructure " HString.new
+            self::kind               TokenKind.format
+            " into a literal"        HString.push_str
+            self::loc @
+            HayError.new Result.Err::<Literal HayError>
+        }
+    }
+
     fn Token.u64(&Token: self) -> [Result<u64 HayError>] {
         self::kind TokenKind.u64 as [n]
         &n Opt.is_some if {

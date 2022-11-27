@@ -87,4 +87,10 @@ impl:
         ExprTag::Unary
         cast(Expr)
     }
+
+    inline fn Expr.Literal(LiteralExpr) -> [Expr] {
+        cast(ExprKind)
+        ExprTag::Literal
+        cast(Expr)
+    }
 }

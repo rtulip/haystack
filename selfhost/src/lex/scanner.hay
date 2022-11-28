@@ -69,6 +69,15 @@ impl:
         Token.new
         *self::tokens Vec.push
 
+        "Finished scanning tokens from: " puts 
+        &self::file HString.as_str putlns
+        0 while dup &self::tokens Vec.len < {
+            as [i]
+            "  " puts
+            i &self::tokens Vec.get Opt.unwrap Token.putln
+            i 1 +
+        } drop
+
         self::tokens Result.Ok::<Vec<Token> HayError>
 
     }

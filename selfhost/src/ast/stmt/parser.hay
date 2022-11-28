@@ -195,6 +195,30 @@ impl:
         }
     }
 
+    fn Parser.inline_function(Token: start Opt<&Token>: impl_on *Parser: self) -> [Result<Vec<Stmt> HayError>] {
+        Keyword::Function TokenKind.Keyword self Parser.matches as [match]
+        &match Result.is_ok if {
+            match Result.unwrap
+        } else {
+            match Result.unwrap_err as [t]
+            "Expected keyword " HString.new
+            Keyword::Function Keyword.format
+            "after " HString.push_str
+            Keyword::Include Keyword.format
+            ", but found " HString.push_str
+            &t::kind TokenKind.format
+            " instead." HString.push_str
+            t::loc
+            HayError.new Result.Err::<Vec<Stmt> HayError> return
+        }
+
+        Vec.new::<FnTag> as [mut tags]
+        FnTag::Inline *tags Vec.push
+        tags
+        impl_on
+        self Parser.function
+    }
+
     fn Parser.function(
         Token: start 
         Vec<FnTag>: mut tags 
@@ -217,6 +241,9 @@ impl:
             }
         } as [name]
 
+        &name::loc Loc.put
+        "  Parsing function: " puts
+        &name::lexeme HString.as_str putlns
         // todo: check for +/-
 
         Operator.LessThan TokenKind.Operator self Parser.matches as [match] {
@@ -960,7 +987,6 @@ impl:
 
     fn Parser.parse_type(*Parser: self) -> [Result<Opt<Token> HayError>] {
         0 cast(*Token) Operator.Unary TokenKind.Operator      self Parser.matches as [unary_match]                     
-        Operator.Star                 TokenKind.Operator      self Parser.matches as [star_match] 
         &unary_match Result.is_ok if {
             unary_match Result.unwrap as [op_tok]
             
@@ -970,16 +996,18 @@ impl:
                 } else {
                     result Result.unwrap
                 }
-            }
+            } 
             self Parser.parse_type as [result] {
                 &result Result.is_err if {
-                    drop
-                    result Result.unwrap_err Result.Err::<Opt<Token> HayError> return
+                    drop result Result.unwrap_err Result.Err::<Opt<Token> HayError> return
                 } else {
                     result Result.unwrap
                 }
             }
             as [op maybe_type]
+            "Operator: " puts &op Operator.putln
+            "Tag:      " puts &op::tag OperatorTag.putln
+            
             &maybe_type Opt.is_some if {
                 maybe_type Opt.unwrap as [type]
                 op Operator.Ampersand Operator.take_equals if {
@@ -1013,11 +1041,17 @@ impl:
                     type::loc
                     cast(Token) Opt.Some Result.Ok::<Opt<Token> HayError>
                 } else {
+                    &op::tag OperatorTag.putln
+                    
                     "Unary "            HString.new
                     &op                 Operator.format
                     " is not supported" HString.push_str
                     op_tok::loc
-                    HayError.new Result.Err::<Opt<Token> HayError>
+                    HayError.new
+                    "" HString.new
+                    &op_tok Token.format
+                    HayError.with_hint 
+                    Result.Err::<Opt<Token> HayError>
                 }
             } else {
                 "Internal Error: Unary op with no type" putlns
@@ -1423,9 +1457,55 @@ impl:
     {
 
         Keyword::Impl TokenKind.Keyword self Parser.matches Result.take_is_ok if {
-            "Impl sections aren't implemented yet" putlns
-            1 exit 
-            Opt.None::<Vec<Stmt>> Result.Ok::<Opt<Vec<Stmt>> HayError>
+            
+            Marker::Colon TokenKind.Marker self Parser.matches as [match] {
+                &match Result.is_err if {
+                    match Result.unwrap_err as [t]
+                    "Expected "   HString.new
+                    Marker::Colon Marker.format
+                    " after "     HString.push_str
+                    Keyword::Impl Keyword.format 
+                    ", but found" HString.push_str
+                    &t::kind      TokenKind.format
+                    " instead."    HString.push_str
+                    t::loc
+                    HayError.new Result.Err::<Opt<Vec<Stmt>> HayError> return 
+                }
+            }
+
+            Vec.new::<Stmt> as [mut fns]
+
+            true while {
+
+                Keyword::Function TokenKind.Keyword self Parser.matches dup Result.take_is_ok if {
+                    Result.unwrap Vec.new::<FnTag> impl_on Opt.Some self Parser.function as [result]
+                    &result Result.is_ok if {
+                        result Result.unwrap as [mut stmts] 
+                        *stmts *fns Vec.append
+                        &stmts Vec.delete
+                    } else {
+                        result Result.unwrap_err Result.Err::<Opt<Vec<Stmt>> HayError> return
+                    }
+                    true
+                } else drop Keyword::Inline TokenKind.Keyword self Parser.matches dup Result.take_is_ok if {
+                    Result.unwrap impl_on Opt.Some self Parser.inline_function as [result]
+                    &result Result.is_ok if {
+                        result Result.unwrap as [mut stmts] 
+                        *stmts *fns Vec.append
+                        &stmts Vec.delete
+                    } else {
+                        result Result.unwrap_err Result.Err::<Opt<Vec<Stmt>> HayError> return
+                    }
+                    true
+                } else {
+                    drop
+                    false
+                }
+                
+            } drop
+
+            fns Opt.Some Result.Ok::<Opt<Vec<Stmt>> HayError>
+
         } else {
             Opt.None::<Vec<Stmt>> Result.Ok::<Opt<Vec<Stmt>> HayError>
         }

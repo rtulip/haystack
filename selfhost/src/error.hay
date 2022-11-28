@@ -58,7 +58,7 @@ impl:
         cast(HayError)
     }
 
-    fn HayError.with_hint(HString: hint HayError: mut self) -> [HayError] {
+    fn HayError.with_hint(HayError: mut self HString: hint) -> [HayError] {
         "Note" HString.new
         hint
         cast(Hint) *self::hints Vec.push

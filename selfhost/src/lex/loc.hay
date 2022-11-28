@@ -26,6 +26,13 @@ impl:
         ':' HString.push
         self::span::start @ u64.format
     }
+
+    fn Loc.put(&Loc: self) {
+        "" HString.new
+        self Loc.format as [s]
+        &s HString.as_str puts
+        &s HString.delete
+    }
  
     fn Loc.clone(&Loc: self) -> [Loc] {
         self::file HString.clone

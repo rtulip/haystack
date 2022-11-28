@@ -20,6 +20,43 @@ enum OperatorTag {
     Unary
 }
 
+fn OperatorTag.putln(&OperatorTag: self) {
+    self @ OperatorTag::Plus == if {
+        "OperatorTag::Plus" putlns
+    } else self @ OperatorTag::Minus == if {
+        "OperatorTag::Minus" putlns
+    } else self @ OperatorTag::Star == if {
+        "OperatorTag::Star" putlns
+    } else self @ OperatorTag::Slash == if {
+        "OperatorTag::Slash" putlns
+    } else self @ OperatorTag::LessThan == if {
+        "OperatorTag::LessThan" putlns
+    } else self @ OperatorTag::LessEqual == if {
+        "OperatorTag::LessEqual" putlns
+    } else self @ OperatorTag::GreaterThan == if {
+        "OperatorTag::GreaterThan" putlns
+    } else self @ OperatorTag::GreaterEqual == if {
+        "OperatorTag::GreaterEqual" putlns
+    } else self @ OperatorTag::Equal == if {
+        "OperatorTag::Equal" putlns
+    } else self @ OperatorTag::BangEqual == if {
+        "BangEOperatorTag::BangEqual" putlns
+    } else self @ OperatorTag::Modulo == if {
+        "OperatorTag::Modulo" putlns
+    } else self @ OperatorTag::Read == if {
+        "OperatorTag::Read" putlns
+    } else self @ OperatorTag::Write == if {
+        "OperatorTag::Write" putlns
+    } else self @ OperatorTag::Ampersand == if {
+        "AmperOperatorTag::Ampersand" putlns
+    } else self @ OperatorTag::Unary == if {
+        "OperatorTag::Unary" putlns
+    } else {
+        "Unreachable state in OperatorTag.putlns" putlns
+        1 exit
+    }
+}
+
 union OperatorKind {
     u64: other
     &Token: unary
@@ -175,9 +212,10 @@ impl:
             '&' HString.push
         } else self::tag @ OperatorTag::Unary == if {
             "Unary(" HString.push_str 
-            self::kind::unary @ @ as [token]
-            &token::lexeme HString.as_str HString.push_str
-            ")" HString.push_str
+            self::kind::unary @ as [token]
+            token::lexeme HString.as_str HString.push_str
+            "): " HString.push_str
+            token Token.format
         } else {
             "\nOperator.fput unreachable!" putlns
             1 exit 

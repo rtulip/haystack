@@ -134,7 +134,11 @@ impl:
         }
     }
 
-    fn Operator.equals(Operator: left Operator: right) -> [bool] {
+    fn Operator.equals(&Operator: left &Operator: right) -> [bool] {
+        left::tag @ right::tag @ == 
+    }
+
+    fn Operator.take_equals(Operator: left Operator: right) -> [bool] {
         left::tag right::tag == 
     }
 

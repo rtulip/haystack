@@ -97,7 +97,7 @@ impl:
     }
 
     fn HayError.report(HayError: mut self) {
-        "" HString.new
+        "SelfHost:\n" HString.new
         &self HayError.format as [s]
         &s HString.as_str puts
         &s HString.delete

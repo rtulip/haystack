@@ -72,6 +72,9 @@ impl:
             Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError> return 
         }
 
+        "Starting to parsing statements from: " puts
+        path HString.as_str putlns
+
         path HString.as_str HString.from_file as [source]
         path HString.clone visited Set.insert drop
 
@@ -87,6 +90,9 @@ impl:
 
         visited Parser.new Parser.parse
 
+        "Finished parsing statements from: " puts
+        path HString.as_str putlns
+
     }
 
     fn Stmt.from_file_with_prelude(&HString: input_path) -> [Result<Vec<Stmt> HayError>] {
@@ -100,7 +106,12 @@ impl:
             } else {
                 result Result.unwrap
             }
-        } as [mut stmts] 
+        } as [mut stmts]
+
+        "Finished with prelude. Next: " puts
+        input_path HString.as_str putlns
+        
+
         *visited input_path Stmt.from_file as [result] {
             &result Result.is_err if {
                 result Result.unwrap_err Result.Err::<Vec<Stmt> HayError> return

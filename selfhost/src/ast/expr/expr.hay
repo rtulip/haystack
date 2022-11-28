@@ -105,4 +105,10 @@ impl:
         ExprTag::As
         cast(Expr)
     }
+
+    inline fn Expr.If(IfExpr) -> [Expr] {
+        cast(ExprKind)
+        ExprTag::If
+        cast(Expr)
+    }
 }   

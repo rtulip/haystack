@@ -194,6 +194,14 @@ impl:
         }
     }
 
+    inline fn TokenKind.syscall(&TokenKind: self) -> [Opt<u64>] {
+        self::tag @ TokenKindTag::Syscall == if {
+            self::kind::n @ Opt.Some
+        } else {
+            Opt.None::<u64>
+        }
+    }
+
     inline fn TokenKind.equals(&TokenKind: left &TokenKind: right) -> [bool] {
         
         left::tag @ right::tag @ == if {

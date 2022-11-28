@@ -111,4 +111,10 @@ impl:
         ExprTag::If
         cast(Expr)
     }
+
+    inline fn Expr.Syscall(SyscallExpr) -> [Expr] {
+        cast(ExprKind)
+        ExprTag::Syscall
+        cast(Expr)
+    }
 }   

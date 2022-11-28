@@ -402,9 +402,9 @@ impl:
             token
             cast(LiteralExpr) Expr.Literal Result.Ok::<Expr HayError>
         } else token::kind::tag TokenKindTag::Syscall == if {
-            "TokenKind Syscall is not implemented yet" putlns
-            1 exit
-            token cast(IdentExpr) Expr.Ident Result.Ok::<Expr HayError>
+            &token::kind TokenKind.syscall Opt.unwrap
+            token
+            cast(SyscallExpr) Expr.Syscall Result.Ok::<Expr HayError>
         } else token::kind::tag TokenKindTag::Type == if {
             "TokenKind Type is not implemented yet" putlns
             1 exit

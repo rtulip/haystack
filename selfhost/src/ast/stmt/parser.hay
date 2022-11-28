@@ -85,9 +85,7 @@ impl:
             1 exit
             Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError> 
         } else Keyword::Include TokenKind.Keyword as [kw] { &kw &token::kind TokenKind.equals } if {
-            "todo: Parser.include" putlns
-            1 exit
-            Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError> 
+            token self Parser.include
         } else Keyword::Var TokenKind.Keyword as [kw] { &kw &token::kind TokenKind.equals } if {
             "todo: Parser.var" putlns
             1 exit
@@ -96,6 +94,44 @@ impl:
             "Unexpected top level token: " HString.new
             &token::kind TokenKind.format
             token::loc
+            HayError.new Result.Err::<Vec<Stmt> HayError>
+        }
+    }
+
+    fn Parser.include(Token: start *Parser: self) -> [Result<Vec<Stmt> HayError>] {
+        TokenKind.string_default self Parser.matches as [match] {
+            &match Result.is_ok if {
+                match Result.unwrap as [tok]
+                &tok Token.string as [result] {
+                    &result Result.is_ok if {
+                        result Result.unwrap
+                    } else {
+                        result Result.unwrap_err Result.Err::<Vec<Stmt> HayError> return
+                    }
+                }
+            } else {
+                                match Result.unwrap_err as [t]
+                "expected Str after include statement. Found " HString.new
+                &t::kind TokenKind.format
+                " instead." HString.push_str
+                t::loc
+                HayError.new Result.Err::<Vec<Stmt> HayError> return
+            }
+        } as [to_include] {
+            "./src/libs/" HString.new
+            &to_include  HString.as_str HString.push_str
+
+            "./" HString.new to_include HString.format
+        } as [libs_path to_include]
+        
+        &to_include HString.as_str File.exists if {
+            self::visited @ &to_include Stmt.from_file
+        } else &libs_path HString.as_str File.exists if {
+            self::visited @ &libs_path Stmt.from_file
+        } else {
+            "Failed to find file to include: " HString.new
+            &to_include HString.as_str HString.push_str
+            start::loc
             HayError.new Result.Err::<Vec<Stmt> HayError>
         }
     }

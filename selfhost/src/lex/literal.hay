@@ -96,4 +96,12 @@ impl:
         } 
     }
 
+    fn Literal.string(&Literal: self) -> [Opt<HString>] {
+        self::tag @ LiteralTag::String == if {
+            self::kind::string HString.clone Opt.Some
+        } else {
+            Opt.None::<HString>
+        }
+    }
+
 }

@@ -391,6 +391,13 @@ impl:
                 token self Parser.as
             } else kw Keyword::If == if {
                 token self Parser.if 
+            } else kw Keyword::Var == if {
+                token self Parser.var as [result]
+                &result Result.is_ok if {
+                    result Result.unwrap Expr.Var Result.Ok::<Expr HayError>
+                } else {
+                    result Result.unwrap_err Result.Err::<Expr HayError>
+                }
             } else {
                 "Not sure how to parse expression from " HString.new
                 &token::kind TokenKind.format
@@ -418,6 +425,58 @@ impl:
             1 exit
             token cast(IdentExpr) Expr.Ident Result.Ok::<Expr HayError>
         }
+    }
+
+    fn Parser.var(Token: token *Parser: self) -> [Result<VarExpr HayError>] {
+        self Parser.parse_type as [result] {
+            &result Result.is_ok if {
+                result Result.unwrap
+            } else {
+                result Result.unwrap_err Result.Err::<VarExpr HayError> return
+            } as [option]
+            &option Opt.is_some if {
+                option Opt.unwrap
+            } else {
+                self Parser.peek as [peek]
+                "Expected a type after " HString.new
+                Keyword::Var Keyword.format
+                ", but found " HString.push_str
+                peek::kind TokenKind.format
+                " instead." HString.push_str
+                token::loc
+                HayError.new Result.Err::<VarExpr HayError> return
+            }
+        } as [type]
+
+        Marker::Colon TokenKind.Marker self Parser.matches as [match] {
+            &match Result.is_err if {
+                match Result.unwrap_err as [t]
+                "Expected " HString.new
+                Marker::Colon Marker.format
+                " after type, but found " HString.push_str
+                &t::kind TokenKind.format
+                " instead." HString.push_str
+                t::loc
+                HayError.new Result.Err::<VarExpr HayError> return
+            }
+        }   
+
+        TokenKind.ident_default self Parser.matches as [match] {
+            &match Result.is_ok if {
+                match Result.unwrap
+            } else {
+                match Result.unwrap_err as [t]
+                "Expected an identifier after " HString.new
+                &type::kind TokenKind.format
+                ", but found " HString.push_str
+                &t::kind TokenKind.format
+                " instead." HString.push_str
+                t::loc
+                HayError.new Result.Err::<VarExpr HayError> return
+            }
+        } as [ident]
+
+        token type ident cast(VarExpr) Result.Ok::<VarExpr HayError>
     }
 
     fn Parser.if(Token: token *Parser: self) -> [Result<Expr HayError>] {

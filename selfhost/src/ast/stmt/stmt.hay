@@ -35,35 +35,27 @@ struct Stmt {
 
 impl:
 
-    fn Stmt.PreDeclaration(Token Token RecordKind Opt<Vec<UntypedArg>>) -> [Stmt] {
-        cast(PreDeclarationStmt) cast(StmtKind)
+    fn Stmt.PreDeclaration(PreDeclarationStmt) -> [Stmt] {
+        cast(StmtKind)
         StmtTag::PreDeclaration
         cast(Stmt)
     }
 
-    fn Stmt.Record(Token
-        Token
-        Opt<Vec<UntypedArg>>
-        Vec<UntypedMember>
-        RecordKind
-    ) -> [Stmt] {
-        cast(RecordStmt) cast(StmtKind)
+    fn Stmt.Record(RecordStmt) -> [Stmt] {
+        cast(StmtKind)
         StmtTag::Record
         cast(Stmt)
     }
 
-    fn Stmt.Function(
-        Token
-        Token
-        Vec<UntypedArg>
-        Vec<UntypedArg>
-        Opt<Vec<UntypedArg>>
-        Vec<Expr>
-        Vec<FnTag>
-        Opt<Token>
-    ) -> [Stmt] {
-        cast(FunctionStmt) cast(StmtKind)
+    fn Stmt.Function(FunctionStmt) -> [Stmt] {
+        cast(StmtKind)
         StmtTag::Function
+        cast(Stmt)
+    }
+
+    fn Stmt.Enum(EnumStmt) -> [Stmt] {
+        cast(StmtKind)
+        StmtTag::Enum
         cast(Stmt)
     }
 
@@ -125,8 +117,6 @@ impl:
         stmts Result.Ok::<Vec<Stmt> HayError>
 
     }
-
-    
 
 }
 

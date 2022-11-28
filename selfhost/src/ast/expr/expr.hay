@@ -123,4 +123,10 @@ impl:
         ExprTag::Var
         cast(Expr)
     }
+
+    inline fn Expr.AnnotatedCall(AnnotatedCallExpr) -> [Expr] {
+        cast(ExprKind)
+        ExprTag::AnnotatedCall
+        cast(Expr)
+    }
 }   

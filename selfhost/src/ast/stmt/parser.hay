@@ -241,9 +241,6 @@ impl:
             }
         } as [name]
 
-        &name::loc Loc.put
-        "  Parsing function: " puts
-        &name::lexeme HString.as_str putlns
         // todo: check for +/-
 
         Operator.LessThan TokenKind.Operator self Parser.matches as [match] {
@@ -417,8 +414,89 @@ impl:
                     "Marker after Ident isn't implemented yet" putlns
                     1 exit
                 } else next::kind::tag TokenKindTag::Operator == if {
-                    "Operator after Ident isn't implemented yet" putlns
-                    1 exit
+                    
+                    &next Token.operator Result.unwrap Operator.LessThan Operator.take_equals if {
+
+                        &inners Vec.is_empty lnot if {
+                            "Cannot provide annotations within this context" HString.new
+                            next::loc
+                            HayError.new Result.Err::<Expr HayError> return
+                        }
+
+                        &next self Parser.unnamed_args_list as [result] {
+                            &result Result.is_ok if {
+                                result Result.unwrap
+                            } else {
+                                result Result.unwrap_err Result.Err::<Expr HayError> return
+                            }
+                        } as [annotations]
+
+                        Operator.GreaterThan TokenKind.Operator self Parser.matches as [match] {
+                            &match Result.is_ok if {
+                                match Result.unwrap
+                            } else {
+                                match Result.unwrap_err as [t]
+                                "Expected " HString.new
+                                Operator.GreaterThan Operator.take_format
+                                " after call annotations, but found " HString.push_str
+                                &t::kind TokenKind.format 
+                                " instead." HString.push_str
+                                t::loc
+                                HayError.new Result.Err::<Expr HayError> return
+                            }
+                        } as [close]
+
+                        &annotations Vec.is_empty if {
+                            "Expected a non-zero number of annotations." HString.new
+                            next::loc
+                            HayError.new Result.Err::<Expr HayError> return
+                        }
+
+                        "<" HString.new
+                        &token::lexeme HString.as_str HString.push_str
+                        0 while dup &annotations Vec.len 1 - < {
+                            as [i]
+                            i &annotations Vec.get Opt.unwrap as [arg]
+                            arg::token::lexeme HString.as_str HString.push_str
+                            ' ' HString.push
+                            i 1 +
+                        } drop
+                        &annotations Vec.last Opt.unwrap as [arg] {
+                            arg::token::lexeme HString.as_str HString.push_str
+                            '>' HString.push
+                        } 
+                        as [lexeme]
+
+                        &lexeme HString.clone TokenKind.Ident
+                        lexeme
+                        new_token::loc::file
+                        new_token::loc::line
+                        new_token::loc::span::start
+                        close::loc::span::end
+                        Token.new token annotations cast(AnnotatedCallExpr)
+                        Expr.AnnotatedCall Result.Ok::<Expr HayError> return
+                        
+                    } else {
+                        &inners Vec.is_empty if {
+                            "Expected an identifier or " HString.new
+                            Operator.LessThan Operator.take_format
+                            " after " HString.push_str
+                            Marker::DoubleColon Marker.format
+                            ", but found " HString.push_str
+                            &next::kind TokenKind.format
+                            "instead." HString.push_str
+                            next::loc
+                            HayError.new Result.Err::<Expr HayError> return
+                        } else {
+                            "Expected an identifier after " HString.new
+                            Marker::DoubleColon Marker.format
+                            ", but found " HString.push_str
+                            &next::kind TokenKind.format
+                            " instead." HString.push_str
+                            next::loc
+                            HayError.new Result.Err::<Expr HayError> return
+                        }
+                    }
                 } else next::kind::tag TokenKindTag::Keyword == if {
                     "Keyword after Ident isn't implemented yet" putlns
                     1 exit
@@ -448,6 +526,7 @@ impl:
 
         } else token::kind::tag TokenKindTag::Marker == if {
             "TokenKind Marker is not implemented yet" putlns
+            &token Token.putln
             1 exit
             token cast(IdentExpr) Expr.Ident Result.Ok::<Expr HayError>
         } else token::kind::tag TokenKindTag::Operator == if {
@@ -958,6 +1037,7 @@ impl:
             Marker::RightBrace TokenKind.Marker self Parser.check lnot
             land
         {
+            "Parsing expression from : " puts self Parser.peek Token.putln
             self Parser.expression as [result] {
                 &result Result.is_ok if {
                     result Result.unwrap
@@ -996,18 +1076,14 @@ impl:
                 } else {
                     result Result.unwrap
                 }
-            } 
+            } as [op]
             self Parser.parse_type as [result] {
                 &result Result.is_err if {
-                    drop result Result.unwrap_err Result.Err::<Opt<Token> HayError> return
+                    result Result.unwrap_err Result.Err::<Opt<Token> HayError> return
                 } else {
                     result Result.unwrap
                 }
-            }
-            as [op maybe_type]
-            "Operator: " puts &op Operator.putln
-            "Tag:      " puts &op::tag OperatorTag.putln
-            
+            } as [maybe_type]
             &maybe_type Opt.is_some if {
                 maybe_type Opt.unwrap as [type]
                 op Operator.Ampersand Operator.take_equals if {

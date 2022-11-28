@@ -51,7 +51,7 @@ fn Heap.debug_summary() {
 
 fn PAGE_SIZE() -> [u64] { 4096 }
 fn bytes_to_pages(u64) -> [u64] { PAGE_SIZE / 1 + }
-fn align(u64: n) -> [u64] { n sizeOf(Block) + bytes_to_pages PAGE_SIZE *}
+fn align(u64: n) -> [u64] { n sizeOf(Block) + bytes_to_pages PAGE_SIZE * }
 
 // [(N ptr bool)[ .. data ..  ](N ptr bool)[ .. data .. ] ... ]
 //      |-------^                  |-------^
@@ -194,7 +194,7 @@ fn arr_convert<T>(Arr<u8>: a) -> [Arr<T>] {
 
 fn malloc<T>(u64: count) -> [Arr<T>] {
     
-    count sizeOf(T) *  as [n]
+    count sizeOf(T) * as [n]
     n sizeOf(Block) + PAGE_SIZE >= if {
         n sizeOf(Block) + align mmap_new_chunk
         n swap Chunk.try_alloc Opt.unwrap

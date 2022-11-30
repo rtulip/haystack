@@ -15,6 +15,30 @@ enum TokenKindTag {
     EoF
 }
 
+fn TokenKindTag.format(HString &TokenKindTag) -> [HString] {
+    as [self]
+    self @ TokenKindTag::Ident == if {
+        "Ident" HString.push_str   
+    } else self @ TokenKindTag::Marker == if {
+        "Marker" HString.push_str   
+    } else self @ TokenKindTag::Operator == if {
+        "Operator" HString.push_str   
+    } else self @ TokenKindTag::Keyword == if {
+        "Keyword" HString.push_str   
+    } else self @ TokenKindTag::Literal == if {
+        "Literal" HString.push_str   
+    } else self @ TokenKindTag::Syscall == if {
+        "Syscall" HString.push_str   
+    } else self @ TokenKindTag::Type == if {
+        "Type" HString.push_str   
+    } else self @ TokenKindTag::EoF == if {
+        "EoF" HString.push_str   
+    } else {
+        "TokenKindTag.format unreachable!" putlns
+        1 exit
+    } 
+}
+
 union TokenKindKind {
     HString  : ident
     Marker   : marker
@@ -170,23 +194,32 @@ impl:
         }
     }
 
-    inline fn TokenKind.equals(TokenKind: left TokenKind: right) -> [bool] {
-        left::tag right::tag == if {
-            left::tag TokenKindTag::Ident == if {
+    inline fn TokenKind.syscall(&TokenKind: self) -> [Opt<u64>] {
+        self::tag @ TokenKindTag::Syscall == if {
+            self::kind::n @ Opt.Some
+        } else {
+            Opt.None::<u64>
+        }
+    }
+
+    inline fn TokenKind.equals(&TokenKind: left &TokenKind: right) -> [bool] {
+        
+        left::tag @ right::tag @ == if {
+            left::tag @ TokenKindTag::Ident == if {
                 true
-            } else left::tag TokenKindTag::Marker == if {
-                left::kind::marker right::kind::marker ==
-            } else left::tag TokenKindTag::Operator == if {
+            } else left::tag @ TokenKindTag::Marker == if {
+                left::kind::marker @ right::kind::marker @ ==
+            } else left::tag @ TokenKindTag::Operator == if {
                 left::kind::operator right::kind::operator Operator.equals
-            } else left::tag TokenKindTag::Keyword == if {
-                left::kind::keyword right::kind::keyword ==
-            } else left::tag TokenKindTag::Literal == if {
+            } else left::tag @ TokenKindTag::Keyword == if {
+                left::kind::keyword @ right::kind::keyword @ ==
+            } else left::tag @ TokenKindTag::Literal == if {
                 left::kind::literal right::kind::literal Literal.equals
-            } else left::tag TokenKindTag::Syscall == if {
+            } else left::tag @ TokenKindTag::Syscall == if {
                 true
-            } else left::tag TokenKindTag::Type == if {
+            } else left::tag @ TokenKindTag::Type == if {
                 false
-            } else left::tag TokenKindTag::EoF == if {
+            } else left::tag @ TokenKindTag::EoF == if {
                 true
             } else {
                 false
@@ -201,20 +234,27 @@ impl:
     fn TokenKind.format(HString: s &TokenKind: self) -> [HString] {
         s
         self::tag @ TokenKindTag::Ident == if {
+            "Identifier: " HString.push_str
             self::kind::ident HString.as_str HString.push_str
         } else self::tag @ TokenKindTag::Marker == if {
+            "Marker: " HString.push_str
             self::kind::marker @ Marker.format
         } else self::tag @ TokenKindTag::Operator == if {
+            "Operator: " HString.push_str
             self::kind::operator Operator.format
         } else self::tag @ TokenKindTag::Keyword == if {
+            "Keyword: " HString.push_str
             self::kind::keyword @ Keyword.format
         } else self::tag @ TokenKindTag::Literal == if {
+            "Literal: " HString.push_str
             self::kind::literal Literal.format
         } else self::tag @ TokenKindTag::Syscall == if {
+            "Syscall: " HString.push_str
             "syscall(" HString.push_str
             self::kind::n @ u64.format
             ')' HString.push 
         } else self::tag @ TokenKindTag::Type == if {
+            "TypeToken: " HString.push_str
             self::kind::type TypeToken.format
         } else self::tag @ TokenKindTag::EoF == if {
             "End of File" HString.push_str

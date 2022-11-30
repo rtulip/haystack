@@ -70,7 +70,11 @@ impl:
 
     }
 
-    inline fn Literal.equals(Literal: left Literal:right) -> [bool] {
+    inline fn Literal.equals(&Literal: left &Literal:right) -> [bool] {
+        left::tag @ right::tag @ == 
+    }
+
+    inline fn Literal.take_equals(Literal: left Literal:right) -> [bool] {
         left::tag right::tag == 
     }
 
@@ -90,6 +94,14 @@ impl:
             "Literal.fput unreahcable!" putlns
             1 exit 
         } 
+    }
+
+    fn Literal.string(&Literal: self) -> [Opt<HString>] {
+        self::tag @ LiteralTag::String == if {
+            self::kind::string HString.clone Opt.Some
+        } else {
+            Opt.None::<HString>
+        }
     }
 
 }

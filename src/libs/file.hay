@@ -1,5 +1,6 @@
 include "str.hay"
 include "alloc.hay"
+include "hstring.hay"
 
 struct File {
     pub u64: fd
@@ -9,20 +10,25 @@ fn File.exists(Str: file_name) -> [bool] {
     var u64[18]: statbuf_p
     statbuf_p @ as [statbuf]
     0 statbuf memset
-    
-    statbuf::data file_name::data sys_stat
+
+    "" HString.new
+    file_name HString.push_str
+    '\0' HString.push
+    as [cstr]
+    &cstr HString.as_str as [path]
+    statbuf::data path::data sys_stat
+    &cstr HString.delete
 }
 
 fn File.open(u64: mode u64: flags Str: path) -> [File] {
-    var char[1024]: str_buff str_buff @ as [cstr]
-    path cstr Str.to_cStr as [filepath success]
-    success lnot if {
-        "Failed to null terminate the path. Exiting" putlns
-        1 exit
-    }
+    "" HString.new
+    path HString.push_str
+    '\0' HString.push
+    as [cstr]
+    &cstr HString.as_str as [path_term]
 
-    mode flags filepath::data sys_open as [fd]
-
+    mode flags path_term::data sys_open as [fd]
+    &cstr HString.delete
     fd cast(File)
 }
 

@@ -31,6 +31,10 @@ impl:
         opt::tag @ OptTag::Some ==
     }
 
+    fn Opt.take_is_some<T>(Opt<T>: opt) -> [bool] {
+        &opt Opt.is_some
+    }
+
     fn Opt.is_none<T>(&Opt<T>: opt) -> [bool] {
         opt::tag @ OptTag::None ==
     }

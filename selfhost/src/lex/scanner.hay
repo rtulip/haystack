@@ -68,7 +68,6 @@ impl:
         self::token_end
         Token.new
         *self::tokens Vec.push
-
         self::tokens Result.Ok::<Vec<Token> HayError>
 
     }
@@ -114,9 +113,17 @@ impl:
                 Operator.Minus TokenKind.Operator self Scanner.add_token
             }
         } else '*' c == if {
-            0 self Scanner.peek as [c]
-            c char.is_alphabetic c '*' == lor c '&' == lor if {
+            0 self Scanner.peek as [peek]
 
+            self::file HString.clone
+            self::line @
+            self::token_start @
+            self::token_end @
+            cast(Range) cast(Loc) as [l]
+            &l Loc.put
+            ": Maybe unary *: " puts peek putlnc
+            
+            peek char.is_alphabetic peek '*' == lor peek '&' == lor if {
                 Operator.Star TokenKind.Operator
                 self::start @
                 self::current @ self::start @ -

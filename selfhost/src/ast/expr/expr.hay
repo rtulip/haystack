@@ -105,4 +105,28 @@ impl:
         ExprTag::As
         cast(Expr)
     }
+
+    inline fn Expr.If(IfExpr) -> [Expr] {
+        cast(ExprKind)
+        ExprTag::If
+        cast(Expr)
+    }
+
+    inline fn Expr.Syscall(SyscallExpr) -> [Expr] {
+        cast(ExprKind)
+        ExprTag::Syscall
+        cast(Expr)
+    }
+
+    inline fn Expr.Var(VarExpr) -> [Expr] {
+        cast(ExprKind)
+        ExprTag::Var
+        cast(Expr)
+    }
+
+    inline fn Expr.AnnotatedCall(AnnotatedCallExpr) -> [Expr] {
+        cast(ExprKind)
+        ExprTag::AnnotatedCall
+        cast(Expr)
+    }
 }   

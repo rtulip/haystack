@@ -178,4 +178,27 @@ impl:
         }
     }
 
+    fn Token.string(&Token: self) -> [Result<HString HayError>] {
+
+        self Token.literal as [result]{
+            &result Result.is_ok if {
+                result Result.unwrap
+            } else {
+                result Result.unwrap_err Result.Err::<HString HayError> return
+            }
+        } as [literal]
+
+        &literal Literal.string as [string]
+        &string Opt.is_some if {
+            string Opt.unwrap Result.Ok::<HString HayError>
+        } else {
+            "Failed to destructure "  HString.new
+            self::kind                TokenKind.format
+            " into an string literal" HString.push_str
+            self::loc @
+            HayError.new Result.Err::<HString HayError> return
+        }
+
+    }
+
 }

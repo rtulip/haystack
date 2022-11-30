@@ -569,6 +569,8 @@ impl:
                 } else {
                     result Result.unwrap_err Result.Err::<Expr HayError>
                 }
+            } else kw Keyword::Return == if {
+                token cast(ReturnExpr) Expr.Return Result.Ok::<Expr HayError>
             } else {
                 "Not sure how to parse expression from " HString.new
                 &token::kind TokenKind.format

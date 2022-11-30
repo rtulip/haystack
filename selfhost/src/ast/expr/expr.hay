@@ -129,4 +129,10 @@ impl:
         ExprTag::AnnotatedCall
         cast(Expr)
     }
+
+    inline fn Expr.Return(ReturnExpr) -> [Expr] {
+        cast(ExprKind)
+        ExprTag::Return
+        cast(Expr)
+    }
 }   

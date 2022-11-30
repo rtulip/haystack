@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/while_loop_push_before_condition.hay:3:4] Error: Type Error: Function `main` doesn't produce the correct outputs\n    [Note]: Expected final stack: []\n    [Note]: Function produced:    [Opt<u64>]\n"
+}

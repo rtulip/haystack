@@ -11,7 +11,7 @@ fn do_work(Opt<u64>: maybe) -> [Opt<bool>] {
         maybe Opt.unwrap 10 < Opt.Some return 
     }
     
-
+    Opt.None::<bool>
 }
 
 fn main() {

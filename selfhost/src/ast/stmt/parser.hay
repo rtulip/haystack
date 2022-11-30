@@ -130,7 +130,7 @@ impl:
 
         while TokenKind.ident_default self Parser.matches dup Result.take_is_ok {
             Result.unwrap *variants Vec.push
-        }
+        } drop
 
         Marker::RightBrace TokenKind.Marker self Parser.matches as [match] {
             &match Result.is_err if {
@@ -516,7 +516,7 @@ impl:
                     "Unreachabe after Ident" putlns
                     1 exit
                 }
-            }
+            } drop
 
             &inners Vec.is_empty if {
                 token cast(IdentExpr) Expr.Ident Result.Ok::<Expr HayError>
@@ -693,7 +693,7 @@ impl:
 
                 else_tok cond body cast(ElseIfExpr) *otherwise Vec.push
             }
-        }
+        } drop
 
         token then otherwise finally cast(IfExpr) Expr.If Result.Ok::<Expr HayError>
 
@@ -775,7 +775,7 @@ impl:
         }
         {
             Opt.unwrap *args Vec.push
-        }
+        } drop
 
         args Result.Ok::<Vec<IdentArg> HayError>
     }
@@ -1164,7 +1164,7 @@ impl:
                         }
                         // todo &t Token.delete
                     }
-                }
+                } drop
 
                 Operator.GreaterThan TokenKind.Operator self 
                 Parser.matches as [result] {
@@ -1272,7 +1272,7 @@ impl:
                 type Opt.Some Result.Ok::<Opt<Token> HayError>
             }
 
-        } else Operator.Ampersand TokenKind.Operator self Parser.matches as [ampersand_match] {
+        } else drop Operator.Ampersand TokenKind.Operator self Parser.matches as [ampersand_match] {
           ampersand_match  
           &ampersand_match Result.is_ok
         } if {
@@ -1284,7 +1284,7 @@ impl:
             " instead."             HString.push_str
             token::loc
             HayError.new Result.Err::<Opt<Token> HayError>
-        } else Operator.Star TokenKind.Operator self Parser.matches as [star_match] {
+        } else drop Operator.Star TokenKind.Operator self Parser.matches as [star_match] {
           star_match  
           &star_match Result.is_ok
         } if {
@@ -1297,7 +1297,7 @@ impl:
             token::loc
             HayError.new Result.Err::<Opt<Token> HayError>
         } else {
-            Opt.None::<Token> Result.Ok::<Opt<Token> HayError>
+            drop Opt.None::<Token> Result.Ok::<Opt<Token> HayError>
         }
 
     }
@@ -1367,7 +1367,7 @@ impl:
         }
         {
             Opt.unwrap *args Vec.push
-        } 
+        } drop
 
         true true
         0 while dup &args Vec.len < {
@@ -1518,7 +1518,7 @@ impl:
         }
         {
             Opt.unwrap *members Vec.push
-        }
+        } drop
 
         *members Vec.is_empty if {
             "Record members canot be empty." HString.new
@@ -1578,7 +1578,7 @@ impl:
                     false
                 }
                 
-            } drop
+            }
 
             fns Opt.Some Result.Ok::<Opt<Vec<Stmt>> HayError>
 

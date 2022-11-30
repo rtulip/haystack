@@ -85,9 +85,15 @@ impl:
         } else Keyword::Include TokenKind.Keyword as [kw] { &kw &token::kind TokenKind.equals } if {
             token self Parser.include
         } else Keyword::Var TokenKind.Keyword as [kw] { &kw &token::kind TokenKind.equals } if {
-            "todo: Parser.var" putlns
-            1 exit
-            Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError> 
+            token self Parser.var as [result] {
+                &result Result.is_ok if {
+                    Vec.new::<Stmt> as [mut v]
+                    result Result.unwrap token cast(VarStmt) Stmt.Var *v Vec.push
+                    v Result.Ok::<Vec<Stmt> HayError>
+                } else {
+                    result Result.unwrap_err Result.Err::<Vec<Stmt> HayError>
+                }
+            }
         } else {
             "Unexpected top level token: " HString.new
             &token::kind TokenKind.format
@@ -1037,7 +1043,6 @@ impl:
             Marker::RightBrace TokenKind.Marker self Parser.check lnot
             land
         {
-            "Parsing expression from : " puts self Parser.peek Token.putln
             self Parser.expression as [result] {
                 &result Result.is_ok if {
                     result Result.unwrap

@@ -28,7 +28,6 @@ union StmtKind {
     VarStmt: Var
 }
 
-
 struct Stmt {
     StmtKind: kind
     StmtTag: tag
@@ -56,6 +55,12 @@ impl:
     fn Stmt.Enum(EnumStmt) -> [Stmt] {
         cast(StmtKind)
         StmtTag::Enum
+        cast(Stmt)
+    }
+
+    fn Stmt.Var(VarStmt) -> [Stmt] {
+        cast(StmtKind)
+        StmtTag::Var
         cast(Stmt)
     }
 

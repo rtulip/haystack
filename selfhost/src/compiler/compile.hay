@@ -14,13 +14,13 @@ fn compile_haystack(HString: input_path bool: run) -> [Opt<HayError>] {
         }
     } as [stmts]
 
-    //stmts Stmt.build_types_and_data as [result]{
-    //    &result Result.is_ok if {
-    //        result Result.unwrap
-    //    } else {
-    //        result Result.unwrap_err Opt.Some return
-    //    }
-    //} as [mut types global_env mut init_data uninit_data]
+    stmts Stmt.build_types_and_data as [result]{
+        &result Result.is_ok if {
+            result Result.unwrap
+        } else {
+            result Result.unwrap_err Opt.Some return
+        }
+    } Tup4.unfold as [mut types global_env mut init_data uninit_data]
 
     "compile_haystack is unfinished" putlns
     1 exit

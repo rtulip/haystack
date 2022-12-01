@@ -1,0 +1,34 @@
+include "hstring.hay"
+
+struct InitDataArr {
+    pub u64    : size
+    pub HString: pointer
+}
+
+enum InitDataTag {
+    String
+    Arr
+}
+
+union InitDataKind {
+    HString    : string
+    InitDataArr: arr
+}
+
+struct InitData {
+    InitDataKind: kind
+    InitDataTag : arr
+impl:
+
+    inline fn InitData.String(HString) -> [InitData] {
+        cast(InitDataKind)
+        InitDataTag::String
+        cast(InitData)
+    }
+
+    inline fn InitData.Arr(u64 HString) -> [InitData] {
+        cast(InitDataArr) cast(InitDataKind)
+        InitDataTag::Arr
+        cast(InitData)
+    }
+}

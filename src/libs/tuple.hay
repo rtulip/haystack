@@ -1,4 +1,29 @@
-struct Tuple<A B> {
+struct Tup2<A B> {
     pub A: first
     pub B: second
+impl:
+    inline fn Tup2.unfold<A B>(Tup2<A B>: self) -> [A B] {
+        self::first self::second
+    }
+}
+
+struct Tup3<A B C> {
+    pub A: first
+    pub B: second
+    pub C: third
+impl:
+    inline fn Tup3.unfold<A B C>(Tup3<A B C>: self) -> [A B C] {
+        self::first self::second self::third
+    }
+}
+
+struct Tup4<A B C D> {
+    pub A: first
+    pub B: second
+    pub C: third
+    pub D: fourth
+impl:
+    inline fn Tup4.unfold<A B C D>(Tup4<A B C D>: self) -> [A B C D] {
+        self::first self::second self::third self::fourth
+    }
 }

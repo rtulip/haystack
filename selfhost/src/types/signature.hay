@@ -1,0 +1,9 @@
+include "hstring.hay"
+include "vec.hay"
+
+struct Signature {
+    pub Vec<HString>     : inputs
+    pub Vec<HString>     : outputs
+    pub Opt<Vec<HString>>: generics
+    //todo: predicate
+}

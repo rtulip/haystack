@@ -3,6 +3,7 @@ include "vec.hay"
 include "hstring.hay"
 include "linear_map.hay"
 include "selfhost/src/error.hay"
+include "selfhost/src/utils/map.hay" 
 include "selfhost/src/utils/sets.hay" 
 include "selfhost/src/ast/stmt/enum.hay"
 include "selfhost/src/ast/stmt/function.hay"
@@ -10,7 +11,16 @@ include "selfhost/src/ast/stmt/parser.hay"
 include "selfhost/src/ast/stmt/pre_declaration.hay"
 include "selfhost/src/ast/stmt/record.hay"
 include "selfhost/src/ast/stmt/var.hay"
+include "selfhost/src/backend/init_data.hay"
+include "selfhost/src/backend/uninit_data.hay"
 include "selfhost/src/lex/scanner.hay"
+include "selfhost/src/types/signature.hay"
+include "selfhost/src/types/type.hay"
+
+enum TopLevelStmtKind {
+    Var
+    Function
+}
 
 enum StmtTag {
     Function
@@ -121,6 +131,33 @@ impl:
 
         stmts Result.Ok::<Vec<Stmt> HayError>
 
+    }
+
+    fn Stmt.build_types_and_data(Vec<Stmt>: mut stmts) -> [ 
+        Result<
+            Tup4<
+                HMap<Type>
+                HMap<Tup2<TopLevelStmtKind Signature>>
+                HMap<InitData>
+                HMap<UninitData>
+            >
+            HayError
+        >
+    ] {
+        Type.new_map                                  as [mut types]
+        HMap.new::<Tup2<TopLevelStmtKind Signature>> as [mut global_env]
+        HMap.new::<InitData>                          as [mut init_data]
+        HMap.new::<UninitData>                        as [mut uninit_data]
+        
+        types global_env init_data uninit_data cast(Tup4) 
+        Result.Ok::<Tup4<
+                HMap<Type>
+                HMap<Tup2<TopLevelStmtKind Signature>>
+                HMap<InitData>
+                HMap<UninitData>
+            >
+            HayError
+        >
     }
 
 }

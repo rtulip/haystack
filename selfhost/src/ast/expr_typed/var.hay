@@ -2,7 +2,7 @@ include "opt.hay"
 include "tuple.hay"
 
 struct TypedVarExpr {
-    pub u64                : size
-    pub u64                : width
-    pub Opt<Tuple<u64 u64>>: data
+    pub u64               : size
+    pub u64               : width
+    pub Opt<Tup2<u64 u64>>: data
 }

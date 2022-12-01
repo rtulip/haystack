@@ -1,0 +1,3 @@
+struct UninitData {
+    pub u64: region
+}

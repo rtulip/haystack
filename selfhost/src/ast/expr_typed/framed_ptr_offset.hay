@@ -4,7 +4,7 @@ include "vec.hay"
 include "selfhost/src/types/framed.hay"
 
 struct TypedFramedPtrOffsetExpr {
-    pub Vec<Tuple<HString FramedType>>: frame
-    pub u64                           : idx
-    pub Vec<HString>                  : inner
+    pub Vec<Tup2<HString FramedType>>: frame
+    pub u64                          : idx
+    pub Vec<HString>                 : inner
 }

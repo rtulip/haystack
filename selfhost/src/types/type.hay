@@ -1,3 +1,4 @@
+include "hstring.hay"
 include "selfhost/src/types/function/function.hay"
 include "selfhost/src/types/function/generic.hay"
 include "selfhost/src/types/function/unchecked.hay"
@@ -129,6 +130,69 @@ impl:
         cast(TypeKind)
         TypeTag::Function
         cast(Type)
+    }
+
+    fn Type.id(&Type: self) -> [HString] {
+        self::tag @ TypeTag::U8 == if {
+            "u8" HString.new
+        } else self::tag @ TypeTag::U64 == if {
+            "u64" HString.new
+        } else self::tag @ TypeTag::Char == if {
+            "char" HString.new
+        } else self::tag @ TypeTag::Bool == if {
+            "bool" HString.new
+        } else self::tag @ TypeTag::Never == if {
+            "!" HString.new
+        } else self::tag @ TypeTag::Pointer == if {
+            self::kind::pointer::mutable @ if {
+                "*" HString.new
+                self::kind::pointer::inner HString.clone HString.format
+            } else {
+                "&" HString.new
+                self::kind::pointer::inner HString.clone HString.format
+            }
+        } else self::tag @ TypeTag::Record == if {
+            self::kind::record::name::lexeme HString.clone
+        } else self::tag @ TypeTag::RecordPreDeclaration == if {
+            "Cannot take id of Pre-declared type" putlns
+            1 exit
+            "" HString.new
+        } else self::tag @ TypeTag::GenericRecordBase == if {
+            self::kind::base::name::lexeme HString.clone
+        } else self::tag @ TypeTag::GenericRecordInstance == if {
+            self::kind::instance::alias_list as [alias_list]
+            self::kind::instance::base HString.clone
+            '<' HString.push
+
+            0 while dup alias_list Vec.len 1 - < {
+                as [i]
+                i alias_list Vec.get Opt.unwrap 
+                HString.as_str HString.push_str
+                i 1 +
+            } drop
+
+            alias_list Vec.last Opt.unwrap HString.as_str HString.push_str
+            '>' HString.push
+
+        } else self::tag @ TypeTag::Enum == if {
+            self::kind::enum_::name::lexeme HString.clone
+        } else self::tag @ TypeTag::GenericFunction == if {
+            "Cannot take id of Generic Function" putlns
+            1 exit
+            "" HString.new
+        } else self::tag @ TypeTag::UncheckedFunction == if {
+            "Cannot take id of UncheckedFunction Function" putlns
+            1 exit
+            "" HString.new
+        } else self::tag @ TypeTag::Function == if {
+            "Cannot take id of Function" putlns
+            1 exit
+            "" HString.new
+        } else {
+            "Type.id unreachable!" putlns
+            1 exit
+            "" HString.new
+        }
     }
 
 }

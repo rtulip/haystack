@@ -1,4 +1,5 @@
 include "hstring.hay"
+include "selfhost/src/utils/map.hay"
 include "selfhost/src/types/function/function.hay"
 include "selfhost/src/types/function/generic.hay"
 include "selfhost/src/types/function/unchecked.hay"
@@ -27,10 +28,6 @@ enum TypeTag {
 }
 
 union TypeKind {
-    u8                   : u8
-    u64                  : u64
-    char                 : char
-    bool                 : bool
     Pointer              : pointer
     Record               : record
     RecordPreDeclaration : pre_decl
@@ -40,6 +37,8 @@ union TypeKind {
     GenericFunction      : gen_func
     UncheckedFunction    : unchecked_func
     Function             : func
+
+    u64                  : other
 }
 
 struct Type {
@@ -48,26 +47,26 @@ struct Type {
 
 impl: 
 
-    inline fn Type.U8(u8) -> [Type] {
-        cast(TypeKind)
+    inline fn Type.U8() -> [Type] {
+        0 cast(TypeKind)
         TypeTag::U8
         cast(Type)
     }
 
-    inline fn Type.U64(u64) -> [Type] {
-        cast(TypeKind)
+    inline fn Type.U64() -> [Type] {
+        0 cast(TypeKind)
         TypeTag::U64
         cast(Type)
     }
 
-    inline fn Type.Char(char) -> [Type] {
-        cast(TypeKind)
+    inline fn Type.Char() -> [Type] {
+        0 cast(TypeKind)
         TypeTag::Char
         cast(Type)
     }
 
-    inline fn Type.Bool(bool) -> [Type] {
-        cast(TypeKind)
+    inline fn Type.Bool() -> [Type] {
+        0 cast(TypeKind)
         TypeTag::Bool
         cast(Type)
     }
@@ -193,6 +192,28 @@ impl:
             1 exit
             "" HString.new
         }
+    }
+
+    inline fn Type.into_id(Type: self) -> [HString] {
+        &self Type.id
+    }
+
+    fn Type.new_map() -> [HMap<Type>] {
+
+        HMap.new::<Type> as [mut types]
+
+        Type.U64  Type.into_id Type.U64 *types HMap.insert drop
+        Type.U8   Type.into_id Type.U64 *types HMap.insert drop
+        Type.Bool Type.into_id Type.U64 *types HMap.insert drop
+        Type.Char Type.into_id Type.U64 *types HMap.insert drop
+        "&T" HString.new
+        "T" HString.new false cast(Pointer) Type.Pointer
+        *types HMap.insert drop
+        "*T" HString.new
+        "T" HString.new true cast(Pointer) Type.Pointer
+        *types HMap.insert drop
+        
+        types
     }
 
 }

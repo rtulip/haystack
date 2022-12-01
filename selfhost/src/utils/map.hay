@@ -1,0 +1,67 @@
+include "hstring.hay"
+include "vec.hay" 
+include "str.hay"
+include "std.hay"
+
+struct HMap<T> {
+    
+    Vec<HString>: keys
+    Vec<T>      : values
+
+impl:
+    inline fn HMap.new<T>() -> [HMap<T>] {
+        Vec.new::<HString>
+        Vec.new::<T>
+        cast(HMap)
+    }
+
+    inline fn HMap.contains<T>(HString &HMap<T>) -> [bool] {
+        HMap.get as [opt]
+        &opt Opt.is_some 
+    }
+
+    fn HMap.insert<T>(HString: key T: value *HMap<T>: self) -> [Opt<T>] {
+
+        key self HMap.get_mut as [maybe_val]
+        &maybe_val Opt.is_some if {
+            maybe_val Opt.unwrap as [val]
+            val @ Opt.Some
+            value val !
+        } else {
+        
+            key   self::keys   Vec.push
+            value self::values Vec.push
+            Opt.None::<T>
+        }
+    }
+
+    fn HMap.get_mut<T>(HString: key *HMap<T>: self) -> [Opt<*T>] {
+        0 while dup self::keys Vec.len < {
+            as [i]
+
+            &key HString.as_str 
+            i self::keys Vec.get Opt.unwrap HString.as_str
+            Str.equals if {
+                i self::values Vec.get_mut return 
+            }
+
+            i 1 + 
+        } drop
+
+        Opt.None::<*T>
+    }
+
+    fn HMap.get<T>(HString: key &HMap<T>: self) -> [Opt<&T>] {
+        0 while dup self::keys Vec.len < {
+            as [i]
+            key i self::keys Vec.at Opt.unwrap Str.equals if {
+                i self::values Vec.get return 
+            }
+
+            i 1 + 
+        } drop
+
+        Opt.None::<&T>
+    }
+
+}

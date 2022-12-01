@@ -24,7 +24,6 @@ impl:
     }
 
     fn Parser.parse(Parser: mut self) -> [Result<Vec<Stmt> HayError>] {
-
         while &self Parser.is_at_end lnot {
 
             *self Parser.declaration as [result]
@@ -71,9 +70,7 @@ impl:
         
         self::tokens Vec.pop Opt.unwrap as [token]
         Keyword::Inline TokenKind.Keyword as [kw] { &kw &token::kind TokenKind.equals } if {
-            "todo: Parser.inline" putlns
-            1 exit
-            Vec.new::<Stmt> Result.Ok::<Vec<Stmt> HayError> 
+            token Opt.None::<&Token> self Parser.inline_function
         } else Keyword::Function TokenKind.Keyword as [kw] { &kw &token::kind TokenKind.equals } if {
             token Vec.new::<FnTag> Opt.None::<&Token> self Parser.function
         } else Keyword::Struct TokenKind.Keyword as [kw] { &kw &token::kind TokenKind.equals } if {
@@ -118,6 +115,10 @@ impl:
                 HayError.new Result.Err::<Vec<Stmt> HayError> return
             }
         } as [name]
+
+        "    " puts
+        &name Token.put
+        ": Parsing enum" putlns
 
         Marker::LeftBrace TokenKind.Marker self Parser.matches as [match] {
             &match Result.is_err if {
@@ -188,7 +189,7 @@ impl:
 
             "./" HString.new to_include HString.format
         } as [libs_path to_include]
-        
+
         &to_include HString.as_str File.exists if {
             self::visited @ &to_include Stmt.from_file
         } else &libs_path HString.as_str File.exists if {
@@ -231,6 +232,7 @@ impl:
         Opt<&Token>: impl_on
         *Parser: self 
     ) -> [Result<Vec<Stmt> HayError>] {
+        
 
         TokenKind.ident_default self Parser.matches as [match] {
             &match Result.is_ok if {
@@ -246,6 +248,9 @@ impl:
                 HayError.new Result.Err::<Vec<Stmt> HayError> return
             }
         } as [name]
+        "    " puts
+        &name Token.put 
+        ": Parsing function" putlns
 
         // todo: check for +/-
 
@@ -1624,6 +1629,10 @@ impl:
                 HayError.new Result.Err::<Vec<Stmt> HayError> return 
             }
         } as [name]
+
+        "    " puts 
+        &name Token.put
+        ": Parsing Record" putlns
 
         Operator.LessThan TokenKind.Operator self Parser.matches as [match] {
             &match Result.is_ok if {

@@ -13,14 +13,16 @@ include "selfhost/src/lex/token.hay"
 include "selfhost/src/lex/token_kind.hay"
 
 struct Scanner {
-    HString: file
-    HString: source 
-    Vec<Token>: tokens
-    u64: start
-    u64: current
-    u64: line
-    u64: token_start
-    u64: token_end
+    Map<TokenKind>: keywords
+    HString       : file
+    HString       : source
+    Vec<Token>    : tokens
+    u64           : start
+    u64           : current
+    u64           : line
+    u64           : token_start
+    u64           : token_end
+    
 impl:
 
     fn Scanner.debug(&Scanner: self) {
@@ -38,6 +40,7 @@ impl:
     }
 
     inline fn Scanner.new(HString: file HString: source) -> [Scanner] {
+        Keyword.keywords
         file
         source
         Vec.new::<Token>
@@ -46,6 +49,7 @@ impl:
         1
         1
         1
+        
         cast(Scanner)
     }
 
@@ -367,6 +371,8 @@ impl:
         self::token_end @
         Token.new as [tok]
 
+        "    Adding token: " puts &tok Token.putln
+
         tok self::tokens Vec.push
     }
 
@@ -425,8 +431,6 @@ impl:
     }
 
     fn Scanner.identifier(*Scanner: self) -> [Opt<HayError>] {
-
-        Keyword.keywords as [keywords]
         Scanner.special_chars as [chars]
 
         0 as [mut count]
@@ -443,7 +447,7 @@ impl:
         self::source HString.as_str 
         Str.substr as [ident]
 
-        ident &keywords Map.get as [maybe_kind]
+        ident self::keywords Map.get as [maybe_kind]
         &maybe_kind Opt.is_some if {
             maybe_kind Opt.unwrap as [kind]
             kind::tag @ TokenKindTag::Syscall == if {

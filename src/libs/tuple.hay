@@ -1,0 +1,4 @@
+struct Tuple<A B> {
+    pub A: first
+    pub B: second
+}

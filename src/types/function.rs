@@ -51,7 +51,6 @@ pub struct Function {
     pub inputs: Vec<TypedArg>,
     pub outputs: Vec<TypedArg>,
     pub body: Vec<TypedExpr>,
-    pub generic_map: Option<HashMap<TypeId, TypeId>>,
     pub tags: Vec<FnTag>,
 }
 
@@ -123,7 +122,6 @@ impl UncheckedFunction {
             inputs: self.inputs.clone(),
             outputs: self.outputs.clone(),
             body: typed_body,
-            generic_map: self.generic_map.clone(),
             tags: self.tags.clone(),
         })
     }

@@ -1,0 +1,12 @@
+include "vec.hay"
+include "selfhost/src/ast/member/typed.hay"
+include "selfhost/src/lex/token.hay"
+include "selfhost/src/types/record/record_kind.hay"
+
+struct GenericRecordBase {
+    pub Token           : token
+    pub Token           : name
+    pub Vec<HString>    : generics
+    pub Vec<TypedMember>: members
+    pub RecordKind      : kind
+}

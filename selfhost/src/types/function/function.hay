@@ -1,0 +1,14 @@
+include "vec.hay"
+include "selfhost/src/ast/arg/typed.hay"
+include "selfhost/src/ast/expr_typed/expr.hay"
+include "selfhost/src/lex/token.hay"
+include "selfhost/src/types/function/tags.hay"
+
+struct Function {
+    pub Token: token
+    pub Token: name
+    pub Vec<TypedArg>: inputs
+    pub Vec<TypedArg>: outputs
+    pub Vec<TypedExpr>: body
+    pub Vec<FnTag>: tags
+}

@@ -1,0 +1,12 @@
+include "hstring.hay"
+include "vec.hay"
+include "selfhost/src/ast/member/typed.hay"
+include "selfhost/src/types/record/record_kind.hay"
+
+struct GenericRecordInstance {
+    pub HString         : base
+    pub Vec<HString>    : base_generics
+    pub Vec<HString>    : alias_list
+    pub Vec<TypedMember>: members
+    pub RecordKind      : kind
+}

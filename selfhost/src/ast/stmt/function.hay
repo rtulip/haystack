@@ -3,7 +3,7 @@ include "vec.hay"
 include "selfhost/src/ast/arg/untyped.hay"
 include "selfhost/src/ast/expr/expr.hay"
 include "selfhost/src/lex/token.hay"
-include "selfhost/src/types/function/fn_tag.hay"
+include "selfhost/src/types/function/tags.hay"
 
 struct FunctionStmt {
     Token: token

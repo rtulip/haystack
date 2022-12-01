@@ -1,0 +1,8 @@
+include "hstring.hay"
+include "selfhost/src/lex/token.hay"
+
+struct FramedType {
+    pub Token  : origin
+    pub HString: type
+    pub bool   : mutable
+}

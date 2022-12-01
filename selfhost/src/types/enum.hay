@@ -1,0 +1,6 @@
+
+struct Enum {
+    pub Token     : token
+    pub Token     : name
+    pub Vec<Token>: variants
+}

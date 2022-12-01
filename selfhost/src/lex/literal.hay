@@ -1,5 +1,6 @@
 include "hstring.hay"
 include "opt.hay"
+include "utils.hay"
 enum LiteralTag {
     Bool
     Char

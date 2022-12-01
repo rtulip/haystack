@@ -1,0 +1,134 @@
+include "selfhost/src/types/function/function.hay"
+include "selfhost/src/types/function/generic.hay"
+include "selfhost/src/types/function/unchecked.hay"
+include "selfhost/src/types/record/base.hay"
+include "selfhost/src/types/record/instance.hay"
+include "selfhost/src/types/record/pre_declaration.hay"
+include "selfhost/src/types/record/record.hay"
+include "selfhost/src/types/enum.hay"
+include "selfhost/src/types/pointer.hay"
+
+enum TypeTag {
+    U8
+    U64
+    Char
+    Bool
+    Never
+    Pointer
+    Record
+    RecordPreDeclaration
+    GenericRecordBase
+    GenericRecordInstance
+    Enum
+    GenericFunction
+    UncheckedFunction
+    Function
+}
+
+union TypeKind {
+    u8                   : u8
+    u64                  : u64
+    char                 : char
+    bool                 : bool
+    Pointer              : pointer
+    Record               : record
+    RecordPreDeclaration : pre_decl
+    GenericRecordBase    : base
+    GenericRecordInstance: instance
+    Enum                 : enum_
+    GenericFunction      : gen_func
+    UncheckedFunction    : unchecked_func
+    Function             : func
+}
+
+struct Type {
+    TypeKind: kind
+    TypeTag : tag
+
+impl: 
+
+    inline fn Type.U8(u8) -> [Type] {
+        cast(TypeKind)
+        TypeTag::U8
+        cast(Type)
+    }
+
+    inline fn Type.U64(u64) -> [Type] {
+        cast(TypeKind)
+        TypeTag::U64
+        cast(Type)
+    }
+
+    inline fn Type.Char(char) -> [Type] {
+        cast(TypeKind)
+        TypeTag::Char
+        cast(Type)
+    }
+
+    inline fn Type.Bool(bool) -> [Type] {
+        cast(TypeKind)
+        TypeTag::Bool
+        cast(Type)
+    }
+
+    inline fn Type.Never() -> [Type] {
+        0 cast(TypeKind)
+        TypeTag::Never
+        cast(Type)
+    }
+
+    inline fn Type.Pointer(Pointer) -> [Type] {
+        cast(TypeKind)
+        TypeTag::Pointer
+        cast(Type)
+    }
+
+    inline fn Type.Record(Record) -> [Type] {
+        cast(TypeKind)
+        TypeTag::Record
+        cast(Type)
+    }
+
+    inline fn Type.RecordPreDeclaration(RecordPreDeclaration) -> [Type] {
+        cast(TypeKind)
+        TypeTag::RecordPreDeclaration
+        cast(Type)
+    }
+
+    inline fn Type.GenericRecordBase(GenericRecordBase) -> [Type] {
+        cast(TypeKind)
+        TypeTag::GenericRecordBase
+        cast(Type)
+    }
+
+    inline fn Type.GenericRecordInstance(GenericRecordInstance) -> [Type] {
+        cast(TypeKind)
+        TypeTag::GenericRecordInstance
+        cast(Type)
+    }
+
+    inline fn Type.Enum(Enum) -> [Type] {
+        cast(TypeKind)
+        TypeTag::Enum
+        cast(Type)
+    }
+
+    inline fn Type.GenericFunction(GenericFunction) -> [Type] {
+        cast(TypeKind)
+        TypeTag::GenericFunction
+        cast(Type)
+    }
+
+    inline fn Type.UncheckedFunction(UncheckedFunction) -> [Type] {
+        cast(TypeKind)
+        TypeTag::UncheckedFunction
+        cast(Type)
+    }
+
+    inline fn Type.Function(Function) -> [Type] {
+        cast(TypeKind)
+        TypeTag::Function
+        cast(Type)
+    }
+
+}

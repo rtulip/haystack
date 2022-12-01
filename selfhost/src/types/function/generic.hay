@@ -1,0 +1,17 @@
+include "hstring.hay"
+include "opt.hay"
+include "vec.hay"
+include "selfhost/src/ast/arg/typed.hay"
+include "selfhost/src/ast/expr/expr.hay"
+include "selfhost/src/types/function/tags.hay"
+
+struct GenericFunction {
+    pub Token: token
+    pub Token: name
+    pub Vec<TypedArg>: inputs
+    pub Vec<TypedArg>: outputs
+    pub Vec<HString>: generics
+    pub Vec<Expr>: body
+    pub Vec<FnTag>: tags
+    pub Opt<HString>: impl_on
+}

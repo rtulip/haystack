@@ -1,0 +1,10 @@
+include "vec.hay"
+include "selfhost/src/lex/token.hay"
+include "selfhost/src/types/record/record_kind.hay"
+
+struct RecordPreDeclaration {
+    pub Token       : token
+    pub Token       : name
+    pub RecordKind  : kind
+    pub Vec<HString>: generics
+}

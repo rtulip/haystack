@@ -1,0 +1,6 @@
+include "hstring.hay"
+
+struct Pointer {
+    pub HString: inner
+    pub bool   : mutable
+}

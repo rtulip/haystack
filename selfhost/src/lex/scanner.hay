@@ -371,7 +371,7 @@ impl:
         self::token_end @
         Token.new as [tok]
 
-        "    Adding token: " puts &tok Token.putln
+        //"    Adding token: " puts &tok Token.putln
 
         tok self::tokens Vec.push
     }

@@ -1,0 +1,10 @@
+include "opt.hay"
+include "hstring.hay"
+include "selfhost/src/lex/token.hay"
+
+struct TypedArg {
+    pub Token     : token
+    pub Opt<Token>: mutable
+    pub Opt<Token>: ident
+    pub HString   : type
+}

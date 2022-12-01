@@ -1,0 +1,11 @@
+include "hstring.hay"
+include "selfhost/src/ast/visibility.hay"
+include "selfhost/src/lex/token.hay"
+
+struct TypedMember {
+    pub HString   : parent
+    pub Visibility: vis
+    pub Token     : token
+    pub Token     : ident
+    pub HString   : type
+}

@@ -1,0 +1,5 @@
+include "hstring.hay"
+
+struct TypedGlobalExpr {
+    pub HString: ident
+}

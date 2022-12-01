@@ -1,0 +1,11 @@
+include "hstring.hay"
+include "opt.hay"
+include "tuple.hay"
+include "vec.hay"
+include "selfhost/src/types/framed.hay"
+
+struct TypedFramedExpr {
+    pub Vec<Tuple<HString FramedType>>: frame
+    pub u64                           : idx
+    pub Opt<Vec<HString>>             : inner
+}

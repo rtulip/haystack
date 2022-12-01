@@ -1,0 +1,7 @@
+include "vec.hay"
+
+struct TypedExpr:
+struct TypedWhileExpr {
+    pub Vec<TypedExpr>: cond
+    pub Vec<TypedExpr>: body
+}

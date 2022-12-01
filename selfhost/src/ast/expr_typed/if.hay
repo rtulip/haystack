@@ -1,0 +1,14 @@
+include "opt.hay"
+include "vec.hay"
+
+struct TypedExpr:
+struct TypedElseIfExpr {
+    pub Vec<TypedExpr>: condition
+    pub Vec<TypedExpr>: block
+}
+
+struct TypedIfExpr {
+    pub Vec<TypedExpr>      : then
+    pub Vec<TypedElseIfExpr>: otherwise
+    pub Opt<Vec<TypedExpr>> : finally
+}

@@ -1,0 +1,6 @@
+include "hstring.hay"
+
+struct TypedEnumExpr {
+    pub HString: type
+    pub HString: variant
+}

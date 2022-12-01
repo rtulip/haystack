@@ -1,0 +1,5 @@
+include "hstring.hay"
+
+struct TypedCallExpr {
+    pub HString: func
+}

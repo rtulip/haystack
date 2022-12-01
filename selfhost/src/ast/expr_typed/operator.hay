@@ -1,0 +1,7 @@
+include "hstring.hay"
+include "selfhost/src/lex/operator.hay"
+
+struct TypedOperatorExpr {
+    pub Operator    : op
+    pub Opt<HString>: type
+}

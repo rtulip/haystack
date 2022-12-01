@@ -1,0 +1,9 @@
+include "hstring.hay"
+include "opt.hay"
+include "vec.hay"
+
+struct TypedExpr:
+struct TypedAsExpr {
+    pub Vec<HString>      : args
+    pub Opt<Vec<TypedExpr>>: block
+}

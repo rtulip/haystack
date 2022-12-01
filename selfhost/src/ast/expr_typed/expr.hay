@@ -1,0 +1,158 @@
+include "selfhost/src/ast/expr_typed/addr_framed.hay"
+include "selfhost/src/ast/expr_typed/as.hay"
+include "selfhost/src/ast/expr_typed/call.hay"
+include "selfhost/src/ast/expr_typed/cast.hay"
+include "selfhost/src/ast/expr_typed/enum.hay"
+include "selfhost/src/ast/expr_typed/framed_ptr_offset.hay"
+include "selfhost/src/ast/expr_typed/framed.hay"
+include "selfhost/src/ast/expr_typed/global.hay"
+include "selfhost/src/ast/expr_typed/if.hay"
+include "selfhost/src/ast/expr_typed/literal.hay"
+include "selfhost/src/ast/expr_typed/operator.hay"
+include "selfhost/src/ast/expr_typed/pad.hay"
+include "selfhost/src/ast/expr_typed/syscall.hay"
+include "selfhost/src/ast/expr_typed/var.hay"
+include "selfhost/src/ast/expr_typed/while.hay"
+
+enum TypedExprTag {
+    AddrFramed
+    As
+    Call
+    Cast
+    Enum
+    FramedPtrOffset
+    Framed
+    Global
+    If
+    Literal
+    Operator
+    Pad
+    Return
+    Syscall
+    Var
+    While
+}
+
+union TypedExprKind {
+    TypedAddrFramedExpr     : addrFramed
+    TypedAsExpr             : as_
+    TypedCallExpr           : call
+    TypedCastExpr           : cast_
+    TypedEnumExpr           : enum_
+    TypedFramedPtrOffsetExpr: framedPtrOffset
+    TypedFramedExpr         : framed
+    TypedGlobalExpr         : global
+    TypedIfExpr             : if_
+    TypedLiteralExpr        : literal
+    TypedOperatorExpr       : operator
+    TypedPadExpr            : pad
+    TypedSyscallExpr        : syscall_
+    TypedVarExpr            : var_
+    TypedWhileExpr          : while_
+
+    u64                     : other
+}
+
+struct TypedExpr {
+    TypedExprKind: kind
+    TypedExprTag: tag
+impl: 
+
+    inline fn TypedExpr.AddrFramed(TypedAddrFramedExpr) -> [TypedExpr] {
+        cast(TypedExprKind)
+        TypedExprTag::AddrFramed
+        cast(TypedExpr)
+    }
+
+    inline fn TypedExpr.As(TypedAsExpr) -> [TypedExpr] {
+        cast(TypedExprKind)
+        TypedExprTag::As
+        cast(TypedExpr)
+    }
+
+    inline fn TypedExpr.Call(TypedCallExpr) -> [TypedExpr] {
+        cast(TypedExprKind)
+        TypedExprTag::Call
+        cast(TypedExpr)
+    }
+
+    inline fn TypedExpr.Cast(TypedCastExpr) -> [TypedExpr] {
+        cast(TypedExprKind)
+        TypedExprTag::Cast
+        cast(TypedExpr)
+    }
+
+    inline fn TypedExpr.Enum(TypedEnumExpr) -> [TypedExpr] {
+        cast(TypedExprKind)
+        TypedExprTag::Enum
+        cast(TypedExpr)
+    }
+
+    inline fn TypedExpr.FramedPtrOffset(TypedFramedPtrOffsetExpr) -> [TypedExpr] {
+        cast(TypedExprKind)
+        TypedExprTag::FramedPtrOffset
+        cast(TypedExpr)
+    }
+
+    inline fn TypedExpr.Framed(TypedFramedExpr) -> [TypedExpr] {
+        cast(TypedExprKind)
+        TypedExprTag::Framed
+        cast(TypedExpr)
+    }
+
+    inline fn TypedExpr.Global(TypedGlobalExpr) -> [TypedExpr] {
+        cast(TypedExprKind)
+        TypedExprTag::Global
+        cast(TypedExpr)
+    }
+
+    inline fn TypedExpr.If(TypedIfExpr) -> [TypedExpr] {
+        cast(TypedExprKind)
+        TypedExprTag::If
+        cast(TypedExpr)
+    }
+
+    inline fn TypedExpr.Literal(TypedLiteralExpr) -> [TypedExpr] {
+        cast(TypedExprKind)
+        TypedExprTag::Literal
+        cast(TypedExpr)
+    }
+
+    inline fn TypedExpr.Operator(TypedOperatorExpr) -> [TypedExpr] {
+        cast(TypedExprKind)
+        TypedExprTag::Operator
+        cast(TypedExpr)
+    }
+
+    inline fn TypedExpr.Pad(TypedPadExpr) -> [TypedExpr] {
+        cast(TypedExprKind)
+        TypedExprTag::Pad
+        cast(TypedExpr)
+    }
+
+    inline fn TypedExpr.Return() -> [TypedExpr] {
+        0 cast(TypedExprKind)
+        TypedExprTag::Return
+        cast(TypedExpr)
+    }
+
+    inline fn TypedExpr.Syscall(TypedSyscallExpr) -> [TypedExpr] {
+        cast(TypedExprKind)
+        TypedExprTag::Syscall
+        cast(TypedExpr)
+    }
+
+    inline fn TypedExpr.Var(TypedVarExpr) -> [TypedExpr] {
+        cast(TypedExprKind)
+        TypedExprTag::Var
+        cast(TypedExpr)
+    }
+
+    inline fn TypedExpr.While(TypedWhileExpr) -> [TypedExpr] {
+        cast(TypedExprKind)
+        TypedExprTag::While
+        cast(TypedExpr)
+    }
+
+
+}

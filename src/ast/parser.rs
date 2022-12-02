@@ -11,6 +11,7 @@ use super::expr::{
     ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile,
 };
 use super::member::UntypedMember;
+use super::stmt::{RecordStmt, EnumStmt, FunctionStmt, FunctionStubStmt, InterfaceStmt, InterfaceImplStmt, VarStmt, PreDeclarationStmt};
 use super::visibility::Visitiliby;
 
 pub struct Parser<'a> {
@@ -86,7 +87,7 @@ impl<'a> Parser<'a> {
             TokenKind::Keyword(Keyword::Include) => self.include(token),
             TokenKind::Keyword(Keyword::Var) => {
                 let expr = self.var(token.clone())?;
-                Ok(vec![Stmt::Var { token, expr }])
+                Ok(vec![Stmt::Var(VarStmt{ token, expr })])
             }
             TokenKind::Keyword(Keyword::Interface) => self.interface(token),
             TokenKind::Keyword(Keyword::Impl) => self.interface_impl(token),
@@ -164,12 +165,12 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        Ok(vec![Stmt::InterfaceImpl {
+        Ok(vec![Stmt::InterfaceImpl(InterfaceImplStmt {
             token: start,
             interface,
             types,
             fns,
-        }])
+        })])
     }
 
     fn interface(&mut self, start: Token) -> Result<Vec<Stmt>, HayError> {
@@ -247,13 +248,13 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        Ok(vec![Stmt::Interface {
+        Ok(vec![Stmt::Interface(InterfaceStmt {
             token: start,
             name,
             annotations,
             types,
             fns,
-        }])
+        })])
     }
 
     fn interface_functions(&mut self, name: &Token) -> Result<Vec<Stmt>, HayError> {
@@ -496,7 +497,7 @@ impl<'a> Parser<'a> {
 
         if self.check(TokenKind::Marker(Marker::LeftBrace)) {
             let body = self.block()?;
-            Ok(vec![Stmt::Function {
+            Ok(vec![Stmt::Function(FunctionStmt {
                 token: start,
                 name,
                 inputs,
@@ -505,9 +506,9 @@ impl<'a> Parser<'a> {
                 body,
                 tags: stub_tags,
                 impl_on: impl_on.cloned(),
-            }])
+            })])
         } else {
-            Ok(vec![Stmt::FunctionStub {
+            Ok(vec![Stmt::FunctionStub(FunctionStubStmt {
                 token: start,
                 name,
                 inputs,
@@ -515,7 +516,7 @@ impl<'a> Parser<'a> {
                 annotations,
                 tags: stub_tags,
                 impl_on: impl_on.cloned(),
-            }])
+            })])
         }
     }
 
@@ -536,7 +537,7 @@ impl<'a> Parser<'a> {
             self.function_stub(start, tags, impl_on)?;
         let body = self.block()?;
 
-        Ok(vec![Stmt::Function {
+        Ok(vec![Stmt::Function(FunctionStmt {
             token: start,
             name,
             inputs,
@@ -545,7 +546,7 @@ impl<'a> Parser<'a> {
             body,
             tags,
             impl_on: impl_on.cloned(),
-        }])
+        })])
     }
 
     fn args_list(&mut self, token: &Token) -> Result<Vec<UntypedArg>, HayError> {
@@ -1076,11 +1077,11 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        Ok(vec![Stmt::Enum {
+        Ok(vec![Stmt::Enum(EnumStmt {
             token: start,
             name,
             variants,
-        }])
+        })])
     }
 
     // structure -> "struct" IDENT "{" named_args_list (impls)? "}"
@@ -1125,12 +1126,12 @@ impl<'a> Parser<'a> {
         };
 
         if self.matches(TokenKind::Marker(Marker::Colon)).is_ok() {
-            return Ok(vec![Stmt::PreDeclaration {
+            return Ok(vec![Stmt::PreDeclaration(PreDeclarationStmt {
                 token: start,
                 name,
                 kind,
                 annotations,
-            }]);
+            })]);
         }
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
@@ -1160,13 +1161,13 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        let mut stmts = vec![Stmt::Record {
+        let mut stmts = vec![Stmt::Record(RecordStmt {
             token: start,
             name,
             annotations,
             members,
             kind,
-        }];
+        })];
 
         if let Some(mut fns) = impls {
             stmts.append(&mut fns);

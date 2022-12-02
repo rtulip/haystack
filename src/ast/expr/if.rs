@@ -34,9 +34,8 @@ impl ExprIf {
     ) -> Result<TypedExpr, HayError> {
         let sig = Signature::new(vec![Type::Bool.id()], vec![]);
         sig.evaluate(&self.token, stack, types)?;
-
-        let initial_stack = stack.clone();
         let initial_frame = frame.clone();
+        let mut otherwise_stack = stack.clone();
 
         let mut end_stacks = vec![];
 
@@ -56,17 +55,15 @@ impl ExprIf {
         let mut typed_otherwise = vec![];
         for case in self.otherwise {
             let case_token = case.token.clone();
-            *stack = initial_stack.clone();
+            *stack = otherwise_stack.clone();
             *frame = initial_frame.clone();
 
-            typed_otherwise.push(case.type_check(
-                stack,
-                frame,
-                types,
-                func,
-                global_env,
-                generic_map,
-            )?);
+            let (typed_expr, stack_after_check) =
+                case.type_check(stack, frame, types, func, global_env, generic_map)?;
+
+            otherwise_stack = stack_after_check;
+
+            typed_otherwise.push(typed_expr);
 
             if !stack.contains(&Type::Never.id()) {
                 end_stacks.push((case_token, stack.clone()));
@@ -75,26 +72,33 @@ impl ExprIf {
 
         let mut typed_finally = None;
         if let Some(finally) = self.finally {
-            let first_tok = finally[0].token().clone();
-            *stack = initial_stack;
-            *frame = initial_frame.clone();
             let mut tmp = vec![];
-            for e in finally {
-                tmp.push(e.type_check(stack, frame, func, global_env, types, generic_map)?);
-            }
+            *stack = otherwise_stack.clone();
+            *frame = initial_frame.clone();
+            if !finally.is_empty() {
+                let first_tok = finally[0].token().clone();
 
-            typed_finally = Some(tmp);
-            if !stack.contains(&Type::Never.id()) {
-                end_stacks.push((first_tok, stack.clone()));
+                for e in finally {
+                    tmp.push(e.type_check(stack, frame, func, global_env, types, generic_map)?);
+                }
+                typed_finally = Some(tmp);
+
+                if !stack.contains(&Type::Never.id()) {
+                    end_stacks.push((first_tok, stack.clone()));
+                }
+            } else {
+                *stack = otherwise_stack.clone();
+                end_stacks.push((then_end_tok, otherwise_stack));
             }
         } else {
-            *stack = initial_stack.clone();
-            end_stacks.push((then_end_tok, initial_stack));
+            *stack = otherwise_stack.clone();
+            end_stacks.push((then_end_tok, otherwise_stack));
         }
 
-        if !(0..end_stacks.len() - 1)
-            .into_iter()
-            .all(|i| end_stacks[i].1 == end_stacks[i + 1].1)
+        if !end_stacks.is_empty()
+            && !(0..end_stacks.len() - 1)
+                .into_iter()
+                .all(|i| end_stacks[i].1 == end_stacks[i + 1].1)
         {
             let mut err = HayError::new_type_err(
                 "If block creates stacks of diferent shapes",
@@ -110,7 +114,9 @@ impl ExprIf {
         }
 
         *frame = initial_frame;
-
+        if !end_stacks.is_empty() {
+            *stack = end_stacks[0].1.clone();
+        }
         Ok(TypedExpr::If {
             then: typed_then,
             otherwise: typed_otherwise,
@@ -138,7 +144,7 @@ impl ExprElseIf {
         func: &UncheckedFunction,
         global_env: &HashMap<String, (StmtKind, Signature)>,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
-    ) -> Result<TypedExpr, HayError> {
+    ) -> Result<(TypedExpr, Stack), HayError> {
         let mut typed_condition = vec![];
         for expr in self.condition {
             typed_condition.push(expr.type_check(
@@ -153,6 +159,8 @@ impl ExprElseIf {
 
         Signature::new(vec![Type::Bool.id()], vec![]).evaluate(&self.token, stack, types)?;
 
+        let stack_after_check = stack.clone();
+
         let mut typed_block = vec![];
         for expr in self.block {
             typed_block.push(expr.type_check(
@@ -165,9 +173,12 @@ impl ExprElseIf {
             )?);
         }
 
-        Ok(TypedExpr::ElseIf {
-            condition: typed_condition,
-            block: typed_block,
-        })
+        Ok((
+            TypedExpr::ElseIf {
+                condition: typed_condition,
+                block: typed_block,
+            },
+            stack_after_check,
+        ))
     }
 }

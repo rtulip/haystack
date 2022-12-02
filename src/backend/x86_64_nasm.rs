@@ -346,7 +346,7 @@ impl super::CodeGen for X86_64 {
         writeln!(file, "segment .bss")?;
         writeln!(file, "  frame_start_ptr: resq 1")?;
         writeln!(file, "  frame_end_ptr: resq 1")?;
-        writeln!(file, "  frame_stack: resq 65536")?;
+        writeln!(file, "  frame_stack: resq 1048576")?;
         writeln!(file, "  frame_stack_end:")?;
 
         for (id, data) in data {

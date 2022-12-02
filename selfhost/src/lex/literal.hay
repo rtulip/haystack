@@ -1,0 +1,107 @@
+include "hstring.hay"
+include "opt.hay"
+enum LiteralTag {
+    Bool
+    Char
+    String
+    U8
+    U64
+}
+
+union LiteralKind {
+    bool: bool
+    char: char
+    HString: string
+    u8: u8
+    u64: u64
+}
+
+struct Literal {
+    LiteralKind: kind
+    LiteralTag: tag
+    
+impl:
+    inline fn Literal.Bool(bool) -> [Literal] {
+        cast(LiteralKind)
+        LiteralTag::Bool
+        cast(Literal)
+    }
+
+    inline fn Literal.Char(char) -> [Literal] {
+        cast(LiteralKind)
+        LiteralTag::Char
+        cast(Literal)
+    }
+
+    inline fn Literal.String(HString) -> [Literal] {
+        cast(LiteralKind)
+        LiteralTag::String
+        cast(Literal)
+    }
+
+    inline fn Literal.U8(u8) -> [Literal] {
+        cast(LiteralKind)
+        LiteralTag::U8
+        cast(Literal)
+    }
+
+    inline fn Literal.U64(u64) -> [Literal] {
+        cast(LiteralKind)
+        LiteralTag::U64
+        cast(Literal)
+    }
+
+    inline fn Literal.u64(&Literal: self) -> [Opt<u64>] {
+        self::tag @ LiteralTag::U64 == if {
+            self::kind::u64 @ Opt.Some
+        } else {
+            Opt.None::<u64>
+        }
+    }
+
+    fn Literal.clone(&Literal: self) -> [Literal] {
+
+        self::tag @ LiteralTag::String == if {
+            self::kind::string HString.clone
+            Literal.String
+        } else {
+            self @
+        }
+
+    }
+
+    inline fn Literal.equals(&Literal: left &Literal:right) -> [bool] {
+        left::tag @ right::tag @ == 
+    }
+
+    inline fn Literal.take_equals(Literal: left Literal:right) -> [bool] {
+        left::tag right::tag == 
+    }
+
+    fn Literal.format(HString: s &Literal: self) -> [HString] {
+        s
+        self::tag @ LiteralTag::Bool == if {
+            self::kind::bool @ bool.format
+        } else self::tag @ LiteralTag::Char == if {
+            self::kind::char @ HString.push
+        } else self::tag @ LiteralTag::String == if {
+            self::kind::string HString.as_str HString.push_str
+        } else self::tag @ LiteralTag::U8 == if {
+            self::kind::u8 @ u8.format
+        } else self::tag @ LiteralTag::U64 == if {
+            self::kind::u64 @ u64.format
+        } else {
+            "Literal.fput unreahcable!" putlns
+            1 exit 
+        } 
+    }
+
+    fn Literal.string(&Literal: self) -> [Opt<HString>] {
+        self::tag @ LiteralTag::String == if {
+            self::kind::string HString.clone Opt.Some
+        } else {
+            Opt.None::<HString>
+        }
+    }
+
+}

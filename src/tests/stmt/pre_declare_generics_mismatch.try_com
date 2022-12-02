@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/stmt/pre_declare_generics_mismatch.hay:3:1] Error: Type Declaration doesn't match Pre-Declaration.\n    [src/tests/stmt/pre_declare_generics_mismatch.hay:1:1]: Type Foo was predeclared as generic over [T]\n    [src/tests/stmt/pre_declare_generics_mismatch.hay:3:1]: Type Foo was not defined as generic\n"
+}

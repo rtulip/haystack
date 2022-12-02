@@ -46,7 +46,6 @@ impl std::fmt::Display for Marker {
         write!(f, "`")?;
         match self {
             Marker::LeftBrace => write!(f, "{{")?,
-
             Marker::RightBrace => write!(f, "}}")?,
             Marker::LeftParen => write!(f, "(")?,
             Marker::RightParen => write!(f, ")")?,
@@ -152,7 +151,6 @@ pub enum Keyword {
     Union,
     Enum,
     Cast,
-    Syscall,
     Include,
     SizeOf,
     Pub,
@@ -177,7 +175,6 @@ impl std::fmt::Display for Keyword {
             Keyword::Union => write!(f, "union")?,
             Keyword::Enum => write!(f, "enum")?,
             Keyword::Cast => write!(f, "cast")?,
-            Keyword::Syscall => write!(f, "syscall")?,
             Keyword::Include => write!(f, "include")?,
             Keyword::SizeOf => write!(f, "sizeOf")?,
             Keyword::Pub => write!(f, "pub")?,
@@ -204,7 +201,6 @@ impl Keyword {
         map.insert("union", TokenKind::Keyword(Keyword::Union));
         map.insert("enum", TokenKind::Keyword(Keyword::Enum));
         map.insert("cast", TokenKind::Keyword(Keyword::Cast));
-        map.insert("syscall", TokenKind::Keyword(Keyword::Syscall));
         map.insert("include", TokenKind::Keyword(Keyword::Include));
         map.insert("sizeOf", TokenKind::Keyword(Keyword::SizeOf));
         map.insert("pub", TokenKind::Keyword(Keyword::Pub));
@@ -510,7 +506,6 @@ mod tests {
         assert_eq!(format!("{}", Keyword::Else), format!("`else`"));
         assert_eq!(format!("{}", Keyword::While), format!("`while`"));
         assert_eq!(format!("{}", Keyword::Union), format!("`union`"));
-        assert_eq!(format!("{}", Keyword::Syscall), format!("`syscall`"));
         assert_eq!(format!("{}", Keyword::Include), format!("`include`"));
     }
 

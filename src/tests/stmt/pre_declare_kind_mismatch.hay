@@ -1,0 +1,5 @@
+union Foo:
+
+struct Foo {
+    u64: bar
+}

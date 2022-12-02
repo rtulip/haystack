@@ -62,6 +62,8 @@ impl ExprWhile {
 
         Signature::new(vec![Type::Bool.id()], vec![]).evaluate(&self.token, stack, types)?;
 
+        let stack_after_check = stack.clone();
+
         let mut typed_body = vec![];
         for expr in self.body {
             typed_body.push(expr.type_check(stack, frame, func, global_env, types, generic_map)?);
@@ -80,6 +82,7 @@ impl ExprWhile {
         }
 
         *frame = frame_before;
+        *stack = stack_after_check;
 
         Ok(TypedExpr::While {
             cond: typed_cond,

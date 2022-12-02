@@ -1,0 +1,267 @@
+include "hstring.hay"
+include "selfhost/src/lex/marker.hay"
+include "selfhost/src/lex/operator.hay"
+include "selfhost/src/lex/keyword.hay"
+include "selfhost/src/lex/literal.hay"
+include "selfhost/src/lex/type_token.hay"
+enum TokenKindTag {
+    Ident
+    Marker
+    Operator
+    Keyword
+    Literal
+    Syscall
+    Type
+    EoF
+}
+
+fn TokenKindTag.format(HString &TokenKindTag) -> [HString] {
+    as [self]
+    self @ TokenKindTag::Ident == if {
+        "Ident" HString.push_str   
+    } else self @ TokenKindTag::Marker == if {
+        "Marker" HString.push_str   
+    } else self @ TokenKindTag::Operator == if {
+        "Operator" HString.push_str   
+    } else self @ TokenKindTag::Keyword == if {
+        "Keyword" HString.push_str   
+    } else self @ TokenKindTag::Literal == if {
+        "Literal" HString.push_str   
+    } else self @ TokenKindTag::Syscall == if {
+        "Syscall" HString.push_str   
+    } else self @ TokenKindTag::Type == if {
+        "Type" HString.push_str   
+    } else self @ TokenKindTag::EoF == if {
+        "EoF" HString.push_str   
+    } else {
+        "TokenKindTag.format unreachable!" putlns
+        1 exit
+    } 
+}
+
+union TokenKindKind {
+    HString  : ident
+    Marker   : marker
+    Operator : operator
+    Keyword  : keyword
+    Literal  : literal
+    TypeToken: type
+    u64      : n
+}
+
+struct TokenKind {
+    TokenKindKind: kind
+    pub TokenKindTag: tag
+impl:
+    inline fn TokenKind.Ident(HString) -> [TokenKind] {
+        cast(TokenKindKind)
+        TokenKindTag::Ident
+        cast(TokenKind)
+    }
+
+    inline fn TokenKind.Marker(Marker) -> [TokenKind] {
+        cast(TokenKindKind)
+        TokenKindTag::Marker
+        cast(TokenKind)
+    }
+
+    inline fn TokenKind.Operator(Operator) -> [TokenKind] {
+        cast(TokenKindKind)
+        TokenKindTag::Operator
+        cast(TokenKind)
+    }
+
+    inline fn TokenKind.Keyword(Keyword) -> [TokenKind] {
+        cast(TokenKindKind)
+        TokenKindTag::Keyword
+        cast(TokenKind)
+    }
+
+    inline fn TokenKind.Literal(Literal) -> [TokenKind] {
+        cast(TokenKindKind)
+        TokenKindTag::Literal
+        cast(TokenKind)
+    }
+
+    inline fn TokenKind.Syscall(u64) -> [TokenKind] {
+        cast(TokenKindKind)
+        TokenKindTag::Syscall
+        cast(TokenKind)
+    }
+
+    inline fn TokenKind.Type(TypeToken) -> [TokenKind] {
+        cast(TokenKindKind)
+        TokenKindTag::Type
+        cast(TokenKind)
+    }
+
+    inline fn TokenKind.EoF() -> [TokenKind] {
+        0 cast(TokenKindKind)
+        TokenKindTag::EoF
+        cast(TokenKind)
+    }
+
+    inline fn TokenKind.Default() -> [TokenKind] {
+        TokenKind.EoF
+    }
+
+    fn TokenKind.clone(&TokenKind: self) -> [TokenKind] {
+
+        self::tag @ TokenKindTag::Ident == if {
+            self::kind::ident HString.clone TokenKind.Ident
+        } else self::tag @ TokenKindTag::Marker == if {
+            self @ 
+        } else self::tag @ TokenKindTag::Operator == if {
+            self::kind::operator Operator.clone TokenKind.Operator
+        } else self::tag @ TokenKindTag::Keyword == if {
+            self::kind::keyword @ TokenKind.Keyword
+        } else self::tag @ TokenKindTag::Literal == if {
+            self::kind::literal Literal.clone TokenKind.Literal
+        } else self::tag @ TokenKindTag::Syscall == if {
+            self @
+        } else self::tag @ TokenKindTag::Type == if {
+            self::kind::type TypeToken.clone TokenKind.Type
+        } else self::tag @ TokenKindTag::EoF == if {
+            self @
+        } else {
+            "TokenKind.clone unreachable" putlns
+            1 exit
+            self @
+        }
+    }
+
+    inline fn TokenKind.string_default() -> [TokenKind] {
+        "" HString.new
+        Literal.String
+        TokenKind.Literal
+    }
+
+    inline fn TokenKind.ident_default() -> [TokenKind] {
+        "" HString.new
+        TokenKind.Ident
+    }
+
+    inline fn TokenKind.u64_default() -> [TokenKind] {
+        0 Literal.U64
+        TokenKind.Literal
+    }
+
+    inline fn TokenKind.keyword(&TokenKind: self) -> [Opt<Keyword>] {
+        self::tag @ TokenKindTag::Keyword == if {
+            self::kind::keyword @ Opt.Some
+        } else {
+            Opt.None::<Keyword>
+        }
+    }
+
+    inline fn TokenKind.u64(&TokenKind: self) -> [Opt<u64>] {
+        self::tag @ TokenKindTag::Literal == if {
+            self::kind::literal Literal.u64
+        } else {
+            Opt.None::<u64>
+        }
+    }
+
+    inline fn TokenKind.ident(&TokenKind: self) -> [Opt<HString>] {
+        self::tag @ TokenKindTag::Ident == if {
+            self::kind::ident HString.clone Opt.Some
+        } else {
+            Opt.None::<HString>
+        }
+    }
+
+    inline fn TokenKind.operator(&TokenKind: self) -> [Opt<Operator>] {
+        self::tag @ TokenKindTag::Operator == if {
+            self::kind::operator @ Opt.Some
+        } else {
+            Opt.None::<Operator>
+        }
+    }
+
+    inline fn TokenKind.type(&TokenKind: self) -> [Opt<TypeToken>] {
+        self::tag @ TokenKindTag::Type == if {
+            self::kind::type @ Opt.Some
+        } else {
+            Opt.None::<TypeToken>
+        }
+    }
+
+    inline fn TokenKind.literal(&TokenKind: self) -> [Opt<Literal>] {
+        self::tag @ TokenKindTag::Literal == if {
+            self::kind::literal @ Opt.Some
+        } else {
+            Opt.None::<Literal>
+        }
+    }
+
+    inline fn TokenKind.syscall(&TokenKind: self) -> [Opt<u64>] {
+        self::tag @ TokenKindTag::Syscall == if {
+            self::kind::n @ Opt.Some
+        } else {
+            Opt.None::<u64>
+        }
+    }
+
+    inline fn TokenKind.equals(&TokenKind: left &TokenKind: right) -> [bool] {
+        
+        left::tag @ right::tag @ == if {
+            left::tag @ TokenKindTag::Ident == if {
+                true
+            } else left::tag @ TokenKindTag::Marker == if {
+                left::kind::marker @ right::kind::marker @ ==
+            } else left::tag @ TokenKindTag::Operator == if {
+                left::kind::operator right::kind::operator Operator.equals
+            } else left::tag @ TokenKindTag::Keyword == if {
+                left::kind::keyword @ right::kind::keyword @ ==
+            } else left::tag @ TokenKindTag::Literal == if {
+                left::kind::literal right::kind::literal Literal.equals
+            } else left::tag @ TokenKindTag::Syscall == if {
+                true
+            } else left::tag @ TokenKindTag::Type == if {
+                false
+            } else left::tag @ TokenKindTag::EoF == if {
+                true
+            } else {
+                false
+                "unreahcable TokenKind.equals" putlns
+                1 exit 
+            }
+        } else {
+            false
+        }
+    }
+
+    fn TokenKind.format(HString: s &TokenKind: self) -> [HString] {
+        s
+        self::tag @ TokenKindTag::Ident == if {
+            "Identifier: " HString.push_str
+            self::kind::ident HString.as_str HString.push_str
+        } else self::tag @ TokenKindTag::Marker == if {
+            "Marker: " HString.push_str
+            self::kind::marker @ Marker.format
+        } else self::tag @ TokenKindTag::Operator == if {
+            "Operator: " HString.push_str
+            self::kind::operator Operator.format
+        } else self::tag @ TokenKindTag::Keyword == if {
+            "Keyword: " HString.push_str
+            self::kind::keyword @ Keyword.format
+        } else self::tag @ TokenKindTag::Literal == if {
+            "Literal: " HString.push_str
+            self::kind::literal Literal.format
+        } else self::tag @ TokenKindTag::Syscall == if {
+            "Syscall: " HString.push_str
+            "syscall(" HString.push_str
+            self::kind::n @ u64.format
+            ')' HString.push 
+        } else self::tag @ TokenKindTag::Type == if {
+            "TypeToken: " HString.push_str
+            self::kind::type TypeToken.format
+        } else self::tag @ TokenKindTag::EoF == if {
+            "End of File" HString.push_str
+        } else {
+            "unreachable state in TokenKind.format" putlns
+            1 exit 
+        } 
+    }
+
+}

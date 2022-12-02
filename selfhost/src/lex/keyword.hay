@@ -1,0 +1,100 @@
+include "linear_map.hay"
+include "selfhost/src/lex/literal.hay"
+
+enum Keyword {
+    Function
+    Var
+    As
+    If
+    Else
+    While
+    Struct
+    Union
+    Enum
+    Cast
+    Syscall
+    Include
+    SizeOf
+    Pub
+    Impl
+    Inline
+    Return
+    Mut
+}
+
+fn Keyword.format(HString: s Keyword: self) -> [HString] {
+    s '`' HString.push
+
+    self Keyword::Function == if {
+        "fn" HString.push_str
+    } else self Keyword::Var == if {
+        "var" HString.push_str
+    } else self Keyword::As == if {
+        "as" HString.push_str
+    } else self Keyword::If == if {
+        "if" HString.push_str
+    } else self Keyword::Else == if {
+        "else" HString.push_str
+    } else self Keyword::While == if {
+        "while" HString.push_str
+    } else self Keyword::Struct == if {
+        "struct" HString.push_str
+    } else self Keyword::Union == if {
+        "union" HString.push_str
+    } else self Keyword::Enum == if {
+        "enum" HString.push_str
+    } else self Keyword::Cast == if {
+        "cast" HString.push_str
+    } else self Keyword::Syscall == if {
+        "syscall" HString.push_str
+    } else self Keyword::Include == if {
+        "include" HString.push_str
+    } else self Keyword::SizeOf == if {
+        "sizeOf" HString.push_str
+    } else self Keyword::Pub == if {
+        "pub" HString.push_str
+    } else self Keyword::Impl == if {
+        "impl" HString.push_str
+    } else self Keyword::Inline == if {
+        "inline" HString.push_str
+    } else self Keyword::Return == if {
+        "return" HString.push_str
+    } else self Keyword::Mut == if {
+        "mut" HString.push_str
+    } else {
+        "\nKeyword.fput unreachable!" putlns
+        1 exit 
+    }
+    '`' HString.push
+}
+
+struct TokenKind:
+fn Keyword.keywords() -> [Map<TokenKind>] {
+
+    Map.new::<TokenKind> as [mut map]
+
+    "fn"      Keyword::Function TokenKind.Keyword *map Map.insert drop
+    "var"     Keyword::Var      TokenKind.Keyword *map Map.insert drop
+    "as"      Keyword::As       TokenKind.Keyword *map Map.insert drop
+    "if"      Keyword::If       TokenKind.Keyword *map Map.insert drop
+    "else"    Keyword::Else     TokenKind.Keyword *map Map.insert drop
+    "while"   Keyword::While    TokenKind.Keyword *map Map.insert drop
+    "struct"  Keyword::Struct   TokenKind.Keyword *map Map.insert drop
+    "union"   Keyword::Union    TokenKind.Keyword *map Map.insert drop
+    "enum"    Keyword::Enum     TokenKind.Keyword *map Map.insert drop
+    "cast"    Keyword::Cast     TokenKind.Keyword *map Map.insert drop
+    "include" Keyword::Include  TokenKind.Keyword *map Map.insert drop
+    "sizeOf"  Keyword::SizeOf   TokenKind.Keyword *map Map.insert drop
+    "pub"     Keyword::Pub      TokenKind.Keyword *map Map.insert drop
+    "impl"    Keyword::Impl     TokenKind.Keyword *map Map.insert drop
+    "inline"  Keyword::Inline   TokenKind.Keyword *map Map.insert drop
+    "return"  Keyword::Return   TokenKind.Keyword *map Map.insert drop
+    "mut"     Keyword::Mut      TokenKind.Keyword *map Map.insert drop
+
+    "true"  true  Literal.Bool TokenKind.Literal *map Map.insert drop
+    "false" false Literal.Bool TokenKind.Literal *map Map.insert drop
+    "syscall" 0 TokenKind.Syscall *map Map.insert drop
+    
+    map
+
+}

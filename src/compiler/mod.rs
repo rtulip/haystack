@@ -183,11 +183,6 @@ mod tests {
     }
 
     #[test]
-    fn stacks() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "stacks")
-    }
-
-    #[test]
     fn struct_accessors() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "struct_accessors")
     }
@@ -299,5 +294,10 @@ mod tests {
     #[test]
     fn hstring() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "hstring")
+    }
+
+    #[test]
+    fn pre_declare() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "pre_declare")
     }
 }

@@ -1,0 +1,10 @@
+include "vec.hay"
+include "selfhost/src/lex/token.hay"
+
+struct Expr:
+
+struct WhileExpr {
+    pub Token: token
+    pub Vec<Expr>: cond
+    pub Vec<Expr>: body
+}

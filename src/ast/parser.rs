@@ -873,6 +873,7 @@ impl<'a> Parser<'a> {
                                 for arg in &annotations[0..annotations.len() - 1] {
                                     s += format!("{} ", arg.token.lexeme).as_str();
                                 }
+                                s += format!("{}>", annotations.last().unwrap().token.lexeme).as_str();
                                 s
                             };
                             new_token = Token {
@@ -910,7 +911,14 @@ impl<'a> Parser<'a> {
                         }
                         kind => {
                             if inners.is_empty() {
-                                return Err(HayError::new(format!("Expected either an identifier or {} after {}, but found {} instead.", Operator::LessThan, Marker::DoubleColon, kind), next.loc));
+                                return Err(HayError::new(
+                                    format!("Expected either an identifier or {} after {}, but found {} instead.",
+                                        Operator::LessThan, 
+                                        Marker::DoubleColon, 
+                                        kind
+                                    ), 
+                                    next.loc
+                                ));
                             } else {
                                 return Err(HayError::new(
                                     format!(
@@ -1084,6 +1092,7 @@ impl<'a> Parser<'a> {
         } else {
             RecordKind::Struct
         };
+
         let name = match self.matches(TokenKind::ident()) {
             Ok(t) => t,
             Err(t) => {
@@ -1115,11 +1124,21 @@ impl<'a> Parser<'a> {
             None
         };
 
+        if self.matches(TokenKind::Marker(Marker::Colon)).is_ok() {
+            return Ok(vec![Stmt::PreDeclaration {
+                token: start,
+                name,
+                kind,
+                annotations,
+            }]);
+        }
+
         if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
             return Err(HayError::new(
                 format!(
-                    "Expected {} after structure name, but found {} instead.",
+                    "Expected {} after {} name, but found {} instead.",
                     Marker::LeftBrace,
+                    kind,
                     t.kind
                 ),
                 t.loc,

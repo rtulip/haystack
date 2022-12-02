@@ -1,21 +1,25 @@
 include "vec.hay"
+include "file.hay"
 struct HString {
     Vec<char>: chars
 
 impl:
     fn HString.new(Str: s) -> [HString] {
         Vec.new::<char> as [mut chars]
-        s::size 0 > if {
-            0 while dup s::size < {
-                as [i]
-                s::data i ptr+ @ *chars Vec.push
-                i 1 +
-            } drop
-        } else {
-            "Heap-allocated zero sized strings aren't supported" putlns
-            1 exit 
-        }
+        0 while dup s::size < {
+            as [i]
+            s::data i ptr+ @ *chars Vec.push
+            i 1 +
+        } drop
         chars cast(HString)
+    }
+
+    fn HString.debug(&HString: self) {
+        self::chars Vec.debug
+    }
+
+    fn HString.clone(&HString: self) -> [HString] {
+        self HString.as_str HString.new
     }
 
     fn HString.delete(&HString: self) {
@@ -27,9 +31,50 @@ impl:
     }
 
     fn HString.as_str(&HString: self) -> [Str] {
-        self HString.size
-        0 self::chars Vec.get Opt.unwrap
+        self HString.size        
+        self::chars Vec.slice as [slice]
+        slice::data
+
         cast(Str)
+    }
+
+    inline fn HString.push(HString: mut self char: c) -> [HString] {
+        c *self::chars Vec.push
+        self
+    }
+
+    fn HString.push_str(HString: mut self Str: s) -> [HString] {
+        0 while dup s::size < {
+            as [i]
+            s::data i ptr+ @ *self::chars Vec.push
+            i 1 +
+        } drop
+        self
+    }
+
+    fn HString.format(HString: mut self HString: other) -> [HString] {
+        self 
+        0 while dup &other HString.size < {
+            as [i]
+            i &other::chars Vec.at Opt.unwrap HString.push
+            i 1 +
+        } drop
+        &other HString.delete
+    } 
+
+    fn HString.from_file(Str: path) -> [HString] {
+        0 0 path File.open as [file]
+        file File.size as [size] 
+        size Vec.with_capacity::<char> as [mut chars]
+        *chars Vec.slice_mut as [buffer]
+        size buffer::data file::fd sys_read drop
+        file File.close
+
+        buffer size cast(Vec<char>) cast(HString)
+    }
+
+    fn HString.at(u64: idx &HString: self) -> [Opt<char>] {
+        idx self::chars Vec.at
     }
 }
 

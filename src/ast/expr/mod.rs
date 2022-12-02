@@ -221,4 +221,14 @@ mod tests {
     fn mutable_pointer_to_immutable_fn_arg() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("type_check", "mutable_pointer_to_immutable_fn_arg")
     }
+
+    #[test]
+    fn if_else_push_between_conditions() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "if_else_push_between_conditions")
+    }
+
+    #[test]
+    fn while_loop_push_before_condition() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "while_loop_push_before_condition")
+    }
 }

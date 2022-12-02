@@ -3,7 +3,7 @@ include "opt.hay"
 
 fn do_work(Opt<u64>: maybe) -> [Opt<bool>] {
 
-    maybe Opt.is_none if {
+    &maybe Opt.is_none if {
         Opt.None::<bool> return
     }
 
@@ -11,13 +11,14 @@ fn do_work(Opt<u64>: maybe) -> [Opt<bool>] {
         maybe Opt.unwrap 10 < Opt.Some return 
     }
     
-
+    Opt.None::<bool>
 }
 
 fn main() {
 
     9 Opt.Some do_work Opt.unwrap putlnb
     12 Opt.Some do_work Opt.unwrap putlnb
-    Opt.None::<u64> do_work Opt.is_none putlnb
+    Opt.None::<u64> do_work as [opt] 
+    &opt Opt.is_none putlnb
 
 }

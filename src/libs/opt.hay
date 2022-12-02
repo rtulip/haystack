@@ -27,23 +27,35 @@ impl:
         cast(Opt)
     }
 
-    fn Opt.is_some<T>(Opt<T>: opt) -> [bool] {
-        opt::tag OptTag::Some ==
+    fn Opt.is_some<T>(&Opt<T>: opt) -> [bool] {
+        opt::tag @ OptTag::Some ==
     }
 
-    fn Opt.is_none<T>(Opt<T>: opt) -> [bool] {
-        opt::tag OptTag::None ==
+    fn Opt.take_is_some<T>(Opt<T>: opt) -> [bool] {
+        &opt Opt.is_some
+    }
+
+    fn Opt.is_none<T>(&Opt<T>: opt) -> [bool] {
+        opt::tag @ OptTag::None ==
     }
 
     fn Opt.unwrap<T>(Opt<T>: opt) -> [T] {
 
-        opt Opt.is_none if {
+        &opt Opt.is_none if {
             "Unwrapped a None variant" putlns
             1 exit 
         }
 
         opt::value::Some
 
+    }
+
+    fn Opt.unwrap_or<T>(T: default Opt<T>: opt) -> [T] {
+        &opt Opt.is_some if {
+            opt::value::Some
+        } else {
+            default
+        }
     }
 
 

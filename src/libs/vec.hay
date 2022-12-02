@@ -4,12 +4,36 @@ struct Vec<T> {
     Arr<T>: slice
     u64: len
 impl:
-    fn Vec.new<T>() -> [Vec<T>] {
+    fn Vec.debug<T>(&Vec<T>: self) {
+        "capacity: " puts self::slice::size @ putu 
+        " data: "    puts self::slice::data @ cast(u64) putu
+        " len: "     puts self::len         @ putu
+    }
+    
+    inline fn Vec.new<T>() -> [Vec<T>] {
         8 malloc::<T> 0 cast(Vec) 
     }
 
-    fn Vec.delete<T>(&Vec<T>: self) {
+    inline fn Vec.with_capacity<T>(u64) -> [Vec<T>] {
+        malloc::<T> 0 cast(Vec)
+    }
+
+    inline fn Vec.delete<T>(&Vec<T>: self) {
         self::slice @ free
+    }
+
+    inline fn Vec.is_empty<T>(&Vec<T>: self) -> [bool] {
+        self::len @ 0 ==
+    }
+
+    inline fn Vec.slice_mut<T>(*Vec<T>: self) -> [Arr<T>] {
+        self::slice @
+    }
+
+    inline fn Vec.slice<T>(&Vec<T>: self) -> [ConstArr<T>] {
+        self::slice::size @
+        self::slice::data @
+        cast(ConstArr)
     }
 
     fn Vec.push<T>(T: value *Vec<T>: self) {
@@ -53,11 +77,56 @@ impl:
         }
     }
 
+    inline fn Vec.last<T>(&Vec<T>: self) -> [Opt<&T>] {
+        self::len @ 1- self Vec.get
+    }
+
     fn Vec.capacity<T>(&Vec<T>: self) -> [u64] {
         self::slice::size @
     }
 
     fn Vec.len<T>(&Vec<T>: self) -> [u64] {
         self::len @
+    }
+
+    fn Vec.contains<T>(T: item &Vec<T>: self) -> [bool] {
+
+        0 while dup self Vec.len < {
+            as [i]
+            i self Vec.at Opt.unwrap item == if {
+                true return
+            }
+            i 1 +
+        } drop
+
+        false
+
+    }
+
+    fn Vec.append<T>(*Vec<T>: other *Vec<T>: self) {
+        Vec.new::<T> as [mut temp]
+
+        while other Vec.is_empty lnot {
+            other Vec.pop Opt.unwrap *temp Vec.push
+        }
+
+        while &temp Vec.is_empty lnot {
+            *temp Vec.pop Opt.unwrap self Vec.push
+        }
+
+        &temp Vec.delete
+
+    }
+
+    fn Vec.reverse<T>(Vec<T>: mut self) -> [Vec<T>] {
+
+        Vec.new::<T> as [mut rev]
+        while &self Vec.is_empty lnot {
+            *self Vec.pop Opt.unwrap *rev Vec.push
+        }
+
+        &self Vec.delete
+        rev
+
     }
 }

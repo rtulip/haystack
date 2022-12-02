@@ -1,0 +1,24 @@
+// Pre-Declare a type for self-referential types.
+struct Foo:
+struct Foo {
+    &Foo: ref
+}
+
+// Works with generic types too
+union Bar<T>:
+union Bar<T> {
+    u64: foo
+    T: Bar
+}
+
+// Works reguardless of parsing order.:
+struct Baz {
+    u64: foo
+}
+struct Baz:
+
+struct Buzz<T> {
+    T: foo
+}
+struct Buzz<T>:
+

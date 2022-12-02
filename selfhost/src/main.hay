@@ -1,0 +1,15 @@
+include "std.hay"
+include "hstring.hay"
+include "selfhost/src/compiler/compile.hay"
+include "selfhost/src/error.hay"
+include "selfhost/src/lex/token.hay"
+
+fn main() {
+
+    "./src/libs/alloc.hay" HString.new false compile_haystack as [err]
+    &err Opt.is_some if {
+        err Opt.unwrap HayError.report
+        1 exit
+    }
+
+}

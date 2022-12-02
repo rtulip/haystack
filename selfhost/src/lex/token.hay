@@ -1,0 +1,204 @@
+include "hstring.hay"
+include "range.hay"
+include "result.hay"
+include "selfhost/src/error.hay"
+include "selfhost/src/lex/loc.hay"
+include "selfhost/src/lex/token_kind.hay"
+
+struct Token {
+    pub TokenKind: kind
+    pub HString: lexeme
+    pub Loc: loc
+
+impl:
+    fn Token.new(
+        TokenKind: kind
+        HString: lexeme
+        HString: file
+        u64: line
+        u64: start
+        u64: end
+    ) -> [Token] {
+        
+        kind
+        lexeme
+        file
+        line
+        start
+        end
+        cast(Range)
+        cast(Loc)
+        cast(Token)
+    }
+
+    inline fn Token.default() -> [Token] {
+        TokenKind.EoF
+        "" HString.new
+        "" HString.new
+        0
+        0
+        0
+        Token.new
+    }
+
+    fn Token.clone(&Token: self) -> [Token] {
+        self::kind TokenKind.clone
+        self::lexeme HString.clone
+        self::loc Loc.clone
+        cast(Token)
+    }
+
+    fn Token.opt_clone(Opt<&Token>: option) -> [Opt<Token>] {
+        &option Opt.is_some if {
+            option Opt.unwrap as [self]
+            self Token.clone Opt.Some
+        } else {
+            Opt.None::<Token>
+        }
+    }
+
+    fn Token.format(HString: s &Token: self) -> [HString] {
+        s '[' HString.push
+        self::loc Loc.format
+        "]: " HString.push_str 
+        self::kind TokenKind.format
+    }
+
+    fn Token.put(&Token: self) {
+        "" HString.new
+        self Token.format as [s]
+        &s HString.as_str puts
+        &s HString.delete
+    }
+
+    inline fn Token.putln(&Token) {
+        Token.put
+        "\n" puts
+    } 
+
+    fn Token.keyword(&Token: self) -> [Result<Keyword HayError>] {
+        self::kind TokenKind.keyword as [kw]
+        &kw Opt.is_some if {
+            kw Opt.unwrap Result.Ok::<Keyword HayError>
+        } else {
+            "Failed to destructure " HString.new
+            self::kind               TokenKind.format
+            " into a keyword"        HString.push_str
+            self::loc @
+            HayError.new Result.Err::<Keyword HayError>
+        }
+    }
+
+    fn Token.literal(&Token: self) -> [Result<Literal HayError>] {
+        self::kind TokenKind.literal as [lit]
+        &lit Opt.is_some if {
+            lit Opt.unwrap Result.Ok::<Literal HayError>
+        } else {
+            "Failed to destructure " HString.new
+            self::kind               TokenKind.format
+            " into a literal"        HString.push_str
+            self::loc @
+            HayError.new Result.Err::<Literal HayError>
+        }
+    }
+
+    fn Token.u64(&Token: self) -> [Result<u64 HayError>] {
+        self::kind TokenKind.u64 as [n]
+        &n Opt.is_some if {
+            n Opt.unwrap Result.Ok::<u64 HayError>
+        } else {
+            "Failed to destructure " HString.new
+            self::kind               TokenKind.format
+            " into a u64"            HString.push_str
+            self::loc @
+            HayError.new Result.Err::<u64 HayError>
+        }
+    }
+
+    fn Token.operator(&Token: self) -> [Result<Operator HayError>] {
+        self::kind TokenKind.operator as [op]
+        &op Opt.is_some if {
+            op Opt.unwrap Result.Ok::<Operator HayError>
+        } else {
+            "Failed to destructure " HString.new
+            self::kind               TokenKind.format
+            " into an operator"        HString.push_str
+            self::loc @
+            HayError.new Result.Err::<Operator HayError>
+        }
+    }
+
+    fn Token.ident(&Token: self) -> [Result<HString HayError>] {
+        self::kind TokenKind.ident as [ident]
+        &ident Opt.is_some if {
+            ident Opt.unwrap Result.Ok::<HString HayError>
+        } else {
+            "Failed to destructure " HString.new
+            self::kind               TokenKind.format
+            " into an identifier"    HString.push_str
+            self::loc @
+            HayError.new Result.Err::<HString HayError>
+        }
+    }
+
+    fn Token.type(&Token: self) -> [Result<TypeToken HayError>] {
+        self::kind TokenKind.type as [type]
+        &type Opt.is_some if {
+            type Opt.unwrap Result.Ok::<TypeToken HayError>
+        } else {
+            "Failed to destructure " HString.new
+            self::kind               TokenKind.format
+            " into a Type"           HString.push_str
+            self::loc @
+            HayError.new Result.Err::<TypeToken HayError>
+        }
+    }
+
+    fn Token.unary_operator(&Token: self) -> [Result<Operator HayError>] {
+        self Token.operator as [outer_op]
+        &outer_op Result.is_ok if {
+            outer_op Result.unwrap as [unary_op]
+            &unary_op Operator.unary as [maybe_unary_tok]
+            &maybe_unary_tok Opt.is_some if {
+                maybe_unary_tok Opt.unwrap as [unary_tok]
+                unary_tok Token.operator
+            } else {
+                "Failed to destructure " HString.new
+                self::kind               TokenKind.format
+                " into a unary operator" HString.push_str
+                self::loc @
+                HayError.new Result.Err::<Operator HayError>
+            }
+        } else {
+            "Failed to destructure " HString.new
+            self::kind               TokenKind.format
+            " into an operator"        HString.push_str
+            self::loc @
+            HayError.new Result.Err::<Operator HayError>
+        }
+    }
+
+    fn Token.string(&Token: self) -> [Result<HString HayError>] {
+
+        self Token.literal as [result]{
+            &result Result.is_ok if {
+                result Result.unwrap
+            } else {
+                result Result.unwrap_err Result.Err::<HString HayError> return
+            }
+        } as [literal]
+
+        &literal Literal.string as [string]
+        &string Opt.is_some if {
+            string Opt.unwrap Result.Ok::<HString HayError>
+        } else {
+            "Failed to destructure "  HString.new
+            self::kind                TokenKind.format
+            " into an string literal" HString.push_str
+            self::loc @
+            HayError.new Result.Err::<HString HayError> return
+        }
+
+    }
+
+}

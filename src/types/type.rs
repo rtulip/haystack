@@ -4,7 +4,9 @@ use crate::error::HayError;
 use crate::lex::token::Token;
 use std::collections::BTreeMap;
 
-use super::{Function, GenericFunction, RecordKind, TypeId, TypeMap, UncheckedFunction};
+use super::{
+    Function, GenericFunction, InterfaceBaseType, RecordKind, TypeId, TypeMap, UncheckedFunction,
+};
 
 /// Representation of Types within Haystack.
 ///
@@ -99,11 +101,19 @@ pub enum Type {
     },
     /// Represents a generic function.
     /// Generic Functions are not type checked.
-    GenericFunction { func: GenericFunction },
+    GenericFunction {
+        func: GenericFunction,
+    },
     /// Represents a concrete function that needs to be type checked.
-    UncheckedFunction { func: UncheckedFunction },
+    UncheckedFunction {
+        func: UncheckedFunction,
+    },
     /// Represents a function that has been type checked.
-    Function { func: Function },
+    Function {
+        func: Function,
+    },
+
+    InterfaceBase(InterfaceBaseType),
 }
 
 impl Type {
@@ -136,6 +146,7 @@ impl Type {
 
                 TypeId::new(name)
             }
+            Type::InterfaceBase(base) => base.id(),
             Type::UncheckedFunction { .. }
             | Type::GenericFunction { .. }
             | Type::Function { .. } => {

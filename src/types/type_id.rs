@@ -50,7 +50,8 @@ impl TypeId {
             Some(
                 Type::GenericRecordBase { .. }
                 | Type::GenericRecordInstance { .. }
-                | Type::GenericFunction { .. },
+                | Type::GenericFunction { .. }
+                | Type::InterfaceBase(_),
             )
             | None => true,
             Some(Type::RecordPreDeclaration { generics, .. }) => !generics.is_empty(),
@@ -162,6 +163,7 @@ impl TypeId {
                             base_tid.assign(token, &map, types)
                         }
                     }
+                    Some(Type::InterfaceBase(_)) => unimplemented!(),
                     Some(
                         Type::Bool
                         | Type::Char
@@ -494,6 +496,7 @@ impl TypeId {
 
                     Ok(tid)
                 }
+                Type::InterfaceBase(_) => unimplemented!(),
                 Type::UncheckedFunction { .. } | Type::Function { .. } => {
                     unreachable!("Should never assign to non-generic function!")
                 }
@@ -681,7 +684,7 @@ impl TypeId {
 
                 Ok(concrete.clone())
             }
-
+            (Some(Type::InterfaceBase(_)), _) => unimplemented!(),
             // Cover all the cases of mismatched types.
             (Some(Type::Pointer { .. }), _)
             | (Some(Type::Bool), _)
@@ -744,6 +747,10 @@ impl TypeId {
                 }
                 RecordKind::Interface => unreachable!(),
             },
+            Type::InterfaceBase(_) => Err(HayError::new(
+                "InterfaceBase types do not have a size",
+                Loc::new("", 0, 0, 0),
+            )),
             Type::Never => Err(HayError::new(
                 "Never type does not have a size",
                 Loc::new("", 0, 0, 0),

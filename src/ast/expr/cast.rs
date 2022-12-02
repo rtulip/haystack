@@ -134,6 +134,7 @@ impl ExprCast {
                 self.token.loc,
             )),
             Type::Bool => unimplemented!(),
+            Type::InterfaceBase(_) => unimplemented!(),
             Type::GenericFunction { .. }
             | Type::UncheckedFunction { .. }
             | Type::Function { .. }

@@ -136,9 +136,7 @@ impl Stmt {
             Stmt::FunctionStub(stmt) => {
                 stmt.add_to_global_scope(types, global_env, init_data, uninit_data)
             }
-            Stmt::Interface(stmt) => {
-                stmt.add_to_global_scope(types, global_env, init_data, uninit_data)
-            }
+            Stmt::Interface(stmt) => stmt.add_to_global_scope(types),
             Stmt::InterfaceImpl(stmt) => {
                 stmt.add_to_global_scope(types, global_env, init_data, uninit_data)
             }

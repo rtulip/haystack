@@ -13,9 +13,10 @@ use crate::{
 
 use super::{FramedType, Type, TypeMap};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FnTag {
     Inline,
+    Interface(TypeId),
     OnCopy,
     OnDrop,
 }

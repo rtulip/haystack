@@ -2,8 +2,8 @@ use crate::ast::expr::Expr;
 use crate::ast::stmt::Stmt;
 use crate::error::HayError;
 use crate::lex::token::{Keyword, Loc, Marker, Operator, Token, TokenKind, TypeToken};
-use crate::types::{FnTag, RecordKind};
-use std::collections::HashSet;
+use crate::types::{FnTag, RecordKind, TypeId};
+use std::collections::{HashMap, HashSet};
 
 use super::arg::{IdentArg, UntypedArg};
 use super::expr::{
@@ -88,6 +88,7 @@ impl<'a> Parser<'a> {
                 let expr = self.var(token.clone())?;
                 Ok(vec![Stmt::Var { token, expr }])
             }
+            TokenKind::Keyword(Keyword::Interface) => self.interface(token),
             kind => Err(HayError::new(
                 format!("Unexpected top level token: {}", kind),
                 token.loc,
@@ -122,6 +123,149 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn interface(&mut self, start: Token) -> Result<Vec<Stmt>, HayError> {
+        let name = match self.matches(TokenKind::ident()) {
+            Ok(t) => t,
+            Err(t) => {
+                return Err(HayError::new(
+                    format!(
+                        "Expected interface name after {}, but found {}",
+                        Keyword::Interface,
+                        t.kind
+                    ),
+                    t.loc,
+                ))
+            }
+        };
+
+        let annotations = match self.matches(TokenKind::Operator(Operator::LessThan)) {
+            Ok(open) => {
+                let annotations = self.unnamed_args_list(&open)?;
+                if let Err(t) = self.matches(TokenKind::Operator(Operator::GreaterThan)) {
+                    return Err(HayError::new(
+                        format!(
+                            "Expected {} after function annotations, but found {} instead.",
+                            Operator::GreaterThan,
+                            t.kind
+                        ),
+                        t.loc,
+                    ));
+                }
+
+                annotations
+            }
+            Err(t) => {
+                return Err(HayError::new(
+                    format!(
+                        "Expected {} after interface name, but found {}",
+                        Operator::LessThan,
+                        t.kind
+                    ),
+                    t.loc,
+                ))
+            }
+        };
+        let open = match self.matches(TokenKind::Marker(Marker::LeftBrace)) {
+            Ok(t) => t,
+            Err(t) => {
+                return Err(HayError::new(
+                    format!(
+                        "Expected {} after interface name, but found {} instead.",
+                        Marker::LeftBrace,
+                        t.kind
+                    ),
+                    t.loc,
+                ))
+            }
+        };
+
+        let types = self.interface_associated_types(&open)?;
+
+        let fns = self.interface_functions(&open, &name)?;
+
+        if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
+            return Err(HayError::new(
+                format!(
+                    "Expected {} after interface definition, but found {} instead.",
+                    Marker::RightBrace,
+                    t.kind
+                ),
+                t.loc,
+            ));
+        }
+
+        if fns.is_empty() {
+            return Err(HayError::new(
+                "Expected at least one interface function, but none were found.",
+                name.loc,
+            ));
+        }
+
+        Ok(vec![Stmt::Interface {
+            token: start,
+            name,
+            types,
+            fns,
+        }])
+    }
+
+    fn interface_functions(&mut self, open: &Token, name: &Token) -> Result<Vec<Stmt>, HayError> {
+        let mut fns = vec![];
+        while let Ok(t) = self.matches(TokenKind::Keyword(Keyword::Function)) {
+            fns.append(&mut self.function_stub_or_def(
+                t,
+                vec![FnTag::Interface(TypeId::new(&name.lexeme))],
+                None,
+            )?);
+        }
+
+        Ok(fns)
+    }
+
+    fn interface_associated_types(
+        &mut self,
+        token: &Token,
+    ) -> Result<HashMap<TypeId, Token>, HayError> {
+        let mut types = HashMap::new();
+        while let Ok(id) = self.matches(TokenKind::ident()) {
+            if id.ident().unwrap() != "_" {
+                return Err(HayError::new(
+                    format!("Expected `_` as placeholder for interface associated type, but found {} instead.", id.ident().unwrap()),
+                    id.loc
+                ));
+            }
+
+            if let Err(t) = self.matches(TokenKind::Marker(Marker::Colon)) {
+                return Err(HayError::new(
+                    format!(
+                        "Expected {} after associated type placeholder, but found {} instead.",
+                        Marker::Colon,
+                        t.kind
+                    ),
+                    t.loc,
+                ));
+            }
+
+            match self.matches(TokenKind::ident()) {
+                Ok(t) => {
+                    types.insert(TypeId::new(&t.lexeme), t);
+                }
+                Err(t) => {
+                    return Err(HayError::new(
+                        format!(
+                            "Expected an identifier after {}, but found {} instead",
+                            Marker::Colon,
+                            t.kind
+                        ),
+                        t.loc,
+                    ))
+                }
+            }
+        }
+
+        Ok(types)
+    }
+
     fn inline_function(
         &mut self,
         start: Token,
@@ -145,19 +289,22 @@ impl<'a> Parser<'a> {
         self.function(fn_tok, vec![FnTag::Inline], impl_on)
     }
 
-    // Function          -> "fn" IDENT (annotations)? args_list (return_types)? block
-    // annotations       -> "<" type_name ">"
-    // args_list         -> "(" typed_args_list | untyped_args_list ")"
-    // typed_args_list   -> (IDENT: IDENT)*
-    // untyped_args_list -> IDENT*
-    // return_types      -> "->" "[" IDENT+ "]"
-    // block             -> "{" Expression* "}"
-    fn function(
+    fn function_stub(
         &mut self,
         start: Token,
         mut tags: Vec<FnTag>,
         impl_on: Option<&Token>,
-    ) -> Result<Vec<Stmt>, HayError> {
+    ) -> Result<
+        (
+            Token,
+            Token,
+            Option<Vec<UntypedArg>>,
+            Vec<UntypedArg>,
+            Vec<UntypedArg>,
+            Vec<FnTag>,
+        ),
+        HayError,
+    > {
         let name = match self.matches(TokenKind::ident()) {
             Ok(t) => t,
             Err(t) => {
@@ -291,6 +438,58 @@ impl<'a> Parser<'a> {
             Err(_) => vec![],
         };
 
+        Ok((start, name, annotations, inputs, outputs, tags))
+    }
+
+    fn function_stub_or_def(
+        &mut self,
+        start: Token,
+        mut tags: Vec<FnTag>,
+        impl_on: Option<&Token>,
+    ) -> Result<Vec<Stmt>, HayError> {
+        let (start, name, annotations, inputs, outputs, stub_tags) =
+            self.function_stub(start, tags.clone(), impl_on)?;
+
+        if self.check(TokenKind::Marker(Marker::LeftBrace)) {
+            let body = self.block()?;
+            Ok(vec![Stmt::Function {
+                token: start,
+                name,
+                inputs,
+                outputs,
+                annotations,
+                body,
+                tags: stub_tags,
+                impl_on: impl_on.cloned(),
+            }])
+        } else {
+            Ok(vec![Stmt::FunctionStub {
+                token: start,
+                name,
+                inputs,
+                outputs,
+                annotations,
+                tags: stub_tags,
+                impl_on: impl_on.cloned(),
+            }])
+        }
+    }
+
+    // Function          -> "fn" IDENT (annotations)? args_list (return_types)? block
+    // annotations       -> "<" type_name ">"
+    // args_list         -> "(" typed_args_list | untyped_args_list ")"
+    // typed_args_list   -> (IDENT: IDENT)*
+    // untyped_args_list -> IDENT*
+    // return_types      -> "->" "[" IDENT+ "]"
+    // block             -> "{" Expression* "}"
+    fn function(
+        &mut self,
+        start: Token,
+        tags: Vec<FnTag>,
+        impl_on: Option<&Token>,
+    ) -> Result<Vec<Stmt>, HayError> {
+        let (start, name, annotations, inputs, outputs, tags) =
+            self.function_stub(start, tags, impl_on)?;
         let body = self.block()?;
 
         Ok(vec![Stmt::Function {

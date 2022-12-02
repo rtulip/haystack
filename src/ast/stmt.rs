@@ -21,6 +21,21 @@ pub enum StmtKind {
 
 #[derive(Clone)]
 pub enum Stmt {
+    Interface {
+        token: Token,
+        name: Token,
+        types: HashMap<TypeId, Token>,
+        fns: Vec<Stmt>,
+    },
+    FunctionStub {
+        token: Token,
+        name: Token,
+        inputs: Vec<UntypedArg>,
+        outputs: Vec<UntypedArg>,
+        annotations: Option<Vec<UntypedArg>>,
+        impl_on: Option<Token>,
+        tags: Vec<FnTag>,
+    },
     Function {
         token: Token,
         name: Token,
@@ -309,6 +324,8 @@ impl Stmt {
                     }
                 }
             }
+            Stmt::FunctionStub { .. } => unimplemented!(),
+            Stmt::Interface { .. } => unimplemented!(),
         }
 
         Ok(())

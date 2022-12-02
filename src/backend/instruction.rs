@@ -143,6 +143,7 @@ impl Instruction {
 
                                     &members[idx].typ
                                 }
+                                RecordKind::Interface => unreachable!(),
                             }
                         } else {
                             panic!("{typ}");
@@ -195,6 +196,7 @@ impl Instruction {
 
                                     &members[idx].typ
                                 }
+                                RecordKind::Interface => unreachable!(),
                             }
                         } else {
                             panic!("{typ}");
@@ -249,6 +251,7 @@ impl Instruction {
 
                                     &members[idx].typ
                                 }
+                                RecordKind::Interface => unreachable!(),
                             }
                         } else {
                             panic!("{typ}");

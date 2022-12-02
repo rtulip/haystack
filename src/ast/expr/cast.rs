@@ -57,6 +57,7 @@ impl ExprCast {
 
                     Ok(TypedExpr::Pad { padding })
                 }
+                RecordKind::Interface => unreachable!(),
             },
 
             Type::U64 => {

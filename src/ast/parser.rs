@@ -89,6 +89,7 @@ impl<'a> Parser<'a> {
                 Ok(vec![Stmt::Var { token, expr }])
             }
             TokenKind::Keyword(Keyword::Interface) => self.interface(token),
+            TokenKind::Keyword(Keyword::Impl) => self.interface_impl(token),
             kind => Err(HayError::new(
                 format!("Unexpected top level token: {}", kind),
                 token.loc,
@@ -121,6 +122,54 @@ impl<'a> Parser<'a> {
                 start.loc,
             ))
         }
+    }
+
+    fn interface_impl(&mut self, start: Token) -> Result<Vec<Stmt>, HayError> {
+        let interface = match self.parse_type()? {
+            Some(t) => t,
+            None => {
+                return Err(HayError::new(
+                    format!(
+                        "Expected interface type after keyword {}, but found {} instead",
+                        Keyword::Impl,
+                        self.peek().kind
+                    ),
+                    start.loc,
+                ))
+            }
+        };
+
+        if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
+            return Err(HayError::new(
+                format!(
+                    "Expected {} after interface type, but found {} instead.",
+                    Marker::LeftBrace,
+                    t.kind
+                ),
+                t.loc,
+            ));
+        }
+
+        let types = self.members(&start, &interface, &RecordKind::Interface)?;
+        let fns = self.function_list(None)?;
+
+        if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
+            return Err(HayError::new(
+                format!(
+                    "Expected {} after interface implementation, but found {} instead.",
+                    Marker::RightBrace,
+                    t.kind
+                ),
+                t.loc,
+            ));
+        }
+
+        Ok(vec![Stmt::InterfaceImpl {
+            token: start,
+            interface,
+            types,
+            fns,
+        }])
     }
 
     fn interface(&mut self, start: Token) -> Result<Vec<Stmt>, HayError> {
@@ -165,23 +214,20 @@ impl<'a> Parser<'a> {
                 ))
             }
         };
-        let open = match self.matches(TokenKind::Marker(Marker::LeftBrace)) {
-            Ok(t) => t,
-            Err(t) => {
-                return Err(HayError::new(
-                    format!(
-                        "Expected {} after interface name, but found {} instead.",
-                        Marker::LeftBrace,
-                        t.kind
-                    ),
-                    t.loc,
-                ))
-            }
-        };
+        if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
+            return Err(HayError::new(
+                format!(
+                    "Expected {} after interface name, but found {} instead.",
+                    Marker::LeftBrace,
+                    t.kind
+                ),
+                t.loc,
+            ));
+        }
 
-        let types = self.interface_associated_types(&open)?;
+        let types = self.interface_associated_types()?;
 
-        let fns = self.interface_functions(&open, &name)?;
+        let fns = self.interface_functions(&name)?;
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
             return Err(HayError::new(
@@ -204,12 +250,13 @@ impl<'a> Parser<'a> {
         Ok(vec![Stmt::Interface {
             token: start,
             name,
+            annotations,
             types,
             fns,
         }])
     }
 
-    fn interface_functions(&mut self, open: &Token, name: &Token) -> Result<Vec<Stmt>, HayError> {
+    fn interface_functions(&mut self, name: &Token) -> Result<Vec<Stmt>, HayError> {
         let mut fns = vec![];
         while let Ok(t) = self.matches(TokenKind::Keyword(Keyword::Function)) {
             fns.append(&mut self.function_stub_or_def(
@@ -222,10 +269,7 @@ impl<'a> Parser<'a> {
         Ok(fns)
     }
 
-    fn interface_associated_types(
-        &mut self,
-        token: &Token,
-    ) -> Result<HashMap<TypeId, Token>, HayError> {
+    fn interface_associated_types(&mut self) -> Result<HashMap<TypeId, Token>, HayError> {
         let mut types = HashMap::new();
         while let Ok(id) = self.matches(TokenKind::ident()) {
             if id.ident().unwrap() != "_" {
@@ -444,7 +488,7 @@ impl<'a> Parser<'a> {
     fn function_stub_or_def(
         &mut self,
         start: Token,
-        mut tags: Vec<FnTag>,
+        tags: Vec<FnTag>,
         impl_on: Option<&Token>,
     ) -> Result<Vec<Stmt>, HayError> {
         let (start, name, annotations, inputs, outputs, stub_tags) =
@@ -1191,10 +1235,27 @@ impl<'a> Parser<'a> {
             vis: match kind {
                 RecordKind::Union => Visitiliby::Public,
                 RecordKind::Struct => vis,
+                RecordKind::Interface => Visitiliby::Public,
             },
             token,
             ident,
         }))
+    }
+
+    fn function_list(&mut self, impl_on: Option<&Token>) -> Result<Vec<Stmt>, HayError> {
+        let mut fns = vec![];
+        loop {
+            match (
+                self.matches(TokenKind::Keyword(Keyword::Function)),
+                self.matches(TokenKind::Keyword(Keyword::Inline)),
+            ) {
+                (Ok(fn_tok), _) => fns.append(&mut self.function(fn_tok, vec![], impl_on)?),
+                (_, Ok(inline_tok)) => fns.append(&mut self.inline_function(inline_tok, impl_on)?),
+                _ => break,
+            }
+        }
+
+        Ok(fns)
     }
 
     fn impl_section(&mut self, impl_on: &Token) -> Result<Option<Vec<Stmt>>, HayError> {
@@ -1211,23 +1272,7 @@ impl<'a> Parser<'a> {
                 ));
             }
 
-            let mut fns = vec![];
-            loop {
-                match (
-                    self.matches(TokenKind::Keyword(Keyword::Function)),
-                    self.matches(TokenKind::Keyword(Keyword::Inline)),
-                ) {
-                    (Ok(fn_tok), _) => {
-                        fns.append(&mut self.function(fn_tok, vec![], Some(impl_on))?)
-                    }
-                    (_, Ok(inline_tok)) => {
-                        fns.append(&mut self.inline_function(inline_tok, Some(impl_on))?)
-                    }
-                    _ => break,
-                }
-            }
-
-            Ok(Some(fns))
+            Ok(Some(self.function_list(Some(impl_on))?))
         } else {
             Ok(None)
         }

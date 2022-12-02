@@ -24,7 +24,14 @@ pub enum Stmt {
     Interface {
         token: Token,
         name: Token,
+        annotations: Vec<UntypedArg>,
         types: HashMap<TypeId, Token>,
+        fns: Vec<Stmt>,
+    },
+    InterfaceImpl {
+        token: Token,
+        interface: Token,
+        types: Vec<UntypedMember>,
         fns: Vec<Stmt>,
     },
     FunctionStub {
@@ -326,6 +333,7 @@ impl Stmt {
             }
             Stmt::FunctionStub { .. } => unimplemented!(),
             Stmt::Interface { .. } => unimplemented!(),
+            Stmt::InterfaceImpl { .. } => unimplemented!(),
         }
 
         Ok(())

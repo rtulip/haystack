@@ -732,6 +732,7 @@ impl TypeId {
 
                     Ok(max)
                 }
+                RecordKind::Interface => unreachable!(),
             },
             Type::Never => Err(HayError::new(
                 "Never type does not have a size",
@@ -808,6 +809,7 @@ impl TypeId {
                             match kind {
                                 RecordKind::Union => "Union",
                                 RecordKind::Struct => "Struct",
+                                RecordKind::Interface => unreachable!(),
                             },
                             name.lexeme,
                             inner_member.lexeme,

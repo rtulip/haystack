@@ -151,7 +151,7 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        let types = self.members(&start, &interface, &RecordKind::Interface)?;
+        let types = self.members( &interface, &RecordKind::Interface).unwrap_or(vec![]);
         let fns = self.function_list(None)?.into_iter().map(|s| match s {
             Stmt::Function(f) => f,
             _ => unreachable!(),
@@ -1156,7 +1156,11 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        let members = self.members(&start, &name, &kind)?;
+        let members = self.members(&name, &kind)?;
+
+        if members.is_empty() {
+            return Err(HayError::new(format!("{} members cannot be empty.", kind), name.loc));
+        }
 
         let impls = self.impl_section(&name)?;
 
@@ -1188,7 +1192,6 @@ impl<'a> Parser<'a> {
 
     fn members(
         &mut self,
-        start_tok: &Token,
         typ_tok: &Token,
         kind: &RecordKind,
     ) -> Result<Vec<UntypedMember>, HayError> {
@@ -1198,14 +1201,8 @@ impl<'a> Parser<'a> {
             members.push(mem);
         }
 
-        if members.is_empty() {
-            Err(HayError::new(
-                "Struct members cannot be empty.",
-                start_tok.loc.clone(),
-            ))
-        } else {
-            Ok(members)
-        }
+        Ok(members)
+        
     }
 
     fn member(

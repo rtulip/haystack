@@ -50,7 +50,7 @@ impl InterfaceBaseType {
         types: &mut TypeMap,
         global_env: &GlobalEnv,
     ) -> Result<String, HayError> {
-        let mut err = HayError::new(
+        let mut err = HayError::new_type_err(
             format!(
                 "Failed to resolve interface function `{}`",
                 &expr.ident.lexeme

@@ -1,0 +1,11 @@
+interface Foo<A> {
+    fn foo(A)
+}
+
+impl Foo<u64> {
+    fn foo(u64) { drop }
+}
+
+fn main() {
+    "Hello" foo
+}

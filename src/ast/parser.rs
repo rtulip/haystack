@@ -343,14 +343,7 @@ impl<'a> Parser<'a> {
         mut tags: Vec<FnTag>,
         impl_on: Option<&Token>,
     ) -> Result<
-        (
-            Token,
-            Token,
-            Option<Vec<UntypedArg>>,
-            Vec<UntypedArg>,
-            Vec<UntypedArg>,
-            Vec<FnTag>,
-        ),
+        FunctionStubStmt,
         HayError,
     > {
         let name = match self.matches(TokenKind::ident()) {
@@ -486,7 +479,17 @@ impl<'a> Parser<'a> {
             Err(_) => vec![],
         };
 
-        Ok((start, name, annotations, inputs, outputs, tags))
+        let stub = FunctionStubStmt {
+            token: start,
+            name,
+            inputs,
+            outputs,
+            annotations,
+            tags,
+            impl_on: impl_on.cloned(),
+        };
+
+        Ok(stub)
     }
 
     fn function_stub_or_def(
@@ -495,31 +498,23 @@ impl<'a> Parser<'a> {
         tags: Vec<FnTag>,
         impl_on: Option<&Token>,
     ) -> Result<Vec<Stmt>, HayError> {
-        let (start, name, annotations, inputs, outputs, stub_tags) =
-            self.function_stub(start, tags.clone(), impl_on)?;
+        let stub =
+            self.function_stub(start, tags, impl_on)?;
 
         if self.check(TokenKind::Marker(Marker::LeftBrace)) {
             let body = self.block()?;
             Ok(vec![Stmt::Function(FunctionStmt {
-                token: start,
-                name,
-                inputs,
-                outputs,
-                annotations,
+                token: stub.token,
+                name: stub.name,
+                inputs: stub.inputs,
+                outputs: stub.outputs,
+                annotations: stub.annotations,
                 body,
-                tags: stub_tags,
-                impl_on: impl_on.cloned(),
+                tags: stub.tags,
+                impl_on: stub.impl_on,
             })])
         } else {
-            Ok(vec![Stmt::FunctionStub(FunctionStubStmt {
-                token: start,
-                name,
-                inputs,
-                outputs,
-                annotations,
-                tags: stub_tags,
-                impl_on: impl_on.cloned(),
-            })])
+            Ok(vec![Stmt::FunctionStub(stub)])
         }
     }
 
@@ -536,18 +531,17 @@ impl<'a> Parser<'a> {
         tags: Vec<FnTag>,
         impl_on: Option<&Token>,
     ) -> Result<Vec<Stmt>, HayError> {
-        let (start, name, annotations, inputs, outputs, tags) =
-            self.function_stub(start, tags, impl_on)?;
+        let stub = self.function_stub(start, tags, impl_on)?;
         let body = self.block()?;
 
         Ok(vec![Stmt::Function(FunctionStmt {
-            token: start,
-            name,
-            inputs,
-            outputs,
-            annotations,
+            token: stub.token,
+            name: stub.name,
+            inputs: stub.inputs,
+            outputs: stub.outputs,
+            annotations: stub.annotations,
             body,
-            tags,
+            tags: stub.tags,
             impl_on: impl_on.cloned(),
         })])
     }

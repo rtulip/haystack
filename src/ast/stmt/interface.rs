@@ -45,7 +45,7 @@ impl InterfaceStmt {
         });
         let tid = typ.id();
 
-        if let Some(_) = types.insert(tid.clone(), typ) {
+        if types.insert(tid.clone(), typ).is_some() {
             return Err(HayError::new(
                 format!(
                     "Interface name conflict: `{}` defined elsewhere.",

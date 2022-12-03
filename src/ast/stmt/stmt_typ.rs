@@ -74,20 +74,19 @@ impl Stmt {
             }
         }
 
-        match impl_on {
-            Some(tid) => match types.get(tid) {
+        if let Some(tid) = impl_on {
+            match types.get(tid) {
                 Some(Type::InterfaceBase(interface)) => {
                     for t in &interface.annotations {
                         out.push(t.clone());
                     }
-                    for (t, _) in &interface.types {
+                    for t in interface.types.keys() {
                         out.push(t.clone());
                     }
                 }
                 Some(_) => unimplemented!("tid: {tid}"),
                 None => unimplemented!("unrecognized type {tid}"),
-            },
-            None => (),
+            }
         }
 
         Ok(out)

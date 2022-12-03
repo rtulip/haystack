@@ -27,12 +27,7 @@ impl InterfaceImplStmt {
             TokenKind::Type(TypeToken::Parameterized { base, inner }) => {
                 let mut inner_tids = vec![];
                 for t in inner {
-                    inner_tids.push(TypeId::from_type_token(
-                        &self.interface,
-                        &t,
-                        types,
-                        &vec![],
-                    )?);
+                    inner_tids.push(TypeId::from_type_token(&self.interface, t, types, &vec![])?);
                 }
                 (base, inner_tids)
             }
@@ -104,11 +99,7 @@ impl InterfaceImplStmt {
                 ))
                 .with_hint(format!(
                     "{:?}",
-                    interface
-                        .types
-                        .iter()
-                        .map(|(tid, _)| tid)
-                        .collect::<Vec<&TypeId>>()
+                    interface.types.keys().collect::<Vec<&TypeId>>()
                 )));
             }
         }
@@ -137,7 +128,7 @@ impl InterfaceImplStmt {
         for ann in &interface.annotations {
             mapped.push(map.get(ann).unwrap().clone());
         }
-        for (typ, _) in &interface.types {
+        for typ in interface.types.keys() {
             mapped.push(map.get(typ).unwrap().clone());
         }
 

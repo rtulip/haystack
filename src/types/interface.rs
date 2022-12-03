@@ -30,8 +30,7 @@ pub struct InterfaceInstanceType {
 
 impl InterfaceBaseType {
     pub fn id(&self) -> TypeId {
-        let name = format!("{}", self.name.lexeme);
-        TypeId::new(name)
+        TypeId::new(&self.name.lexeme)
     }
 
     pub fn full_id(&self) -> TypeId {
@@ -60,20 +59,20 @@ impl InterfaceBaseType {
         .with_hint(format!("Interface `{}` is implemented by:", self.full_id(),));
 
         for instance in &self.impls {
-            match types.get(instance) {
+            let mapped_fn = match types.get(instance) {
                 Some(Type::InterfaceInstance(instance)) => {
                     err = err.with_hint(format!("  {}", instance.token.lexeme));
 
                     let fn_tid = TypeId::new(&expr.ident.lexeme);
-                    let mapped_fn = instance.fns_map.get(&fn_tid).unwrap().clone();
-                    drop(instance);
-                    match global_env.get(&mapped_fn.0).unwrap() {
-                        (StmtKind::Function, signature) => {
-                            if signature.evaluate(&expr.ident, stack, types).is_ok() {
-                                return Ok(mapped_fn.0);
-                            }
-                        }
-                        _ => unreachable!(),
+                    instance.fns_map.get(&fn_tid).unwrap().clone()
+                }
+                _ => unreachable!(),
+            };
+
+            match global_env.get(&mapped_fn.0).unwrap() {
+                (StmtKind::Function, signature) => {
+                    if signature.evaluate(&expr.ident, stack, types).is_ok() {
+                        return Ok(mapped_fn.0);
                     }
                 }
                 _ => unreachable!(),

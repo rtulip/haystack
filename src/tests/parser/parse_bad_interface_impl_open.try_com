@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parser/parse_bad_interface_impl_open.hay:1:13] Error: Expected `{` after interface type, but found `u64` instead.\n"
+}

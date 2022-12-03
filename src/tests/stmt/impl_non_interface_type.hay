@@ -1,0 +1,7 @@
+struct Foo<T> {
+    T: foo
+}
+
+impl Foo<u64> {
+    
+}

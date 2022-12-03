@@ -231,4 +231,19 @@ mod tests {
     fn while_loop_push_before_condition() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("type_check", "while_loop_push_before_condition")
     }
+
+    #[test]
+    fn bad_interface_resolution() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "bad_interface_resolution")
+    }
+
+    #[test]
+    fn interface_instance_concrete() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "interface_instance_concrete")
+    }
+
+    #[test]
+    fn interface_instance_generic() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "interface_instance_generic")
+    }
 }

@@ -13,9 +13,10 @@ use crate::{
 
 use super::{FramedType, Type, TypeMap};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FnTag {
     Inline,
+    Interface(TypeId),
     OnCopy,
     OnDrop,
 }
@@ -53,6 +54,17 @@ pub struct Function {
     pub body: Vec<TypedExpr>,
     pub generic_map: Option<HashMap<TypeId, TypeId>>,
     pub tags: Vec<FnTag>,
+}
+
+#[derive(Debug, Clone)]
+pub struct FunctionStub {
+    pub token: Token,
+    pub name: Token,
+    pub inputs: Vec<TypedArg>,
+    pub outputs: Vec<TypedArg>,
+    pub generics: Option<Vec<TypeId>>,
+    pub tags: Vec<FnTag>,
+    pub impl_on: Option<TypeId>,
 }
 
 impl Function {
@@ -113,8 +125,8 @@ impl UncheckedFunction {
                 ),
                 self.name.loc.clone(),
             )
-            .with_hint(format!("Expected final stack: {:?}", output_tids))
-            .with_hint(format!("Function produced:    {:?}", stack_tids)));
+            .with_hint(format!("Expected final stack: {output_tids:?}"))
+            .with_hint(format!("Function produced:    {stack_tids:?}")));
         }
 
         Ok(Function {
@@ -128,3 +140,9 @@ impl UncheckedFunction {
         })
     }
 }
+
+// impl FunctionStub {
+//     pub fn signature(&self) -> Signature {
+
+//     }
+// }

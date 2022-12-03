@@ -31,7 +31,7 @@ impl ExprReturn {
                         "Function `{}` expects return type(s): {:?}",
                         func.name.lexeme, stack_expected
                     ))
-                    .with_hint(format!("Found the following stack: {:?}", stack_real)),
+                    .with_hint(format!("Found the following stack: {stack_real:?}")),
             );
         }
 

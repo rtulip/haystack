@@ -1,5 +1,6 @@
 mod framed_type;
 mod function;
+mod interface;
 mod record_kind;
 mod signature;
 mod r#type;
@@ -7,12 +8,13 @@ mod type_id;
 
 pub use framed_type::*;
 pub use function::*;
+pub use interface::*;
 pub use r#type::*;
 pub use record_kind::*;
 pub use signature::*;
-use std::collections::BTreeMap;
 pub use type_id::*;
 
+use std::collections::BTreeMap;
 pub type TypeMap = BTreeMap<TypeId, Type>;
 pub type Stack = Vec<TypeId>;
 pub type Frame = Vec<(String, FramedType)>;

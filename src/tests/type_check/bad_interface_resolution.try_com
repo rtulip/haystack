@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/bad_interface_resolution.hay:10:13] Error: Type Error: Failed to resolve interface function `foo`\n    [Note]: Interface `Foo<A>` is implemented by:\n    [Note]:   Foo<u64>\n    [Note]: Function `foo` expected:\n    [Note]:   [A]\n    [Note]: Found:\n    [Note]:   [Str]\n"
+}

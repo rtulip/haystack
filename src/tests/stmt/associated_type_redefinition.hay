@@ -1,0 +1,10 @@
+interface Foo<A> {
+    _: Output
+    fn foo(A) -> [Output]
+}
+
+impl Foo<u64> {
+    u64: Output
+    u8: Output
+    fn foo(u64) -> [u8] { drop 0u8}
+}

@@ -57,6 +57,7 @@ impl ExprCast {
 
                     Ok(TypedExpr::Pad { padding })
                 }
+                RecordKind::Interface => unreachable!(),
             },
             Type::U64 => {
                 Signature::evaluate_many(
@@ -133,10 +134,13 @@ impl ExprCast {
                 self.token.loc,
             )),
             Type::Bool => unimplemented!(),
+            Type::InterfaceBase(_) => unimplemented!(),
+            Type::InterfaceInstance(_) => unimplemented!(),
             Type::GenericFunction { .. }
             | Type::UncheckedFunction { .. }
             | Type::Function { .. }
-            | Type::GenericRecordInstance { .. } => unreachable!(),
+            | Type::GenericRecordInstance { .. }
+            | Type::Stub { .. } => unreachable!(),
             Type::Never => unreachable!("Casting to never types is not supported"),
             Type::RecordPreDeclaration { .. } => unreachable!(),
         }

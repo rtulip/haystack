@@ -3,6 +3,7 @@
 pub enum RecordKind {
     Struct,
     Union,
+    Interface,
 }
 
 impl std::fmt::Display for RecordKind {
@@ -10,6 +11,7 @@ impl std::fmt::Display for RecordKind {
         match self {
             RecordKind::Struct => write!(f, "struct"),
             RecordKind::Union => write!(f, "union"),
+            RecordKind::Interface => write!(f, "interface"),
         }
     }
 }

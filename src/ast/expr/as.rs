@@ -43,7 +43,7 @@ impl ExprAs {
                     .map(|arg| &arg.token.lexeme)
                     .collect::<Vec<&String>>()
             ))
-            .with_hint(format!("Found: {:?}", stack));
+            .with_hint(format!("Found: {stack:?}"));
 
             return Err(e);
         }

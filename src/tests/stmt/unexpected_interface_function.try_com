@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/stmt/unexpected_interface_function.hay:9:5] Error: Unexpected interface function: `bar`\n    [Note]: Interface `Foo` defines the following functions:\n    [Note]:  * fn foo\n"
+}

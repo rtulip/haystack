@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parser/parse_bad_interface_impl_type.hay:1:1] Error: Expected interface type after keyword `impl`, but found `Str` instead\n"
+}

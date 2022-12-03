@@ -2,8 +2,8 @@ use crate::ast::expr::Expr;
 use crate::ast::stmt::Stmt;
 use crate::error::HayError;
 use crate::lex::token::{Keyword, Loc, Marker, Operator, Token, TokenKind, TypeToken};
-use crate::types::{FnTag, RecordKind};
-use std::collections::HashSet;
+use crate::types::{FnTag, RecordKind, TypeId};
+use std::collections::{HashMap, HashSet};
 
 use super::arg::{IdentArg, UntypedArg};
 use super::expr::{
@@ -11,6 +11,7 @@ use super::expr::{
     ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile,
 };
 use super::member::UntypedMember;
+use super::stmt::{RecordStmt, EnumStmt, FunctionStmt, FunctionStubStmt, InterfaceStmt, InterfaceImplStmt, VarStmt, PreDeclarationStmt};
 use super::visibility::Visitiliby;
 
 pub struct Parser<'a> {
@@ -86,10 +87,12 @@ impl<'a> Parser<'a> {
             TokenKind::Keyword(Keyword::Include) => self.include(token),
             TokenKind::Keyword(Keyword::Var) => {
                 let expr = self.var(token.clone())?;
-                Ok(vec![Stmt::Var { token, expr }])
+                Ok(vec![Stmt::Var(VarStmt{ token, expr })])
             }
+            TokenKind::Keyword(Keyword::Interface) => self.interface(token),
+            TokenKind::Keyword(Keyword::Impl) => self.interface_impl(token),
             kind => Err(HayError::new(
-                format!("Unexpected top level token: {}", kind),
+                format!("Unexpected top level token: {kind}"),
                 token.loc,
             )),
         }
@@ -122,6 +125,195 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn interface_impl(&mut self, start: Token) -> Result<Vec<Stmt>, HayError> {
+        let interface = match self.parse_type()? {
+            Some(t) => t,
+            None => {
+                return Err(HayError::new(
+                    format!(
+                        "Expected interface type after keyword {}, but found {} instead",
+                        Keyword::Impl,
+                        self.peek().kind
+                    ),
+                    start.loc,
+                ))
+            }
+        };
+
+        if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
+            return Err(HayError::new(
+                format!(
+                    "Expected {} after interface type, but found {} instead.",
+                    Marker::LeftBrace,
+                    t.kind
+                ),
+                t.loc,
+            ));
+        }
+
+        let types = self.members( &interface, &RecordKind::Interface).unwrap_or(vec![]);
+        let fns = self.function_list(None)?.into_iter().map(|s| match s {
+            Stmt::Function(f) => f,
+            _ => unreachable!(),
+        }).collect();
+
+        if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
+            return Err(HayError::new(
+                format!(
+                    "Expected {} after interface implementation, but found {} instead.",
+                    Marker::RightBrace,
+                    t.kind
+                ),
+                t.loc,
+            ));
+        }
+
+        Ok(vec![Stmt::InterfaceImpl(InterfaceImplStmt {
+            token: start,
+            interface,
+            types,
+            fns,
+        })])
+    }
+
+    fn interface(&mut self, start: Token) -> Result<Vec<Stmt>, HayError> {
+        let name = match self.matches(TokenKind::ident()) {
+            Ok(t) => t,
+            Err(t) => {
+                return Err(HayError::new(
+                    format!(
+                        "Expected interface name after {}, but found {}",
+                        Keyword::Interface,
+                        t.kind
+                    ),
+                    t.loc,
+                ))
+            }
+        };
+
+        let annotations = match self.matches(TokenKind::Operator(Operator::LessThan)) {
+            Ok(open) => {
+                let annotations = self.unnamed_args_list(&open)?;
+                if let Err(t) = self.matches(TokenKind::Operator(Operator::GreaterThan)) {
+                    return Err(HayError::new(
+                        format!(
+                            "Expected {} after function annotations, but found {} instead.",
+                            Operator::GreaterThan,
+                            t.kind
+                        ),
+                        t.loc,
+                    ));
+                }
+
+                annotations
+            }
+            Err(t) => {
+                return Err(HayError::new(
+                    format!(
+                        "Expected {} after interface name, but found {}",
+                        Operator::LessThan,
+                        t.kind
+                    ),
+                    t.loc,
+                ))
+            }
+        };
+        if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
+            return Err(HayError::new(
+                format!(
+                    "Expected {} after interface name, but found {} instead.",
+                    Marker::LeftBrace,
+                    t.kind
+                ),
+                t.loc,
+            ));
+        }
+
+        let types = self.interface_associated_types()?;
+
+        let mut fns = vec![];
+        let mut stubs = vec![];
+        self.interface_functions(&name)?.into_iter().for_each(|s| match s {
+            Stmt::Function(fn_stmt) => fns.push(fn_stmt),
+            Stmt::FunctionStub(fn_stub) => stubs.push(fn_stub),
+            _ => unreachable!(),
+        });
+
+        if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
+            return Err(HayError::new(
+                format!(
+                    "Expected {} after interface definition, but found {} instead.",
+                    Marker::RightBrace,
+                    t.kind
+                ),
+                t.loc,
+            ));
+        }
+
+        Ok(vec![Stmt::Interface(InterfaceStmt {
+            token: start,
+            name,
+            annotations,
+            types,
+            fns,
+            stubs,
+        })])
+    }
+
+    fn interface_functions(&mut self, name: &Token) -> Result<Vec<Stmt>, HayError> {
+        let mut fns = vec![];
+        while let Ok(t) = self.matches(TokenKind::Keyword(Keyword::Function)) {
+            fns.append(&mut self.function_stub_or_def(
+                t,
+                vec![FnTag::Interface(TypeId::new(&name.lexeme))],
+                None,
+            )?);
+        }
+
+        Ok(fns)
+    }
+
+    fn interface_associated_types(&mut self) -> Result<HashMap<TypeId, Token>, HayError> {
+        let mut types = HashMap::new();
+        while let Ok(id) = self.matches(TokenKind::ident()) {
+            if id.ident().unwrap() != "_" {
+                return Err(HayError::new(
+                    format!("Expected `_` as placeholder for interface associated type, but found {} instead.", id.ident().unwrap()),
+                    id.loc
+                ));
+            }
+
+            if let Err(t) = self.matches(TokenKind::Marker(Marker::Colon)) {
+                return Err(HayError::new(
+                    format!(
+                        "Expected {} after associated type placeholder, but found {} instead.",
+                        Marker::Colon,
+                        t.kind
+                    ),
+                    t.loc,
+                ));
+            }
+
+            match self.matches(TokenKind::ident()) {
+                Ok(t) => {
+                    types.insert(TypeId::new(&t.lexeme), t);
+                }
+                Err(t) => {
+                    return Err(HayError::new(
+                        format!(
+                            "Expected an identifier after {}, but found {} instead",
+                            Marker::Colon,
+                            t.kind
+                        ),
+                        t.loc,
+                    ))
+                }
+            }
+        }
+
+        Ok(types)
+    }
+
     fn inline_function(
         &mut self,
         start: Token,
@@ -145,19 +337,15 @@ impl<'a> Parser<'a> {
         self.function(fn_tok, vec![FnTag::Inline], impl_on)
     }
 
-    // Function          -> "fn" IDENT (annotations)? args_list (return_types)? block
-    // annotations       -> "<" type_name ">"
-    // args_list         -> "(" typed_args_list | untyped_args_list ")"
-    // typed_args_list   -> (IDENT: IDENT)*
-    // untyped_args_list -> IDENT*
-    // return_types      -> "->" "[" IDENT+ "]"
-    // block             -> "{" Expression* "}"
-    fn function(
+    fn function_stub(
         &mut self,
         start: Token,
         mut tags: Vec<FnTag>,
         impl_on: Option<&Token>,
-    ) -> Result<Vec<Stmt>, HayError> {
+    ) -> Result<
+        FunctionStubStmt,
+        HayError,
+    > {
         let name = match self.matches(TokenKind::ident()) {
             Ok(t) => t,
             Err(t) => {
@@ -291,18 +479,71 @@ impl<'a> Parser<'a> {
             Err(_) => vec![],
         };
 
-        let body = self.block()?;
-
-        Ok(vec![Stmt::Function {
+        let stub = FunctionStubStmt {
             token: start,
             name,
             inputs,
             outputs,
             annotations,
-            body,
             tags,
             impl_on: impl_on.cloned(),
-        }])
+        };
+
+        Ok(stub)
+    }
+
+    fn function_stub_or_def(
+        &mut self,
+        start: Token,
+        tags: Vec<FnTag>,
+        impl_on: Option<&Token>,
+    ) -> Result<Vec<Stmt>, HayError> {
+        let stub =
+            self.function_stub(start, tags, impl_on)?;
+
+        if self.check(TokenKind::Marker(Marker::LeftBrace)) {
+            let body = self.block()?;
+            Ok(vec![Stmt::Function(FunctionStmt {
+                token: stub.token,
+                name: stub.name,
+                inputs: stub.inputs,
+                outputs: stub.outputs,
+                annotations: stub.annotations,
+                body,
+                tags: stub.tags,
+                impl_on: stub.impl_on,
+            })])
+        } else {
+            Ok(vec![Stmt::FunctionStub(stub)])
+        }
+    }
+
+    // Function          -> "fn" IDENT (annotations)? args_list (return_types)? block
+    // annotations       -> "<" type_name ">"
+    // args_list         -> "(" typed_args_list | untyped_args_list ")"
+    // typed_args_list   -> (IDENT: IDENT)*
+    // untyped_args_list -> IDENT*
+    // return_types      -> "->" "[" IDENT+ "]"
+    // block             -> "{" Expression* "}"
+    fn function(
+        &mut self,
+        start: Token,
+        tags: Vec<FnTag>,
+        impl_on: Option<&Token>,
+    ) -> Result<Vec<Stmt>, HayError> {
+        let stub = self.function_stub(start, tags, impl_on)?;
+        let body = self.block()?;
+
+        Ok(vec![Stmt::Function(FunctionStmt {
+            token: stub.token,
+            name: stub.name,
+            inputs: stub.inputs,
+            outputs: stub.outputs,
+            annotations: stub.annotations,
+            body,
+            tags: stub.tags,
+            impl_on: impl_on.cloned(),
+        })])
     }
 
     fn args_list(&mut self, token: &Token) -> Result<Vec<UntypedArg>, HayError> {
@@ -424,7 +665,7 @@ impl<'a> Parser<'a> {
                     base: ident.ident()?,
                     inner,
                 });
-                let lexeme = format!("{}", kind);
+                let lexeme = format!("{kind}");
 
                 Token {
                     kind,
@@ -477,7 +718,7 @@ impl<'a> Parser<'a> {
                     base: Box::new(typ.typ()?),
                     size: n as usize,
                 });
-                let lexeme = format!("{}", kind);
+                let lexeme = format!("{kind}");
 
                 Ok(Some(Token {
                     kind,
@@ -713,7 +954,7 @@ impl<'a> Parser<'a> {
             TokenKind::Keyword(Keyword::SizeOf) => self.size_of(token),
             TokenKind::Keyword(Keyword::Return) => Ok(Box::new(Expr::Return(ExprReturn { token }))),
             kind => Err(HayError::new(
-                format!("Not sure how to parse expression from {} yet", kind),
+                format!("Not sure how to parse expression from {kind} yet"),
                 token.loc,
             )),
         }
@@ -833,11 +1074,11 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        Ok(vec![Stmt::Enum {
+        Ok(vec![Stmt::Enum(EnumStmt {
             token: start,
             name,
             variants,
-        }])
+        })])
     }
 
     // structure -> "struct" IDENT "{" named_args_list (impls)? "}"
@@ -882,12 +1123,12 @@ impl<'a> Parser<'a> {
         };
 
         if self.matches(TokenKind::Marker(Marker::Colon)).is_ok() {
-            return Ok(vec![Stmt::PreDeclaration {
+            return Ok(vec![Stmt::PreDeclaration(PreDeclarationStmt {
                 token: start,
                 name,
                 kind,
                 annotations,
-            }]);
+            })]);
         }
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
@@ -902,7 +1143,11 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        let members = self.members(&start, &name, &kind)?;
+        let members = self.members(&name, &kind)?;
+
+        if members.is_empty() {
+            return Err(HayError::new(format!("{kind} members cannot be empty."), name.loc));
+        }
 
         let impls = self.impl_section(&name)?;
 
@@ -917,13 +1162,13 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        let mut stmts = vec![Stmt::Record {
+        let mut stmts = vec![Stmt::Record(RecordStmt {
             token: start,
             name,
             annotations,
             members,
             kind,
-        }];
+        })];
 
         if let Some(mut fns) = impls {
             stmts.append(&mut fns);
@@ -934,7 +1179,6 @@ impl<'a> Parser<'a> {
 
     fn members(
         &mut self,
-        start_tok: &Token,
         typ_tok: &Token,
         kind: &RecordKind,
     ) -> Result<Vec<UntypedMember>, HayError> {
@@ -944,14 +1188,8 @@ impl<'a> Parser<'a> {
             members.push(mem);
         }
 
-        if members.is_empty() {
-            Err(HayError::new(
-                "Struct members cannot be empty.",
-                start_tok.loc.clone(),
-            ))
-        } else {
-            Ok(members)
-        }
+        Ok(members)
+        
     }
 
     fn member(
@@ -1011,10 +1249,27 @@ impl<'a> Parser<'a> {
             vis: match kind {
                 RecordKind::Union => Visitiliby::Public,
                 RecordKind::Struct => vis,
+                RecordKind::Interface => Visitiliby::Public,
             },
             token,
             ident,
         }))
+    }
+
+    fn function_list(&mut self, impl_on: Option<&Token>) -> Result<Vec<Stmt>, HayError> {
+        let mut fns = vec![];
+        loop {
+            match (
+                self.matches(TokenKind::Keyword(Keyword::Function)),
+                self.matches(TokenKind::Keyword(Keyword::Inline)),
+            ) {
+                (Ok(fn_tok), _) => fns.append(&mut self.function(fn_tok, vec![], impl_on)?),
+                (_, Ok(inline_tok)) => fns.append(&mut self.inline_function(inline_tok, impl_on)?),
+                _ => break,
+            }
+        }
+
+        Ok(fns)
     }
 
     fn impl_section(&mut self, impl_on: &Token) -> Result<Option<Vec<Stmt>>, HayError> {
@@ -1031,23 +1286,7 @@ impl<'a> Parser<'a> {
                 ));
             }
 
-            let mut fns = vec![];
-            loop {
-                match (
-                    self.matches(TokenKind::Keyword(Keyword::Function)),
-                    self.matches(TokenKind::Keyword(Keyword::Inline)),
-                ) {
-                    (Ok(fn_tok), _) => {
-                        fns.append(&mut self.function(fn_tok, vec![], Some(impl_on))?)
-                    }
-                    (_, Ok(inline_tok)) => {
-                        fns.append(&mut self.inline_function(inline_tok, Some(impl_on))?)
-                    }
-                    _ => break,
-                }
-            }
-
-            Ok(Some(fns))
+            Ok(Some(self.function_list(Some(impl_on))?))
         } else {
             Ok(None)
         }
@@ -1537,4 +1776,60 @@ mod tests {
     fn parse_bad_sizeof_operand() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("parser", "parse_bad_sizeof_operand")
     }
+
+    #[test]
+    fn parse_bad_interface_annotation_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_annotation_close")
+    }
+
+    #[test]
+    fn parse_bad_interface_annotation_open() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_annotation_open")
+    }
+
+    #[test]
+    fn parse_bad_interface_body_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_body_close")
+    }
+    
+    #[test]
+    fn parse_bad_interface_body_open() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_body_open")
+    }
+
+    #[test]
+    fn parse_bad_interface_name() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_name")
+    }
+
+    #[test]
+    fn parse_bad_interface_impl_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_impl_close")
+    }
+
+    #[test]
+    fn parse_bad_interface_impl_open() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_impl_open")
+    }
+
+    #[test]
+    fn parse_bad_interface_impl_type() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_impl_type")
+    }
+
+    #[test]
+    fn parse_bad_interface_associated_type_name() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_associated_type_name")
+    }
+
+    #[test]
+    fn parse_bad_interface_associated_type_placeholder() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_associated_type_placeholder")
+    }
+
+    #[test]
+    fn parse_bad_interface_associated_type() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_associated_type")
+    }
+
 }

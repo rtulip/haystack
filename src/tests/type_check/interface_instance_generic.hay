@@ -1,0 +1,5 @@
+interface Foo<T> {
+    fn foo(T) -> [T]
+}
+
+fn Bar<T>(Foo<T>) -> [T] { foo } 

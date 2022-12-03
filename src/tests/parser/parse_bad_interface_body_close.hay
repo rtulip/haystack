@@ -1,0 +1,3 @@
+interface Foo<T> {
+    fn foo(T) -> [T]
+]

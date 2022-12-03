@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/stmt/missing_associated_types.hay:6:6] Error: Missing interface associated types.\n    [Note]: The following types were not defined for interface `Foo`:\n    [Note]:  * _: Output\n"
+}

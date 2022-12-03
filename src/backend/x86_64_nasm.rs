@@ -27,7 +27,7 @@ impl super::CodeGen for X86_64 {
         hash: &str,
         instruction: &Instruction,
     ) -> Result<(), std::io::Error> {
-        writeln!(file, "  ; -- {:?}", instruction)?;
+        writeln!(file, "  ; -- {instruction:?}")?;
         match instruction {
             Instruction::FrameReserve { bytes } => {
                 writeln!(file, "  sub qword [frame_end_ptr], {bytes}")?;
@@ -324,7 +324,7 @@ impl super::CodeGen for X86_64 {
                     if !s.is_empty() {
                         s.as_bytes()
                             .iter()
-                            .for_each(|b| write!(file, "{:#x}, ", b).unwrap());
+                            .for_each(|b| write!(file, "{b:#x}, ").unwrap());
                     } else {
                         write!(file, "0x00, ")?;
                     }

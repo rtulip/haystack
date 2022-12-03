@@ -77,7 +77,7 @@ pub fn run_command(
         }
         Err(e) => Err(
             HayError::new("Command Failed", Loc::new(input_path, 1, 1, 1))
-                .with_hint(format!("{:?}", e)),
+                .with_hint(format!("{e:?}")),
         ),
     }
 }
@@ -299,5 +299,10 @@ mod tests {
     #[test]
     fn pre_declare() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "pre_declare")
+    }
+
+    #[test]
+    fn interface() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "interface")
     }
 }

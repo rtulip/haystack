@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parser/parse_bad_interface_annotation_open.hay:1:15] Error: Expected `<` after interface name, but found `{`\n"
+}

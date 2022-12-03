@@ -4,7 +4,10 @@ use crate::error::HayError;
 use crate::lex::token::Token;
 use std::collections::BTreeMap;
 
-use super::{Function, GenericFunction, RecordKind, TypeId, TypeMap, UncheckedFunction};
+use super::{
+    Function, FunctionStub, GenericFunction, InterfaceBaseType, InterfaceInstanceType, RecordKind,
+    TypeId, TypeMap, UncheckedFunction,
+};
 
 /// Representation of Types within Haystack.
 ///
@@ -99,11 +102,22 @@ pub enum Type {
     },
     /// Represents a generic function.
     /// Generic Functions are not type checked.
-    GenericFunction { func: GenericFunction },
+    GenericFunction {
+        func: GenericFunction,
+    },
     /// Represents a concrete function that needs to be type checked.
-    UncheckedFunction { func: UncheckedFunction },
+    UncheckedFunction {
+        func: UncheckedFunction,
+    },
     /// Represents a function that has been type checked.
-    Function { func: Function },
+    Function {
+        func: Function,
+    },
+    Stub {
+        func: FunctionStub,
+    },
+    InterfaceBase(InterfaceBaseType),
+    InterfaceInstance(InterfaceInstanceType),
 }
 
 impl Type {
@@ -136,9 +150,20 @@ impl Type {
 
                 TypeId::new(name)
             }
+            Type::InterfaceBase(base) => base.id(),
+            Type::InterfaceInstance(instance) => {
+                let mut name = format!("{}<", instance.token.lexeme);
+                for t in &instance.mapping[0..instance.mapping.len() - 1] {
+                    name = format!("{name}{t} ");
+                }
+                name = format!("{name}{}>", instance.mapping.last().unwrap());
+
+                TypeId::new(name)
+            }
             Type::UncheckedFunction { .. }
             | Type::GenericFunction { .. }
-            | Type::Function { .. } => {
+            | Type::Function { .. }
+            | Type::Stub { .. } => {
                 unimplemented!("Haven't implemented name from Functions.")
             }
             Type::RecordPreDeclaration { .. } => unreachable!(),

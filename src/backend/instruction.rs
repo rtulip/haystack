@@ -144,6 +144,7 @@ impl Instruction {
 
                                     &members[idx].typ
                                 }
+                                RecordKind::Interface => unreachable!(),
                             }
                         } else {
                             panic!("{typ}");
@@ -196,6 +197,7 @@ impl Instruction {
 
                                     &members[idx].typ
                                 }
+                                RecordKind::Interface => unreachable!(),
                             }
                         } else {
                             panic!("{typ}");
@@ -250,6 +252,7 @@ impl Instruction {
 
                                     &members[idx].typ
                                 }
+                                RecordKind::Interface => unreachable!(),
                             }
                         } else {
                             panic!("{typ}");
@@ -332,7 +335,7 @@ impl Instruction {
 
                         otherwise_ops.push((cnd_ops, blk_ops))
                     } else {
-                        panic!("{:?}", other);
+                        panic!("{other:?}");
                     }
                     n_jumps += 1;
                 }

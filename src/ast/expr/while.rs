@@ -77,8 +77,8 @@ impl ExprWhile {
                 "While loop must not change stack between iterations.",
                 self.token.loc,
             )
-            .with_hint(format!("Stack before loop: {:?}", stack_before))
-            .with_hint(format!("Stack after loop:  {:?}", stack)));
+            .with_hint(format!("Stack before loop: {stack_before:?}"))
+            .with_hint(format!("Stack after loop:  {stack:?}")));
         }
 
         *frame = frame_before;

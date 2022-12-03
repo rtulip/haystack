@@ -158,6 +158,7 @@ pub enum Keyword {
     Inline,
     Return,
     Mut,
+    Interface,
 }
 
 impl std::fmt::Display for Keyword {
@@ -181,6 +182,7 @@ impl std::fmt::Display for Keyword {
             Keyword::Inline => write!(f, "inline")?,
             Keyword::Return => write!(f, "return")?,
             Keyword::Mut => write!(f, "mut")?,
+            Keyword::Interface => write!(f, "interface")?,
         }
         write!(f, "`")
     }
@@ -206,6 +208,7 @@ impl Keyword {
         map.insert("inline", TokenKind::Keyword(Keyword::Inline));
         map.insert("return", TokenKind::Keyword(Keyword::Return));
         map.insert("mut", TokenKind::Keyword(Keyword::Mut));
+        map.insert("interface", TokenKind::Keyword(Keyword::Interface));
 
         map.insert("true", TokenKind::Literal(Literal::Bool(true)));
         map.insert("false", TokenKind::Literal(Literal::Bool(false)));
@@ -255,7 +258,7 @@ impl std::fmt::Display for TypeToken {
             TypeToken::Parameterized { base, inner } => {
                 write!(f, "{base}<")?;
                 for inner_t in inner.iter().take(inner.len() - 1) {
-                    write!(f, "{} ", inner_t)?;
+                    write!(f, "{inner_t} ")?;
                 }
                 write!(f, "{}>", inner.last().unwrap())
             }
@@ -311,7 +314,7 @@ impl std::fmt::Display for TokenKind {
             },
             TokenKind::Ident(id) => write!(f, "an identifier ({id})"),
             TokenKind::EoF => write!(f, "end of file"),
-            TokenKind::Syscall(_) => write!(f, "{:?}", self),
+            TokenKind::Syscall(_) => write!(f, "{self:?}"),
             TokenKind::Type(t) => write!(f, "{t}"),
         }
     }

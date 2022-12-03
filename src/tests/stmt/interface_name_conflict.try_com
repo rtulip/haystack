@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/stmt/interface_name_conflict.hay:5:11] Error: Interface name conflict: `Foo` defined elsewhere.\n"
+}

@@ -5,7 +5,9 @@ use crate::lex::token::{Loc, Token, TokenKind, TypeToken};
 use std::collections::HashMap;
 use std::hash::Hash;
 
-use super::{RecordKind, Type, TypeMap, UncheckedFunction};
+use super::{
+    InterfaceBaseType, InterfaceInstanceType, RecordKind, Type, TypeMap, UncheckedFunction,
+};
 
 /// Unique Identifier for types
 ///
@@ -44,16 +46,19 @@ impl TypeId {
                 | Type::Function { .. }
                 | Type::Record { .. }
                 | Type::UncheckedFunction { .. }
-                | Type::Never,
+                | Type::Never
+                | Type::InterfaceInstance(_),
             ) => false,
             Some(Type::Pointer { inner, .. }) => inner.is_generic(types),
             Some(
                 Type::GenericRecordBase { .. }
                 | Type::GenericRecordInstance { .. }
-                | Type::GenericFunction { .. },
+                | Type::GenericFunction { .. }
+                | Type::InterfaceBase(_),
             )
             | None => true,
             Some(Type::RecordPreDeclaration { generics, .. }) => !generics.is_empty(),
+            Some(Type::Stub { .. }) => unimplemented!(),
         }
     }
 
@@ -127,7 +132,7 @@ impl TypeId {
                     }) => {
                         // Make sure there are right number of annotations.
                         if generics.len() != inner.len() {
-                            return Err(HayError::new(format!("Incorrect number of type annotations provided. Expected annotations for {:?}", generics), token.loc.clone()));
+                            return Err(HayError::new(format!("Incorrect number of type annotations provided. Expected annotations for {generics:?}", ), token.loc.clone()));
                         }
 
                         // Collect inner types into TypeId's
@@ -163,6 +168,16 @@ impl TypeId {
                         }
                     }
                     Some(
+                        Type::InterfaceBase(InterfaceBaseType { name, .. })
+                        | Type::InterfaceInstance(InterfaceInstanceType { token: name, .. }),
+                    ) => {
+                        return Err(HayError::new(
+                            format!("Cannot create an instance of interface `{}`", name.lexeme),
+                            token.loc.clone(),
+                        )
+                        .with_hint("Consider adding a `requires` block."))
+                    }
+                    Some(
                         Type::Bool
                         | Type::Char
                         | Type::U8
@@ -180,6 +195,7 @@ impl TypeId {
                         ),
                         token.loc.clone(),
                     )),
+                    Some(Type::Stub { .. }) => unimplemented!(),
                     Some(Type::Never) => unreachable!("Never types aren't representable"),
                     Some(Type::RecordPreDeclaration { .. }) => {
                         unreachable!("Pre declarations aren't allowed past parsing.")
@@ -433,7 +449,7 @@ impl TypeId {
                             "Generic function {} is generic over {:?}.",
                             func.name.lexeme, func.generics
                         ))
-                        .with_hint(format!("Found mapping: {:?}", map)));
+                        .with_hint(format!("Found mapping: {map:?}")));
                     }
 
                     // Generate the new name
@@ -494,6 +510,9 @@ impl TypeId {
 
                     Ok(tid)
                 }
+                Type::Stub { .. } => unimplemented!(),
+                Type::InterfaceBase(_) => unimplemented!(),
+                Type::InterfaceInstance(_) => unimplemented!(),
                 Type::UncheckedFunction { .. } | Type::Function { .. } => {
                     unreachable!("Should never assign to non-generic function!")
                 }
@@ -502,10 +521,11 @@ impl TypeId {
                     unreachable!("Pre-declarations should never be assigned")
                 }
             },
+
             None => {
                 if !map.contains_key(self) {
                     return Err(HayError::new_type_err(
-                        format!("Expected to find {self} in {:?}", map),
+                        format!("Expected to find {self} in {map:?}"),
                         token.loc.clone(),
                     ));
                 }
@@ -574,7 +594,7 @@ impl TypeId {
                         token.loc.clone(),
                     )
                     .with_hint("The following types have been mapped:")
-                    .with_hint(format!("{:?}", map)));
+                    .with_hint(format!("{map:?}")));
                 }
 
                 // Return the mapped value.
@@ -681,7 +701,8 @@ impl TypeId {
 
                 Ok(concrete.clone())
             }
-
+            (Some(Type::InterfaceBase(_)), _) => unimplemented!(),
+            (Some(Type::InterfaceInstance(_)), _) => unimplemented!(),
             // Cover all the cases of mismatched types.
             (Some(Type::Pointer { .. }), _)
             | (Some(Type::Bool), _)
@@ -701,7 +722,8 @@ impl TypeId {
                 Some(
                     Type::UncheckedFunction { .. }
                     | Type::GenericFunction { .. }
-                    | Type::Function { .. },
+                    | Type::Function { .. }
+                    | Type::Stub { .. },
                 ),
                 _,
             ) => unreachable!("Functions should never be part of type resolution."),
@@ -742,7 +764,16 @@ impl TypeId {
 
                     Ok(max)
                 }
+                RecordKind::Interface => unreachable!(),
             },
+            Type::InterfaceBase(_) => Err(HayError::new(
+                "InterfaceBase types do not have a size",
+                Loc::new("", 0, 0, 0),
+            )),
+            Type::InterfaceInstance(_) => Err(HayError::new(
+                "InterfaceInstance types do not have a size",
+                Loc::new("", 0, 0, 0),
+            )),
             Type::Never => Err(HayError::new(
                 "Never type does not have a size",
                 Loc::new("", 0, 0, 0),
@@ -755,7 +786,8 @@ impl TypeId {
             }
             Type::UncheckedFunction { .. }
             | Type::GenericFunction { .. }
-            | Type::Function { .. } => Err(HayError::new(
+            | Type::Function { .. }
+            | Type::Stub { .. } => Err(HayError::new(
                 "Functions do not have a size",
                 Loc::new("", 0, 0, 0),
             )),
@@ -822,6 +854,7 @@ impl TypeId {
                             match kind {
                                 RecordKind::Union => "Union",
                                 RecordKind::Struct => "Struct",
+                                RecordKind::Interface => unreachable!(),
                             },
                             name.lexeme,
                             inner_member.lexeme,
@@ -881,7 +914,7 @@ impl TypeId {
                     format!("{}", pre_decl_token.loc.clone()),
                 )
                 .with_hint_and_custom_note(
-                    format!("Type {self} was defined as generic over {:?}", generics),
+                    format!("Type {self} was defined as generic over {generics:?}"),
                     format!("{}", decl_token.loc.clone()),
                 ));
             }
@@ -893,13 +926,12 @@ impl TypeId {
                     )
                     .with_hint_and_custom_note(
                         format!(
-                            "Type {self} was predeclared as generic over {:?}",
-                            pre_decl_generics
+                            "Type {self} was predeclared as generic over {pre_decl_generics:?}",
                         ),
                         format!("{}", pre_decl_token.loc.clone()),
                     )
                     .with_hint_and_custom_note(
-                        format!("Type {self} was not defined as generic over {:?}", generics),
+                        format!("Type {self} was not defined as generic over {generics:?}",),
                         format!("{}", decl_token.loc.clone()),
                     ));
                 }
@@ -910,10 +942,7 @@ impl TypeId {
                     token.loc.clone(),
                 )
                 .with_hint_and_custom_note(
-                    format!(
-                        "Type {self} was predeclared as generic over {:?}",
-                        pre_decl_generics
-                    ),
+                    format!("Type {self} was predeclared as generic over {pre_decl_generics:?}",),
                     format!("{}", pre_decl_token.loc.clone()),
                 )
                 .with_hint_and_custom_note(

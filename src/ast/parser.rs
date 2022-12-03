@@ -250,13 +250,6 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        if fns.is_empty() && stubs.is_empty() {
-            return Err(HayError::new(
-                "Expected at least one interface function, but none were found.",
-                name.loc,
-            ));
-        }
-
         Ok(vec![Stmt::Interface(InterfaceStmt {
             token: start,
             name,
@@ -1789,4 +1782,60 @@ mod tests {
     fn parse_bad_sizeof_operand() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("parser", "parse_bad_sizeof_operand")
     }
+
+    #[test]
+    fn parse_bad_interface_annotation_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_annotation_close")
+    }
+
+    #[test]
+    fn parse_bad_interface_annotation_open() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_annotation_open")
+    }
+
+    #[test]
+    fn parse_bad_interface_body_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_body_close")
+    }
+    
+    #[test]
+    fn parse_bad_interface_body_open() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_body_open")
+    }
+
+    #[test]
+    fn parse_bad_interface_name() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_name")
+    }
+
+    #[test]
+    fn parse_bad_interface_impl_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_impl_close")
+    }
+
+    #[test]
+    fn parse_bad_interface_impl_open() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_impl_open")
+    }
+
+    #[test]
+    fn parse_bad_interface_impl_type() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_impl_type")
+    }
+
+    #[test]
+    fn parse_bad_interface_associated_type_name() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_associated_type_name")
+    }
+
+    #[test]
+    fn parse_bad_interface_associated_type_placeholder() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_associated_type_placeholder")
+    }
+
+    #[test]
+    fn parse_bad_interface_associated_type() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_interface_associated_type")
+    }
+
 }

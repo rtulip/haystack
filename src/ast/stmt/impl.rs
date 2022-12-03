@@ -2,10 +2,9 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     ast::{member::UntypedMember, stmt::StmtKind},
-    backend::{InitDataMap, UninitDataMap},
     error::HayError,
     lex::token::{Token, TokenKind, TypeToken},
-    types::{Type, TypeId, TypeMap},
+    types::{InterfaceInstanceType, Type, TypeId, TypeMap},
 };
 
 use super::{FunctionStmt, GlobalEnv};
@@ -23,8 +22,6 @@ impl InterfaceImplStmt {
         self,
         types: &mut TypeMap,
         global_env: &mut GlobalEnv,
-        _init_data: &mut InitDataMap,
-        _uninit_data: &mut UninitDataMap,
     ) -> Result<(), HayError> {
         let (base, inner) = match &self.interface.kind {
             TokenKind::Type(TypeToken::Parameterized { base, inner }) => (
@@ -82,17 +79,18 @@ impl InterfaceImplStmt {
             to_define.insert(f);
         }
 
+        let mut fns_map = HashMap::new();
+        let mut mapped = vec![];
+        for ann in &interface.annotations {
+            mapped.push(map.get(ann).unwrap().clone());
+        }
+        for (typ, _) in &interface.types {
+            mapped.push(map.get(typ).unwrap().clone());
+        }
+
         for mut f in self.fns {
             match to_define.take(&f.name.lexeme) {
                 Some(func) => {
-                    let mut mapped = vec![];
-                    for ann in &interface.annotations {
-                        mapped.push(map.get(ann).unwrap().clone());
-                    }
-                    for (typ, _) in &interface.types {
-                        mapped.push(map.get(typ).unwrap().clone());
-                    }
-
                     let mut new_fn_name = format!("{}<", f.name.lexeme);
                     for t in &mapped[0..mapped.len() - 1] {
                         new_fn_name = format!("{new_fn_name}{t} ");
@@ -103,7 +101,7 @@ impl InterfaceImplStmt {
 
                     let tok = f.name.clone();
                     // Insert the concrete functions renamed
-                    f.add_to_global_scope(types, global_env, None)?;
+                    f.add_to_global_scope(types, global_env, None, StmtKind::Function)?;
 
                     let (_, mut interface_sig) = global_env.get(&func).unwrap().clone();
                     interface_sig.assign(&tok, &mapped, types)?;
@@ -126,9 +124,11 @@ impl InterfaceImplStmt {
                                 todo!("Error")
                             }
                         }
-                        Some((StmtKind::Var, _)) => todo!("err"),
+                        Some(_) => todo!("err"),
                         None => todo!("err"),
                     }
+
+                    fns_map.insert(TypeId::new(func), TypeId::new(new_fn_name));
                 }
                 None => todo!("error"),
             }
@@ -136,6 +136,22 @@ impl InterfaceImplStmt {
 
         if !to_define.is_empty() {
             todo!("error")
+        }
+
+        let instance_typ = Type::InterfaceInstance(InterfaceInstanceType {
+            token: self.interface,
+            mapping: mapped,
+            fns_map,
+        });
+
+        let instance_tid = instance_typ.id();
+
+        types.insert(instance_tid.clone(), instance_typ);
+        match types.get_mut(&interface_tid).unwrap() {
+            Type::InterfaceBase(base) => {
+                base.impls.push(instance_tid);
+            }
+            _ => unreachable!(),
         }
 
         Ok(())

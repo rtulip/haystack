@@ -44,7 +44,8 @@ impl TypeId {
                 | Type::Function { .. }
                 | Type::Record { .. }
                 | Type::UncheckedFunction { .. }
-                | Type::Never,
+                | Type::Never
+                | Type::InterfaceInstance(_),
             ) => false,
             Some(Type::Pointer { inner, .. }) => inner.is_generic(types),
             Some(
@@ -165,6 +166,7 @@ impl TypeId {
                         }
                     }
                     Some(Type::InterfaceBase(_)) => unimplemented!(),
+                    Some(Type::InterfaceInstance(_)) => unimplemented!(),
                     Some(
                         Type::Bool
                         | Type::Char
@@ -500,6 +502,7 @@ impl TypeId {
                 }
                 Type::Stub { .. } => unimplemented!(),
                 Type::InterfaceBase(_) => unimplemented!(),
+                Type::InterfaceInstance(_) => unimplemented!(),
                 Type::UncheckedFunction { .. } | Type::Function { .. } => {
                     unreachable!("Should never assign to non-generic function!")
                 }
@@ -689,6 +692,7 @@ impl TypeId {
                 Ok(concrete.clone())
             }
             (Some(Type::InterfaceBase(_)), _) => unimplemented!(),
+            (Some(Type::InterfaceInstance(_)), _) => unimplemented!(),
             // Cover all the cases of mismatched types.
             (Some(Type::Pointer { .. }), _)
             | (Some(Type::Bool), _)
@@ -754,6 +758,10 @@ impl TypeId {
             },
             Type::InterfaceBase(_) => Err(HayError::new(
                 "InterfaceBase types do not have a size",
+                Loc::new("", 0, 0, 0),
+            )),
+            Type::InterfaceInstance(_) => Err(HayError::new(
+                "InterfaceInstance types do not have a size",
                 Loc::new("", 0, 0, 0),
             )),
             Type::Never => Err(HayError::new(

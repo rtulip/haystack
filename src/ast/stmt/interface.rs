@@ -7,7 +7,7 @@ use crate::{
     types::{InterfaceBaseType, Type, TypeId, TypeMap},
 };
 
-use super::{FunctionStmt, FunctionStubStmt, GlobalEnv};
+use super::{FunctionStmt, FunctionStubStmt, GlobalEnv, StmtKind};
 
 #[derive(Clone)]
 pub struct InterfaceStmt {
@@ -41,6 +41,7 @@ impl InterfaceStmt {
                 .collect(),
             types: self.types,
             fns,
+            impls: vec![],
         });
         let tid = typ.id();
 
@@ -55,11 +56,21 @@ impl InterfaceStmt {
         }
 
         for func in self.fns {
-            func.add_to_global_scope(types, global_env, Some(&tid))?;
+            func.add_to_global_scope(
+                types,
+                global_env,
+                Some(&tid),
+                StmtKind::InterfaceFunction(tid.clone()),
+            )?;
         }
 
         for stub in self.stubs {
-            stub.add_to_global_scope(types, global_env, Some(&tid))?;
+            stub.add_to_global_scope(
+                types,
+                global_env,
+                Some(&tid),
+                StmtKind::InterfaceFunction(tid.clone()),
+            )?;
         }
 
         Ok(())

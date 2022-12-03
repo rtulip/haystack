@@ -25,6 +25,7 @@ impl FunctionStmt {
         types: &mut TypeMap,
         global_env: &mut GlobalEnv,
         local_scope: Option<&TypeId>,
+        kind: StmtKind,
     ) -> Result<(), HayError> {
         let generics = Stmt::bulid_local_generics(self.annotations, types, local_scope)?;
         let inputs = UntypedArg::resolve(self.inputs, types, &generics)?;
@@ -81,7 +82,7 @@ impl FunctionStmt {
 
         match types.insert(TypeId::new(&self.name.lexeme), typ) {
             None => {
-                global_env.insert(self.name.lexeme, (StmtKind::Function, sig));
+                global_env.insert(self.name.lexeme, (kind, sig));
 
                 Ok(())
             }

@@ -24,6 +24,7 @@ impl FunctionStubStmt {
         types: &mut TypeMap,
         global_env: &mut GlobalEnv,
         local_context: Option<&TypeId>,
+        kind: StmtKind,
     ) -> Result<(), HayError> {
         let generics = Stmt::bulid_local_generics(self.annotations, types, local_context)?;
 
@@ -69,7 +70,7 @@ impl FunctionStubStmt {
 
         match types.insert(TypeId::new(&self.name.lexeme), typ) {
             None => {
-                global_env.insert(self.name.lexeme, (StmtKind::Function, sig));
+                global_env.insert(self.name.lexeme, (kind, sig));
                 Ok(())
             }
             Some(_) => {

@@ -1,6 +1,6 @@
 use super::{
     EnumStmt, FunctionStmt, FunctionStubStmt, GlobalEnv, InterfaceImplStmt, InterfaceStmt,
-    PreDeclarationStmt, RecordStmt, VarStmt,
+    PreDeclarationStmt, RecordStmt, StmtKind, VarStmt,
 };
 use crate::ast::arg::UntypedArg;
 use crate::ast::parser::Parser;
@@ -150,13 +150,15 @@ impl Stmt {
             Stmt::Record(stmt) => stmt.add_to_global_scope(types),
             Stmt::PreDeclaration(stmt) => stmt.add_to_global_scope(types),
             Stmt::Enum(stmt) => stmt.add_to_global_scope(types),
-            Stmt::Function(stmt) => stmt.add_to_global_scope(types, global_env, None),
-            Stmt::Var(stmt) => stmt.add_to_global_scope(types, global_env, init_data, uninit_data),
-            Stmt::FunctionStub(stmt) => stmt.add_to_global_scope(types, global_env, None),
-            Stmt::Interface(stmt) => stmt.add_to_global_scope(types, global_env),
-            Stmt::InterfaceImpl(stmt) => {
-                stmt.add_to_global_scope(types, global_env, init_data, uninit_data)
+            Stmt::Function(stmt) => {
+                stmt.add_to_global_scope(types, global_env, None, StmtKind::Function)
             }
+            Stmt::Var(stmt) => stmt.add_to_global_scope(types, global_env, init_data, uninit_data),
+            Stmt::FunctionStub(stmt) => {
+                stmt.add_to_global_scope(types, global_env, None, StmtKind::Function)
+            }
+            Stmt::Interface(stmt) => stmt.add_to_global_scope(types, global_env),
+            Stmt::InterfaceImpl(stmt) => stmt.add_to_global_scope(types, global_env),
         }
     }
 }

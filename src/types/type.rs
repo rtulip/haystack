@@ -5,8 +5,8 @@ use crate::lex::token::Token;
 use std::collections::BTreeMap;
 
 use super::{
-    Function, FunctionStub, GenericFunction, InterfaceBaseType, RecordKind, TypeId, TypeMap,
-    UncheckedFunction,
+    Function, FunctionStub, GenericFunction, InterfaceBaseType, InterfaceInstanceType, RecordKind,
+    TypeId, TypeMap, UncheckedFunction,
 };
 
 /// Representation of Types within Haystack.
@@ -116,8 +116,8 @@ pub enum Type {
     Stub {
         func: FunctionStub,
     },
-
     InterfaceBase(InterfaceBaseType),
+    InterfaceInstance(InterfaceInstanceType),
 }
 
 impl Type {
@@ -151,6 +151,15 @@ impl Type {
                 TypeId::new(name)
             }
             Type::InterfaceBase(base) => base.id(),
+            Type::InterfaceInstance(instance) => {
+                let mut name = format!("{}<", instance.token.lexeme);
+                for t in &instance.mapping[0..instance.mapping.len() - 1] {
+                    name = format!("{name}{t} ");
+                }
+                name = format!("{name}{}>", instance.mapping.last().unwrap());
+
+                TypeId::new(name)
+            }
             Type::UncheckedFunction { .. }
             | Type::GenericFunction { .. }
             | Type::Function { .. }

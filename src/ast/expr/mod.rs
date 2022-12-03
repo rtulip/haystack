@@ -246,4 +246,9 @@ mod tests {
     fn interface_instance_generic() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("type_check", "interface_instance_generic")
     }
+
+    #[test]
+    fn function_requirements() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "function_requirements")
+    }
 }

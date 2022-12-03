@@ -17,6 +17,7 @@ pub struct FunctionStmt {
     pub body: Vec<Expr>,
     pub tags: Vec<FnTag>,
     pub impl_on: Option<Token>,
+    pub requires: Option<Vec<Token>>,
 }
 
 impl FunctionStmt {
@@ -53,6 +54,13 @@ impl FunctionStmt {
         };
 
         let typ = if generics.is_empty() {
+            if self.requires.is_some() {
+                return Err(HayError::new(
+                    "Cannot have interface requirements on non-generic functions",
+                    self.requires.unwrap().first().unwrap().loc.clone(),
+                ));
+            }
+
             Type::UncheckedFunction {
                 func: UncheckedFunction {
                     token: self.token,
@@ -76,6 +84,7 @@ impl FunctionStmt {
                     body: self.body,
                     tags: self.tags,
                     impl_on,
+                    requires: self.requires,
                 },
             }
         };

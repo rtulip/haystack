@@ -4,7 +4,7 @@ use crate::{
     ast::{arg::TypedArg, member::UntypedMember, stmt::StmtKind},
     error::HayError,
     lex::token::{Token, TokenKind, TypeToken},
-    types::{InterfaceInstanceType, Type, TypeId, TypeMap, UncheckedFunction},
+    types::{check_requirements, InterfaceInstanceType, Type, TypeId, TypeMap, UncheckedFunction},
 };
 
 use super::{FunctionStmt, GlobalEnv};
@@ -115,52 +115,25 @@ impl InterfaceImplStmt {
         }
 
         if interface.requires.is_some() {
-            for req in interface.requires.as_ref().unwrap() {
-                match &req.kind {
-                    TokenKind::Type(TypeToken::Parameterized { base, inner }) => {
-                        let mut inner_map = vec![];
-                        for t in inner {
-                            let inner_tid = TypeId::from_type_token(
-                                &req,
-                                &t,
-                                types,
-                                &map.keys().cloned().collect(),
-                            )?;
-                            let inner_mapped = map.get(&inner_tid).unwrap().clone();
-                            inner_map.push(inner_mapped);
-                        }
-                        match types.get(&TypeId::new(base)) {
-                            Some(Type::InterfaceBase(req_base)) => {
-                                let mut aliased_map = HashMap::new();
-                                for (t, c) in req_base
-                                    .annotations
-                                    .clone()
-                                    .into_iter()
-                                    .zip(inner_map.into_iter())
-                                {
-                                    aliased_map.insert(t, c);
-                                }
-
-                                if let Err(e) = req_base.find_impl(&self.interface, &aliased_map) {
-                                    return Err(HayError::new(
-                                        format!(
-                                            "Failed to implement Interface `{}`",
-                                            self.interface.lexeme
-                                        ),
-                                        self.interface.loc,
-                                    )
-                                    .with_hint(format!(
-                                        "Interface `{}` requires `{}` is implemented",
-                                        interface.name.lexeme, req.lexeme
-                                    ))
-                                    .with_hint(e.message()));
-                                }
-                            }
-                            _ => unreachable!(),
-                        }
-                    }
-                    _ => unreachable!(),
+            match check_requirements(
+                &self.interface,
+                interface.requires.as_ref().unwrap(),
+                types,
+                &map,
+            ) {
+                Err((Some(r), e)) => {
+                    return Err(HayError::new(
+                        format!("Failed to implement Interface `{}`", self.interface.lexeme),
+                        self.interface.loc,
+                    )
+                    .with_hint(format!(
+                        "Interface `{}` requires `{}` is implemented",
+                        interface.name.lexeme, r.lexeme
+                    ))
+                    .with_hint(e.message()));
                 }
+                Err((_, e)) => return Err(e),
+                _ => (),
             }
         }
 

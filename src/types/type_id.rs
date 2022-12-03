@@ -6,7 +6,8 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 use super::{
-    InterfaceBaseType, InterfaceInstanceType, RecordKind, Type, TypeMap, UncheckedFunction,
+    check_requirements, InterfaceBaseType, InterfaceInstanceType, RecordKind, Type, TypeMap,
+    UncheckedFunction,
 };
 
 /// Unique Identifier for types
@@ -486,6 +487,32 @@ impl TypeId {
                             ident: output.ident,
                             typ: output.typ.assign(token, map, types)?,
                         });
+                    }
+
+                    if func.requires.is_some() {
+                        match check_requirements(
+                            &func.name,
+                            func.requires.as_ref().unwrap(),
+                            types,
+                            map,
+                        ) {
+                            Err((Some(r), e)) => {
+                                return Err(HayError::new(
+                                    format!(
+                                        "Cannot call function `{}` with inputs {:?}, as requirements are not met.", 
+                                        func.name.lexeme, 
+                                        assigned_inputs
+                                            .iter()
+                                            .map(|arg| &arg.typ).collect::<Vec<&TypeId>>()
+                                    ), 
+                                    token.loc.clone())
+                                    .with_hint(format!("Function `{}` requires `{}` is implemented", func.name.lexeme, r.lexeme))
+                                    .with_hint(e.message())
+                                )
+                            },
+                            Err((_, e)) => return Err(e),
+                            _ => (),
+                        }
                     }
 
                     // Create a new unchecked function to make sure it gets type checked.

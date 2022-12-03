@@ -6,7 +6,7 @@ use crate::{
         stmt::{GlobalEnv, StmtKind},
     },
     error::HayError,
-    lex::token::Token,
+    lex::token::{Token, TokenKind, TypeToken},
 };
 
 use super::{Stack, Type, TypeId, TypeMap};
@@ -120,4 +120,52 @@ impl InterfaceBaseType {
             ))
         }
     }
+}
+
+pub fn check_requirements<'a>(
+    token: &Token,
+    requirements: &'a Vec<Token>,
+    types: &mut TypeMap,
+    map: &HashMap<TypeId, TypeId>,
+) -> Result<(), (Option<&'a Token>, HayError)> {
+    for req in requirements {
+        match &req.kind {
+            TokenKind::Type(TypeToken::Parameterized { base, inner }) => {
+                let mut inner_map = vec![];
+                for t in inner {
+                    let inner_tid = match TypeId::from_type_token(
+                        &req,
+                        &t,
+                        types,
+                        &map.keys().cloned().collect(),
+                    ) {
+                        Ok(t) => t,
+                        Err(e) => return Err((None, e)),
+                    };
+                    let inner_mapped = map.get(&inner_tid).unwrap().clone();
+                    inner_map.push(inner_mapped);
+                }
+                match types.get(&TypeId::new(base)) {
+                    Some(Type::InterfaceBase(req_base)) => {
+                        let mut aliased_map = HashMap::new();
+                        for (t, c) in req_base
+                            .annotations
+                            .clone()
+                            .into_iter()
+                            .zip(inner_map.into_iter())
+                        {
+                            aliased_map.insert(t, c);
+                        }
+
+                        if let Err(e) = req_base.find_impl(&token, &aliased_map) {
+                            return Err((Some(req), e));
+                        }
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+    Ok(())
 }

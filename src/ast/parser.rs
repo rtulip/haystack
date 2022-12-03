@@ -535,7 +535,7 @@ impl<'a> Parser<'a> {
             Err(_) => vec![],
         };
 
-        let _requires = match self.matches(TokenKind::Keyword(Keyword::Requires)) {
+        let requires = match self.matches(TokenKind::Keyword(Keyword::Requires)) {
             Ok(t) => Some(self.requires(t)?),
             Err(_) => None,
         };
@@ -548,6 +548,7 @@ impl<'a> Parser<'a> {
             annotations,
             tags,
             impl_on: impl_on.cloned(),
+            requires,
         };
 
         Ok(stub)
@@ -573,6 +574,7 @@ impl<'a> Parser<'a> {
                 body,
                 tags: stub.tags,
                 impl_on: stub.impl_on,
+                requires: stub.requires,
             })])
         } else {
             Ok(vec![Stmt::FunctionStub(stub)])
@@ -604,6 +606,7 @@ impl<'a> Parser<'a> {
             body,
             tags: stub.tags,
             impl_on: impl_on.cloned(),
+            requires: stub.requires,
         })])
     }
 

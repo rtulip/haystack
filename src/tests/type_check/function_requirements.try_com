@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/function_requirements.hay:15:15] Error: Cannot call function `takes_foos` with inputs [u64, u8], as requirements are not met.\n    [Note]: Function `takes_foos` requires `Foo<B>` is implemented\n    [Note]: Interface `Foo<u8>` is not implemented\n"
+}

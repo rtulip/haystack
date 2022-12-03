@@ -16,6 +16,7 @@ pub struct FunctionStubStmt {
     pub annotations: Option<Vec<UntypedArg>>,
     pub impl_on: Option<Token>,
     pub tags: Vec<FnTag>,
+    pub requires: Option<Vec<Token>>,
 }
 
 impl FunctionStubStmt {

@@ -58,20 +58,39 @@ impl Stmt {
     pub fn bulid_local_generics(
         annotations: Option<Vec<UntypedArg>>,
         types: &BTreeMap<TypeId, Type>,
+        impl_on: Option<&TypeId>,
     ) -> Result<Vec<TypeId>, HayError> {
+        let mut out = vec![];
         match annotations {
-            None => Ok(vec![]),
+            None => (),
             Some(annotations) => {
-                let mut out = vec![];
                 for a in annotations {
-                    if types.contains_key(&TypeId::new(&a.token.lexeme)) {
+                    let tid = TypeId::new(&a.token.lexeme);
+                    if types.contains_key(&tid) {
                         return Err(HayError::new(format!("Generic type {} cannot be used as it has already been defined elsewhere.", a.token.lexeme), a.token.loc));
                     }
-                    out.push(TypeId(a.token.lexeme));
+                    out.push(tid);
                 }
-                Ok(out)
             }
         }
+
+        match impl_on {
+            Some(tid) => match types.get(tid) {
+                Some(Type::InterfaceBase(interface)) => {
+                    for t in &interface.annotations {
+                        out.push(t.clone());
+                    }
+                    for (t, _) in &interface.types {
+                        out.push(t.clone());
+                    }
+                }
+                Some(_) => unimplemented!("tid: {tid}"),
+                None => unimplemented!("unrecognized type {tid}"),
+            },
+            None => (),
+        }
+
+        Ok(out)
     }
 
     pub fn build_types_and_data<'a>(
@@ -131,12 +150,10 @@ impl Stmt {
             Stmt::Record(stmt) => stmt.add_to_global_scope(types),
             Stmt::PreDeclaration(stmt) => stmt.add_to_global_scope(types),
             Stmt::Enum(stmt) => stmt.add_to_global_scope(types),
-            Stmt::Function(stmt) => stmt.add_to_global_scope(types, global_env),
+            Stmt::Function(stmt) => stmt.add_to_global_scope(types, global_env, None),
             Stmt::Var(stmt) => stmt.add_to_global_scope(types, global_env, init_data, uninit_data),
-            Stmt::FunctionStub(stmt) => {
-                stmt.add_to_global_scope(types, global_env, init_data, uninit_data)
-            }
-            Stmt::Interface(stmt) => stmt.add_to_global_scope(types),
+            Stmt::FunctionStub(stmt) => stmt.add_to_global_scope(types, global_env, None),
+            Stmt::Interface(stmt) => stmt.add_to_global_scope(types, global_env),
             Stmt::InterfaceImpl(stmt) => {
                 stmt.add_to_global_scope(types, global_env, init_data, uninit_data)
             }

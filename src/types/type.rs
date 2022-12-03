@@ -5,7 +5,8 @@ use crate::lex::token::Token;
 use std::collections::BTreeMap;
 
 use super::{
-    Function, GenericFunction, InterfaceBaseType, RecordKind, TypeId, TypeMap, UncheckedFunction,
+    Function, FunctionStub, GenericFunction, InterfaceBaseType, RecordKind, TypeId, TypeMap,
+    UncheckedFunction,
 };
 
 /// Representation of Types within Haystack.
@@ -112,6 +113,9 @@ pub enum Type {
     Function {
         func: Function,
     },
+    Stub {
+        func: FunctionStub,
+    },
 
     InterfaceBase(InterfaceBaseType),
 }
@@ -149,7 +153,8 @@ impl Type {
             Type::InterfaceBase(base) => base.id(),
             Type::UncheckedFunction { .. }
             | Type::GenericFunction { .. }
-            | Type::Function { .. } => {
+            | Type::Function { .. }
+            | Type::Stub { .. } => {
                 unimplemented!("Haven't implemented name from Functions.")
             }
             Type::RecordPreDeclaration { .. } => unreachable!(),

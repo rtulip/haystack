@@ -24,8 +24,9 @@ impl FunctionStmt {
         self,
         types: &mut TypeMap,
         global_env: &mut GlobalEnv,
+        local_scope: Option<&TypeId>,
     ) -> Result<(), HayError> {
-        let generics = Stmt::bulid_local_generics(self.annotations, types)?;
+        let generics = Stmt::bulid_local_generics(self.annotations, types, local_scope)?;
         let inputs = UntypedArg::resolve(self.inputs, types, &generics)?;
         let outputs = UntypedArg::resolve(self.outputs, types, &generics)?;
 

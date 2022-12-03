@@ -18,7 +18,7 @@ pub struct RecordStmt {
 
 impl RecordStmt {
     pub fn add_to_global_scope(self, types: &mut TypeMap) -> Result<(), HayError> {
-        let generics = Stmt::bulid_local_generics(self.annotations, types)?;
+        let generics = Stmt::bulid_local_generics(self.annotations, types, None)?;
         let members = UntypedMember::resolve(self.members, types, &generics)?;
 
         let prev = match generics.len() {

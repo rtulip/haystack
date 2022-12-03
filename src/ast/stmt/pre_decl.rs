@@ -18,7 +18,7 @@ pub struct PreDeclarationStmt {
 impl PreDeclarationStmt {
     pub fn add_to_global_scope(self, types: &mut TypeMap) -> Result<(), HayError> {
         let tid = TypeId::new(&self.name.lexeme);
-        let generics = Stmt::bulid_local_generics(self.annotations, types)?;
+        let generics = Stmt::bulid_local_generics(self.annotations, types, None)?;
         match types.get(&tid) {
             Some(Type::Record {
                 token: decl_token,

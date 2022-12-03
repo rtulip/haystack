@@ -138,7 +138,8 @@ impl ExprCast {
             Type::GenericFunction { .. }
             | Type::UncheckedFunction { .. }
             | Type::Function { .. }
-            | Type::GenericRecordInstance { .. } => unreachable!(),
+            | Type::GenericRecordInstance { .. }
+            | Type::Stub { .. } => unreachable!(),
             Type::Never => unreachable!("Casting to never types is not supported"),
             Type::RecordPreDeclaration { .. } => unreachable!(),
         }

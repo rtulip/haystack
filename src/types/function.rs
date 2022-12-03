@@ -56,6 +56,17 @@ pub struct Function {
     pub tags: Vec<FnTag>,
 }
 
+#[derive(Debug, Clone)]
+pub struct FunctionStub {
+    pub token: Token,
+    pub name: Token,
+    pub inputs: Vec<TypedArg>,
+    pub outputs: Vec<TypedArg>,
+    pub generics: Option<Vec<TypeId>>,
+    pub tags: Vec<FnTag>,
+    pub impl_on: Option<TypeId>,
+}
+
 impl Function {
     pub fn has_tag(&self, tag: FnTag) -> bool {
         self.tags.contains(&tag)

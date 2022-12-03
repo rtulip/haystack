@@ -228,7 +228,13 @@ impl<'a> Parser<'a> {
 
         let types = self.interface_associated_types()?;
 
-        let fns = self.interface_functions(&name)?;
+        let mut fns = vec![];
+        let mut stubs = vec![];
+        self.interface_functions(&name)?.into_iter().for_each(|s| match s {
+            Stmt::Function(fn_stmt) => fns.push(fn_stmt),
+            Stmt::FunctionStub(fn_stub) => stubs.push(fn_stub),
+            _ => unreachable!(),
+        });
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
             return Err(HayError::new(
@@ -241,7 +247,7 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        if fns.is_empty() {
+        if fns.is_empty() && stubs.is_empty() {
             return Err(HayError::new(
                 "Expected at least one interface function, but none were found.",
                 name.loc,
@@ -254,6 +260,7 @@ impl<'a> Parser<'a> {
             annotations,
             types,
             fns,
+            stubs,
         })])
     }
 

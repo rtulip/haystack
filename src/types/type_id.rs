@@ -55,6 +55,7 @@ impl TypeId {
             )
             | None => true,
             Some(Type::RecordPreDeclaration { generics, .. }) => !generics.is_empty(),
+            Some(Type::Stub { .. }) => unimplemented!(),
         }
     }
 
@@ -182,6 +183,7 @@ impl TypeId {
                         ),
                         token.loc.clone(),
                     )),
+                    Some(Type::Stub { .. }) => unimplemented!(),
                     Some(Type::Never) => unreachable!("Never types aren't representable"),
                     Some(Type::RecordPreDeclaration { .. }) => {
                         unreachable!("Pre declarations aren't allowed past parsing.")
@@ -496,6 +498,7 @@ impl TypeId {
 
                     Ok(tid)
                 }
+                Type::Stub { .. } => unimplemented!(),
                 Type::InterfaceBase(_) => unimplemented!(),
                 Type::UncheckedFunction { .. } | Type::Function { .. } => {
                     unreachable!("Should never assign to non-generic function!")
@@ -505,6 +508,7 @@ impl TypeId {
                     unreachable!("Pre-declarations should never be assigned")
                 }
             },
+
             None => {
                 if !map.contains_key(self) {
                     return Err(HayError::new_type_err(
@@ -704,7 +708,8 @@ impl TypeId {
                 Some(
                     Type::UncheckedFunction { .. }
                     | Type::GenericFunction { .. }
-                    | Type::Function { .. },
+                    | Type::Function { .. }
+                    | Type::Stub { .. },
                 ),
                 _,
             ) => unreachable!("Functions should never be part of type resolution."),
@@ -763,7 +768,8 @@ impl TypeId {
             }
             Type::UncheckedFunction { .. }
             | Type::GenericFunction { .. }
-            | Type::Function { .. } => Err(HayError::new(
+            | Type::Function { .. }
+            | Type::Stub { .. } => Err(HayError::new(
                 "Functions do not have a size",
                 Loc::new("", 0, 0, 0),
             )),

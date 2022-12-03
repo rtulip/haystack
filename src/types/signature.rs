@@ -136,7 +136,7 @@ impl<'pred> Signature<'pred> {
         S: Into<String>,
     {
         if self.predicate.is_some() {
-            panic!("{:?} already had a predicate.", self);
+            panic!("{self:?} already had a predicate.");
         }
 
         Self {
@@ -184,7 +184,7 @@ impl<'pred> Signature<'pred> {
                 token.loc.clone(),
             )
             .with_hint(format!("Expected: {:?}", self.inputs))
-            .with_hint(format!("Found:    {:?}", stack)));
+            .with_hint(format!("Found:    {stack:?}")));
         }
 
         // Need to resolve the generics if `self` is generic.
@@ -293,7 +293,7 @@ impl<'pred> Signature<'pred> {
             ).with_hint("Found these signatures:");
 
             for sig in sigs {
-                e = e.with_hint(format!("{:?}", sig));
+                e = e.with_hint(format!("{sig:?}",));
             }
             return Err(e);
         }

@@ -258,7 +258,7 @@ impl std::fmt::Display for TypeToken {
             TypeToken::Parameterized { base, inner } => {
                 write!(f, "{base}<")?;
                 for inner_t in inner.iter().take(inner.len() - 1) {
-                    write!(f, "{} ", inner_t)?;
+                    write!(f, "{inner_t} ")?;
                 }
                 write!(f, "{}>", inner.last().unwrap())
             }
@@ -314,7 +314,7 @@ impl std::fmt::Display for TokenKind {
             },
             TokenKind::Ident(id) => write!(f, "an identifier ({id})"),
             TokenKind::EoF => write!(f, "end of file"),
-            TokenKind::Syscall(_) => write!(f, "{:?}", self),
+            TokenKind::Syscall(_) => write!(f, "{self:?}"),
             TokenKind::Type(t) => write!(f, "{t}"),
         }
     }

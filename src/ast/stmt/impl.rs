@@ -38,16 +38,13 @@ impl InterfaceImplStmt {
             Some(Type::InterfaceBase(base)) => base.clone(),
             Some(_) => {
                 return Err(HayError::new(
-                    format!(
-                        "Cannot implement `{}`, as it is not an interface",
-                        interface_tid
-                    ),
+                    format!("Cannot implement `{interface_tid}`, as it is not an interface"),
                     self.interface.loc,
                 ))
             }
             None => {
                 return Err(HayError::new(
-                    format!("Unrecognized interface: `{}`", interface_tid),
+                    format!("Unrecognized interface: `{interface_tid}`"),
                     self.interface.loc,
                 ))
             }
@@ -62,7 +59,7 @@ impl InterfaceImplStmt {
                 "Expected annotations for: {:?}",
                 interface.annotations
             ))
-            .with_hint(format!("Found annotations:        {:?}", inner)));
+            .with_hint(format!("Found annotations:        {inner:?}")));
         }
         // Create a mapping from each interface generic to a type
         let mut map: HashMap<TypeId, TypeId> = HashMap::from_iter(
@@ -170,8 +167,8 @@ impl InterfaceImplStmt {
                                     tok.loc,
                                 )
                                 .with_hint(format!("For interface function `{func}`"))
-                                .with_hint(format!("Expected: {:?}", interface_sig))
-                                .with_hint(format!("Found   : {:?}", fn_sig)));
+                                .with_hint(format!("Expected: {interface_sig:?}"))
+                                .with_hint(format!("Found   : {fn_sig:?}")));
                             }
                         }
                         _ => unreachable!(),

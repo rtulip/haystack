@@ -92,7 +92,7 @@ impl<'a> Parser<'a> {
             TokenKind::Keyword(Keyword::Interface) => self.interface(token),
             TokenKind::Keyword(Keyword::Impl) => self.interface_impl(token),
             kind => Err(HayError::new(
-                format!("Unexpected top level token: {}", kind),
+                format!("Unexpected top level token: {kind}"),
                 token.loc,
             )),
         }
@@ -665,7 +665,7 @@ impl<'a> Parser<'a> {
                     base: ident.ident()?,
                     inner,
                 });
-                let lexeme = format!("{}", kind);
+                let lexeme = format!("{kind}");
 
                 Token {
                     kind,
@@ -718,7 +718,7 @@ impl<'a> Parser<'a> {
                     base: Box::new(typ.typ()?),
                     size: n as usize,
                 });
-                let lexeme = format!("{}", kind);
+                let lexeme = format!("{kind}");
 
                 Ok(Some(Token {
                     kind,
@@ -954,7 +954,7 @@ impl<'a> Parser<'a> {
             TokenKind::Keyword(Keyword::SizeOf) => self.size_of(token),
             TokenKind::Keyword(Keyword::Return) => Ok(Box::new(Expr::Return(ExprReturn { token }))),
             kind => Err(HayError::new(
-                format!("Not sure how to parse expression from {} yet", kind),
+                format!("Not sure how to parse expression from {kind} yet"),
                 token.loc,
             )),
         }
@@ -1146,7 +1146,7 @@ impl<'a> Parser<'a> {
         let members = self.members(&name, &kind)?;
 
         if members.is_empty() {
-            return Err(HayError::new(format!("{} members cannot be empty.", kind), name.loc));
+            return Err(HayError::new(format!("{kind} members cannot be empty."), name.loc));
         }
 
         let impls = self.impl_section(&name)?;

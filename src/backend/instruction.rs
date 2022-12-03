@@ -335,7 +335,7 @@ impl Instruction {
 
                         otherwise_ops.push((cnd_ops, blk_ops))
                     } else {
-                        panic!("{:?}", other);
+                        panic!("{other:?}");
                     }
                     n_jumps += 1;
                 }

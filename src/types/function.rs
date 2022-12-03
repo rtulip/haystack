@@ -125,8 +125,8 @@ impl UncheckedFunction {
                 ),
                 self.name.loc.clone(),
             )
-            .with_hint(format!("Expected final stack: {:?}", output_tids))
-            .with_hint(format!("Function produced:    {:?}", stack_tids)));
+            .with_hint(format!("Expected final stack: {output_tids:?}"))
+            .with_hint(format!("Function produced:    {stack_tids:?}")));
         }
 
         Ok(Function {

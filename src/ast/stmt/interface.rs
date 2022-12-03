@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     ast::arg::UntypedArg,
     error::HayError,
-    lex::token::Token,
+    lex::token::{Token, TokenKind, TypeToken},
     types::{InterfaceBaseType, Type, TypeId, TypeMap},
 };
 
@@ -17,6 +17,7 @@ pub struct InterfaceStmt {
     pub types: HashMap<TypeId, Token>,
     pub stubs: Vec<FunctionStubStmt>,
     pub fns: Vec<FunctionStmt>,
+    pub requires: Option<Vec<Token>>,
 }
 
 impl InterfaceStmt {
@@ -31,6 +32,20 @@ impl InterfaceStmt {
             fns.push(s.name.lexeme.clone());
         }
 
+        if self.requires.is_some() {
+            for t in self.requires.as_ref().unwrap() {
+                match &t.kind {
+                    TokenKind::Type(TypeToken::Parameterized { base, .. }) => {
+                        match types.get(&TypeId::new(base)) {
+                            Some(Type::InterfaceBase(_)) => (),
+                            _ => todo!("Err - {base} is not an interface"),
+                        }
+                    }
+                    _ => todo!("Err - {t} is not an interface."),
+                }
+            }
+        }
+
         let typ = Type::InterfaceBase(InterfaceBaseType {
             token: self.token,
             name: self.name.clone(),
@@ -41,6 +56,7 @@ impl InterfaceStmt {
                 .collect(),
             types: self.types,
             fns,
+            requires: self.requires,
             impls: vec![],
         });
         let tid = typ.id();

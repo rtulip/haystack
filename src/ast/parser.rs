@@ -98,6 +98,55 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn requires(&mut self, start: Token) -> Result<Vec<Token>, HayError> {
+        
+        if let Err(t) = self.matches(TokenKind::Marker(Marker::Colon)) {
+            return Err(HayError::new(
+                format!(
+                    "Expected {} after keyword {}. Found {} instead.",
+                    Marker::Colon,
+                    Keyword::Requires,
+                    t.kind
+                ),
+                t.loc,
+            ))
+        }
+
+        if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBracket)) {
+            return Err(HayError::new(
+                format!(
+                    "Expected {} after {}. Found {} instead.",
+                    Marker::LeftBracket,
+                    Marker::Colon,
+                    t.kind
+                ),
+                t.loc,
+            ))
+        }
+
+        let mut reqs = vec![];
+        while let Some(t) = self.parse_type()? {
+            reqs.push(t);
+        }
+
+        if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBracket)) {
+            return Err(HayError::new(
+                format!(
+                    "Expected {} after interface requirements. Found {} instead.",
+                    Marker::RightBracket,
+                    t.kind
+                ),
+                t.loc,
+            ))
+        }
+
+        if reqs.is_empty() {
+            return Err(HayError::new("Interface requirement list should not be empty.", start.loc).with_hint("Consider removing the `requires` list."))
+        }
+
+        Ok(reqs)
+    }
+
     fn include(&mut self, start: Token) -> Result<Vec<Stmt>, HayError> {
         let to_include = match self.matches(TokenKind::string()) {
             Ok(t) => t.string()?,
@@ -218,6 +267,12 @@ impl<'a> Parser<'a> {
                 ))
             }
         };
+
+        let requires = match self.matches(TokenKind::Keyword(Keyword::Requires)) {
+            Ok(t) => Some(self.requires(t)?),
+            Err(_) => None,
+        };
+
         if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
             return Err(HayError::new(
                 format!(
@@ -257,6 +312,7 @@ impl<'a> Parser<'a> {
             types,
             fns,
             stubs,
+            requires,
         })])
     }
 
@@ -477,6 +533,11 @@ impl<'a> Parser<'a> {
                 outputs
             }
             Err(_) => vec![],
+        };
+
+        let _requires = match self.matches(TokenKind::Keyword(Keyword::Requires)) {
+            Ok(t) => Some(self.requires(t)?),
+            Err(_) => None,
         };
 
         let stub = FunctionStubStmt {
@@ -1130,6 +1191,11 @@ impl<'a> Parser<'a> {
                 annotations,
             })]);
         }
+
+        let _requires = match self.matches(TokenKind::Keyword(Keyword::Requires)) {
+            Ok(t) => Some(self.requires(t)?),
+            Err(_) => None,
+        };
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
             return Err(HayError::new(

@@ -114,6 +114,56 @@ impl InterfaceImplStmt {
             return Err(err);
         }
 
+        if interface.requires.is_some() {
+            for req in interface.requires.as_ref().unwrap() {
+                match &req.kind {
+                    TokenKind::Type(TypeToken::Parameterized { base, inner }) => {
+                        let mut inner_map = vec![];
+                        for t in inner {
+                            let inner_tid = TypeId::from_type_token(
+                                &req,
+                                &t,
+                                types,
+                                &map.keys().cloned().collect(),
+                            )?;
+                            let inner_mapped = map.get(&inner_tid).unwrap().clone();
+                            inner_map.push(inner_mapped);
+                        }
+                        match types.get(&TypeId::new(base)) {
+                            Some(Type::InterfaceBase(req_base)) => {
+                                let mut aliased_map = HashMap::new();
+                                for (t, c) in req_base
+                                    .annotations
+                                    .clone()
+                                    .into_iter()
+                                    .zip(inner_map.into_iter())
+                                {
+                                    aliased_map.insert(t, c);
+                                }
+
+                                if let Err(e) = req_base.find_impl(&self.interface, &aliased_map) {
+                                    return Err(HayError::new(
+                                        format!(
+                                            "Failed to implement Interface `{}`",
+                                            self.interface.lexeme
+                                        ),
+                                        self.interface.loc,
+                                    )
+                                    .with_hint(format!(
+                                        "Interface `{}` requires `{}` is implemented",
+                                        interface.name.lexeme, req.lexeme
+                                    ))
+                                    .with_hint(e.message()));
+                                }
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
+                    _ => unreachable!(),
+                }
+            }
+        }
+
         // Assign that mapping to each interface signature & ensure the signatures match.
         let mut to_define = HashSet::new();
         for f in &interface.fns {
@@ -271,13 +321,16 @@ impl InterfaceImplStmt {
         }
 
         let instance_typ = Type::InterfaceInstance(InterfaceInstanceType {
-            token: self.interface,
+            token: Token {
+                kind: self.interface.kind.clone(),
+                lexeme: base.clone(),
+                loc: self.interface.loc,
+            },
             mapping: mapped,
             fns_map,
         });
 
         let instance_tid = instance_typ.id();
-
         types.insert(instance_tid.clone(), instance_typ);
         match types.get_mut(&interface_tid).unwrap() {
             Type::InterfaceBase(base) => {

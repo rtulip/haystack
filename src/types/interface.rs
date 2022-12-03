@@ -18,6 +18,7 @@ pub struct InterfaceBaseType {
     pub annotations: Vec<TypeId>,
     pub types: HashMap<TypeId, Token>,
     pub fns: Vec<String>,
+    pub requires: Option<Vec<Token>>,
     pub impls: Vec<TypeId>,
 }
 
@@ -93,5 +94,30 @@ impl InterfaceBaseType {
                     .rev()
                     .collect::<Vec<&TypeId>>()
             )))
+    }
+
+    pub fn find_impl(&self, token: &Token, map: &HashMap<TypeId, TypeId>) -> Result<(), HayError> {
+        let mut impl_name = format!("{}<", self.name.lexeme);
+        for ann in &self.annotations[0..self.annotations.len() - 1] {
+            impl_name = format!(
+                "{impl_name}{} ",
+                map.get(ann)
+                    .expect("Should have found a mapping for annotation")
+            );
+        }
+        impl_name = format!(
+            "{impl_name}{}>",
+            map.get(self.annotations.last().unwrap())
+                .expect("Should have found a mapping for the annotations")
+        );
+
+        if self.impls.iter().find(|i| i.0 == impl_name).is_some() {
+            Ok(())
+        } else {
+            Err(HayError::new(
+                format!("Interface `{impl_name}` is not implemented"),
+                token.loc.clone(),
+            ))
+        }
     }
 }

@@ -132,7 +132,7 @@ impl TypeId {
                     }) => {
                         // Make sure there are right number of annotations.
                         if generics.len() != inner.len() {
-                            return Err(HayError::new(format!("Incorrect number of type annotations provided. Expected annotations for {:?}", generics), token.loc.clone()));
+                            return Err(HayError::new(format!("Incorrect number of type annotations provided. Expected annotations for {generics:?}", ), token.loc.clone()));
                         }
 
                         // Collect inner types into TypeId's
@@ -449,7 +449,7 @@ impl TypeId {
                             "Generic function {} is generic over {:?}.",
                             func.name.lexeme, func.generics
                         ))
-                        .with_hint(format!("Found mapping: {:?}", map)));
+                        .with_hint(format!("Found mapping: {map:?}")));
                     }
 
                     // Generate the new name
@@ -525,7 +525,7 @@ impl TypeId {
             None => {
                 if !map.contains_key(self) {
                     return Err(HayError::new_type_err(
-                        format!("Expected to find {self} in {:?}", map),
+                        format!("Expected to find {self} in {map:?}"),
                         token.loc.clone(),
                     ));
                 }
@@ -594,7 +594,7 @@ impl TypeId {
                         token.loc.clone(),
                     )
                     .with_hint("The following types have been mapped:")
-                    .with_hint(format!("{:?}", map)));
+                    .with_hint(format!("{map:?}")));
                 }
 
                 // Return the mapped value.
@@ -914,7 +914,7 @@ impl TypeId {
                     format!("{}", pre_decl_token.loc.clone()),
                 )
                 .with_hint_and_custom_note(
-                    format!("Type {self} was defined as generic over {:?}", generics),
+                    format!("Type {self} was defined as generic over {generics:?}"),
                     format!("{}", decl_token.loc.clone()),
                 ));
             }
@@ -926,13 +926,12 @@ impl TypeId {
                     )
                     .with_hint_and_custom_note(
                         format!(
-                            "Type {self} was predeclared as generic over {:?}",
-                            pre_decl_generics
+                            "Type {self} was predeclared as generic over {pre_decl_generics:?}",
                         ),
                         format!("{}", pre_decl_token.loc.clone()),
                     )
                     .with_hint_and_custom_note(
-                        format!("Type {self} was not defined as generic over {:?}", generics),
+                        format!("Type {self} was not defined as generic over {generics:?}",),
                         format!("{}", decl_token.loc.clone()),
                     ));
                 }
@@ -943,10 +942,7 @@ impl TypeId {
                     token.loc.clone(),
                 )
                 .with_hint_and_custom_note(
-                    format!(
-                        "Type {self} was predeclared as generic over {:?}",
-                        pre_decl_generics
-                    ),
+                    format!("Type {self} was predeclared as generic over {pre_decl_generics:?}",),
                     format!("{}", pre_decl_token.loc.clone()),
                 )
                 .with_hint_and_custom_note(

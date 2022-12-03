@@ -33,17 +33,38 @@ impl InterfaceImplStmt {
                     })
                     .collect::<Vec<TypeId>>(),
             ),
-            _ => unimplemented!("Expected paramerterized"),
+            _ => unreachable!(),
         };
         let interface_tid = TypeId::new(base);
         let interface = match types.get(&interface_tid) {
             Some(Type::InterfaceBase(base)) => base.clone(),
-            Some(_) => unimplemented!("error bad interface type"),
-            None => unimplemented!("Unrecognized interface."),
+            Some(_) => {
+                return Err(HayError::new(
+                    format!(
+                        "Cannot implement `{}`, as it is not an interface",
+                        interface_tid
+                    ),
+                    self.interface.loc,
+                ))
+            }
+            None => {
+                return Err(HayError::new(
+                    format!("Unrecognized interface: `{}`", interface_tid),
+                    self.interface.loc,
+                ))
+            }
         };
 
         if inner.len() != interface.annotations.len() {
-            todo!("Error")
+            return Err(HayError::new(
+                format!("Incorrect number of annotations for interface `{interface_tid}`"),
+                self.interface.loc,
+            )
+            .with_hint(format!(
+                "Expected annotations for: {:?}",
+                interface.annotations
+            ))
+            .with_hint(format!("Found annotations:        {:?}", inner)));
         }
         // Create a mapping from each interface generic to a type
         let mut map: HashMap<TypeId, TypeId> = HashMap::from_iter(
@@ -65,17 +86,46 @@ impl InterfaceImplStmt {
             let typ = TypeId::from_token(&t.token, types, &vec![])?;
             if to_define.remove(&tid) {
                 map.insert(tid, typ);
+            } else if map.contains_key(&tid) {
+                return Err(HayError::new(
+                    format!("Associated type `{tid}` defined multiple times."),
+                    t.token.loc,
+                ));
             } else {
-                todo!("error")
+                return Err(HayError::new(
+                    format!("Unrecognized associated type: `{tid}`"),
+                    t.token.loc,
+                )
+                .with_hint(format!(
+                    "Interface `{interface_tid}` expects the following associated types:",
+                ))
+                .with_hint(format!(
+                    "{:?}",
+                    interface
+                        .types
+                        .iter()
+                        .map(|(tid, _)| tid)
+                        .collect::<Vec<&TypeId>>()
+                )));
             }
         }
+
         if !to_define.is_empty() {
-            todo!("Error")
+            let mut err = HayError::new("Missing interface associated types.", self.interface.loc)
+                .with_hint(format!(
+                    "The following types were not defined for interface `{interface_tid}`:"
+                ));
+
+            for tid in to_define {
+                err = err.with_hint(format!(" * _: {tid}"));
+            }
+
+            return Err(err);
         }
 
         // Assign that mapping to each interface signature & ensure the signatures match.
         let mut to_define = HashSet::new();
-        for f in interface.fns {
+        for f in &interface.fns {
             to_define.insert(f);
         }
 
@@ -103,7 +153,7 @@ impl InterfaceImplStmt {
                     // Insert the concrete functions renamed
                     f.add_to_global_scope(types, global_env, None, StmtKind::Function)?;
 
-                    let (_, mut interface_sig) = global_env.get(&func).unwrap().clone();
+                    let (_, mut interface_sig) = global_env.get(func).unwrap().clone();
                     interface_sig.assign(&tok, &mapped, types)?;
 
                     match global_env.get(&new_fn_name) {
@@ -121,21 +171,51 @@ impl InterfaceImplStmt {
                                     .zip(fn_sig.outputs.iter())
                                     .any(|(a, b)| a != b)
                             {
-                                todo!("Error")
+                                return Err(HayError::new(
+                                    "Incorrect interface function signature",
+                                    tok.loc,
+                                )
+                                .with_hint(format!("For interface function `{func}`"))
+                                .with_hint(format!("Expected: {:?}", interface_sig))
+                                .with_hint(format!("Found   : {:?}", fn_sig)));
                             }
                         }
-                        Some(_) => todo!("err"),
-                        None => todo!("err"),
+                        _ => unreachable!(),
                     }
 
                     fns_map.insert(TypeId::new(func), TypeId::new(new_fn_name));
                 }
-                None => todo!("error"),
+                None => {
+                    let mut err = HayError::new(
+                        format!("Unexpected interface function: `{}`", f.name.lexeme),
+                        f.token.loc.clone(),
+                    )
+                    .with_hint(format!(
+                        "Interface `{interface_tid}` defines the following functions:",
+                    ));
+                    for f in &interface.fns {
+                        err = err.with_hint(format!(" * fn {f}"));
+                    }
+
+                    return Err(err);
+                }
             }
         }
 
         if !to_define.is_empty() {
-            todo!("error")
+            let mut err = HayError::new(
+                "Missing interface function implementations.",
+                self.interface.loc,
+            )
+            .with_hint(format!(
+                "The following functions were not implemented for interface `{interface_tid}`:"
+            ));
+
+            for tid in to_define {
+                err = err.with_hint(format!(" * fn {tid}"));
+            }
+
+            return Err(err);
         }
 
         let instance_typ = Type::InterfaceInstance(InterfaceInstanceType {

@@ -1,0 +1,6 @@
+interface Foo<T> {
+    fn foo(T)
+}
+
+impl Foo<u64> {
+}

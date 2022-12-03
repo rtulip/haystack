@@ -1,0 +1,8 @@
+interface Foo<T> {
+    _: Output
+    fn foo(T) -> [Output]
+}
+
+impl Foo<u64> {
+    fn foo(u64) -> [u64] {}
+}

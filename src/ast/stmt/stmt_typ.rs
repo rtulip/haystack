@@ -224,4 +224,49 @@ mod tests {
     fn pre_decl_name_conflict() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("stmt", "pre_decl_name_conflict")
     }
+
+    #[test]
+    fn associated_type_redefinition() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "associated_type_redefinition")
+    }
+
+    #[test]
+    fn bad_associated_type() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "bad_associated_type")
+    }
+
+    #[test]
+    fn impl_non_interface_type() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "impl_non_interface_type")
+    }
+
+    #[test]
+    fn impl_unknown_interface() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "impl_unknown_interface")
+    }
+
+    #[test]
+    fn impl_wrong_annotations() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "impl_wrong_annotations")
+    }
+
+    #[test]
+    fn interface_signature_mismatch() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "interface_signature_mismatch")
+    }
+
+    #[test]
+    fn missing_associated_types() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "missing_associated_types")
+    }
+
+    #[test]
+    fn missing_interface_impls() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "missing_interface_impls")
+    }
+
+    #[test]
+    fn unexpected_interface_function() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "unexpected_interface_function")
+    }
 }

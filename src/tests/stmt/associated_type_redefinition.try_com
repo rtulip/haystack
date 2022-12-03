@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/stmt/associated_type_redefinition.hay:8:5] Error: Associated type `Output` defined multiple times.\n"
+}

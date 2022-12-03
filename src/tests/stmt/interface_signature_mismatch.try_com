@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/stmt/interface_signature_mismatch.hay:8:8] Error: Incorrect interface function signature\n    [Note]: For interface function `foo`\n    [Note]: Expected: [\"u64\"] -> [\"u8\"]\n    [Note]: Found   : [\"u64\"] -> [\"u64\"]\n"
+}

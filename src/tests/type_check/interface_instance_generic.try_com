@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/interface_instance_generic.hay:5:11] Error: Cannot create an instance of interface `Foo`\n    [Note]: Consider adding a `requires` block.\n"
+}

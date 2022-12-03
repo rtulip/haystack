@@ -5,7 +5,9 @@ use crate::lex::token::{Loc, Token, TokenKind, TypeToken};
 use std::collections::HashMap;
 use std::hash::Hash;
 
-use super::{RecordKind, Type, TypeMap, UncheckedFunction};
+use super::{
+    InterfaceBaseType, InterfaceInstanceType, RecordKind, Type, TypeMap, UncheckedFunction,
+};
 
 /// Unique Identifier for types
 ///
@@ -165,8 +167,16 @@ impl TypeId {
                             base_tid.assign(token, &map, types)
                         }
                     }
-                    Some(Type::InterfaceBase(_)) => unimplemented!(),
-                    Some(Type::InterfaceInstance(_)) => unimplemented!(),
+                    Some(
+                        Type::InterfaceBase(InterfaceBaseType { name, .. })
+                        | Type::InterfaceInstance(InterfaceInstanceType { token: name, .. }),
+                    ) => {
+                        return Err(HayError::new(
+                            format!("Cannot create an instance of interface `{}`", name.lexeme),
+                            token.loc.clone(),
+                        )
+                        .with_hint("Consider adding a `requires` block."))
+                    }
                     Some(
                         Type::Bool
                         | Type::Char

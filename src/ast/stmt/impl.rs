@@ -24,15 +24,18 @@ impl InterfaceImplStmt {
         global_env: &mut GlobalEnv,
     ) -> Result<(), HayError> {
         let (base, inner) = match &self.interface.kind {
-            TokenKind::Type(TypeToken::Parameterized { base, inner }) => (
-                base,
-                inner
-                    .iter()
-                    .map(|t| {
-                        TypeId::from_type_token(&self.interface, &t, types, &vec![]).expect("TODO!")
-                    })
-                    .collect::<Vec<TypeId>>(),
-            ),
+            TokenKind::Type(TypeToken::Parameterized { base, inner }) => {
+                let mut inner_tids = vec![];
+                for t in inner {
+                    inner_tids.push(TypeId::from_type_token(
+                        &self.interface,
+                        &t,
+                        types,
+                        &vec![],
+                    )?);
+                }
+                (base, inner_tids)
+            }
             _ => unreachable!(),
         };
         let interface_tid = TypeId::new(base);
@@ -296,6 +299,5 @@ impl InterfaceImplStmt {
         }
 
         Ok(())
-        // TODO: Intsert a InterfaceInstance into types.
     }
 }

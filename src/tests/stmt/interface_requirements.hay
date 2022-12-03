@@ -1,0 +1,13 @@
+interface Foo<T> {
+	fn foo(&T) -> [T]
+}
+
+interface Bar<A B>
+requires: [Foo<A> Foo<B>]
+{}
+
+impl Foo<u64> {
+	fn foo(&u64) -> [u64] { @ }
+}
+
+impl Bar<u64 u8> {}

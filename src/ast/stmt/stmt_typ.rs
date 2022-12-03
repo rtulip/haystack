@@ -273,4 +273,9 @@ mod tests {
     fn interface_name_conflict() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("stmt", "interface_name_conflict")
     }
+
+    #[test]
+    fn interface_requirements() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "interface_requirements")
+    }
 }

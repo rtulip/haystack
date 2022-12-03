@@ -22,10 +22,8 @@ impl ExprIdent {
         types: &mut TypeMap,
         global_env: &HashMap<String, (StmtKind, Signature)>,
     ) -> Result<TypedExpr, HayError> {
-        println!("ident: {}", self.ident);
         match global_env.get(&self.ident.lexeme) {
             Some((StmtKind::Function, sig)) => {
-                println!("  Function");
                 let typed_expr = if let Some(map) = sig.evaluate(&self.ident, stack, types)? {
                     let gen_fn_tid = TypeId::new(&self.ident.lexeme);
                     let monomorphised = gen_fn_tid.assign(&self.ident, &map, types)?;

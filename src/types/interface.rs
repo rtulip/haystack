@@ -7,7 +7,6 @@ use crate::{
     },
     error::HayError,
     lex::token::Token,
-    types::signature,
 };
 
 use super::{Stack, Type, TypeId, TypeMap};
@@ -35,6 +34,15 @@ impl InterfaceBaseType {
         TypeId::new(name)
     }
 
+    pub fn full_id(&self) -> TypeId {
+        let mut name = format!("{}<", self.name.lexeme);
+        for ann in &self.annotations[0..self.annotations.len() - 1] {
+            name = format!("{name}{ann} ");
+        }
+        name = format!("{name}{}>", self.annotations.last().unwrap());
+        TypeId::new(name)
+    }
+
     pub fn resolve(
         &self,
         expr: &ExprIdent,
@@ -42,10 +50,18 @@ impl InterfaceBaseType {
         types: &mut TypeMap,
         global_env: &GlobalEnv,
     ) -> Result<String, HayError> {
+        let mut err = HayError::new(
+            format!(
+                "Failed to resolve interface function `{}`",
+                &expr.ident.lexeme
+            ),
+            expr.ident.loc.clone(),
+        )
+        .with_hint(format!("Interface `{}` is implemented by:", self.full_id(),));
         for instance in &self.impls {
             match types.get(instance) {
                 Some(Type::InterfaceInstance(instance)) => {
-                    println!("    {}", instance.token);
+                    err = err.with_hint(format!("  {}", instance.token.lexeme));
                     let fn_tid = TypeId::new(&expr.ident.lexeme);
                     let mapped_fn = instance.fns_map.get(&fn_tid).unwrap().clone();
                     drop(instance);
@@ -63,6 +79,19 @@ impl InterfaceBaseType {
             }
         }
 
-        todo!()
+        let (_, interface_sig) = global_env.get(&expr.ident.lexeme).unwrap();
+        Err(err
+            .with_hint(format!("Function `{}` expected:", &expr.ident.lexeme))
+            .with_hint(format!("  {:?}", interface_sig.inputs))
+            .with_hint("Found:")
+            .with_hint(format!(
+                "  {:?}",
+                stack
+                    .iter()
+                    .rev()
+                    .take(interface_sig.inputs.len())
+                    .rev()
+                    .collect::<Vec<&TypeId>>()
+            )))
     }
 }

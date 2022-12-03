@@ -269,4 +269,9 @@ mod tests {
     fn unexpected_interface_function() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("stmt", "unexpected_interface_function")
     }
+
+    #[test]
+    fn interface_name_conflict() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "interface_name_conflict")
+    }
 }

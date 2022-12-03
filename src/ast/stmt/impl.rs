@@ -1,10 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    ast::{member::UntypedMember, stmt::StmtKind},
+    ast::{arg::TypedArg, member::UntypedMember, stmt::StmtKind},
     error::HayError,
     lex::token::{Token, TokenKind, TypeToken},
-    types::{InterfaceInstanceType, Type, TypeId, TypeMap},
+    types::{InterfaceInstanceType, Type, TypeId, TypeMap, UncheckedFunction},
 };
 
 use super::{FunctionStmt, GlobalEnv};
@@ -202,7 +202,68 @@ impl InterfaceImplStmt {
             }
         }
 
-        if !to_define.is_empty() {
+        let mut missing = HashSet::new();
+        for f in to_define {
+            let tid = TypeId::new(f);
+            match types.get(&tid) {
+                Some(Type::GenericFunction { func }) => {
+                    let mut func = func.clone();
+                    let mut new_fn_name = format!("{f}<");
+                    for t in &mapped[0..mapped.len() - 1] {
+                        new_fn_name = format!("{new_fn_name}{t} ");
+                    }
+                    new_fn_name = format!("{new_fn_name}{}>", mapped.last().unwrap());
+
+                    func.name.lexeme = new_fn_name.clone();
+                    let (_, mut interface_sig) = global_env.get(f).unwrap().clone();
+                    interface_sig.assign(&interface.token, &mapped, types)?;
+
+                    func.inputs = interface_sig
+                        .inputs
+                        .iter()
+                        .zip(func.inputs.into_iter())
+                        .map(|(t, arg)| TypedArg {
+                            token: arg.token,
+                            mutable: arg.mutable,
+                            ident: arg.ident,
+                            typ: t.clone(),
+                        })
+                        .collect();
+                    func.outputs = interface_sig
+                        .outputs
+                        .iter()
+                        .zip(func.outputs.into_iter())
+                        .map(|(t, arg)| TypedArg {
+                            token: arg.token,
+                            mutable: arg.mutable,
+                            ident: arg.ident,
+                            typ: t.clone(),
+                        })
+                        .collect();
+
+                    let func = UncheckedFunction {
+                        token: func.token,
+                        name: func.name,
+                        inputs: func.inputs,
+                        outputs: func.outputs,
+                        body: func.body,
+                        generic_map: Some(map.clone()),
+                        tags: func.tags,
+                        impl_on: func.impl_on,
+                    };
+
+                    let new_tid = TypeId::new(&new_fn_name);
+                    types.insert(new_tid.clone(), Type::UncheckedFunction { func });
+                    fns_map.insert(tid, new_tid);
+                    global_env.insert(new_fn_name, (StmtKind::Function, interface_sig));
+                }
+                _ => {
+                    missing.insert(f);
+                }
+            }
+        }
+
+        if !missing.is_empty() {
             let mut err = HayError::new(
                 "Missing interface function implementations.",
                 self.interface.loc,
@@ -211,7 +272,7 @@ impl InterfaceImplStmt {
                 "The following functions were not implemented for interface `{interface_tid}`:"
             ));
 
-            for tid in to_define {
+            for tid in missing {
                 err = err.with_hint(format!(" * fn {tid}"));
             }
 

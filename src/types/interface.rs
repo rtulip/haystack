@@ -58,10 +58,12 @@ impl InterfaceBaseType {
             expr.ident.loc.clone(),
         )
         .with_hint(format!("Interface `{}` is implemented by:", self.full_id(),));
+
         for instance in &self.impls {
             match types.get(instance) {
                 Some(Type::InterfaceInstance(instance)) => {
                     err = err.with_hint(format!("  {}", instance.token.lexeme));
+
                     let fn_tid = TypeId::new(&expr.ident.lexeme);
                     let mapped_fn = instance.fns_map.get(&fn_tid).unwrap().clone();
                     drop(instance);

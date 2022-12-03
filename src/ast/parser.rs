@@ -152,7 +152,10 @@ impl<'a> Parser<'a> {
         }
 
         let types = self.members(&start, &interface, &RecordKind::Interface)?;
-        let fns = self.function_list(None)?;
+        let fns = self.function_list(None)?.into_iter().map(|s| match s {
+            Stmt::Function(f) => f,
+            _ => unreachable!(),
+        }).collect();
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
             return Err(HayError::new(

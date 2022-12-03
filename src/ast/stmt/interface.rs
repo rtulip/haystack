@@ -25,7 +25,12 @@ impl InterfaceStmt {
         types: &mut TypeMap,
         global_env: &mut GlobalEnv,
     ) -> Result<(), HayError> {
-        println!("Annotations: {:?}", self.annotations);
+        let mut fns: Vec<String> = self.fns.iter().map(|f| f.name.lexeme.clone()).collect();
+
+        for s in &self.stubs {
+            fns.push(s.name.lexeme.clone());
+        }
+
         let typ = Type::InterfaceBase(InterfaceBaseType {
             token: self.token,
             name: self.name.clone(),
@@ -35,10 +40,9 @@ impl InterfaceStmt {
                 .map(|arg| TypeId::new(arg.token.lexeme))
                 .collect(),
             types: self.types,
+            fns,
         });
         let tid = typ.id();
-
-        println!("tid: {tid}");
 
         if let Some(_) = types.insert(tid.clone(), typ) {
             return Err(HayError::new(

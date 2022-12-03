@@ -140,3 +140,9 @@ impl UncheckedFunction {
         })
     }
 }
+
+// impl FunctionStub {
+//     pub fn signature(&self) -> Signature {
+
+//     }
+// }

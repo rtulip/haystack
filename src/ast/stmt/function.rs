@@ -82,6 +82,7 @@ impl FunctionStmt {
         match types.insert(TypeId::new(&self.name.lexeme), typ) {
             None => {
                 global_env.insert(self.name.lexeme, (StmtKind::Function, sig));
+
                 Ok(())
             }
             Some(_) => {

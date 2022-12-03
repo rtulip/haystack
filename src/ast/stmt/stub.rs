@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use crate::{
     ast::arg::UntypedArg,
     error::HayError,
@@ -29,7 +27,6 @@ impl FunctionStubStmt {
     ) -> Result<(), HayError> {
         let generics = Stmt::bulid_local_generics(self.annotations, types, local_context)?;
 
-        println!("{}: {:?}", self.name, generics);
         let inputs = UntypedArg::resolve(self.inputs, types, &generics)?;
         let outputs = UntypedArg::resolve(self.outputs, types, &generics)?;
 

@@ -73,11 +73,10 @@ impl InterfaceBaseType {
                                 return Ok(mapped_fn.0);
                             }
                         }
-                        _ => todo!("err"),
+                        _ => unreachable!(),
                     }
                 }
-                Some(_) => todo!("err"),
-                None => todo!("Err"),
+                _ => unreachable!(),
             }
         }
 

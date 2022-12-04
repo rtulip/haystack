@@ -1,0 +1,7 @@
+interface Foo<T> {}
+impl Foo<u64> {}
+
+struct Bar
+requires: [Foo<u64>] {
+    u64: bar
+}

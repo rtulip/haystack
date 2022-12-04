@@ -1,0 +1,5 @@
+interface Foo<T> {}
+impl Foo<u64> {}
+
+fn foo()
+requires: [Foo<u64>] {}

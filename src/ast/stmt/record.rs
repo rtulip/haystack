@@ -31,7 +31,7 @@ impl RecordStmt {
                 if self.requires.is_some() {
                     return Err(HayError::new(
                         format!(
-                            "Cannot have interface requirements on a non_generic {}",
+                            "Cannot have interface requirements on a non-generic {}",
                             self.kind
                         ),
                         self.requires.unwrap().first().unwrap().loc.clone(),

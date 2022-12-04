@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/stmt/non_generic_record_requirements.hay:5:12] Error: Cannot have interface requirements on a non-generic struct\n"
+}

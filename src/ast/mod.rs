@@ -151,4 +151,14 @@ mod tests {
     fn record_non_interface_requirement2() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("stmt", "record_non_interface_requirement2")
     }
+
+    #[test]
+    fn non_generic_function_requirements() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "non_generic_function_requirements")
+    }
+
+    #[test]
+    fn non_generic_record_requirements() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "non_generic_record_requirements")
+    }
 }

@@ -181,3 +181,29 @@ pub fn check_requirements<'a>(
     }
     Ok(())
 }
+
+pub fn validate_requirements(requirements: &Vec<Token>, types: &TypeMap) -> Result<(), HayError> {
+    for t in requirements {
+        match &t.kind {
+            TokenKind::Type(TypeToken::Parameterized { base, .. }) => {
+                match types.get(&TypeId::new(base)) {
+                    Some(Type::InterfaceBase(_)) => (),
+                    _ => {
+                        return Err(HayError::new(
+                            format!("Invalid requirement: `{}` is not an interface.", t.lexeme),
+                            t.loc.clone(),
+                        ));
+                    }
+                }
+            }
+            _ => {
+                return Err(HayError::new(
+                    format!("Invalid requirement: `{}` is not an interface.", t.lexeme),
+                    t.loc.clone(),
+                ));
+            }
+        }
+    }
+
+    Ok(())
+}

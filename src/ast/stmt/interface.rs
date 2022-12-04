@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use crate::{
     ast::arg::UntypedArg,
     error::HayError,
-    lex::token::{Token, TokenKind, TypeToken},
-    types::{InterfaceBaseType, Type, TypeId, TypeMap},
+    lex::token::Token,
+    types::{validate_requirements, InterfaceBaseType, Type, TypeId, TypeMap},
 };
 
 use super::{FunctionStmt, FunctionStubStmt, GlobalEnv, StmtKind};
@@ -32,18 +32,8 @@ impl InterfaceStmt {
             fns.push(s.name.lexeme.clone());
         }
 
-        if self.requires.is_some() {
-            for t in self.requires.as_ref().unwrap() {
-                match &t.kind {
-                    TokenKind::Type(TypeToken::Parameterized { base, .. }) => {
-                        match types.get(&TypeId::new(base)) {
-                            Some(Type::InterfaceBase(_)) => (),
-                            _ => todo!("Err - {base} is not an interface"),
-                        }
-                    }
-                    _ => todo!("Err - {t} is not an interface."),
-                }
-            }
+        if let Some(requirements) = &self.requires {
+            validate_requirements(requirements, types)?;
         }
 
         let typ = Type::InterfaceBase(InterfaceBaseType {

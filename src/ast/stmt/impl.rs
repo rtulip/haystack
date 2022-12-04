@@ -114,13 +114,8 @@ impl InterfaceImplStmt {
             return Err(err);
         }
 
-        if interface.requires.is_some() {
-            match check_requirements(
-                &self.interface,
-                interface.requires.as_ref().unwrap(),
-                types,
-                &map,
-            ) {
+        if let Some(requirements) = &interface.requires {
+            match check_requirements(&self.interface, requirements, types, &map) {
                 Err((Some(r), e)) => {
                     return Err(HayError::new(
                         format!("Failed to implement Interface `{}`", self.interface.lexeme),

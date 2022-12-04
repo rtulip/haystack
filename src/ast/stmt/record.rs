@@ -2,7 +2,7 @@ use crate::{
     ast::{arg::UntypedArg, member::UntypedMember},
     error::HayError,
     lex::token::Token,
-    types::{RecordKind, Type, TypeId, TypeMap},
+    types::{validate_requirements, RecordKind, Type, TypeId, TypeMap},
 };
 
 use super::Stmt;
@@ -21,6 +21,10 @@ impl RecordStmt {
     pub fn add_to_global_scope(self, types: &mut TypeMap) -> Result<(), HayError> {
         let generics = Stmt::bulid_local_generics(self.annotations, types, None)?;
         let members = UntypedMember::resolve(self.members, types, &generics)?;
+
+        if let Some(requirements) = &self.requires {
+            validate_requirements(requirements, types)?;
+        }
 
         let prev = match generics.len() {
             0 => {

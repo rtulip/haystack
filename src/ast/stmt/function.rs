@@ -2,7 +2,10 @@ use crate::{
     ast::{arg::UntypedArg, expr::Expr},
     error::HayError,
     lex::token::Token,
-    types::{FnTag, GenericFunction, Signature, Type, TypeId, TypeMap, UncheckedFunction},
+    types::{
+        validate_requirements, FnTag, GenericFunction, Signature, Type, TypeId, TypeMap,
+        UncheckedFunction,
+    },
 };
 
 use super::{GlobalEnv, Stmt, StmtKind};
@@ -31,6 +34,10 @@ impl FunctionStmt {
         let generics = Stmt::bulid_local_generics(self.annotations, types, local_scope)?;
         let inputs = UntypedArg::resolve(self.inputs, types, &generics)?;
         let outputs = UntypedArg::resolve(self.outputs, types, &generics)?;
+
+        if let Some(requirements) = &self.requires {
+            validate_requirements(requirements, types)?;
+        }
 
         let sig = Signature::new_maybe_generic(
             inputs.iter().map(|arg| arg.typ.clone()).collect(),

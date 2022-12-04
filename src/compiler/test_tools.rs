@@ -25,7 +25,7 @@ pub fn run_test(directory: &str, file_base: &str) -> Result<(), std::io::Error> 
 
     let output = run_command(
         "cargo",
-        vec!["r", "-q", "--release", "--", format!("{file}.hay").as_str()],
+        vec!["r", "-q", "--", format!("{file}.hay").as_str()],
         &file,
         false,
     )

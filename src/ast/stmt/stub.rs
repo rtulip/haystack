@@ -2,7 +2,7 @@ use crate::{
     ast::arg::UntypedArg,
     error::HayError,
     lex::token::Token,
-    types::{FnTag, FunctionStub, Signature, Type, TypeId, TypeMap},
+    types::{validate_requirements, FnTag, FunctionStub, Signature, Type, TypeId, TypeMap},
 };
 
 use super::{GlobalEnv, Stmt, StmtKind};
@@ -31,6 +31,10 @@ impl FunctionStubStmt {
 
         let inputs = UntypedArg::resolve(self.inputs, types, &generics)?;
         let outputs = UntypedArg::resolve(self.outputs, types, &generics)?;
+
+        if let Some(requirements) = &self.requires {
+            validate_requirements(requirements, types)?;
+        }
 
         let sig = Signature::new_maybe_generic(
             inputs.iter().map(|arg| arg.typ.clone()).collect(),

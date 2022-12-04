@@ -1,7 +1,7 @@
 # Haystack
 
-Haystack is a statically typed, stack-based programming language that aims to improve upon my eariler experimental work of [tlp](https://www.github.com/rtulip/tlp).
-Haysatck is also heavily inspired by [Porth](https://www.gitlab.com/tsoding/porth).
+Haystack is a statically typed, stack-based programming language that adds opt-in variable assignment to improve ergonomics.
+Haysatck was heavily inspired by [Porth](https://www.gitlab.com/tsoding/porth).
 *Note*: This langue is is very early development and is subject to frequent and rapid changes.
 
 # Getting Started:

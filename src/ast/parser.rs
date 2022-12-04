@@ -1901,5 +1901,25 @@ mod tests {
     fn parse_bad_interface_associated_type() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("parser", "parse_bad_interface_associated_type")
     }
+    
+    #[test]
+    fn parse_bad_requirement_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_requirement_close")
+    }
+
+    #[test]
+    fn parse_bad_requirement_list() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_requirement_list")
+    }
+
+    #[test]
+    fn parse_bad_requirement_open() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_requirement_open")
+    }
+
+    #[test]
+    fn parse_bad_requirement_start() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_requirement_start")
+    }
 
 }

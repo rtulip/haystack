@@ -111,7 +111,7 @@ impl InterfaceBaseType {
                 .expect("Should have found a mapping for the annotations")
         );
 
-        if self.impls.iter().find(|i| i.0 == impl_name).is_some() {
+        if self.impls.iter().any(|i| i.0 == impl_name) {
             Ok(())
         } else {
             Err(HayError::new(
@@ -146,8 +146,8 @@ pub fn check_requirements<'a>(
                 let mut inner_map = vec![];
                 for t in inner {
                     let inner_tid = match TypeId::from_type_token(
-                        &req,
-                        &t,
+                        req,
+                        t,
                         types,
                         &map.keys().cloned().collect(),
                     ) {
@@ -169,7 +169,7 @@ pub fn check_requirements<'a>(
                             aliased_map.insert(t, c);
                         }
 
-                        if let Err(e) = req_base.find_impl(&token, &aliased_map) {
+                        if let Err(e) = req_base.find_impl(token, &aliased_map) {
                             return Err((Some(req), e));
                         }
                     }

@@ -128,8 +128,7 @@ impl TypeId {
                     Some(Type::GenericRecordBase {
                         generics,
                         members,
-                        kind,
-                        requires, 
+                        kind, 
                         ..
                     }) => {
                         // Make sure there are right number of annotations.
@@ -149,10 +148,6 @@ impl TypeId {
                         }
 
                         if annotations.iter().any(|t| t.is_generic(types)) {
-                            if let Some(_) = &requires {
-                                todo!();
-                            }
-                            
                             // if any annotation is generic then create a generic record instance.
                             let t = Type::GenericRecordInstance {
                                 base: TypeId::new(base),
@@ -268,7 +263,7 @@ impl TypeId {
                     requires,
                 } => {
                     if let Some(requirements) = &requires {
-                        match check_requirements(&token, requirements, types, &map) {
+                        match check_requirements(token, requirements, types, map) {
                             Err((Some(r), e)) => return Err(HayError::new(
                                 format!(
                                     "Cannot assign {:?} to {kind} `{self}`, as requirements would not be met.",

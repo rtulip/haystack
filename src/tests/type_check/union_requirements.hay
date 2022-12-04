@@ -1,0 +1,15 @@
+interface Marker<T> {}
+
+impl Marker<u64> {}
+
+union Marked<A B>
+requires: [Marker<A> Marker<B>] {
+    A: a
+    B: b
+}
+
+fn main() {
+
+    0u8 cast(Marked<u64 u8>) drop
+
+}

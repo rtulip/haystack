@@ -62,7 +62,7 @@ impl InterfaceBaseType {
         for instance in &self.impls {
             let mapped_fn = match types.get(instance) {
                 Some(Type::InterfaceInstance(instance)) => {
-                    err = err.with_hint(format!("  {}", instance.token.lexeme));
+                    err = err.with_hint(format!("  {}", instance.id()));
 
                     let fn_tid = TypeId::new(&expr.ident.lexeme);
                     instance.fns_map.get(&fn_tid).unwrap().clone()
@@ -119,6 +119,18 @@ impl InterfaceBaseType {
                 token.loc.clone(),
             ))
         }
+    }
+}
+
+impl InterfaceInstanceType {
+    pub fn id(&self) -> TypeId {
+        let mut name = format!("{}<", self.token.lexeme);
+        for t in &self.mapping[0..self.mapping.len() - 1] {
+            name = format!("{name}{t} ");
+        }
+        name = format!("{name}{}>", self.mapping.last().unwrap());
+
+        TypeId::new(name)
     }
 }
 

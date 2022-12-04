@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/union_requirements.hay:13:14] Error: Cannot assign [u64, u8] to union `Marked`, as requirements would not be met.\n    [Note]: Union `Marked` requires `Marker<B>` is implemented\n    [Note]: Interface `Marker<u8>` is not implemented\n"
+}

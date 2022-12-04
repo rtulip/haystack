@@ -75,6 +75,7 @@ pub enum Type {
         members: Vec<TypedMember>,
         /// A flag to indicate if the record is a struct or union.
         kind: RecordKind,
+        requires: Option<Vec<Token>>,
     },
     /// Type to represent the instantiation of a generic record
     GenericRecordInstance {
@@ -151,15 +152,7 @@ impl Type {
                 TypeId::new(name)
             }
             Type::InterfaceBase(base) => base.id(),
-            Type::InterfaceInstance(instance) => {
-                let mut name = format!("{}<", instance.token.lexeme);
-                for t in &instance.mapping[0..instance.mapping.len() - 1] {
-                    name = format!("{name}{t} ");
-                }
-                name = format!("{name}{}>", instance.mapping.last().unwrap());
-
-                TypeId::new(name)
-            }
+            Type::InterfaceInstance(instance) => instance.id(),
             Type::UncheckedFunction { .. }
             | Type::GenericFunction { .. }
             | Type::Function { .. }

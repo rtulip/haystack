@@ -129,6 +129,7 @@ impl TypeId {
                         generics,
                         members,
                         kind,
+                        requires, 
                         ..
                     }) => {
                         // Make sure there are right number of annotations.
@@ -148,6 +149,10 @@ impl TypeId {
                         }
 
                         if annotations.iter().any(|t| t.is_generic(types)) {
+                            if let Some(_) = &requires {
+                                todo!();
+                            }
+                            
                             // if any annotation is generic then create a generic record instance.
                             let t = Type::GenericRecordInstance {
                                 base: TypeId::new(base),
@@ -162,9 +167,11 @@ impl TypeId {
                             types.insert(tid.clone(), t);
                             Ok(tid)
                         } else {
+                            
                             // If no annotations are generic, then assign types accordingly.
                             let map: HashMap<TypeId, TypeId> =
-                                generics.into_iter().zip(annotations.into_iter()).collect();
+                                generics.into_iter().zip(annotations.clone().into_iter()).collect();
+                            
                             base_tid.assign(token, &map, types)
                         }
                     }
@@ -258,8 +265,33 @@ impl TypeId {
                     generics,
                     members,
                     kind,
-                    ..
+                    requires,
                 } => {
+                    if let Some(requirements) = &requires {
+                        match check_requirements(&token, requirements, types, &map) {
+                            Err((Some(r), e)) => return Err(HayError::new(
+                                format!(
+                                    "Cannot assign {:?} to {kind} `{self}`, as requirements would not be met.",
+                                    generics.iter().map(|t| map.get(t).unwrap()).collect::<Vec<&TypeId>>(),
+                                ), 
+                                token.loc.clone())
+                                .with_hint(
+                                    format!("{} `{self}` requires `{}` is implemented", 
+                                        match kind {
+                                            RecordKind::Struct => "Struct",
+                                            RecordKind::Union => "Union",
+                                            _ => unreachable!()
+                                        },
+                                        r.lexeme
+                                    )
+                                )
+                                .with_hint(e.message())
+                            ),
+                            Err((_, e)) => return Err(e),
+                            _ => (),
+                        }
+                    }
+                    
                     // Assign each member type from the base.
                     let mut resolved_members = vec![];
                     for m in members {

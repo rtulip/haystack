@@ -251,4 +251,14 @@ mod tests {
     fn function_requirements() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("type_check", "function_requirements")
     }
+
+    #[test]
+    fn struct_requirements() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "struct_requirements")
+    }
+
+    #[test]
+    fn union_requirements() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("type_check", "union_requirements")
+    }
 }

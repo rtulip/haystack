@@ -1195,7 +1195,7 @@ impl<'a> Parser<'a> {
             })]);
         }
 
-        let _requires = match self.matches(TokenKind::Keyword(Keyword::Requires)) {
+        let requires = match self.matches(TokenKind::Keyword(Keyword::Requires)) {
             Ok(t) => Some(self.requires(t)?),
             Err(_) => None,
         };
@@ -1237,6 +1237,7 @@ impl<'a> Parser<'a> {
             annotations,
             members,
             kind,
+            requires,
         })];
 
         if let Some(mut fns) = impls {

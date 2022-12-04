@@ -1,0 +1,17 @@
+interface Foo<T>{
+    fn foo(T) -> [T] {}
+}
+
+impl Foo<u64> {}
+
+fn takes_foos<A B>(A B) -> [B A]
+requires: [Foo<A> Foo<B>]
+{
+    foo swap foo
+}
+
+fn main() {
+
+    123 123u8 takes_foos drop drop
+
+}

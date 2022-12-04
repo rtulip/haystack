@@ -32,6 +32,10 @@ impl HayError {
         }
     }
 
+    pub fn message(self) -> String {
+        self.message
+    }
+
     pub fn new_type_err<S>(message: S, loc: Loc) -> Self
     where
         S: Into<String>,
@@ -57,6 +61,7 @@ impl HayError {
             hints,
         }
     }
+
     pub fn with_hint_and_custom_note<S1, S2>(self, hint: S1, note: S2) -> Self
     where
         S1: Into<String>,

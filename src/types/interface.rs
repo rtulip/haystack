@@ -6,7 +6,7 @@ use crate::{
         stmt::{GlobalEnv, StmtKind},
     },
     error::HayError,
-    lex::token::Token,
+    lex::token::{Token, TokenKind, TypeToken},
 };
 
 use super::{Stack, Type, TypeId, TypeMap};
@@ -18,6 +18,7 @@ pub struct InterfaceBaseType {
     pub annotations: Vec<TypeId>,
     pub types: HashMap<TypeId, Token>,
     pub fns: Vec<String>,
+    pub requires: Option<Vec<Token>>,
     pub impls: Vec<TypeId>,
 }
 
@@ -61,7 +62,7 @@ impl InterfaceBaseType {
         for instance in &self.impls {
             let mapped_fn = match types.get(instance) {
                 Some(Type::InterfaceInstance(instance)) => {
-                    err = err.with_hint(format!("  {}", instance.token.lexeme));
+                    err = err.with_hint(format!("  {}", instance.id()));
 
                     let fn_tid = TypeId::new(&expr.ident.lexeme);
                     instance.fns_map.get(&fn_tid).unwrap().clone()
@@ -94,4 +95,115 @@ impl InterfaceBaseType {
                     .collect::<Vec<&TypeId>>()
             )))
     }
+
+    pub fn find_impl(&self, token: &Token, map: &HashMap<TypeId, TypeId>) -> Result<(), HayError> {
+        let mut impl_name = format!("{}<", self.name.lexeme);
+        for ann in &self.annotations[0..self.annotations.len() - 1] {
+            impl_name = format!(
+                "{impl_name}{} ",
+                map.get(ann)
+                    .expect("Should have found a mapping for annotation")
+            );
+        }
+        impl_name = format!(
+            "{impl_name}{}>",
+            map.get(self.annotations.last().unwrap())
+                .expect("Should have found a mapping for the annotations")
+        );
+
+        if self.impls.iter().any(|i| i.0 == impl_name) {
+            Ok(())
+        } else {
+            Err(HayError::new(
+                format!("Interface `{impl_name}` is not implemented"),
+                token.loc.clone(),
+            ))
+        }
+    }
+}
+
+impl InterfaceInstanceType {
+    pub fn id(&self) -> TypeId {
+        let mut name = format!("{}<", self.token.lexeme);
+        for t in &self.mapping[0..self.mapping.len() - 1] {
+            name = format!("{name}{t} ");
+        }
+        name = format!("{name}{}>", self.mapping.last().unwrap());
+
+        TypeId::new(name)
+    }
+}
+
+pub fn check_requirements<'a>(
+    token: &Token,
+    requirements: &'a Vec<Token>,
+    types: &mut TypeMap,
+    map: &HashMap<TypeId, TypeId>,
+) -> Result<(), (Option<&'a Token>, HayError)> {
+    for req in requirements {
+        match &req.kind {
+            TokenKind::Type(TypeToken::Parameterized { base, inner }) => {
+                let mut inner_map = vec![];
+                for t in inner {
+                    let inner_tid = match TypeId::from_type_token(
+                        req,
+                        t,
+                        types,
+                        &map.keys().cloned().collect(),
+                    ) {
+                        Ok(t) => t,
+                        Err(e) => return Err((None, e)),
+                    };
+                    let inner_mapped = map.get(&inner_tid).unwrap().clone();
+                    inner_map.push(inner_mapped);
+                }
+                match types.get(&TypeId::new(base)) {
+                    Some(Type::InterfaceBase(req_base)) => {
+                        let mut aliased_map = HashMap::new();
+                        for (t, c) in req_base
+                            .annotations
+                            .clone()
+                            .into_iter()
+                            .zip(inner_map.into_iter())
+                        {
+                            aliased_map.insert(t, c);
+                        }
+
+                        if let Err(e) = req_base.find_impl(token, &aliased_map) {
+                            return Err((Some(req), e));
+                        }
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+    Ok(())
+}
+
+pub fn validate_requirements(requirements: &Vec<Token>, types: &TypeMap) -> Result<(), HayError> {
+    for t in requirements {
+        match &t.kind {
+            TokenKind::Type(TypeToken::Parameterized { base, .. }) => {
+                match types.get(&TypeId::new(base)) {
+                    Some(Type::InterfaceBase(_)) => (),
+                    _ => {
+                        return Err(HayError::new(
+                            format!("Invalid requirement: `{}` is not an interface.", t.lexeme),
+                            t.loc.clone(),
+                        ));
+                    }
+                }
+            }
+            _ => {
+                return Err(HayError::new(
+                    format!("Invalid requirement: `{}` is not an interface.", t.lexeme),
+                    t.loc.clone(),
+                ));
+            }
+        }
+    }
+
+    Ok(())
 }

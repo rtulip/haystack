@@ -127,6 +127,7 @@ impl ExprCast {
                     generics.clone(),
                 )
                 .evaluate(&self.token, stack, types)?;
+
                 Ok(TypedExpr::Cast { typ: typ_id })
             }
             Type::Enum { .. } => Err(HayError::new_type_err(

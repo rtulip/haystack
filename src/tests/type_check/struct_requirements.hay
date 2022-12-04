@@ -1,0 +1,15 @@
+interface Marker<T> {}
+
+impl Marker<u64> {}
+
+struct Marked<A B>
+requires: [Marker<A> Marker<B>] {
+    A: a
+    B: b
+}
+
+fn main() {
+
+    12345 0u8 cast(Marked) drop
+
+}

@@ -4,7 +4,7 @@ use crate::{
     ast::arg::UntypedArg,
     error::HayError,
     lex::token::Token,
-    types::{InterfaceBaseType, Type, TypeId, TypeMap},
+    types::{validate_requirements, InterfaceBaseType, Type, TypeId, TypeMap},
 };
 
 use super::{FunctionStmt, FunctionStubStmt, GlobalEnv, StmtKind};
@@ -17,6 +17,7 @@ pub struct InterfaceStmt {
     pub types: HashMap<TypeId, Token>,
     pub stubs: Vec<FunctionStubStmt>,
     pub fns: Vec<FunctionStmt>,
+    pub requires: Option<Vec<Token>>,
 }
 
 impl InterfaceStmt {
@@ -31,6 +32,10 @@ impl InterfaceStmt {
             fns.push(s.name.lexeme.clone());
         }
 
+        if let Some(requirements) = &self.requires {
+            validate_requirements(requirements, types)?;
+        }
+
         let typ = Type::InterfaceBase(InterfaceBaseType {
             token: self.token,
             name: self.name.clone(),
@@ -41,6 +46,7 @@ impl InterfaceStmt {
                 .collect(),
             types: self.types,
             fns,
+            requires: self.requires,
             impls: vec![],
         });
         let tid = typ.id();

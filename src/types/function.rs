@@ -43,6 +43,7 @@ pub struct GenericFunction {
     pub body: Vec<Expr>,
     pub tags: Vec<FnTag>,
     pub impl_on: Option<TypeId>,
+    pub requires: Option<Vec<Token>>,
 }
 
 #[derive(Debug, Clone)]
@@ -140,9 +141,3 @@ impl UncheckedFunction {
         })
     }
 }
-
-// impl FunctionStub {
-//     pub fn signature(&self) -> Signature {
-
-//     }
-// }

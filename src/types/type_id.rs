@@ -6,7 +6,8 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 use super::{
-    InterfaceBaseType, InterfaceInstanceType, RecordKind, Type, TypeMap, UncheckedFunction,
+    check_requirements, InterfaceBaseType, InterfaceInstanceType, RecordKind, Type, TypeMap,
+    UncheckedFunction,
 };
 
 /// Unique Identifier for types
@@ -127,7 +128,7 @@ impl TypeId {
                     Some(Type::GenericRecordBase {
                         generics,
                         members,
-                        kind,
+                        kind, 
                         ..
                     }) => {
                         // Make sure there are right number of annotations.
@@ -161,9 +162,11 @@ impl TypeId {
                             types.insert(tid.clone(), t);
                             Ok(tid)
                         } else {
+                            
                             // If no annotations are generic, then assign types accordingly.
                             let map: HashMap<TypeId, TypeId> =
-                                generics.into_iter().zip(annotations.into_iter()).collect();
+                                generics.into_iter().zip(annotations.clone().into_iter()).collect();
+                            
                             base_tid.assign(token, &map, types)
                         }
                     }
@@ -257,8 +260,33 @@ impl TypeId {
                     generics,
                     members,
                     kind,
-                    ..
+                    requires,
                 } => {
+                    if let Some(requirements) = &requires {
+                        match check_requirements(token, requirements, types, map) {
+                            Err((Some(r), e)) => return Err(HayError::new(
+                                format!(
+                                    "Cannot assign {:?} to {kind} `{self}`, as requirements would not be met.",
+                                    generics.iter().map(|t| map.get(t).unwrap()).collect::<Vec<&TypeId>>(),
+                                ), 
+                                token.loc.clone())
+                                .with_hint(
+                                    format!("{} `{self}` requires `{}` is implemented", 
+                                        match kind {
+                                            RecordKind::Struct => "Struct",
+                                            RecordKind::Union => "Union",
+                                            _ => unreachable!()
+                                        },
+                                        r.lexeme
+                                    )
+                                )
+                                .with_hint(e.message())
+                            ),
+                            Err((_, e)) => return Err(e),
+                            _ => (),
+                        }
+                    }
+                    
                     // Assign each member type from the base.
                     let mut resolved_members = vec![];
                     for m in members {
@@ -486,6 +514,32 @@ impl TypeId {
                             ident: output.ident,
                             typ: output.typ.assign(token, map, types)?,
                         });
+                    }
+
+                    if func.requires.is_some() {
+                        match check_requirements(
+                            &func.name,
+                            func.requires.as_ref().unwrap(),
+                            types,
+                            map,
+                        ) {
+                            Err((Some(r), e)) => {
+                                return Err(HayError::new(
+                                    format!(
+                                        "Cannot call function `{}` with inputs {:?}, as requirements are not met.", 
+                                        func.name.lexeme, 
+                                        assigned_inputs
+                                            .iter()
+                                            .map(|arg| &arg.typ).collect::<Vec<&TypeId>>()
+                                    ), 
+                                    token.loc.clone())
+                                    .with_hint(format!("Function `{}` requires `{}` is implemented", func.name.lexeme, r.lexeme))
+                                    .with_hint(e.message())
+                                )
+                            },
+                            Err((_, e)) => return Err(e),
+                            _ => (),
+                        }
                     }
 
                     // Create a new unchecked function to make sure it gets type checked.

@@ -2,7 +2,7 @@ use crate::{
     ast::{arg::UntypedArg, member::UntypedMember},
     error::HayError,
     lex::token::Token,
-    types::{RecordKind, Type, TypeId, TypeMap},
+    types::{validate_requirements, RecordKind, Type, TypeId, TypeMap},
 };
 
 use super::Stmt;
@@ -14,6 +14,7 @@ pub struct RecordStmt {
     pub annotations: Option<Vec<UntypedArg>>,
     pub members: Vec<UntypedMember>,
     pub kind: RecordKind,
+    pub requires: Option<Vec<Token>>,
 }
 
 impl RecordStmt {
@@ -21,16 +22,32 @@ impl RecordStmt {
         let generics = Stmt::bulid_local_generics(self.annotations, types, None)?;
         let members = UntypedMember::resolve(self.members, types, &generics)?;
 
+        if let Some(requirements) = &self.requires {
+            validate_requirements(requirements, types)?;
+        }
+
         let prev = match generics.len() {
-            0 => types.insert(
-                TypeId::new(&self.name.lexeme),
-                Type::Record {
-                    token: self.token.clone(),
-                    name: self.name.clone(),
-                    members,
-                    kind: self.kind,
-                },
-            ),
+            0 => {
+                if self.requires.is_some() {
+                    return Err(HayError::new(
+                        format!(
+                            "Cannot have interface requirements on a non-generic {}",
+                            self.kind
+                        ),
+                        self.requires.unwrap().first().unwrap().loc.clone(),
+                    ));
+                }
+
+                types.insert(
+                    TypeId::new(&self.name.lexeme),
+                    Type::Record {
+                        token: self.token.clone(),
+                        name: self.name.clone(),
+                        members,
+                        kind: self.kind,
+                    },
+                )
+            }
             _ => types.insert(
                 TypeId::new(&self.name.lexeme),
                 Type::GenericRecordBase {
@@ -39,6 +56,7 @@ impl RecordStmt {
                     generics: generics.clone(),
                     members,
                     kind: self.kind,
+                    requires: self.requires,
                 },
             ),
         };

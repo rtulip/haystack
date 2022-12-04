@@ -2,7 +2,10 @@ use crate::{
     ast::{arg::UntypedArg, expr::Expr},
     error::HayError,
     lex::token::Token,
-    types::{FnTag, GenericFunction, Signature, Type, TypeId, TypeMap, UncheckedFunction},
+    types::{
+        validate_requirements, FnTag, GenericFunction, Signature, Type, TypeId, TypeMap,
+        UncheckedFunction,
+    },
 };
 
 use super::{GlobalEnv, Stmt, StmtKind};
@@ -17,6 +20,7 @@ pub struct FunctionStmt {
     pub body: Vec<Expr>,
     pub tags: Vec<FnTag>,
     pub impl_on: Option<Token>,
+    pub requires: Option<Vec<Token>>,
 }
 
 impl FunctionStmt {
@@ -30,6 +34,10 @@ impl FunctionStmt {
         let generics = Stmt::bulid_local_generics(self.annotations, types, local_scope)?;
         let inputs = UntypedArg::resolve(self.inputs, types, &generics)?;
         let outputs = UntypedArg::resolve(self.outputs, types, &generics)?;
+
+        if let Some(requirements) = &self.requires {
+            validate_requirements(requirements, types)?;
+        }
 
         let sig = Signature::new_maybe_generic(
             inputs.iter().map(|arg| arg.typ.clone()).collect(),
@@ -53,6 +61,13 @@ impl FunctionStmt {
         };
 
         let typ = if generics.is_empty() {
+            if self.requires.is_some() {
+                return Err(HayError::new(
+                    "Cannot have interface requirements on non-generic functions",
+                    self.requires.unwrap().first().unwrap().loc.clone(),
+                ));
+            }
+
             Type::UncheckedFunction {
                 func: UncheckedFunction {
                     token: self.token,
@@ -76,6 +91,7 @@ impl FunctionStmt {
                     body: self.body,
                     tags: self.tags,
                     impl_on,
+                    requires: self.requires,
                 },
             }
         };

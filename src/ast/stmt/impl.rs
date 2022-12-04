@@ -4,7 +4,7 @@ use crate::{
     ast::{arg::TypedArg, member::UntypedMember, stmt::StmtKind},
     error::HayError,
     lex::token::{Token, TokenKind, TypeToken},
-    types::{InterfaceInstanceType, Type, TypeId, TypeMap, UncheckedFunction},
+    types::{check_requirements, InterfaceInstanceType, Type, TypeId, TypeMap, UncheckedFunction},
 };
 
 use super::{FunctionStmt, GlobalEnv};
@@ -112,6 +112,24 @@ impl InterfaceImplStmt {
             }
 
             return Err(err);
+        }
+
+        if let Some(requirements) = &interface.requires {
+            match check_requirements(&self.interface, requirements, types, &map) {
+                Err((Some(r), e)) => {
+                    return Err(HayError::new(
+                        format!("Failed to implement Interface `{}`", self.interface.lexeme),
+                        self.interface.loc,
+                    )
+                    .with_hint(format!(
+                        "Interface `{}` requires `{}` is implemented",
+                        interface.name.lexeme, r.lexeme
+                    ))
+                    .with_hint(e.message()));
+                }
+                Err((_, e)) => return Err(e),
+                _ => (),
+            }
         }
 
         // Assign that mapping to each interface signature & ensure the signatures match.
@@ -271,13 +289,16 @@ impl InterfaceImplStmt {
         }
 
         let instance_typ = Type::InterfaceInstance(InterfaceInstanceType {
-            token: self.interface,
+            token: Token {
+                kind: self.interface.kind.clone(),
+                lexeme: base.clone(),
+                loc: self.interface.loc,
+            },
             mapping: mapped,
             fns_map,
         });
 
         let instance_tid = instance_typ.id();
-
         types.insert(instance_tid.clone(), instance_typ);
         match types.get_mut(&interface_tid).unwrap() {
             Type::InterfaceBase(base) => {

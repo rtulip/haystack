@@ -386,11 +386,6 @@ impl<'pred> Signature<'pred> {
         annotations: &[TypeId],
         types: &mut TypeMap,
     ) -> Result<(), HayError> {
-        assert!(
-            annotations.iter().all(|t| !t.is_generic(types)),
-            "{token}: Signature::assign expects that all mapped values are concrete."
-        );
-
         // Check that the signature is generic. Doesn't make sense to assign
         // geneircs to a non-geneirc Signature.
         if self.generics.is_none() {

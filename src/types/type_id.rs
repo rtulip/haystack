@@ -131,6 +131,8 @@ impl TypeId {
                         kind, 
                         ..
                     }) => {
+                        //TODO: COME BACK HERE
+                        
                         // Make sure there are right number of annotations.
                         if generics.len() != inner.len() {
                             return Err(HayError::new(format!("Incorrect number of type annotations provided. Expected annotations for {generics:?}", ), token.loc.clone()));
@@ -244,8 +246,6 @@ impl TypeId {
         map: &HashMap<TypeId, TypeId>,
         types: &mut TypeMap,
     ) -> Result<TypeId, HayError> {
-        assert!(map.values().all(|t| !t.is_generic(types)), "{token}: TypeId::assign expects that all mapped values are concrete.");
-        
         // If the TypeId is in the map return the concrete type.
         if let Some(new_t) = map.get(self) {
             return Ok(new_t.clone());
@@ -288,7 +288,7 @@ impl TypeId {
                             _ => (),
                         }
                     }
-                    
+
                     // Assign each member type from the base.
                     let mut resolved_members = vec![];
                     for m in members {
@@ -305,6 +305,10 @@ impl TypeId {
                     let mut resolved_generics = vec![];
                     for t in generics {
                         resolved_generics.push(t.assign(token, map, types)?);
+                    }
+
+                    if resolved_generics.iter().any(|t| t.is_generic(types)) {
+                        todo!()
                     }
 
                     // Construct the new name.
@@ -387,23 +391,36 @@ impl TypeId {
                     // this: {"T" : "A"} and {"T": "B"} for the two instances respectively.
                     //
                     // Then we create the map which will be used for assignment. This looks
-                    // like: {"T:" : "u64"} and {"T": "char"} respectively in our example.
+                    // like: {"T" : "u64"} and {"T": "char"} respectively in our example.
                     //
                     // Now that we have properly addressed the generics aliasing, members
                     // can be resolved, a name generated, and the new record can be created.
 
-                    let alias_map: HashMap<TypeId, TypeId> = HashMap::from_iter(
+                    let mut new_alias_list = vec![];
+                    for t in &alias_list {
+                        new_alias_list.push(t.assign(token, map, types)?);
+                    }
+
+                    if new_alias_list.iter().any(|t| t.is_generic(types)) {
+                        let t = Type::GenericRecordInstance { 
+                            base, 
+                            base_generics, 
+                            alias_list: new_alias_list, 
+                            members, 
+                            kind
+                        };
+
+                        let new_id = t.id();
+                        types.insert(new_id.clone(), t);
+                        return Ok(new_id);
+                    }
+
+                    let aliased_generics: HashMap<TypeId, TypeId> = HashMap::from_iter(
                         base_generics
                             .clone()
                             .into_iter()
-                            .zip(alias_list.into_iter()),
+                            .zip(new_alias_list.into_iter()),
                     );
-
-                    // Build the mapping which will be used for assigning members.
-                    let mut aliased_generics = HashMap::new();
-                    for (k, v) in &alias_map {
-                        aliased_generics.insert(k.clone(), v.clone().assign(token, map, types)?);
-                    }
 
                     // Resolve each member.
                     let mut resolved_members = vec![];

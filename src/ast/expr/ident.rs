@@ -20,7 +20,7 @@ impl ExprIdent {
         stack: &mut Stack,
         frame: &Frame,
         types: &mut TypeMap,
-        global_env: &HashMap<String, (StmtKind, Signature)>,
+        global_env: &mut HashMap<String, (StmtKind, Signature)>,
     ) -> Result<TypedExpr, HayError> {
         match global_env.get(&self.ident.lexeme) {
             Some((StmtKind::Function, sig)) => {

@@ -25,8 +25,77 @@ pub struct InterfaceBaseType {
 #[derive(Debug, Clone)]
 pub struct InterfaceInstanceType {
     pub token: Token,
+    pub base: TypeId,
     pub mapping: Vec<TypeId>,
     pub fns_map: HashMap<TypeId, TypeId>,
+    pub generics: Option<Vec<TypeId>>,
+    pub requires: Option<Vec<Token>>,
+}
+
+impl InterfaceInstanceType {
+    pub fn id(&self) -> TypeId {
+        let mut name = format!("{}<", self.token.lexeme);
+        for t in &self.mapping[0..self.mapping.len() - 1] {
+            name = format!("{name}{t} ");
+        }
+        name = format!("{name}{}>", self.mapping.last().unwrap());
+
+        TypeId::new(name)
+    }
+
+    pub fn assign(
+        mut self,
+        func: &TypeId,
+        map: &HashMap<TypeId, TypeId>,
+        types: &mut TypeMap,
+        global_env: &mut GlobalEnv,
+    ) -> Result<String, HayError> {
+        if self.generics.is_none() {
+            return Ok(self.fns_map.get(&func).unwrap().0.clone());
+        }
+
+        if let Some(requirements) = &self.requires {
+            match check_requirements(&self.token, requirements, types, map) {
+                Err((Some(req), e)) => todo!("{req}: {e:?}"),
+                Err((_, e)) => return Err(e),
+                Ok(_) => (),
+            }
+        }
+
+        for t in self.mapping.iter_mut() {
+            *t = t.assign(&self.token, map, types)?;
+        }
+
+        for func in self.fns_map.values_mut() {
+            let (kind, mut sig) = global_env.get(&func.0).unwrap().clone();
+
+            let annotations = &sig
+                .generics
+                .as_ref()
+                .expect(format!("Signature should be generic: {func} {sig:?}").as_str())
+                .iter()
+                .map(|t| map.get(t).unwrap().clone())
+                .collect::<Vec<TypeId>>();
+
+            sig.assign(&self.token, &annotations, types)?;
+            *func = func.assign(&self.token, map, types)?;
+            global_env.insert(func.0.clone(), (kind, sig));
+        }
+
+        self.generics = None;
+        self.requires = None;
+
+        let tid = self.id();
+        let mapped_fn = self.fns_map.get(&func).unwrap().0.clone();
+
+        match types.get_mut(&self.base).unwrap() {
+            Type::InterfaceBase(base) => base.impls.push(tid.clone()),
+            _ => unreachable!(),
+        }
+        types.insert(tid.clone(), Type::InterfaceInstance(self));
+
+        Ok(mapped_fn)
+    }
 }
 
 impl InterfaceBaseType {
@@ -48,7 +117,7 @@ impl InterfaceBaseType {
         expr: &ExprIdent,
         stack: &mut Stack,
         types: &mut TypeMap,
-        global_env: &GlobalEnv,
+        global_env: &mut GlobalEnv,
     ) -> Result<String, HayError> {
         let mut err = HayError::new_type_err(
             format!(
@@ -59,20 +128,32 @@ impl InterfaceBaseType {
         )
         .with_hint(format!("Interface `{}` is implemented by:", self.full_id(),));
 
+        let fn_tid = TypeId::new(&expr.ident.lexeme);
         for instance in &self.impls {
             let mapped_fn = match types.get(instance) {
                 Some(Type::InterfaceInstance(instance)) => {
                     err = err.with_hint(format!("  {}", instance.id()));
-
-                    let fn_tid = TypeId::new(&expr.ident.lexeme);
                     instance.fns_map.get(&fn_tid).unwrap().clone()
                 }
                 _ => unreachable!(),
             };
 
-            match global_env.get(&mapped_fn.0).unwrap() {
+            match global_env
+                .get(&mapped_fn.0)
+                .expect(format!("didn't find function: {mapped_fn}").as_str())
+            {
                 (StmtKind::Function, signature) => {
-                    if signature.evaluate(&expr.ident, stack, types).is_ok() {
+                    if let Some(map) = match signature.evaluate(&expr.ident, stack, types) {
+                        Ok(map) => map,
+                        Err(_) => continue,
+                    } {
+                        let interface = match types.get(instance).unwrap() {
+                            Type::InterfaceInstance(instance) => instance.clone(),
+                            _ => unreachable!(),
+                        };
+
+                        return interface.assign(&fn_tid, &map, types, global_env);
+                    } else {
                         return Ok(mapped_fn.0);
                     }
                 }
@@ -119,18 +200,6 @@ impl InterfaceBaseType {
                 token.loc.clone(),
             ))
         }
-    }
-}
-
-impl InterfaceInstanceType {
-    pub fn id(&self) -> TypeId {
-        let mut name = format!("{}<", self.token.lexeme);
-        for t in &self.mapping[0..self.mapping.len() - 1] {
-            name = format!("{name}{t} ");
-        }
-        name = format!("{name}{}>", self.mapping.last().unwrap());
-
-        TypeId::new(name)
     }
 }
 

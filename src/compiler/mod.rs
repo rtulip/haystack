@@ -11,8 +11,9 @@ pub mod test_tools;
 
 pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
     let stmts = Stmt::from_file_with_prelude(&input_path)?;
-    let (mut types, global_env, mut init_data, uninit_data) = Stmt::build_types_and_data(stmts)?;
-    Type::type_check_functions(&mut types, &global_env)?;
+    let (mut types, mut global_env, mut init_data, uninit_data) =
+        Stmt::build_types_and_data(stmts)?;
+    Type::type_check_functions(&mut types, &mut global_env)?;
     let fn_instructions = Instruction::from_type_map(&types, &mut init_data);
     check_for_entry_point(&types, &input_path)?;
 

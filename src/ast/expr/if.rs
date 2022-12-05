@@ -28,7 +28,7 @@ impl ExprIf {
         stack: &mut Stack,
         frame: &mut Frame,
         func: &UncheckedFunction,
-        global_env: &HashMap<String, (StmtKind, Signature)>,
+        global_env: &mut HashMap<String, (StmtKind, Signature)>,
         types: &mut TypeMap,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<TypedExpr, HayError> {
@@ -142,7 +142,7 @@ impl ExprElseIf {
         frame: &mut Frame,
         types: &mut TypeMap,
         func: &UncheckedFunction,
-        global_env: &HashMap<String, (StmtKind, Signature)>,
+        global_env: &mut HashMap<String, (StmtKind, Signature)>,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<(TypedExpr, Stack), HayError> {
         let mut typed_condition = vec![];

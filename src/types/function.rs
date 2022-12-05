@@ -77,7 +77,7 @@ impl Function {
 impl UncheckedFunction {
     pub fn type_check(
         &self,
-        global_env: &GlobalEnv,
+        global_env: &mut GlobalEnv,
         types: &mut TypeMap,
     ) -> Result<Function, HayError> {
         let mut stack = vec![];

@@ -1,10 +1,17 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    ast::{arg::TypedArg, member::UntypedMember, stmt::StmtKind},
+    ast::{
+        arg::{TypedArg, UntypedArg},
+        member::UntypedMember,
+        stmt::StmtKind,
+    },
     error::HayError,
     lex::token::{Token, TokenKind, TypeToken},
-    types::{check_requirements, InterfaceInstanceType, Type, TypeId, TypeMap, UncheckedFunction},
+    types::{
+        check_requirements, GenericFunction, InterfaceInstanceType, Type, TypeId, TypeMap,
+        UncheckedFunction,
+    },
 };
 
 use super::{FunctionStmt, GlobalEnv};
@@ -15,19 +22,38 @@ pub struct InterfaceImplStmt {
     pub interface: Token,
     pub types: Vec<UntypedMember>,
     pub fns: Vec<FunctionStmt>,
+    pub generics: Option<Vec<UntypedArg>>,
+    pub requires: Option<Vec<Token>>,
 }
 
 impl InterfaceImplStmt {
+    fn is_generic(&self) -> bool {
+        self.generics.is_some()
+    }
+
     pub fn add_to_global_scope(
         self,
         types: &mut TypeMap,
         global_env: &mut GlobalEnv,
     ) -> Result<(), HayError> {
+        let is_generic = self.is_generic();
         let (base, inner) = match &self.interface.kind {
             TokenKind::Type(TypeToken::Parameterized { base, inner }) => {
                 let mut inner_tids = vec![];
                 for t in inner {
-                    inner_tids.push(TypeId::from_type_token(&self.interface, t, types, &vec![])?);
+                    inner_tids.push(TypeId::from_type_token(
+                        &self.interface,
+                        t,
+                        types,
+                        &if let Some(generics) = &self.generics {
+                            generics
+                                .iter()
+                                .map(|arg| TypeId::new(&arg.token.lexeme))
+                                .collect()
+                        } else {
+                            vec![]
+                        },
+                    )?);
                 }
                 (base, inner_tids)
             }
@@ -157,8 +183,10 @@ impl InterfaceImplStmt {
                     new_fn_name = format!("{new_fn_name}{}>", mapped.last().unwrap());
 
                     f.name.lexeme = new_fn_name.clone();
+                    f.annotations = self.generics.clone();
 
                     let tok = f.name.clone();
+
                     // Insert the concrete functions renamed
                     f.add_to_global_scope(types, global_env, None, StmtKind::Function)?;
 
@@ -250,19 +278,45 @@ impl InterfaceImplStmt {
                         })
                         .collect();
 
-                    let func = UncheckedFunction {
-                        token: func.token,
-                        name: func.name,
-                        inputs: func.inputs,
-                        outputs: func.outputs,
-                        body: func.body,
-                        generic_map: Some(map.clone()),
-                        tags: func.tags,
-                        impl_on: func.impl_on,
+                    let new_tid = if !is_generic {
+                        let func = UncheckedFunction {
+                            token: func.token,
+                            name: func.name,
+                            inputs: func.inputs,
+                            outputs: func.outputs,
+                            body: func.body,
+                            generic_map: Some(map.clone()),
+                            tags: func.tags,
+                            impl_on: func.impl_on,
+                        };
+
+                        let new_tid = TypeId::new(&new_fn_name);
+                        types.insert(new_tid.clone(), Type::UncheckedFunction { func });
+                        new_tid
+                    } else {
+                        let func = GenericFunction {
+                            token: func.token,
+                            name: func.name,
+                            inputs: func.inputs,
+                            outputs: func.outputs,
+                            body: func.body,
+                            tags: func.tags,
+                            impl_on: func.impl_on,
+                            generics: self
+                                .generics
+                                .as_ref()
+                                .unwrap()
+                                .iter()
+                                .map(|arg| TypeId::new(&arg.token.lexeme))
+                                .collect(),
+                            requires: self.requires.clone(),
+                        };
+
+                        let new_tid = TypeId::new(&new_fn_name);
+                        types.insert(new_tid.clone(), Type::GenericFunction { func });
+                        new_tid
                     };
 
-                    let new_tid = TypeId::new(&new_fn_name);
-                    types.insert(new_tid.clone(), Type::UncheckedFunction { func });
                     fns_map.insert(tid, new_tid);
                     global_env.insert(new_fn_name, (StmtKind::Function, interface_sig));
                 }
@@ -294,8 +348,20 @@ impl InterfaceImplStmt {
                 lexeme: base.clone(),
                 loc: self.interface.loc,
             },
+            base: interface_tid.clone(),
             mapping: mapped,
             fns_map,
+            generics: if let Some(generics) = self.generics {
+                Some(
+                    generics
+                        .iter()
+                        .map(|arg| TypeId::new(&arg.token.lexeme))
+                        .collect(),
+                )
+            } else {
+                None
+            },
+            requires: self.requires,
         });
 
         let instance_tid = instance_typ.id();

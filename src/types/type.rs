@@ -190,7 +190,7 @@ impl Type {
 
     pub fn type_check_functions(
         types: &mut TypeMap,
-        global_env: &GlobalEnv,
+        global_env: &mut GlobalEnv,
     ) -> Result<(), HayError> {
         while types
             .iter()
@@ -216,7 +216,10 @@ impl Type {
         if let Type::Function { func } = self {
             func
         } else {
-            panic!("Tried to extract a function from a non-function type");
+            panic!(
+                "Tried to extract a function from a non-function type: {:?}",
+                self
+            );
         }
     }
 

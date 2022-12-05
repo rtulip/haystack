@@ -175,6 +175,25 @@ impl<'a> Parser<'a> {
     }
 
     fn interface_impl(&mut self, start: Token) -> Result<Vec<Stmt>, HayError> {
+        let generics = match self.matches(TokenKind::Operator(Operator::LessThan)) {
+            Ok(open) => {
+                let annotations = self.unnamed_args_list(&open)?;
+                if let Err(t) = self.matches(TokenKind::Operator(Operator::GreaterThan)) {
+                    return Err(HayError::new(
+                        format!(
+                            "Expected {} after impl annotations, but found {} instead.",
+                            Operator::GreaterThan,
+                            t.kind
+                        ),
+                        t.loc,
+                    ));
+                }
+
+                Some(annotations)
+            }
+            _ => None,
+        };
+
         let interface = match self.parse_type()? {
             Some(t) => t,
             None => {
@@ -187,6 +206,11 @@ impl<'a> Parser<'a> {
                     start.loc,
                 ))
             }
+        };
+
+        let requires = match self.matches(TokenKind::Keyword(Keyword::Requires)) {
+            Ok(t) => Some(self.requires(t)?),
+            Err(_) => None,
         };
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
@@ -222,6 +246,8 @@ impl<'a> Parser<'a> {
             interface,
             types,
             fns,
+            generics, 
+            requires,
         })])
     }
 

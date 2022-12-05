@@ -45,6 +45,7 @@ impl InterfaceInstanceType {
 
     pub fn assign(
         mut self,
+        token: &Token,
         func: &TypeId,
         map: &HashMap<TypeId, TypeId>,
         types: &mut TypeMap,
@@ -56,7 +57,22 @@ impl InterfaceInstanceType {
 
         if let Some(requirements) = &self.requires {
             match check_requirements(&self.token, requirements, types, map) {
-                Err((Some(req), e)) => todo!("{req}: {e:?}"),
+                Err((Some(req), e)) => {
+                    return Err(HayError::new(
+                        format!(
+                            "Blanket implementation of {} cannot use mapping {map:?}",
+                            self.id()
+                        ),
+                        token.loc.clone(),
+                    )
+                    .with_hint("Requirements are not satisfied:")
+                    .with_hint(format!(
+                        "Implementation `{}` requires `{}` is implemented",
+                        self.id(),
+                        req.lexeme
+                    ))
+                    .with_hint(e.message()))
+                }
                 Err((_, e)) => return Err(e),
                 Ok(_) => (),
             }
@@ -132,12 +148,36 @@ impl InterfaceBaseType {
         for instance in &self.impls {
             let mapped_fn = match types.get(instance) {
                 Some(Type::InterfaceInstance(instance)) => {
-                    err = err.with_hint(format!("  {}", instance.id()));
+                    if let Some(requirements) = &instance.requires {
+                        let mut msg = format!("  {} where", instance.id());
+
+                        for r in &requirements[0..requirements.len() - 1] {
+                            msg = format!("{msg} {},", r.lexeme);
+                        }
+
+                        if requirements.len() > 1 {
+                            msg = format!(
+                                "{msg} and {} are satisfied.",
+                                requirements.last().unwrap().lexeme
+                            )
+                        } else {
+                            msg = format!(
+                                "{msg} {} is satisfied.",
+                                requirements.last().unwrap().lexeme
+                            )
+                        }
+
+                        err = err.with_hint(msg);
+                    } else {
+                        err = err.with_hint(format!("  {}", instance.id()));
+                    }
+
                     instance.fns_map.get(&fn_tid).unwrap().clone()
                 }
                 _ => unreachable!(),
             };
 
+            let stack_before = stack.clone();
             match global_env
                 .get(&mapped_fn.0)
                 .expect(format!("didn't find function: {mapped_fn}").as_str())
@@ -145,14 +185,20 @@ impl InterfaceBaseType {
                 (StmtKind::Function, signature) => {
                     if let Some(map) = match signature.evaluate(&expr.ident, stack, types) {
                         Ok(map) => map,
-                        Err(_) => continue,
+                        Err(_) => {
+                            *stack = stack_before.clone();
+                            continue;
+                        }
                     } {
                         let interface = match types.get(instance).unwrap() {
                             Type::InterfaceInstance(instance) => instance.clone(),
                             _ => unreachable!(),
                         };
 
-                        return interface.assign(&fn_tid, &map, types, global_env);
+                        match interface.assign(&expr.ident, &fn_tid, &map, types, global_env) {
+                            Ok(mapped_func) => return Ok(mapped_func),
+                            Err(_) => *stack = stack_before.clone(),
+                        }
                     } else {
                         return Ok(mapped_fn.0);
                     }

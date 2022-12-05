@@ -127,11 +127,8 @@ impl TypeId {
                 match types.get(&base_tid).cloned() {
                     Some(Type::GenericRecordBase {
                         generics,
-                        members,
-                        kind, 
                         ..
                     }) => {
-                        //TODO: COME BACK HERE
                         
                         // Make sure there are right number of annotations.
                         if generics.len() != inner.len() {
@@ -149,28 +146,12 @@ impl TypeId {
                             )?);
                         }
 
-                        if annotations.iter().any(|t| t.is_generic(types)) {
-                            // if any annotation is generic then create a generic record instance.
-                            let t = Type::GenericRecordInstance {
-                                base: TypeId::new(base),
-                                base_generics: generics,
-                                alias_list: annotations,
-                                members,
-                                kind,
-                            };
-                            let tid = t.id();
-
-                            // Insert the new type into the types map.
-                            types.insert(tid.clone(), t);
-                            Ok(tid)
-                        } else {
-                            
-                            // If no annotations are generic, then assign types accordingly.
-                            let map: HashMap<TypeId, TypeId> =
-                                generics.into_iter().zip(annotations.clone().into_iter()).collect();
-                            
-                            base_tid.assign(token, &map, types)
-                        }
+                        // If no annotations are generic, then assign types accordingly.
+                        let map: HashMap<TypeId, TypeId> =
+                            generics.into_iter().zip(annotations.clone().into_iter()).collect();
+                        
+                        base_tid.assign(token, &map, types)
+                    
                     }
                     Some(
                         Type::InterfaceBase(InterfaceBaseType { name, .. })
@@ -264,6 +245,7 @@ impl TypeId {
                     kind,
                     requires,
                 } => {
+                    
                     if let Some(requirements) = &requires {
                         match check_requirements(token, requirements, types, map) {
                             Err((Some(r), e)) => return Err(HayError::new(
@@ -289,6 +271,20 @@ impl TypeId {
                         }
                     }
 
+                    // Assign each generic
+                    let mut resolved_generics = vec![];
+                    for t in &generics {
+                        resolved_generics.push(t.clone().assign(token, map, types)?);
+                    }
+
+                    if resolved_generics.iter().any(|t| t.is_generic(types)) {
+                        let t = Type::GenericRecordInstance { base:  self.clone(), base_generics: generics.clone(), alias_list: resolved_generics, members, kind };
+
+                        let tid = t.id();
+                        types.insert(tid.clone(), t);
+                        return Ok(tid);
+                    }
+
                     // Assign each member type from the base.
                     let mut resolved_members = vec![];
                     for m in members {
@@ -299,16 +295,6 @@ impl TypeId {
                             ident: m.ident,
                             typ: m.typ.assign(token, map, types)?,
                         });
-                    }
-
-                    // Assign each generic
-                    let mut resolved_generics = vec![];
-                    for t in generics {
-                        resolved_generics.push(t.assign(token, map, types)?);
-                    }
-
-                    if resolved_generics.iter().any(|t| t.is_generic(types)) {
-                        todo!()
                     }
 
                     // Construct the new name.

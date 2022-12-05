@@ -254,6 +254,14 @@ impl InterfaceImplStmt {
                     func.name.lexeme = new_fn_name.clone();
                     let (_, mut interface_sig) = global_env.get(f).unwrap().clone();
                     interface_sig.assign(&interface.token, &mapped, types)?;
+                    if let Some(generics) = &self.generics {
+                        interface_sig.generics = Some(
+                            generics
+                                .iter()
+                                .map(|arg| TypeId::new(&arg.token.lexeme))
+                                .collect(),
+                        );
+                    }
 
                     func.inputs = interface_sig
                         .inputs

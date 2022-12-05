@@ -97,7 +97,7 @@ fn check_for_entry_point(types: &TypeMap, input_path: &String) -> Result<(), Hay
     }
 }
 
-mod tests {
+mod functional {
     #[test]
     fn early_return_basic() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "early_return_basic")
@@ -305,5 +305,10 @@ mod tests {
     #[test]
     fn interface() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "interface")
+    }
+
+    #[test]
+    fn blanket_impl() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "blanket_impl")
     }
 }

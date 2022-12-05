@@ -1,0 +1,57 @@
+include "std.hay"
+include "opt.hay"
+include "vec.hay"
+
+interface MyPrint<T> {
+    fn my_print(T)
+    fn my_println(T) { my_print "\n" my_print}
+}
+
+impl MyPrint<Str> {
+    fn my_print(Str) { puts }
+}
+
+impl MyPrint<u64> {
+    fn my_print(u64) { putu }
+}
+
+impl<T> MyPrint<&T>
+requires: [MyPrint<T>] {
+    fn my_print(&T) { @ my_print }
+}
+
+interface MyIterator<T> {
+	_: Item
+	fn my_next(T) -> [Opt<Item> bool]
+}
+
+impl<T> MyIterator<*Vec<T>> {
+	T: Item
+	fn my_next(*Vec<T>: self) -> [Opt<T> bool]{
+		self Vec.pop as [t]
+		t &t Opt.is_some
+	}
+}
+
+fn main() {
+
+    "Hello world!" my_println
+    12345          my_println
+
+    54321 "Hello Print!" as [x y]
+    &x             my_println
+    &y             my_println
+
+    Vec.new::<u64> as [mut v]
+
+	0 while dup 10 < {
+		as [i] 
+		i *v Vec.push
+		i 1 +
+	} drop 
+
+	while *v my_next {
+		Opt.unwrap my_println
+	} drop
+
+}

@@ -213,6 +213,13 @@ impl<'a> Parser<'a> {
             Err(_) => None,
         };
 
+        if requires.is_some() && generics.is_none(){
+            return Err(HayError::new(
+                "Cannot have a requires block on a non-generic interface implementation.", 
+                requires.as_ref().unwrap().first().unwrap().loc.clone()
+            ));
+        }
+
         if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
             return Err(HayError::new(
                 format!(
@@ -1946,6 +1953,16 @@ mod tests {
     #[test]
     fn parse_bad_requirement_start() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("parser", "parse_bad_requirement_start")
+    }
+
+    #[test]
+    fn parse_bad_generic_impl_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_generic_impl_close")
+    }
+
+    #[test]
+    fn parse_bad_generic_impl_requires() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_generic_impl_requires")
     }
 
 }

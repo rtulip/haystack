@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "[CMD]: nasm -felf64 src/tests/functional/blanket_impl.asm\n[CMD]: ld -o blanket_impl src/tests/functional/blanket_impl.o\n",
+  "stderr": ""
+}

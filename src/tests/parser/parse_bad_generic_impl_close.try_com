@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parser/parse_bad_generic_impl_close.hay:1:6] Error: Expected `>` after impl annotations, but found end of file instead.\n"
+}

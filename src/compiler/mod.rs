@@ -11,8 +11,9 @@ pub mod test_tools;
 
 pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
     let stmts = Stmt::from_file_with_prelude(&input_path)?;
-    let (mut types, global_env, mut init_data, uninit_data) = Stmt::build_types_and_data(stmts)?;
-    Type::type_check_functions(&mut types, &global_env)?;
+    let (mut types, mut global_env, mut init_data, uninit_data) =
+        Stmt::build_types_and_data(stmts)?;
+    Type::type_check_functions(&mut types, &mut global_env)?;
     let fn_instructions = Instruction::from_type_map(&types, &mut init_data);
     check_for_entry_point(&types, &input_path)?;
 
@@ -96,7 +97,7 @@ fn check_for_entry_point(types: &TypeMap, input_path: &String) -> Result<(), Hay
     }
 }
 
-mod tests {
+mod functional {
     #[test]
     fn early_return_basic() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "early_return_basic")
@@ -304,5 +305,10 @@ mod tests {
     #[test]
     fn interface() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "interface")
+    }
+
+    #[test]
+    fn blanket_impl() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("functional", "blanket_impl")
     }
 }

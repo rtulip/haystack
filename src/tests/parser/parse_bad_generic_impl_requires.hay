@@ -1,0 +1,5 @@
+impl Foo
+requires: [Bar<u64>]
+{
+    
+}

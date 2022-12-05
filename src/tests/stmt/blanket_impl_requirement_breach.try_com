@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/stmt/blanket_impl_requirement_breach.hay:19:8] Error: Type Error: Failed to resolve interface function `my_print`\n    [Note]: Interface `MyPrint<T>` is implemented by:\n    [Note]:   MyPrint<u64>\n    [Note]:   MyPrint<&T> where MyPrint<T> is satisfied.\n    [Note]: Function `my_print` expected:\n    [Note]:   [T]\n    [Note]: Found:\n    [Note]:   [&bool]\n"
+}

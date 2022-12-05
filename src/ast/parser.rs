@@ -175,6 +175,25 @@ impl<'a> Parser<'a> {
     }
 
     fn interface_impl(&mut self, start: Token) -> Result<Vec<Stmt>, HayError> {
+        let generics = match self.matches(TokenKind::Operator(Operator::LessThan)) {
+            Ok(open) => {
+                let annotations = self.unnamed_args_list(&open)?;
+                if let Err(t) = self.matches(TokenKind::Operator(Operator::GreaterThan)) {
+                    return Err(HayError::new(
+                        format!(
+                            "Expected {} after impl annotations, but found {} instead.",
+                            Operator::GreaterThan,
+                            t.kind
+                        ),
+                        t.loc,
+                    ));
+                }
+
+                Some(annotations)
+            }
+            _ => None,
+        };
+
         let interface = match self.parse_type()? {
             Some(t) => t,
             None => {
@@ -188,6 +207,18 @@ impl<'a> Parser<'a> {
                 ))
             }
         };
+
+        let requires = match self.matches(TokenKind::Keyword(Keyword::Requires)) {
+            Ok(t) => Some(self.requires(t)?),
+            Err(_) => None,
+        };
+
+        if requires.is_some() && generics.is_none(){
+            return Err(HayError::new(
+                "Cannot have a requires block on a non-generic interface implementation.", 
+                requires.as_ref().unwrap().first().unwrap().loc.clone()
+            ));
+        }
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
             return Err(HayError::new(
@@ -222,6 +253,8 @@ impl<'a> Parser<'a> {
             interface,
             types,
             fns,
+            generics, 
+            requires,
         })])
     }
 
@@ -1920,6 +1953,16 @@ mod tests {
     #[test]
     fn parse_bad_requirement_start() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("parser", "parse_bad_requirement_start")
+    }
+
+    #[test]
+    fn parse_bad_generic_impl_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_generic_impl_close")
+    }
+
+    #[test]
+    fn parse_bad_generic_impl_requires() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("parser", "parse_bad_generic_impl_requires")
     }
 
 }

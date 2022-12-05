@@ -25,7 +25,7 @@ impl ExprAs {
         stack: &mut Stack,
         frame: &mut Frame,
         func: &UncheckedFunction,
-        global_env: &HashMap<String, (StmtKind, Signature)>,
+        global_env: &mut HashMap<String, (StmtKind, Signature)>,
         types: &mut TypeMap,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<TypedExpr, HayError> {

@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "Hello world!\n12345\n54321\nHello Print!\n9\n8\n7\n6\n5\n4\n3\n2\n1\n0\n",
+  "stderr": ""
+}

@@ -52,7 +52,7 @@ impl InterfaceInstanceType {
         global_env: &mut GlobalEnv,
     ) -> Result<String, HayError> {
         if self.generics.is_none() {
-            return Ok(self.fns_map.get(&func).unwrap().0.clone());
+            return Ok(self.fns_map.get(func).unwrap().0.clone());
         }
 
         if let Some(requirements) = &self.requires {
@@ -88,12 +88,12 @@ impl InterfaceInstanceType {
             let annotations = &sig
                 .generics
                 .as_ref()
-                .expect(format!("Signature should be generic: {func} {sig:?}").as_str())
+                .unwrap_or_else(|| panic!("Signature should be generic: {func} {sig:?}"))
                 .iter()
                 .map(|t| map.get(t).unwrap().clone())
                 .collect::<Vec<TypeId>>();
 
-            sig.assign(&self.token, &annotations, types)?;
+            sig.assign(&self.token, annotations, types)?;
             *func = func.assign(&self.token, map, types)?;
             global_env.insert(func.0.clone(), (kind, sig));
         }
@@ -102,13 +102,13 @@ impl InterfaceInstanceType {
         self.requires = None;
 
         let tid = self.id();
-        let mapped_fn = self.fns_map.get(&func).unwrap().0.clone();
+        let mapped_fn = self.fns_map.get(func).unwrap().0.clone();
 
         match types.get_mut(&self.base).unwrap() {
             Type::InterfaceBase(base) => base.impls.push(tid.clone()),
             _ => unreachable!(),
         }
-        types.insert(tid.clone(), Type::InterfaceInstance(self));
+        types.insert(tid, Type::InterfaceInstance(self));
 
         Ok(mapped_fn)
     }
@@ -180,7 +180,7 @@ impl InterfaceBaseType {
             let stack_before = stack.clone();
             match global_env
                 .get(&mapped_fn.0)
-                .expect(format!("didn't find function: {mapped_fn}").as_str())
+                .unwrap_or_else(|| panic!("didn't find function: {mapped_fn}"))
             {
                 (StmtKind::Function, signature) => {
                     if let Some(map) = match signature.evaluate(&expr.ident, stack, types) {

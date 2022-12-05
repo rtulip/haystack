@@ -361,16 +361,12 @@ impl InterfaceImplStmt {
             base: interface_tid.clone(),
             mapping: mapped,
             fns_map,
-            generics: if let Some(generics) = self.generics {
-                Some(
-                    generics
-                        .iter()
-                        .map(|arg| TypeId::new(&arg.token.lexeme))
-                        .collect(),
-                )
-            } else {
-                None
-            },
+            generics: self.generics.map(|generics| {
+                generics
+                    .iter()
+                    .map(|arg| TypeId::new(&arg.token.lexeme))
+                    .collect()
+            }),
             requires: self.requires,
         });
 

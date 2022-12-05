@@ -278,7 +278,7 @@ impl TypeId {
                     }
 
                     if resolved_generics.iter().any(|t| t.is_generic(types)) {
-                        let t = Type::GenericRecordInstance { base:  self.clone(), base_generics: generics.clone(), alias_list: resolved_generics, members, kind };
+                        let t = Type::GenericRecordInstance { base:  self.clone(), base_generics: generics, alias_list: resolved_generics, members, kind };
 
                         let tid = t.id();
                         types.insert(tid.clone(), t);

@@ -216,10 +216,7 @@ impl Type {
         if let Type::Function { func } = self {
             func
         } else {
-            panic!(
-                "Tried to extract a function from a non-function type: {:?}",
-                self
-            );
+            panic!("Tried to extract a function from a non-function type: {self:?}",);
         }
     }
 

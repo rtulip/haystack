@@ -1,0 +1,21 @@
+include "std.hay" 
+interface MyPrint<T> {
+    fn my_print(T)
+}
+
+impl MyPrint<u64> {
+    fn my_print(u64) { putlnu }
+}
+
+impl<T> MyPrint<&T>
+requires: [MyPrint<T>]
+{
+    fn my_print(&T) { @ print }
+}
+
+fn main() {
+
+    true as [b]
+    &b my_print
+
+}

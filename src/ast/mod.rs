@@ -161,4 +161,9 @@ mod tests {
     fn non_generic_record_requirements() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("stmt", "non_generic_record_requirements")
     }
+
+    #[test]
+    fn blanket_impl_requirement_breach() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "blanket_impl_requirement_breach")
+    }
 }

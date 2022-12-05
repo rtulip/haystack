@@ -14,7 +14,7 @@ use crate::{
     },
 };
 
-use super::{FunctionStmt, GlobalEnv};
+use super::{FunctionStmt, GlobalEnv, Stmt};
 
 #[derive(Clone)]
 pub struct InterfaceImplStmt {
@@ -102,9 +102,11 @@ impl InterfaceImplStmt {
             to_define.insert(key);
         }
 
+        let local_generics = Stmt::bulid_local_generics(self.generics.clone(), types, None)?;
+
         for t in self.types {
             let tid = TypeId::new(t.ident.lexeme);
-            let typ = TypeId::from_token(&t.token, types, &vec![])?;
+            let typ = TypeId::from_token(&t.token, types, &local_generics)?;
             if to_define.remove(&tid) {
                 map.insert(tid, typ);
             } else if map.contains_key(&tid) {

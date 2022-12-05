@@ -244,6 +244,8 @@ impl TypeId {
         map: &HashMap<TypeId, TypeId>,
         types: &mut TypeMap,
     ) -> Result<TypeId, HayError> {
+        assert!(map.values().all(|t| !t.is_generic(types)), "{token}: TypeId::assign expects that all mapped values are concrete.");
+        
         // If the TypeId is in the map return the concrete type.
         if let Some(new_t) = map.get(self) {
             return Ok(new_t.clone());

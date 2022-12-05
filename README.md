@@ -7,7 +7,7 @@ Haysatck was heavily inspired by [Porth](https://www.gitlab.com/tsoding/porth).
 # Getting Started:
 Getting sarted with `Haystack` is pretty simple, there's three requirements: `rust`, `nasm`, and `ld`. I'm working on Ubuntu, and can give no guarantee that `Haystack` will work properly on anything else. If you do give `Haystack` a try and something goes wrong, please open a bug and provide as many details as possible, and I'll do my best to try and figure it out. If you're using Windows, I recommend using `virtualbox` or something similar and get a Linux virtual machine until Windows is a supported target.
 
-* `rust`: I'm using nightly rustc version `1.66.0`, older versions should work, but I haven't tried to figure out what else works. See more about installing rust [here](https://www.rust-lang.org/tools/install). Once you've installed rust, use the command `rustup update nightly` to switch to the nightly version of the rustc compiler.
+* `rust`: I'm using nightly rustc version `1.66.0`, older versions should work, but I haven't tried to figure out what else works. See more about installing rust [here](https://www.rust-lang.org/tools/install). Once you've installed rust, use the command `rustup override set nightly` to switch to the nightly version of the rustc compiler.
 * `nasm`: I'm using version `2.13.02`. I was able to install it using `apt`.
 * `ld`: I believe this was installed with the rest of the GNU Binutils, on `Ubuntu`. 
 

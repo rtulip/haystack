@@ -37,7 +37,7 @@ include "std.hay"
 fn main() {
     1 2    // literals get pushed onto the stack.
     +      // `+` consumes two `u64` from the top of the stack, and pushes the resuling sum back onto the stack.
-    putlnu // The `putlnu` function consumes a `u64` from the top of the stack and prints it to stdout.
+    println // The `println` function consumes a `u64` from the top of the stack and prints it to stdout.
 }
 ```
 
@@ -56,10 +56,10 @@ include "std.hay"
 fn main() {
     1 2
     as [one two]
-    one putlnu
-    two putlnu
-    two putlnu
-    one putlnu
+    one println
+    two println
+    two println
+    one println
 }
 // outputs 1 2 2 1 to stdout
 ```
@@ -83,7 +83,7 @@ fn main() {
         a b +
     }
 
-    putlnu
+    println
 
 }
 ```
@@ -109,7 +109,7 @@ include "std.hay"
 fn main() {
     0 while dup 10 < {
         as [i]
-        i putlnu
+        i println
         i 1 +
     } drop
 }
@@ -147,7 +147,7 @@ include "std.hay"
 fn add_wrapper(u64 u64) -> [u64] { + }
 
 fn main() {
-    1 2 add_wrapper putlnu // prints 3
+    1 2 add_wrapper println // prints 3
 }
 ```
 
@@ -193,11 +193,11 @@ fn main() {
     "Hello" "World" cast(Pair)
     as [pair]
 
-    pair::first::size putlnu
+    pair::first::size println
 
-    // the `putlns` function is defined in "std.hay"
-    // and prints a `Str` to stdout with a newline.
-    pair::second      putlns 
+    // the `println` function is defined in "std.hay"
+    // and prints may types to stdout with a newline.
+    pair::second println 
 }
 ```
 
@@ -206,10 +206,10 @@ fn main() {
 You can include files with the `include "path/to/file.hay"` syntax. `Haystack` will search from `src/libs/` as well as the current directory for the file.
 
 ```
-// defines 'putlnu' function
+// defines 'println' function
 include "std.hay" 
 
-fn main() { "Hello World!" putlnu }
+fn main() { "Hello World!" println }
 ```
 
 ## The Prelude 
@@ -231,7 +231,7 @@ fn ptr+<T>(*T: ptr u64: n) -> [*T] { ... }  // offsets a pointer by n
 include "std.hay"
 
 fn main() {
-    "Hello World!\n" putlnu
+    "Hello World!\n" println
 }
 ```
 
@@ -244,7 +244,7 @@ fn main() {
     100 as [n]
     0 while dup n < {
         as [i]
-        i putlnu
+        i println
         i 1 +
     }
 }

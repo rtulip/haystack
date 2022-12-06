@@ -57,18 +57,18 @@ impl Foo<u8 u8> {
 
 fn main() {
 
-	1 2     my_add putlnu
-	1u8 2u8 my_add putlnu8
-	1u8 2   my_add putlnu
-	1   2u8 my_add putlnu
+	1 2     my_add println
+	1u8 2u8 my_add println
+	1u8 2   my_add println
+	1   2u8 my_add println
 
 	1 2 cast(Point)
 	4 1 cast(Point)
 	my_add as [p] {
-		"Point(" puts p::x putu ", " puts p::y putu ")" putlns
+		"Point(" print p::x print ", " print p::y print ")" println
 	}
 
-	12345 54321 bar putlnu putlnu
-	111u8 222u8 bar putlnu8 putlnu8
+	12345 54321 bar println println
+	111u8 222u8 bar println println
 
 }

@@ -7,7 +7,7 @@ fn main() {
         x 20 <
     } {
         as [i]
-        i putlnu
+        i println
         i 1 +
     } drop
 

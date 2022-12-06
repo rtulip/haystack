@@ -7,6 +7,6 @@ impl:
 }
 
 fn main() {
-    1 2 Foo.add putlnu
-    4 5 Foo.add putlnu
+    1 2 Foo.add println
+    4 5 Foo.add println
 }

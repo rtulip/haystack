@@ -9,3 +9,8 @@ fn sys_mmap(u64: off u64: fd u64: flags u64: prot u64: len *u8: addr) -> [*u8] {
     off fd flags prot len addr 9 syscall(6) cast(*u8)
 }
 fn sys_exit(u64)                    { 60 syscall(1) drop    }
+
+fn exit(u64) {
+    sys_exit 
+}
+

@@ -6,6 +6,6 @@ fn main() {
 
     12345 cast(Foo) as [foo]
 
-    foo::bad putlnu
+    foo::bad println
 
 }

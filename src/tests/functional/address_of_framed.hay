@@ -36,12 +36,12 @@ fn main() {
     } drop
 
     0 while dup 10 < {
-        dup *list MyVec.get putlnu
+        dup *list MyVec.get println
         1 +
     } drop
 
-    &str @ putlns
-    &n @ putlnu
+    &str @ println
+    &n   @ println
 
 
 }

@@ -1,40 +1,4 @@
 include "arr.hay"
 include "str.hay"
-
-fn Str.equals(Str: s1 Str:s2) -> [bool] {
-
-    var bool: equal
-
-    s1::size s1::data cast(ConstArr)
-    s2::size s2::data cast(ConstArr)
-    as [arr1 arr2]
-
-    arr1::size arr2::size == if {
-        true equal !
-
-        0 while dup arr1::size < equal @ land {
-            as [i]
-
-            i arr1 ConstArr.get cast(u64)
-            i arr2 ConstArr.get cast(u64) != if {
-                false equal !
-            }
-
-            i 1 + 
-        } drop
-
-        equal @
-
-    } else {
-        false
-    }
-
-}
-
-fn Str.starts_with(Str: s2 Str: s1) -> [bool] {
-
-    0 s2::size s1 Str.substr
-    s2 
-    Str.equals 
-
-}
+include "write.hay" 
+include "print.hay"

@@ -8,10 +8,10 @@ fn main() {
     44 *four !
     55 *five !
 
-    one   putlnu
-    two   putlnu
-    three putlnu
-    four  putlnu
-    five  putlnu 
+    one   println
+    two   println
+    three println
+    four  println
+    five  println 
 
 }

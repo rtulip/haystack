@@ -4,11 +4,6 @@ struct Vec<T> {
     Arr<T>: slice
     u64: len
 impl:
-    fn Vec.debug<T>(&Vec<T>: self) {
-        "capacity: " puts self::slice::size @ putu 
-        " data: "    puts self::slice::data @ cast(u64) putu
-        " len: "     puts self::len         @ putu
-    }
     
     inline fn Vec.new<T>() -> [Vec<T>] {
         8 malloc::<T> 0 cast(Vec) 

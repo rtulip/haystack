@@ -2,8 +2,8 @@ include "str.hay"
 fn Arr.set<T>(T: value u64: idx Arr<T>: arr) {
 
     idx arr::size >= if {
-        "Cannot Set: Index out of bounds: " puts
-        idx putlnu
+        "Cannot Set: Index out of bounds: " print
+        idx println
         1 exit
     }
     value arr::data idx ptr+_mut !
@@ -11,8 +11,8 @@ fn Arr.set<T>(T: value u64: idx Arr<T>: arr) {
 
 fn Arr.get_ref<T>(u64: idx Arr<T>: arr) -> [&T] {
     idx arr::size >= if {
-        "Cannot Get Ref: Index out of bounds: " puts
-        idx putlnu
+        "Cannot Get Ref: Index out of bounds: " print
+        idx println
         1 exit
     }
     arr::data idx ptr+
@@ -20,8 +20,8 @@ fn Arr.get_ref<T>(u64: idx Arr<T>: arr) -> [&T] {
 
 fn Arr.get_ref_mut<T>(u64: idx Arr<T>: arr) -> [*T] {
     idx arr::size >= if {
-        "Cannot Get Ref: Index out of bounds: " puts
-        idx putlnu
+        "Cannot Get Ref: Index out of bounds: " print
+        idx println
         1 exit
     }
     arr::data idx ptr+_mut
@@ -29,8 +29,8 @@ fn Arr.get_ref_mut<T>(u64: idx Arr<T>: arr) -> [*T] {
 
 fn Arr.get<T>(u64: idx Arr<T>: arr) -> [T] {
     idx arr::size >= if {
-        "Cannot Get: Index out of bounds: " puts
-        idx putlnu
+        "Cannot Get: Index out of bounds: " print
+        idx println
         1 exit
     }
     arr::data idx ptr+ @
@@ -56,8 +56,8 @@ fn Arr.rev<T>(Arr<T>: arr) {
 
 fn ConstArr.get_ref<T>(u64: idx ConstArr<T>: arr) -> [&T] {
     idx arr::size >= if {
-        "Cannot Get Ref: Index out of bounds: " puts
-        idx putlnu
+        "Cannot Get Ref: Index out of bounds: " print
+        idx println
         1 exit
     }
     arr::data idx ptr+ 
@@ -65,8 +65,8 @@ fn ConstArr.get_ref<T>(u64: idx ConstArr<T>: arr) -> [&T] {
 
 fn ConstArr.get<T>(u64: idx ConstArr<T>: arr) -> [T] {
     idx arr::size >= if {
-        "Cannot Get: Index out of bounds: " puts
-        idx putlnu
+        "Cannot Get: Index out of bounds: " print
+        idx println
         1 exit
     }
     arr::data idx ptr+ @

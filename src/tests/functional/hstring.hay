@@ -6,10 +6,10 @@ fn main() {
     s HString.new as [hs]
     Heap.debug_summary
 
-    s::size          putlnu
-    &hs HString.size putlnu
-    s                  putlns
-    &hs HString.as_str putlns
+    s::size            println
+    &hs HString.size   println
+    s                  println
+    &hs HString.as_str println
     &hs HString.delete
     Heap.debug_summary
 

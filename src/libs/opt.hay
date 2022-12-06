@@ -42,7 +42,7 @@ impl:
     fn Opt.unwrap<T>(Opt<T>: opt) -> [T] {
 
         &opt Opt.is_none if {
-            "Unwrapped a None variant" putlns
+            "Unwrapped a None variant" println
             1 exit 
         }
 

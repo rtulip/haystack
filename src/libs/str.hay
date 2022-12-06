@@ -1,4 +1,39 @@
 include "sys_x86_64.hay"
+include "write.hay"
+include "print.hay"
+
+impl Write<Str> {
+    fn write(Str: s u64: fd) {
+        s::size s::data fd sys_write drop
+    }
+}
+
+impl Write<u64> {
+    fn write(u64: n u64: fd) {
+        var char[32]: buffer
+        n buffer @ u64.to_str fd write
+    }
+}
+
+impl Write<u8> {
+    fn write(u8: n u64: fd) {
+        n cast(u64) fd write
+    }
+}
+
+impl Write<bool> {
+    fn write(bool: b u64: fd) {
+        b if { "true" } else { "false" }
+        fd write
+    }
+}
+
+impl Write<char> {
+    fn write(char: c u64: fd) {
+        1 &c cast(Str) fd write
+    }
+}
+
 struct cStr {
     pub u64: size
     pub &char: data
@@ -10,7 +45,7 @@ fn cStr.to_Str(cStr: cs) -> [Str] {
 
 fn Str.to_cStr(Str: s Arr<char>: buffer) -> [cStr bool] {
     s::size 1 + buffer::size >= if {
-        "Buffer is too small to null terminate string" putlns
+        "Buffer is too small to null terminate string" println
         s as [str] {
             str::size str::data 
         } cast(cStr) false
@@ -24,80 +59,6 @@ fn Str.to_cStr(Str: s Arr<char>: buffer) -> [cStr bool] {
     }
 }
 
-fn Str.concat(Str: s1 Str: s2 Arr<char>: buffer) -> [Str] {
-    s1::size s2::size + buffer::size > if {
-        "Buffer is to small to concatinate strings" putlns
-        1 exit
-    }
-    s1::size s1::data buffer::data memcpy
-    s2::size s2::data buffer::data s1::size ptr+_mut memcpy
-    s1::size s2::size + buffer::data cast(Str)
-
-}
-
-fn fputs(Str: s u64: fd) {
-    s::size s::data fd sys_write drop
-}
-
-// TODO: replace `1` with a constant for stdout
-fn puts(Str) {
-    1 fputs
-}
-
-fn putlns(Str) {
-    puts "\n" puts
-}
-
-fn exit(u64) {
-    sys_exit 
-}
-
-fn fputu(u64: u u64: fd) {
-    var char[32]: buffer
-    u buffer @ u64.to_str fd fputs
-}
-
-fn putu(u64) {
-    1 fputu
-}
-
-fn putlnu(u64) {
-    putu "\n" puts
-}
-
-fn fputu8(u8: u u64: fd) {
-    u cast(u64) fd fputu
-}
-
-fn putu8(u8) {
-    1 fputu8
-}
-
-fn putlnu8(u8) {
-    putu8 "\n" puts
-}
-
-fn fputb(bool: b u64: fd) {
-    b if { "true" fd fputs } else { "false" fd fputs }
-}
-
-fn putb(bool) {1 fputb}
-
-fn putlnb(bool) {
-    putb "\n" puts
-}
-
-fn fputc(char: c u64: fd) {
-    1 &c cast(Str) fd fputs
-}
-
-fn putc(char) {
-    1 fputc
-}
-
-fn putlnc(char) {
-    putc "\n" puts
-}
 
 fn Str.drop_left(Str: s) -> [Str] {
     s::size 0 == if {
@@ -131,7 +92,7 @@ fn Str.split_left(u64: n Str: s) -> [Str Str] {
 fn u64.to_str(u64: u Arr<char>: chars) -> [Str] {
 
     chars::size 20 < if {
-        "Must provide at least 20 chars of buffer to copy u64" putlns
+        "Must provide at least 20 chars of buffer to copy u64" println
         1 exit 
     }
 
@@ -152,3 +113,33 @@ fn u64.to_str(u64: u Arr<char>: chars) -> [Str] {
     }    
 
 }
+
+fn Str.equals(Str: s1 Str:s2) -> [bool] {
+
+    s1::size s2::size != if {
+        false return
+    }
+
+    0 while dup s1::size < {
+        as [i]
+
+        s1::data i ptr+ @ 
+        s2::data i ptr+ @ != if {
+            false return
+        }
+
+        i 1 + 
+    } drop
+
+    true
+
+}
+
+fn Str.starts_with(Str: s2 Str: s1) -> [bool] {
+
+    0 s2::size s1 Str.substr
+    s2 
+    Str.equals 
+
+}
+

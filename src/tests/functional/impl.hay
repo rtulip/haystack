@@ -9,7 +9,7 @@ impl:
 
 fn main() {
 
-    "Private Field" cast(Foo) get_bar putlns
-    12345           cast(Foo) get_bar putlnu
+    "Private Field" cast(Foo) get_bar println
+    12345           cast(Foo) get_bar println
 
 }

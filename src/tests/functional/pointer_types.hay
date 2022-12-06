@@ -5,12 +5,12 @@ fn my_read<T>(&T) -> [T] { @ }
 fn main() {
     12345 as [mut n]
     // use `&ident` to get an immutable pointer to `ident`
-    &n my_read putlnu
+    &n my_read println
     // use `*ident` to get a mutable pointer to `ident`
     54321 *n my_write  // this compiles just fine
 
     // Note: mutable pointers can be used as immutable ones.
-    *n my_read putlnu 
+    *n my_read println 
     
     // 54321 &n my_write -- Error Expected [T, *T], but found [T, &T]
 }

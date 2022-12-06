@@ -1,6 +1,0 @@
-
-include "std.hay"
-
-fn main() {
-    "Hello World" putlns
-}

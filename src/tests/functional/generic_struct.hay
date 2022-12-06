@@ -31,9 +31,9 @@ fn main() {
 
     quad::b as [pair] {
         pair::first pair::second
-    } putlns putlns
+    } println println
     quad::a as [pair] {
         pair::first pair::second
-    } putlnu putlnu
+    } println println
 
 }

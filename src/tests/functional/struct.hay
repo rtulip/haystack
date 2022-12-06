@@ -14,10 +14,10 @@ fn main() {
     as [p] {
         p::first
         p::second
-    } putlnu putlnu
+    } println println
     
     as [p] {
         p::first
         p::second
-    } putlnu putlnu
+    } println println
 }

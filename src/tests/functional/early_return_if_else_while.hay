@@ -16,9 +16,9 @@ fn do_work(Opt<u64>: maybe) -> [Opt<bool>] {
 
 fn main() {
 
-    9 Opt.Some do_work Opt.unwrap putlnb
-    12 Opt.Some do_work Opt.unwrap putlnb
+    9 Opt.Some do_work Opt.unwrap  println
+    12 Opt.Some do_work Opt.unwrap println
     Opt.None::<u64> do_work as [opt] 
-    &opt Opt.is_none putlnb
+    &opt Opt.is_none println
 
 }

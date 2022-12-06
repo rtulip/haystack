@@ -2,7 +2,7 @@ include "std.hay"
 
 fn assert(bool) {
     lnot if {
-        "Assertion failed!" putlns
+        "Assertion failed!" println
         1 exit
     }
 }
@@ -21,12 +21,12 @@ struct Bar {
 }
 
 fn test_ptr_offset(*Bar: bar) {
-    bar::foo::string @ putlns
-    "bar::bool:      " puts bar::bool @ putlnb 
-    "bar::foo::u8:   " puts bar::foo::u8 @ putlnu8
-    "bar::foo::char: " puts bar::foo::char @ putlnc
-    "bar::foo::bool: " puts bar::foo::bool @ putlnb 
-    "bar::number:    " puts bar::number    @ putlnu
+    bar::foo::string @ println
+    "bar::bool:      " print bar::bool      @ println
+    "bar::foo::u8:   " print bar::foo::u8   @ println
+    "bar::foo::char: " print bar::foo::char @ println
+    "bar::foo::bool: " print bar::foo::bool @ println
+    "bar::number:    " print bar::number    @ println
 
     bar::bool      @ false == assert
     bar::foo::u8   @ 123u8 == assert 

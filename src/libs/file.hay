@@ -54,7 +54,7 @@ fn File.size(File: file) -> [u64] {
     statbuf::data file::fd sys_fstat if {
         statbuf::data 6 ptr+ cast(u64) cast(*u64) @ 
     } else {
-        "Syscall `fstat` failed " putlns
+        "Syscall `fstat` failed " println
         1 exit
         0
     }

@@ -1,7 +1,7 @@
 include "std.hay"
 fn assert(bool) {
     lnot if {
-        "Assertion failed" putlns
+        "Assertion failed" println
         1 exit 
     }
 }

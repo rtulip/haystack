@@ -9,8 +9,8 @@ fn main() {
     false cast(Foo)
     as [foo_u64 mut foo_bool]
 
-    &foo_u64::A @ putlnu
-    &foo_bool::B @ putlnb
+    &foo_u64::A  @ println
+    &foo_bool::B @ println
     54321 cast(Foo) *foo_bool ! 
-    &foo_bool::A @ putlnu
+    &foo_bool::A @ println
 }

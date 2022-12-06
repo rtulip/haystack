@@ -14,10 +14,6 @@ impl:
         chars cast(HString)
     }
 
-    fn HString.debug(&HString: self) {
-        self::chars Vec.debug
-    }
-
     fn HString.clone(&HString: self) -> [HString] {
         self HString.as_str HString.new
     }

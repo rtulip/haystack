@@ -1,9 +1,0 @@
-include "std.hay"
-fn main() {
-    100 as [n]
-    0 while dup n < {
-        as [i]
-        i putlnu
-        i 1 + 
-    } drop
-}

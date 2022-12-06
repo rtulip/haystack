@@ -8,11 +8,11 @@ interface MyPrint<T> {
 }
 
 impl MyPrint<Str> {
-    fn my_print(Str) { puts }
+    fn my_print(Str) { print }
 }
 
 impl MyPrint<u64> {
-    fn my_print(u64) { putu }
+    fn my_print(u64) { print }
 }
 
 impl<T> MyPrint<&T>

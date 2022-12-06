@@ -46,7 +46,7 @@ impl:
     fn Result.unwrap<T E>(Result<T E>: self) -> [T] {
 
         &self Result.is_err if {
-            "Tried to `unwrap` an Error result" putlns
+            "Tried to `unwrap` an Error result" println
             1 exit
         }
         self::kind::ok
@@ -55,7 +55,7 @@ impl:
     fn Result.unwrap_err<T E>(Result<T E>: self) -> [E] {
 
         &self Result.is_ok if {
-            "Tried to `unwrap_err` on an Ok result" putlns
+            "Tried to `unwrap_err` on an Ok result" println
             1 exit
         }
         self::kind::err

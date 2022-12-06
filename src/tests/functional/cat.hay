@@ -3,7 +3,7 @@ include "file.hay"
 
 fn cat(Str: path) {
     path File.str_from_path as [file_str]
-    file_str putlns 
+    file_str println 
     // Note: this leaks some memory
 }
 

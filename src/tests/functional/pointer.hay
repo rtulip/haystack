@@ -11,6 +11,6 @@ fn main() {
         i 1 + 
     } drop
 
-    word::size chars::data @ cast(Str) putlns
+    word::size chars::data @ cast(Str) println
 
 }

@@ -2,13 +2,13 @@ include "std.hay"
 fn foo() -> [u64] {
 
     while 42 return {
-        "unreachable" putlns
+        "unreachable" println
     }
 
 }
 
 fn main() {
 
-    foo putlnu
+    foo println
 
 }

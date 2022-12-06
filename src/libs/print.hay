@@ -1,0 +1,11 @@
+include "write.hay"
+
+interface Print<T> {
+    fn print(T)
+    fn println(T) { print "\n" print }
+}
+
+impl<T> Print<T>
+requires: [Write<T>] {
+    fn print(T) { 1 write }
+}

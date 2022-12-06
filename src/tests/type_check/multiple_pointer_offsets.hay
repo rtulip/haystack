@@ -10,8 +10,8 @@ struct Bar {
 }
 
 fn work(&Bar: bar) {
-    bar::foo_p::bar @ putlnu
-    bar::foo_p::baz @ putlnb 
+    bar::foo_p::bar @ println
+    bar::foo_p::baz @ println 
 }
 
 fn main() {

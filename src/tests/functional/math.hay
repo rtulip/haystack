@@ -2,24 +2,24 @@ include "std.hay"
 
 
 fn main() {
-    1 1 +  putlnu
-    2 1 -  putlnu
-    2 3 *  putlnu
-    10 2 / putlnu
+    1 1 +  println
+    2 1 -  println
+    2 3 *  println
+    10 2 / println
 
-    1 1 == putlnb
-    1 2 == putlnb
-    1 1 != putlnb
-    1 2 != putlnb
-    1 1 <  putlnb
-    1 2 <  putlnb
-    0 1 <= putlnb
-    1 1 <= putlnb
-    2 1 <= putlnb
-    1 1 >  putlnb
-    2 1 >  putlnb
-    1 0 >= putlnb
-    1 1 >= putlnb
-    1 2 >= putlnb
+    1 1 == println
+    1 2 == println
+    1 1 != println
+    1 2 != println
+    1 1 <  println
+    1 2 <  println
+    0 1 <= println
+    1 1 <= println
+    2 1 <= println
+    1 1 >  println
+    2 1 >  println
+    1 0 >= println
+    1 1 >= println
+    1 2 >= println
 
 }

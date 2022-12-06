@@ -19,31 +19,31 @@ fn Chunk.next(*Block: blk_p) -> [*Block] {
     blk_p cast(u64) blk::arr::size + sizeOf(Block) + cast(*Block)
 }
 
-fn Chunk.puts(Chunk: chunk) {
-    "[" puts 
+fn Chunk.print(Chunk: chunk) {
+    "[" print 
     chunk::start cast(u64) chunk::cap + cast(u64) as [end]
     0 chunk::start cast(u64) while dup end < {
 
         cast(*Block) as [n blk_p]
         blk_p @ as [blk]
 
-        " | " puts 
-        //blk::arr::data cast(u64) putu " " puts
-        blk::arr::size putu " " puts blk::allocated putb " | " puts
+        " | " print 
+        //blk::arr::data cast(u64) print " " print
+        blk::arr::size print " " print blk::allocated print " | " print
 
         n 1 +
         blk_p Chunk.next cast(u64)
     } drop drop
-    "] " puts chunk::cap putlnu
+    "] " print chunk::cap println
 }
 
 fn Heap.debug_summary() {
     
     chunks_p @ as [chunks]
-    "Heap:" putlns
+    "Heap:" println
     0 while dup n_chunks_p @ < {
         as [i]
-        "  * " puts i chunks Arr.get Chunk.puts
+        "  * " print i chunks Arr.get Chunk.print
         i 1 +
     } drop
 
@@ -141,7 +141,7 @@ var u64: n_chunks_p
 fn mmap_new_chunk(u64: n) -> [*Chunk] {
     
     n PAGE_SIZE % 0 != if {
-        "Size `" puts n putu "` isn't page-size aligned" putlns
+        "Size `" print n print "` isn't page-size aligned" println
         1 exit
     }
 
@@ -156,7 +156,7 @@ fn mmap_new_chunk(u64: n) -> [*Chunk] {
     as [addr]
 
     addr cast(u64) 0 1 - == if {
-        "Error: mmap call failed..." putlns
+        "Error: mmap call failed..." println
         1 exit
     }
 
@@ -171,8 +171,8 @@ fn mmap_new_chunk(u64: n) -> [*Chunk] {
     n addr cast(u64) cast(*Block) cast(Chunk) as [new_chunk]
     n_chunks_p @ chunks_p @ as [n_chunks chunks]
     n_chunks_p @ chunks::size >= if {
-        "Global allocator ran out of room for new chunks" putlns
-        "  Note: Maxed out on heap memory" putlns
+        "Global allocator ran out of room for new chunks" println
+        "  Note: Maxed out on heap memory" println
         1 exit
     }
 

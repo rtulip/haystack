@@ -5,20 +5,20 @@ fn main() {
     10 as [x] {
 
         x as [y]
-        y putlnu
+        y println
         x as [z] {
-            z putlnu
+            z println
         }
-        x putlnu
+        x println
     }
 
     20 as [x] {
         x as [y]
-        y putlnu
+        y println
         x as [z] {
-            z putlnu
+            z println
         }
-        x putlnu
+        x println
     }
 
 }

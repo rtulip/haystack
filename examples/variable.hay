@@ -8,3 +8,5 @@ fn main() {
     }
     // one -- uncomment this to see the compiler error
 }
+
+fn push_num() -> [u64] { 1 2 3 }

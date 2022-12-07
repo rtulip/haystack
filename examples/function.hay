@@ -1,0 +1,28 @@
+include "std.hay"
+fn my_add(u64: left u64: right) -> [u64] {
+    left right +
+}
+
+fn my_add1(u64 u64) -> [u64] {
+    as [left right]
+    left right +
+}
+
+fn my_add2(u64 u64) -> [u64] { + }
+
+fn push_nums() -> [u64 u64 u64] { 1 2 3 }
+
+// Uncomment this function to see the compiler error
+//fn push_nums_bad() -> [u64 u64 u64] { 1 true 3 }
+
+fn main() {
+    "verbose: " print 1 2 my_add  println
+    "middle:  " print 1 2 my_add1 println 
+    "terse:   " print 1 2 my_add2 println
+    "Numbers pushed: " println
+    push_nums 
+    "  " print println 
+    "  " print println 
+    "  " print println
+
+}

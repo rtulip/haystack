@@ -26,6 +26,9 @@ You can try any of the examples under `./examples`.
 * You can compile the program with: `cargo r -- examples/name_of_file.hay`
 * Add the `-r` or `--run` flag to also run the program:  ` cargo r -- examples/name_of_file.hay -r`
 
+# Tutorial:
+Check out the [Tutorial](https://www.github.com/rtulip/haystack/wiki/Tutorial) to learn about how to use the language.
+
 # Example Programs
 Here's a few simple programs to show off a little of what `Haystack` looks like:
 
@@ -51,6 +54,7 @@ fn fib(u64: n) -> [u64] {
 
 ## Print Numbers 1 to 10
 ```
+include "std.hay"
 fn main() {
     1 while dup 10 <= {
         as [i]
@@ -59,7 +63,3 @@ fn main() {
     } drop
 }
 ```
-
-# Tutorial:
-Check out the [Tutorial](https://www.github.com/rtulip/haystack/wiki/Tutorial) to learn about how to use the language
-

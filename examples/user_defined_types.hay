@@ -1,0 +1,47 @@
+include "std.hay"
+struct Pair {
+    u64: first
+    u64: second
+impl:
+    fn Pair.first(Pair: p) -> [u64] { p::first } 
+    fn Pair.second(Pair: p) -> [u64] { p::second }
+    fn Pair.split(Pair: p) -> [u64 u64] { p::first p::second }
+}
+
+enum Colour { Red Green Blue }
+
+union StrOrU64 {
+    u64: number
+    Str: string
+}
+
+fn foo(u64) {
+    10 > if {
+        "Greater than 10"
+    }
+}
+
+fn main() {
+    1 2 cast(Pair) as [pair]
+    // Uncomment these lines to see the error
+    //pair::first  println
+    //pair::second println
+
+    "first:  " print pair Pair.first println
+    "second: " print pair Pair.second println
+    pair Pair.split
+    "second: " print println
+    "first:  " print println
+
+    "Red and green the same colour: " print
+    Colour::Red Colour::Green == println
+
+    "Hello World" cast(StrOrU64) as [str_union]
+    12345         cast(StrOrU64) as [num_union]
+    str_union::string println
+    str_union::number println // This is dangerous!
+    num_union::string println // This is dangerous!
+    num_union::number println 
+    
+
+}

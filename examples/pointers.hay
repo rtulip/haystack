@@ -1,0 +1,46 @@
+include "std.hay"
+include "std.hay"
+var u64: foo
+var u64[5]: numbers
+
+fn example() {
+    var Str: bar
+    var Str[5]: strings
+    
+    // ... 
+}
+
+fn main() {
+    "Hello World" as [s]
+    0 while dup s::size < {
+        as [i]
+        s::data i
+        ptr+ // ptr+ offsets a pointer by `i`
+        @ println
+        i 1 +
+    } drop
+
+    12345 
+    foo // pushes a *u64 onto the stack
+    !
+    foo @ println
+
+    54321 
+    numbers // pushes a *Arr<u64> onto the stack
+    @ memset
+
+    numbers @ as [nums]
+
+    0 while dup nums::size < {
+        as [i]
+        i nums Arr.get println
+        i 1 +
+    } drop
+
+    "FizzBuzz" as [mut msg]
+    msg println // prints `FizzBuzz`
+    "Hello World" *msg !
+    msg println // prints `Hello World`
+
+}
+

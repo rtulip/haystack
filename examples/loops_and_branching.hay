@@ -1,0 +1,39 @@
+include "std.hay"
+fn foo(u64: n) {
+    n 10 > if {
+        "Greater than 10"
+    }
+
+    // Comment out the else branch to see the compiler error.
+    else {
+        "Less or equal to 10"
+    }
+    
+    println
+}
+
+fn fib(u64: n) -> [u64] {
+    n 0 == if {
+        1
+    } else n 1 == if {
+        1
+    } else {
+        n 1 - fib
+        n 2 - fib +
+    }
+}
+
+fn main() {
+
+    //Uncomment this loop to see the compiler error
+    //while true {
+    //    1
+    //}
+
+    0 while dup 20 < {
+        as [i]
+        i fib println
+        i 1 + 
+    } drop 
+
+}

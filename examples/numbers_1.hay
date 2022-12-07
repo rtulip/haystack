@@ -1,0 +1,13 @@
+include "std.hay"
+fn main(){
+    1       // stack: [1] 
+    2       // stack: [1 2]
+    3       // stack: [1 2 3]
+    4       // stack: [1 2 3 4]
+    5       // stack: [1 2 3 4 5]
+    println // stack: [1 2 3 4]     prints 5
+    println // stack: [1 2 3]       prints 4
+    println // stack: [1 2]         prints 3
+    println // stack: [1]           prints 2
+    println // stack: []            prints 1
+}

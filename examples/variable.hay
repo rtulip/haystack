@@ -1,0 +1,12 @@
+include "std.hay"
+fn main() {
+    1 2 as [one two] { 
+        one println
+        two println
+        two println
+        one println
+    }
+    // one -- uncomment this to see the compiler error
+}
+
+fn push_num() -> [u64] { 1 2 3 }

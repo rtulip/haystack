@@ -1,0 +1,7 @@
+// The standard library defines the `println` function
+include "std.hay"
+
+fn main() {
+    "Hello World!"  // Pushes the string literal onto the stack
+    println         // Calls the println function and prints the string.
+}

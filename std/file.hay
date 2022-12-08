@@ -1,0 +1,57 @@
+
+struct HString:
+
+struct File {
+    pub u64: fd
+impl:
+    fn File.exists(Str: file_name) -> [bool] {
+        var u64[18]: statbuf_p
+        statbuf_p @ as [statbuf]
+        0 statbuf memset
+
+        file_name HString.null_terminate as [cstr]
+        &cstr HString.as_str as [path]
+        statbuf::data path::data sys_stat
+        &cstr HString.delete
+    }
+
+    fn File.open(u64: mode u64: flags Str: path) -> [File] {
+        path HString.null_terminate as [cstr] {
+            &cstr HString.as_str as [path_term]
+            mode flags path_term::data sys_open
+            &cstr HString.delete
+        }
+        cast(File)
+    }
+
+    fn File.close(File: file) {
+        file::fd sys_close drop
+    }
+
+    fn File.read_to_string(Str: path) -> [HString] {
+        0 0 path File.open as [file]
+        file File.size as [size] 
+        size Vec.with_capacity::<char> as [mut chars]
+        *chars Vec.slice_mut as [buffer]
+        size buffer::data file::fd sys_read drop
+        file File.close
+    
+        buffer size cast(Vec<char>) cast(HString)
+
+    }
+
+    fn File.size(File: file) -> [u64] {
+        var u64[18]: statbuf_p
+        statbuf_p @ as [statbuf]
+        0 statbuf memset
+        statbuf::data file::fd sys_fstat if {
+            statbuf::data 6 ptr+ cast(u64) cast(*u64) @ 
+        } else {
+            "Syscall `fstat` failed " println
+            1 exit
+            0
+        }
+    }
+}
+
+

@@ -1,0 +1,74 @@
+include "std/vec.hay"
+struct HString {
+    Vec<char>: chars
+
+impl:
+    fn HString.new(Str: s) -> [HString] {
+        s::size Vec.with_capacity::<char> as [mut chars]
+        0 while dup s::size < {
+            as [i]
+            s::data i ptr+ @ *chars Vec.push
+            i 1 +
+        } drop
+        chars cast(HString)
+    }
+
+    fn HString.null_terminate(Str: s) -> [HString] {
+        s HString.new 
+        '\0' HString.push
+    }
+
+    fn HString.clone(&HString: self) -> [HString] {
+        self HString.as_str HString.new
+    }
+
+    fn HString.delete(&HString: self) {
+        self::chars Vec.delete
+    }
+
+    fn HString.size(&HString: self) -> [u64] {
+        self::chars Vec.len
+    }
+
+    fn HString.as_str(&HString: self) -> [Str] {
+        self HString.size        
+        self::chars Vec.slice as [slice]
+        slice::data
+
+        cast(Str)
+    }
+
+    inline fn HString.push(HString: mut self char: c) -> [HString] {
+        c *self::chars Vec.push
+        self
+    }
+
+    fn HString.push_str(HString: mut self Str: s) -> [HString] {
+        0 while dup s::size < {
+            as [i]
+            s::data i ptr+ @ *self::chars Vec.push
+            i 1 +
+        } drop
+        self
+    }
+
+    fn HString.format(HString: mut self HString: other) -> [HString] {
+        self 
+        0 while dup &other HString.size < {
+            as [i]
+            i &other::chars Vec.at Opt.unwrap HString.push
+            i 1 +
+        } drop
+        &other HString.delete
+    } 
+
+    fn HString.at(u64: idx &HString: self) -> [Opt<char>] {
+        idx self::chars Vec.at
+    }
+}
+
+impl Write<HString> {
+    fn write(HString: s u64: fd) {
+        &s HString.as_str fd write
+    }
+}

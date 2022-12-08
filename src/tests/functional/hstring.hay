@@ -1,4 +1,4 @@
-include "hstring.hay"
+include "std/hstring.hay"
 
 fn main() {
 

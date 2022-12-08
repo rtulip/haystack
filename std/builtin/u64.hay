@@ -1,10 +1,59 @@
-include "std/write.hay" 
+include "std/write.hay"
+include "std/ops/prelude.hay"
 
 impl Write<u64> {
     fn write(u64: n u64: fd) {
         var char[32]: buffer
         n buffer @ u64.to_str fd write
     }
+}
+
+impl Add<u64 u8> {
+    u64: Output
+    inline fn add(u64: left u8: right) -> [u64] {
+        left right cast(u64) +
+    }
+}
+
+impl Add<u64 u64> {
+    u64: Output
+    inline fn add(u64 u64) -> [u64] { + }
+}
+
+impl Sub<u64 u8> {
+    u64: Output
+    inline fn sub(u64: left u8: right) -> [u64] {
+        left right cast(u64) -
+    }
+}
+
+impl Sub<u64 u64> {
+    u64: Output
+    inline fn sub(u64 u64) -> [u64] { - }
+}
+
+impl Div<u64 u8> {
+    u64: Output
+    inline fn div(u64: left u8: right) -> [u64] {
+        left right cast(u64) /
+    }
+}
+
+impl Div<u64 u64> {
+    u64: Output
+    inline fn div(u64 u64) -> [u64] { / }
+}
+
+impl Mul<u64 u8> {
+    u64: Output
+    inline fn mul(u64: left u8: right) -> [u64] {
+        left right cast(u64) *
+    }
+}
+
+impl Mul<u64 u64> {
+    u64: Output
+    inline fn mul(u64 u64) -> [u64] { * }
 }
 
 fn u64.to_str(u64: u Arr<char>: chars) -> [Str] {

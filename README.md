@@ -34,7 +34,6 @@ Here's a few simple programs to show off a little of what `Haystack` looks like:
 
 ## Hello World
 ```
-include "std.hay"
 fn main() {
     "Hello World" println
 }
@@ -54,7 +53,6 @@ fn fib(u64: n) -> [u64] {
 
 ## Print Numbers 1 to 10
 ```
-include "std.hay"
 fn main() {
     1 while dup 10 <= {
         as [i]

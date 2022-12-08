@@ -1,0 +1,4 @@
+interface Mul<A B> {
+    _: Output
+    fn mul(A B) -> [Output]
+}

@@ -1,0 +1,4 @@
+interface Sub<A B> {
+    _: Output
+    fn sub(A B) -> [Output]
+}

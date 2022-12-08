@@ -1,7 +1,64 @@
-include "std/write.hay" 
+include "std/write.hay"
+include "std/ops/prelude.hay"
 
 impl Write<u8> {
     fn write(u8: n u64: fd) {
         n cast(u64) fd write
+    }
+}
+
+impl Add<u8 u8> {
+    u8: Output
+    inline fn add(u8: left u8: right) -> [u8] {
+        left cast(u64) right cast(u64) + cast(u8)
+    }
+}
+
+impl Add<u8 u64> {
+    u64: Output
+    inline fn add(u8: left u64: right) -> [u64] {
+        left cast(u64) right +
+    }
+}
+
+impl Sub<u8 u8> {
+    u8: Output
+    inline fn sub(u8: left u8: right) -> [u8] {
+        left cast(u64) right cast(u64) - cast(u8)
+    }
+}
+
+impl Sub<u8 u64> {
+    u64: Output
+    inline fn sub(u8: left u64: right) -> [u64] {
+        left cast(u64) right - 
+    }
+}
+
+impl Mul<u8 u8> {
+    u64: Output
+    inline fn mul(u8: left u8: right) -> [u64] {
+        left cast(u64) right cast(u64) *
+    }
+}
+
+impl Mul<u8 u64> {
+    u64: Output
+    inline fn mul(u8: left u64: right) -> [u64] {
+        left cast(u64) right *
+    }
+}
+
+impl Div<u8 u8> {
+    u8: Output
+    inline fn div(u8: left u8: right) -> [u8] {
+        left cast(u64) right cast(u64) / cast(u8)
+    }
+}
+
+impl Div<u8 u64> {
+    u8: Output
+    inline fn div(u8: left u64: right) -> [u8] {
+        left cast(u64) right / cast(u8)
     }
 }

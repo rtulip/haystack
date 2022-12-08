@@ -1,7 +1,15 @@
 include "std/write.hay"
+include "std/ops/prelude.hay"
 
 impl Write<char> {
     fn write(char: c u64: fd) {
         1 &c cast(Str) fd write
+    }
+}
+
+impl Add<char char> {
+    char: Output
+    inline fn add(char: left char: right) -> [char] {
+        left cast(u64) right cast(u64) + cast(char)
     }
 }

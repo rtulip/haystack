@@ -1,0 +1,4 @@
+interface Add<A B> {
+    _: Output
+    fn add(A B) -> [Output]
+}

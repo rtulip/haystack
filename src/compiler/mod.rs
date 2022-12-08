@@ -214,12 +214,12 @@ mod functional {
 
         let asm = std::fs::read_to_string("src/tests/functional/inline_fn.asm").unwrap();
         assert!(
-            asm.find("call fn_add").is_none(),
-            "Found a call to `fn_add` in the generated assembly!"
+            asm.find("call fn_my__add").is_none(),
+            "Found a call to `fn_my__add` in the generated assembly!"
         );
         assert!(
-            asm.find("fn_add:").is_some(),
-            "Didn't find any definition of `fn_add` in generated assembly"
+            asm.find("fn_my__add:").is_some(),
+            "Didn't find any definition of `fn_my__add` in generated assembly"
         );
         Ok(())
     }

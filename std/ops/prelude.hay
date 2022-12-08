@@ -1,1 +1,4 @@
 include "std/ops/add.hay"
+include "std/ops/div.hay"
+include "std/ops/mul.hay" 
+include "std/ops/sub.hay"

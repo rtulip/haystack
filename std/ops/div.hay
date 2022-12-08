@@ -1,0 +1,4 @@
+interface Div<A B> {
+    _: Output
+    fn div(A B) -> [Output]
+}

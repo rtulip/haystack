@@ -13,6 +13,48 @@ pub struct ExprOperator {
 }
 
 impl ExprOperator {
+    fn type_check_interface_op(
+        self,
+        stack: &mut Stack,
+        types: &mut TypeMap,
+        global_env: &mut GlobalEnv,
+        default_sig: Signature,
+        interface_fn_name: String,
+    ) -> Result<TypedExpr, HayError> {
+        match default_sig.evaluate(&self.token, stack, types) {
+            Ok(_) => Ok(TypedExpr::Operator {
+                op: self.op,
+                typ: None,
+            }),
+            Err(_) => {
+                if let Some((StmtKind::InterfaceFunction(base), _)) =
+                    global_env.get(&interface_fn_name)
+                {
+                    let interface = match types.get(base).unwrap() {
+                        Type::InterfaceBase(base) => base.clone(),
+                        _ => unreachable!(),
+                    };
+
+                    let call_expr = ExprIdent {
+                        ident: Token {
+                            kind: self.token.kind.clone(),
+                            lexeme: interface_fn_name,
+                            loc: self.token.loc.clone(),
+                        },
+                    };
+
+                    Ok(TypedExpr::Call {
+                        func: interface.resolve(&call_expr, stack, types, global_env)?,
+                    })
+                } else {
+                    panic!(
+                        "Interface function `{interface_fn_name}` not found? Error in the prelude?"
+                    );
+                }
+            }
+        }
+    }
+
     pub fn type_check(
         self,
         stack: &mut Stack,
@@ -20,96 +62,34 @@ impl ExprOperator {
         global_env: &mut GlobalEnv,
     ) -> Result<TypedExpr, HayError> {
         match self.op {
-            Operator::Plus => {
-                let base_sig =
-                    Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]);
-
-                match base_sig.evaluate(&self.token, stack, types) {
-                    Ok(_) => Ok(TypedExpr::Operator {
-                        op: self.op,
-                        typ: None,
-                    }),
-                    Err(_) => {
-                        if let Some((StmtKind::InterfaceFunction(base), _)) =
-                            global_env.get(&String::from("add"))
-                        {
-                            let interface = match types.get(base).unwrap() {
-                                Type::InterfaceBase(base) => base.clone(),
-                                _ => unreachable!(),
-                            };
-
-                            let call_expr = ExprIdent {
-                                ident: Token {
-                                    kind: self.token.kind.clone(),
-                                    lexeme: String::from("add"),
-                                    loc: self.token.loc.clone(),
-                                },
-                            };
-
-                            Ok(TypedExpr::Call {
-                                func: interface.resolve(&call_expr, stack, types, global_env)?,
-                            })
-                        } else {
-                            panic!("Interface function `add` not found? Error in the prelude?");
-                        }
-                    }
-                }
-            }
-            Operator::Minus => {
-                let sigs = vec![
-                    // u64 == u64 -> bool
-                    Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
-                    // u8 == u8   -> bool
-                    Signature::new(vec![Type::U8.id(), Type::U8.id()], vec![Type::U8.id()]),
-                    // *T == *T    -> bool
-                    Signature::new_generic(
-                        vec![TypeId::new("*T"), TypeId::new("*T")],
-                        vec![Type::U64.id()],
-                        vec![TypeId::new("T")],
-                    ),
-                ];
-
-                // TODO: Comparison between pointers
-
-                Signature::evaluate_many(&sigs, &self.token, stack, types)?;
-
-                Ok(TypedExpr::Operator {
-                    op: self.op,
-                    typ: None,
-                })
-            }
-            Operator::Star => {
-                Signature::evaluate_many(
-                    &vec![
-                        Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
-                        Signature::new(vec![Type::U8.id(), Type::U8.id()], vec![Type::U8.id()]),
-                    ],
-                    &self.token,
-                    stack,
-                    types,
-                )?;
-
-                Ok(TypedExpr::Operator {
-                    op: self.op,
-                    typ: None,
-                })
-            }
-            Operator::Slash => {
-                Signature::evaluate_many(
-                    &vec![
-                        Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
-                        Signature::new(vec![Type::U8.id(), Type::U8.id()], vec![Type::U8.id()]),
-                    ],
-                    &self.token,
-                    stack,
-                    types,
-                )?;
-
-                Ok(TypedExpr::Operator {
-                    op: self.op,
-                    typ: None,
-                })
-            }
+            Operator::Plus => self.type_check_interface_op(
+                stack,
+                types,
+                global_env,
+                Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                String::from("add"),
+            ),
+            Operator::Minus => self.type_check_interface_op(
+                stack,
+                types,
+                global_env,
+                Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                String::from("sub"),
+            ),
+            Operator::Star => self.type_check_interface_op(
+                stack,
+                types,
+                global_env,
+                Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                String::from("mul"),
+            ),
+            Operator::Slash => self.type_check_interface_op(
+                stack,
+                types,
+                global_env,
+                Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                String::from("div"),
+            ),
             Operator::LessThan
             | Operator::LessEqual
             | Operator::GreaterThan

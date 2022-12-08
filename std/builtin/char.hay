@@ -1,0 +1,7 @@
+include "std/write.hay"
+
+impl Write<char> {
+    fn write(char: c u64: fd) {
+        1 &c cast(Str) fd write
+    }
+}

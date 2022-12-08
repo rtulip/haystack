@@ -1,7 +1,4 @@
-include "vec.hay" 
-include "str.hay"
-include "std.hay"
-
+include "std/vec.hay" 
 struct Map<T> {
     
     Vec<Str>: keys

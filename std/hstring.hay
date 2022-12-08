@@ -1,17 +1,21 @@
-include "vec.hay"
-include "file.hay"
+include "std/vec.hay"
 struct HString {
     Vec<char>: chars
 
 impl:
     fn HString.new(Str: s) -> [HString] {
-        Vec.new::<char> as [mut chars]
+        s::size Vec.with_capacity::<char> as [mut chars]
         0 while dup s::size < {
             as [i]
             s::data i ptr+ @ *chars Vec.push
             i 1 +
         } drop
         chars cast(HString)
+    }
+
+    fn HString.null_terminate(Str: s) -> [HString] {
+        s HString.new 
+        '\0' HString.push
     }
 
     fn HString.clone(&HString: self) -> [HString] {
@@ -58,19 +62,13 @@ impl:
         &other HString.delete
     } 
 
-    fn HString.from_file(Str: path) -> [HString] {
-        0 0 path File.open as [file]
-        file File.size as [size] 
-        size Vec.with_capacity::<char> as [mut chars]
-        *chars Vec.slice_mut as [buffer]
-        size buffer::data file::fd sys_read drop
-        file File.close
-
-        buffer size cast(Vec<char>) cast(HString)
-    }
-
     fn HString.at(u64: idx &HString: self) -> [Opt<char>] {
         idx self::chars Vec.at
     }
 }
 
+impl Write<HString> {
+    fn write(HString: s u64: fd) {
+        &s HString.as_str fd write
+    }
+}

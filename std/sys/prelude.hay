@@ -1,0 +1,3 @@
+include "std/sys/x86_64.hay"
+
+fn exit(u64) { sys_exit }

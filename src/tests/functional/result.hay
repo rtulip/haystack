@@ -1,5 +1,4 @@
-include "result.hay"
-include "assert.hay"
+include "std/assert.hay"
 fn main() {
 
     12345 Result.Ok::<u64 Str> as [r] {

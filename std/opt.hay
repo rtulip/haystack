@@ -1,4 +1,3 @@
-include "str.hay"
 enum OptTag {
     Some
     None
@@ -58,6 +57,4 @@ impl:
         }
     }
 
-
 }
-

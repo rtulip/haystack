@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "[CMD]: nasm -felf64 examples/user_defined_types.asm\n[CMD]: ld -o user_defined_types examples/user_defined_types.o\n",
+  "stderr": ""
+}

@@ -1,0 +1,7 @@
+include "std/write.hay"
+impl Write<bool> {
+    fn write(bool: b u64: fd) {
+        b if { "true" } else { "false" }
+        fd write
+    }
+}

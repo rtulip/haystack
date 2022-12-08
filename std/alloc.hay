@@ -1,7 +1,3 @@
-include "arr.hay"
-include "opt.hay"
-include "sys_x86_64.hay"
-
 // Doesn't need to be aligned to page size
 struct Block {
     pub Arr<u8>: arr

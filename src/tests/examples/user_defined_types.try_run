@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "first:  1\nsecond: 2\nsecond: 2\nfirst:  1\nRed and green the same colour: false\nHello World\n11\n12345\n",
+  "stderr": ""
+}

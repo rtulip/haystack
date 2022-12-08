@@ -1,4 +1,0 @@
-include "arr.hay"
-include "str.hay"
-include "write.hay" 
-include "print.hay"

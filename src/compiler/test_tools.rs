@@ -7,7 +7,11 @@ struct OutputSummary {
 }
 
 #[allow(dead_code)]
-pub fn run_test(directory: &str, file_base: &str) -> Result<(), std::io::Error> {
+pub fn run_test(
+    directory: &str,
+    file_base: &str,
+    results_dir: Option<&str>,
+) -> Result<(), std::io::Error> {
     use crate::compiler::run_command;
     use std::process::Output;
 
@@ -21,7 +25,8 @@ pub fn run_test(directory: &str, file_base: &str) -> Result<(), std::io::Error> 
             stderr,
         }
     }
-    let file = format!("src/tests/{directory}/{file_base}");
+
+    let file = format!("{directory}/{file_base}");
 
     let output = run_command(
         "cargo",
@@ -31,7 +36,11 @@ pub fn run_test(directory: &str, file_base: &str) -> Result<(), std::io::Error> 
     )
     .unwrap();
     let compilation_summary = summarize_output(&output);
-    let com_path = format!("{file}.try_com");
+    let com_path = if let Some(dir) = results_dir {
+        format!("{dir}/{file_base}.try_com")
+    } else {
+        format!("{file}.try_com")
+    };
 
     if std::path::Path::new(&com_path).exists() {
         let prev_output: OutputSummary =
@@ -49,7 +58,11 @@ pub fn run_test(directory: &str, file_base: &str) -> Result<(), std::io::Error> 
             &run_command(format!("./{file_base}",).as_str(), vec![], &file, false).unwrap(),
         );
 
-        let run_path = format!("{file}.try_run");
+        let run_path = if let Some(dir) = results_dir {
+            format!("{dir}/{file_base}.try_run")
+        } else {
+            format!("{file}.try_run")
+        };
 
         if std::path::Path::new(&run_path).exists() {
             let prev_output: OutputSummary =

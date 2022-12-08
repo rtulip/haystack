@@ -1,4 +1,3 @@
-include "std.hay"
 fn main() {
 
     1    cast(u8) println

@@ -1,4 +1,0 @@
-struct Range<T> {
-    pub T: start
-    pub T: end
-}

@@ -1,7 +1,3 @@
-include "std.hay"
-include "opt.hay"
-include "vec.hay"
-
 interface MyPrint<T> {
     fn my_print(T)
     fn my_println(T) { my_print "\n" my_print}

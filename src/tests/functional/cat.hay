@@ -1,10 +1,7 @@
-include "std.hay"
-include "file.hay"
-
 fn cat(Str: path) {
-    path File.str_from_path as [file_str]
+    path File.read_to_string as [file_str]
     file_str println 
-    // Note: this leaks some memory
+    &file_str HString.delete
 }
 
 fn main() {

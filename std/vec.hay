@@ -1,5 +1,4 @@
-include "alloc.hay"
-include "assert.hay"
+include "std/assert.hay"
 struct Vec<T> {
     Arr<T>: slice
     u64: len

@@ -1,4 +1,3 @@
-include "std.hay"
 union Foo {
     u64: A
     bool: B

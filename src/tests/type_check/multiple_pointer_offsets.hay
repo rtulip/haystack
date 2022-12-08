@@ -1,5 +1,3 @@
-include "std.hay"
-
 struct Foo {
     pub u64: bar
     pub bool: baz

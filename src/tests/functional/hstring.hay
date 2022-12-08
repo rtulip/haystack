@@ -1,10 +1,9 @@
-include "hstring.hay"
+include "std/hstring.hay"
 
 fn main() {
 
     "Hello World" as [s] 
     s HString.new as [hs]
-    Heap.debug_summary
 
     s::size            println
     &hs HString.size   println

@@ -1,5 +1,3 @@
-include "std.hay"
-
 struct Foo<T> {
     T: bar
 

@@ -48,7 +48,7 @@ impl Stmt {
 
     pub fn from_file_with_prelude(input_path: &String) -> Result<Vec<Self>, HayError> {
         let mut visited = HashSet::new();
-        let prelude_path = String::from("src/libs/prelude.hay");
+        let prelude_path = String::from("std/prelude.hay");
         let mut stmts = Stmt::from_file(&prelude_path, &mut visited)?;
         stmts.append(&mut Stmt::from_file(input_path, &mut visited)?);
 

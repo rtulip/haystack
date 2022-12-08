@@ -1,5 +1,3 @@
-include "std.hay"
-include "alloc.hay"
 struct MyVec<T> {
 
     Arr<T>: slice

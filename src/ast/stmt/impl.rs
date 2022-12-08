@@ -368,8 +368,8 @@ impl InterfaceImplStmt {
             .collect();
         let instance_types = interface
             .types
-            .iter()
-            .map(|(tid, _)| map.get(tid).unwrap().clone())
+            .keys()
+            .map(|tid| map.get(tid).unwrap().clone())
             .collect();
 
         let instance_typ = Type::InterfaceInstance(InterfaceInstanceType {

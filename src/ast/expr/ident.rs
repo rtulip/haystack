@@ -60,6 +60,7 @@ impl ExprIdent {
         if let Some((i, (_, tid))) = frame
             .iter()
             .enumerate()
+            .rev()
             .find(|(_, (id, _))| &self.ident.lexeme == id)
         {
             stack.push(tid.typ.clone());

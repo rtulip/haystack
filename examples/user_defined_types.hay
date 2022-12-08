@@ -1,4 +1,3 @@
-include "std.hay"
 struct Pair {
     u64: first
     u64: second
@@ -13,12 +12,6 @@ enum Colour { Red Green Blue }
 union StrOrU64 {
     u64: number
     Str: string
-}
-
-fn foo(u64) {
-    10 > if {
-        "Greater than 10"
-    }
 }
 
 fn main() {
@@ -40,7 +33,7 @@ fn main() {
     12345         cast(StrOrU64) as [num_union]
     str_union::string println
     str_union::number println // This is dangerous!
-    num_union::string println // This is dangerous!
+    // num_union::string println // This is dangerous and unpredicatable!
     num_union::number println 
     
 

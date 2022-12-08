@@ -1,49 +1,48 @@
-include "std.hay"
+// Look to std/prelude.hay for `dup` and `drop` implementations
+// Note: MyResult is defined in the stdlib, so we use MyMyResult... here.
 
-// Look to src/libs/prelude.hay for `dup` and `drop` implementations
+enum MyResultTag { Ok Err }
 
-enum ResultTag { Ok Err }
-
-union ResultValue<T E> {
+union MyResultValue<T E> {
     T: ok 
     E: err
 }
 
-struct Result<T E> {
-    ResultValue<T E>: value
-    ResultTag       : tag
+struct MyResult<T E> {
+    MyResultValue<T E>: value
+    MyResultTag       : tag
 impl:
-    fn Result.Ok<T E>(T: value) -> [Result<T E>] {
-        value cast(ResultValue) ResultTag::Ok cast(Result)
+    fn MyResult.Ok<T E>(T: value) -> [MyResult<T E>] {
+        value cast(MyResultValue) MyResultTag::Ok cast(MyResult)
     }
-    fn Result.Err<T E>(E) -> [Result<T E>] {
-        cast(ResultValue) ResultTag::Err cast(Result)
+    fn MyResult.Err<T E>(E) -> [MyResult<T E>] {
+        cast(MyResultValue) MyResultTag::Err cast(MyResult)
     } 
-    fn Result.is_ok<T E>(Result<T E>: r)  -> [bool] { r::tag ResultTag::Ok == }
-    fn Result.is_err<T E>(Result<T E>: r) -> [bool] { r::tag ResultTag::Err == }
-    fn Result.unwrap<T E>(Result<T E>: r) -> [T] {
-        r Result.is_err if {
-            "Tried to unrwap a Result in an Error state. Exiting program" println
+    fn MyResult.is_ok<T E>(MyResult<T E>: r)  -> [bool] { r::tag MyResultTag::Ok == }
+    fn MyResult.is_err<T E>(MyResult<T E>: r) -> [bool] { r::tag MyResultTag::Err == }
+    fn MyResult.unwrap<T E>(MyResult<T E>: r) -> [T] {
+        r MyResult.is_err if {
+            "Tried to unrwap a MyResult in an Error state. Exiting program" println
             1 exit
         }
         r::value::ok
     }
-    fn Result.unwrap_err<T E>(Result<T E>: r) -> [E] {
-        r Result.is_ok if {
-            "Tried to unrwap_err a Result in an Ok state. Exiting program" println
+    fn MyResult.unwrap_err<T E>(MyResult<T E>: r) -> [E] {
+        r MyResult.is_ok if {
+            "Tried to unrwap_err a MyResult in an Ok state. Exiting program" println
             1 exit
         }
         r::value::err
     }
 }
 
-fn might_fail(u64: n) -> [Result<u64 Str>] {
+fn might_fail(u64: n) -> [MyResult<u64 Str>] {
 
     n 2 % 0 == if {
         "Woah didn't expect to see an even number here"
-        Result.Err::<u64 Str>
+        MyResult.Err::<u64 Str>
     } else {
-        n 2 * 1 + Result.Ok::<u64 Str>
+        n 2 * 1 + MyResult.Ok::<u64 Str>
     }
 }
 
@@ -51,36 +50,36 @@ fn main() {
 
     12345 
     // uncomment this to see the compiler error
-    // Result.Ok
+    // MyResult.Ok
 
-    Result.Ok::<u64 char>  as [ok]
+    MyResult.Ok::<u64 char>  as [ok]
 
     // Notice that you can put any type here!
     "Uh Oh! Something went wrong!"
-    Result.Err::<bool Str> as [err]
+    MyResult.Err::<bool Str> as [err]
 
-    "ok is in ok state:   " print ok  Result.is_ok  println
-    "ok is in err state:  " print ok  Result.is_err println 
-    "err is in ok state:  " print err Result.is_ok  println
-    "err is in err state: " print err Result.is_err println
+    "ok is in ok state:   " print ok  MyResult.is_ok  println
+    "ok is in err state:  " print ok  MyResult.is_err println 
+    "err is in ok state:  " print err MyResult.is_ok  println
+    "err is in err state: " print err MyResult.is_err println
 
-    ok Result.is_ok if {
-        "unwrapped ok value: " print ok Result.unwrap println
+    ok MyResult.is_ok if {
+        "unwrapped ok value: " print ok MyResult.unwrap println
     }
 
-    err Result.is_err if {
-        "Unwrapped err value: " print err Result.unwrap_err println 
+    err MyResult.is_err if {
+        "Unwrapped err value: " print err MyResult.unwrap_err println 
     }
 
     0 while dup 10 < {
         as [i]
         i might_fail as [r] {
-            r Result.is_ok if {
+            r MyResult.is_ok if {
                 "Didn't fail: " print 
-                r Result.unwrap println
+                r MyResult.unwrap println
             } else {
                 "Did fail:    " print
-                r Result.unwrap_err println
+                r MyResult.unwrap_err println
             }
         }
         i 1 + 

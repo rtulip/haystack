@@ -1,5 +1,3 @@
-include "std.hay"
-include "std.hay"
 var u64: foo
 var u64[5]: numbers
 

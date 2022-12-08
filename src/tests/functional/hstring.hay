@@ -4,7 +4,6 @@ fn main() {
 
     "Hello World" as [s] 
     s HString.new as [hs]
-    Heap.debug_summary
 
     s::size            println
     &hs HString.size   println

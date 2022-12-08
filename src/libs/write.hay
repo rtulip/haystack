@@ -1,3 +1,0 @@
-interface Write<T> {
-    fn write(T u64)
-}

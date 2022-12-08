@@ -1,0 +1,16 @@
+interface Foo<T> {
+    _: Output
+    fn foo(T) -> [Output]
+}
+
+impl Foo<u64> {
+    u64: Output
+    fn foo(u64) -> [u64] {}
+}
+
+// Error: Cannot implement Foo<u64> multiple times.
+impl Foo<u64> {
+    // Associated types should not be take into account while checking
+    bool: Output
+    fn foo(u64) -> [bool] { 10 > } 
+}

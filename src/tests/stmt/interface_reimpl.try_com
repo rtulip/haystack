@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/stmt/interface_reimpl.hay:12:6] Error: Interface Foo<u64> has already been implemented\n"
+}

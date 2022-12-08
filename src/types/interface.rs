@@ -27,6 +27,7 @@ pub struct InterfaceInstanceType {
     pub token: Token,
     pub base: TypeId,
     pub mapping: Vec<TypeId>,
+    pub types: Vec<TypeId>,
     pub fns_map: HashMap<TypeId, TypeId>,
     pub generics: Option<Vec<TypeId>>,
     pub requires: Option<Vec<Token>>,
@@ -80,6 +81,16 @@ impl InterfaceInstanceType {
 
         for t in self.mapping.iter_mut() {
             *t = t.assign(&self.token, map, types)?;
+        }
+
+        if types.contains_key(&self.id()) {
+            return Err(HayError::new(
+                format!(
+                    "Interface {} already exists. Don't need to insert into type map",
+                    self.id()
+                ),
+                token.loc.clone(),
+            ));
         }
 
         for func in self.fns_map.values_mut() {
@@ -223,7 +234,11 @@ impl InterfaceBaseType {
             )))
     }
 
-    pub fn find_impl(&self, token: &Token, map: &HashMap<TypeId, TypeId>) -> Result<(), HayError> {
+    pub fn find_impl(
+        &self,
+        token: &Token,
+        map: &HashMap<TypeId, TypeId>,
+    ) -> Result<TypeId, HayError> {
         let mut impl_name = format!("{}<", self.name.lexeme);
         for ann in &self.annotations[0..self.annotations.len() - 1] {
             impl_name = format!(
@@ -239,7 +254,7 @@ impl InterfaceBaseType {
         );
 
         if self.impls.iter().any(|i| i.0 == impl_name) {
-            Ok(())
+            Ok(TypeId::new(impl_name))
         } else {
             Err(HayError::new(
                 format!("Interface `{impl_name}` is not implemented"),

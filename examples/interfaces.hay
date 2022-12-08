@@ -1,7 +1,7 @@
 
-interface Add<A B> {
+interface MyAdd<A B> {
     _: Output 
-    fn add(A B) -> [Output]
+    fn my_add(A B) -> [Output]
 }
 
 struct Point {
@@ -9,26 +9,26 @@ struct Point {
     pub u64: y
 }
 
-impl Add<u64 u64> {
+impl MyAdd<u64 u64> {
     u64: Output
-    fn add(u64 u64) -> [u64] { + }
+    fn my_add(u64 u64) -> [u64] { + }
 }
 
-impl Add<u8 u64> {
+impl MyAdd<u8 u64> {
     u64: Output
-    fn add(u8: left u64: right) -> [u64] {
+    fn my_add(u8: left u64: right) -> [u64] {
         left cast(u64) right +
     }
 }
 
-impl Add<u64 u8> {
+impl MyAdd<u64 u8> {
     u64: Output
-    fn add(u64 u8) -> [u64] { cast(u64) + }
+    fn my_add(u64 u8) -> [u64] { cast(u64) + }
 }
 
-impl Add<Point Point> {
+impl MyAdd<Point Point> {
     Point: Output
-    fn add(Point:left  Point: right) -> [Point] {
+    fn my_add(Point:left  Point: right) -> [Point] {
         left::x right::x +
         left::y right::y + 
         cast(Point)
@@ -37,13 +37,13 @@ impl Add<Point Point> {
 
 fn main() {
 
-    1   2   add println
-    1u8 2   add println
-    1   2u8 add println
+    1   2   my_add println
+    1u8 2   my_add println
+    1   2u8 my_add println
 
     3 4 cast(Point)
     1 2 cast(Point)
-    add as [p]
+    my_add as [p]
     "Point(" print p::x print ", " print p::y print ")" println
 
 }

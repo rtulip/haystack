@@ -1,5 +1,4 @@
 include "vec.hay"
-include "file.hay"
 struct HString {
     Vec<char>: chars
 
@@ -58,16 +57,16 @@ impl:
         &other HString.delete
     } 
 
-    fn HString.from_file(Str: path) -> [HString] {
-        0 0 path File.open as [file]
-        file File.size as [size] 
-        size Vec.with_capacity::<char> as [mut chars]
-        *chars Vec.slice_mut as [buffer]
-        size buffer::data file::fd sys_read drop
-        file File.close
-
-        buffer size cast(Vec<char>) cast(HString)
-    }
+    //fn HString.from_file(Str: path) -> [HString] {
+    //    0 0 path File.open as [file]
+    //    file File.size as [size] 
+    //    size Vec.with_capacity::<char> as [mut chars]
+    //    *chars Vec.slice_mut as [buffer]
+    //    size buffer::data file::fd sys_read drop
+    //    file File.close
+//
+    //    buffer size cast(Vec<char>) cast(HString)
+    //}
 
     fn HString.at(u64: idx &HString: self) -> [Opt<char>] {
         idx self::chars Vec.at

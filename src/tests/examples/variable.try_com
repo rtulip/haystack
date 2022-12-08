@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "[CMD]: nasm -felf64 examples/variable.asm\n[CMD]: ld -o variable examples/variable.o\n",
+  "stderr": ""
+}

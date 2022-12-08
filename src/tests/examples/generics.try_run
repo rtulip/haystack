@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "ok is in ok state:   true\nok is in err state:  false\nerr is in ok state:  false\nerr is in err state: true\nunwrapped ok value: 12345\nUnwrapped err value: Uh Oh! Something went wrong!\nDid fail:    Woah didn't expect to see an even number here\nDidn't fail: 3\nDid fail:    Woah didn't expect to see an even number here\nDidn't fail: 7\nDid fail:    Woah didn't expect to see an even number here\nDidn't fail: 11\nDid fail:    Woah didn't expect to see an even number here\nDidn't fail: 15\nDid fail:    Woah didn't expect to see an even number here\nDidn't fail: 19\n",
+  "stderr": ""
+}

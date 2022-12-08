@@ -100,117 +100,117 @@ fn check_for_entry_point(types: &TypeMap, input_path: &String) -> Result<(), Hay
 mod functional {
     #[test]
     fn early_return_basic() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "early_return_basic")
+        super::test_tools::run_test("src/tests/functional", "early_return_basic", None)
     }
 
     #[test]
     fn early_return_if_else_while() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "early_return_if_else_while")
+        super::test_tools::run_test("src/tests/functional", "early_return_if_else_while", None)
     }
 
     #[test]
     fn early_return_while_condition() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "early_return_while_condition")
+        super::test_tools::run_test("src/tests/functional", "early_return_while_condition", None)
     }
 
     #[test]
     fn array() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "array")
+        super::test_tools::run_test("src/tests/functional", "array", None)
     }
 
     #[test]
     fn cat() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "cat")
+        super::test_tools::run_test("src/tests/functional", "cat", None)
     }
 
     #[test]
     fn hay_enum() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "enum")
+        super::test_tools::run_test("src/tests/functional", "enum", None)
     }
 
     #[test]
     fn generic_struct() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "generic_struct")
+        super::test_tools::run_test("src/tests/functional", "generic_struct", None)
     }
 
     #[test]
     fn hello_world() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "hello_world")
+        super::test_tools::run_test("src/tests/functional", "hello_world", None)
     }
 
     #[test]
     fn if_else() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "if_else")
+        super::test_tools::run_test("src/tests/functional", "if_else", None)
     }
 
     #[test]
     fn hay_impl() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "impl")
+        super::test_tools::run_test("src/tests/functional", "impl", None)
     }
 
     #[test]
     fn linear_map() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "linear_map")
+        super::test_tools::run_test("src/tests/functional", "linear_map", None)
     }
 
     #[test]
     fn local() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "local")
+        super::test_tools::run_test("src/tests/functional", "local", None)
     }
 
     #[test]
     fn math() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "math")
+        super::test_tools::run_test("src/tests/functional", "math", None)
     }
 
     #[test]
     fn nested_ident() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "nested_ident")
+        super::test_tools::run_test("src/tests/functional", "nested_ident", None)
     }
 
     #[test]
     fn option() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "option")
+        super::test_tools::run_test("src/tests/functional", "option", None)
     }
 
     #[test]
     fn pointer() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "pointer")
+        super::test_tools::run_test("src/tests/functional", "pointer", None)
     }
 
     #[test]
     fn scoped_as() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "scoped_as")
+        super::test_tools::run_test("src/tests/functional", "scoped_as", None)
     }
 
     #[test]
     fn struct_accessors() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "struct_accessors")
+        super::test_tools::run_test("src/tests/functional", "struct_accessors", None)
     }
 
     #[test]
     fn hay_struct() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "struct")
+        super::test_tools::run_test("src/tests/functional", "struct", None)
     }
 
     #[test]
     fn hay_union() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "union")
+        super::test_tools::run_test("src/tests/functional", "union", None)
     }
 
     #[test]
     fn address_of_framed() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "address_of_framed")
+        super::test_tools::run_test("src/tests/functional", "address_of_framed", None)
     }
 
     #[test]
     fn inner_address_of_framed() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "inner_address_of_framed")
+        super::test_tools::run_test("src/tests/functional", "inner_address_of_framed", None)
     }
 
     #[test]
     fn inline_fn() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "inline_fn")?;
+        super::test_tools::run_test("src/tests/functional", "inline_fn", None)?;
 
         let asm = std::fs::read_to_string("src/tests/functional/inline_fn.asm").unwrap();
         assert!(
@@ -226,38 +226,42 @@ mod functional {
 
     #[test]
     fn pointer_offsets() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "pointer_offsets")
+        super::test_tools::run_test("src/tests/functional", "pointer_offsets", None)
     }
 
     #[test]
     fn generic_fn_with_const_ptr_arg() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "generic_fn_with_const_ptr_arg")
+        super::test_tools::run_test(
+            "src/tests/functional",
+            "generic_fn_with_const_ptr_arg",
+            None,
+        )
     }
 
     #[test]
     fn valid_pointer_operations() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "valid_pointer_operations")
+        super::test_tools::run_test("src/tests/functional", "valid_pointer_operations", None)
     }
 
     #[test]
     fn pointer_types() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "pointer_types")
+        super::test_tools::run_test("src/tests/functional", "pointer_types", None)
     }
 
     #[test]
     fn mutable_fn_input() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "mutable_fn_input")
+        super::test_tools::run_test("src/tests/functional", "mutable_fn_input", None)
     }
 
     #[test]
     fn multiple_mutable_bindings() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "multiple_mutable_bindings")
+        super::test_tools::run_test("src/tests/functional", "multiple_mutable_bindings", None)
     }
 
     #[test]
     fn inline_impl_fn() -> Result<(), std::io::Error> {
         use crate::backend::{CodeGen, X86_64};
-        super::test_tools::run_test("functional", "inline_impl_fn")?;
+        super::test_tools::run_test("src/tests/functional", "inline_impl_fn", None)?;
 
         let asm = std::fs::read_to_string("src/tests/functional/inline_impl_fn.asm").unwrap();
         let fn_name = X86_64::encode_name("Foo.add");
@@ -274,51 +278,107 @@ mod functional {
 
     #[test]
     fn address_of_union() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "address_of_union")
+        super::test_tools::run_test("src/tests/functional", "address_of_union", None)
     }
 
     #[test]
     fn empty_string() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "empty_string")
+        super::test_tools::run_test("src/tests/functional", "empty_string", None)
     }
 
     #[test]
     fn vec() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "vec")
+        super::test_tools::run_test("src/tests/functional", "vec", None)
     }
 
     #[test]
     fn result() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "result")
+        super::test_tools::run_test("src/tests/functional", "result", None)
     }
 
     #[test]
     fn hstring() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "hstring")
+        super::test_tools::run_test("src/tests/functional", "hstring", None)
     }
 
     #[test]
     fn pre_declare() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "pre_declare")
+        super::test_tools::run_test("src/tests/functional", "pre_declare", None)
     }
 
     #[test]
     fn interface() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "interface")
+        super::test_tools::run_test("src/tests/functional", "interface", None)
     }
 
     #[test]
     fn blanket_impl() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("functional", "blanket_impl")
+        super::test_tools::run_test("src/tests/functional", "blanket_impl", None)
     }
 
     #[test]
     fn blanket_impl_override() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("functional", "blanket_impl_override")
+        crate::compiler::test_tools::run_test("src/tests/functional", "blanket_impl_override", None)
     }
 
     #[test]
     fn aliasing() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("functional", "aliasing")
+        crate::compiler::test_tools::run_test("src/tests/functional", "aliasing", None)
+    }
+}
+
+mod examples {
+    #[test]
+    fn function() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("examples", "function", Some("src/tests/examples"))
+    }
+
+    #[test]
+    fn generics() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("examples", "generics", Some("src/tests/examples"))
+    }
+
+    #[test]
+    fn hello() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("examples", "hello", Some("src/tests/examples"))
+    }
+
+    #[test]
+    fn interfaces() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("examples", "interfaces", Some("src/tests/examples"))
+    }
+
+    #[test]
+    fn loops_and_branching() -> Result<(), std::io::Error> {
+        super::test_tools::run_test(
+            "examples",
+            "loops_and_branching",
+            Some("src/tests/examples"),
+        )
+    }
+
+    #[test]
+    fn numbers_1() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("examples", "numbers_1", Some("src/tests/examples"))
+    }
+
+    #[test]
+    fn numbers_2() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("examples", "numbers_2", Some("src/tests/examples"))
+    }
+
+    #[test]
+    fn pointers() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("examples", "pointers", Some("src/tests/examples"))
+    }
+
+    #[test]
+    fn user_defined_types() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("examples", "user_defined_types", Some("src/tests/examples"))
+    }
+
+    #[test]
+    fn variable() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("examples", "variable", Some("src/tests/examples"))
     }
 }

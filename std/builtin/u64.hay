@@ -1,0 +1,33 @@
+include "std/write.hay" 
+
+impl Write<u64> {
+    fn write(u64: n u64: fd) {
+        var char[32]: buffer
+        n buffer @ u64.to_str fd write
+    }
+}
+
+fn u64.to_str(u64: u Arr<char>: chars) -> [Str] {
+
+    chars::size 20 < if {
+        "Must provide at least 20 chars of buffer to copy u64" println
+        1 exit 
+    }
+
+    0 u == if {
+        "0" as [str] { str::size str::data } chars::data memcpy
+        1 chars::data cast(Str) 
+    } else {
+        19 u while dup 0 != {
+            as [i x]
+            x 10 % cast(char) '0' + chars::data i ptr+_mut !
+            
+            i 1 -
+            x 10 /    
+        } drop
+        
+        as [i]
+        19 i - chars::data i 1 + ptr+ cast(Str)
+    }    
+
+}

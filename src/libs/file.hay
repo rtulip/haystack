@@ -1,4 +1,4 @@
-include "str.hay"
+include "print.hay"
 include "alloc.hay"
 include "hstring.hay"
 

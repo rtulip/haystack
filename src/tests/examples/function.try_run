@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "verbose: 3\nmiddle:  3\nterse:   3\nNumbers pushed: \n  3\n  2\n  1\n",
+  "stderr": ""
+}

@@ -23,26 +23,38 @@ mod tests {
 
     #[test]
     fn record_record_resolution() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("type_check", "record_record_resolution")
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "record_record_resolution",
+            None,
+        )
     }
 
     #[test]
     fn generic_record_record_resolution() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("type_check", "generic_record_record_resolution")
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "generic_record_record_resolution",
+            None,
+        )
     }
 
     #[test]
     fn enum_enum_resolution() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("type_check", "enum_enum_resolution")
+        crate::compiler::test_tools::run_test("src/tests/type_check", "enum_enum_resolution", None)
     }
 
     #[test]
     fn generic_record_size() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("type_check", "generic_record_size")
+        crate::compiler::test_tools::run_test("src/tests/type_check", "generic_record_size", None)
     }
 
     #[test]
     fn immutable_pointer_write() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("type_check", "immutable_pointer_write")
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "immutable_pointer_write",
+            None,
+        )
     }
 }

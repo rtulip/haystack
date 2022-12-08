@@ -1,5 +1,5 @@
 include "vec.hay" 
-include "str.hay"
+include "print.hay"
 include "std.hay"
 
 struct Map<T> {

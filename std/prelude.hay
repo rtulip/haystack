@@ -3,11 +3,18 @@ include "std/write.hay"
 include "std/str.hay"
 include "std/arr.hay"
 include "std/print.hay"
+include "std/builtin/bool.hay"
+include "std/builtin/char.hay"
+include "std/builtin/u8.hay"
+include "std/builtin/u64.hay"
+include "std/opt.hay"
+include "std/result.hay"
+include "std/alloc.hay"
 
 fn drop<T>(T: t) {}
 fn dup<T>(T: t) -> [T T]{ t t }
 fn swap<A B>(A: a B: b) -> [B A] { b a }
-fn over<A B>(A: a B: b) -> [A B A] {a b a}
+fn over<A B>(A: a B: b) -> [A B A] { a b a }
 fn ptr+<T>(&T: ptr u64: n) -> [&T] {
     ptr cast(u64) sizeOf(T) n * + cast(&T) 
 }

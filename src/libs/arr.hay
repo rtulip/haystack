@@ -1,4 +1,4 @@
-include "str.hay"
+include "print.hay"
 fn Arr.set<T>(T: value u64: idx Arr<T>: arr) {
 
     idx arr::size >= if {

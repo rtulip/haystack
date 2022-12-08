@@ -1,0 +1,59 @@
+struct Arr<T> {
+    pub u64: size
+    pub *T: data
+impl:
+    fn Arr.set<T>(T: value u64: idx Arr<T>: arr) {
+
+        idx arr::size >= if {
+            "Cannot Set: Index out of bounds: " print
+            idx println
+            1 exit
+        }
+        value arr::data idx ptr+_mut !
+    }
+
+    fn Arr.get_ref<T>(u64: idx Arr<T>: arr) -> [&T] {
+        idx arr::size >= if {
+            "Cannot Get Ref: Index out of bounds: " print
+            idx println
+            1 exit
+        }
+        arr::data idx ptr+
+    }
+
+    fn Arr.get_ref_mut<T>(u64: idx Arr<T>: arr) -> [*T] {
+        idx arr::size >= if {
+            "Cannot Get Ref: Index out of bounds: " print
+            idx println
+            1 exit
+        }
+        arr::data idx ptr+_mut
+    }
+
+    fn Arr.get<T>(u64: idx Arr<T>: arr) -> [T] {
+        idx arr::size >= if {
+            "Cannot Get: Index out of bounds: " print
+            idx println
+            1 exit
+        }
+        arr::data idx ptr+ @
+    }
+
+    fn Arr.rev<T>(Arr<T>: arr) {
+
+        0 arr::size 1 - 
+        while over over < {
+
+            as [start_idx end_idx]
+            start_idx arr Arr.get
+            end_idx arr Arr.get 
+            swap
+            end_idx arr Arr.set
+            start_idx arr Arr.set
+
+            start_idx 1 +
+            end_idx 1 -
+        } drop drop
+
+    }
+}

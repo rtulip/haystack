@@ -1,0 +1,54 @@
+include "std/sys/prelude.hay"
+include "std/write.hay"
+include "std/str.hay"
+include "std/arr.hay"
+include "std/print.hay"
+
+fn drop<T>(T: t) {}
+fn dup<T>(T: t) -> [T T]{ t t }
+fn swap<A B>(A: a B: b) -> [B A] { b a }
+fn over<A B>(A: a B: b) -> [A B A] {a b a}
+fn ptr+<T>(&T: ptr u64: n) -> [&T] {
+    ptr cast(u64) sizeOf(T) n * + cast(&T) 
+}
+fn ptr+_mut<T>(*T: ptr u64: n) -> [*T] {
+    ptr cast(u64) sizeOf(T) n * + cast(*T) 
+}
+fn ptr-<T>(*T: ptr u64: n) -> [*T] {
+    ptr cast(u64) sizeOf(T) n * - cast(*T) 
+}
+fn ptr-diff<T>(*T: ptr1 *T:  ptr2) -> [u64] {
+    ptr1 cast(u64)
+    ptr2 cast(u64)
+    - sizeOf(T) /
+}
+fn memset<T>(T: value Arr<T>: range) {
+    0 while dup range::size < {
+        as [i]
+        value range::data i ptr+_mut !
+        i 1 +
+    } drop
+}
+fn memcpy<T>(u64: n &T: src *T: dest) {
+    0 while dup n < {
+        as [i]
+        src i ptr+ @
+        dest i ptr+_mut !
+        i 1 + 
+    } drop
+}
+fn lnot(bool) -> [bool] { if { false } else { true } }
+fn land(bool: a bool: b) -> [bool] {
+    a if {
+        b if { true } else { false }
+    } else {
+        false
+    }
+}
+fn lor(bool: a bool: b) -> [bool] {
+    a if {
+        true
+    } else {
+        b if { true } else { false }
+    }
+}

@@ -1,0 +1,44 @@
+include "std/write.hay"
+include "std/sys/x86_64.hay"
+struct Str {
+    pub u64: size
+    pub &char: data
+impl:
+
+    fn Str.substr(u64: start u64: len Str: s) -> [Str] {
+        len s::data start ptr+ cast(Str)
+    } 
+
+    fn Str.equals(Str: s1 Str:s2) -> [bool] {
+        s1::size s2::size != if {
+            false return
+        }
+        0 while dup s1::size < {
+            as [i]
+            s1::data i ptr+ @ 
+            s2::data i ptr+ @ != if {
+                false return
+            }
+            i 1 + 
+        } drop
+
+        true
+    }
+
+    fn Str.starts_with(Str: s2 Str: s1) -> [bool] {
+        s2::size s1::size > if {
+            false return
+        }
+
+        0 s2::size s1 Str.substr
+        s2 
+        Str.equals 
+    }
+
+}
+
+impl Write<Str> {
+    fn write(Str: s u64: fd) {
+        s::size s::data fd sys_write drop
+    }
+}

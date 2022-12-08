@@ -1,0 +1,38 @@
+include "std.hay"
+include "opt.hay"
+include "vec.hay"
+
+interface MyPrint<T> {
+    fn my_print(T)
+    fn my_println(T) { my_print "\n" my_print}
+}
+
+impl MyPrint<Str> {
+    fn my_print(Str) { print }
+}
+
+impl MyPrint<u64> {
+    fn my_print(u64) { print }
+}
+
+impl<T> MyPrint<&T>
+requires: [MyPrint<T>] {
+    fn my_print(&T) { @ my_print }
+}
+
+impl MyPrint<&u64> {
+    fn my_print(&u64) { @ my_println "Inside override" my_print }
+}
+
+fn main() {
+
+    "Hello world!" my_println
+    12345          my_println
+
+    54321 "Hello Print!" as [x y]
+    &x             my_println
+    &y             my_println
+
+    Vec.new::<u64> as [mut v]
+
+}

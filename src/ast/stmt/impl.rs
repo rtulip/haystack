@@ -59,6 +59,7 @@ impl InterfaceImplStmt {
             }
             _ => unreachable!(),
         };
+
         let interface_tid = TypeId::new(base);
         let interface = match types.get(&interface_tid) {
             Some(Type::InterfaceBase(base)) => base.clone(),
@@ -140,6 +141,14 @@ impl InterfaceImplStmt {
             }
 
             return Err(err);
+        }
+
+        // Check that another implementation with the same __Annotations__ isn't already implemented.
+        if let Ok(reimpl) = interface.find_impl(&self.interface, &map) {
+            return Err(HayError::new(
+                format!("Interface {reimpl} has already been implemented"),
+                self.interface.loc,
+            ));
         }
 
         if let Some(requirements) = &interface.requires {
@@ -352,6 +361,17 @@ impl InterfaceImplStmt {
             return Err(err);
         }
 
+        let mapping = interface
+            .annotations
+            .iter()
+            .map(|t| map.get(t).unwrap().clone())
+            .collect();
+        let instance_types = interface
+            .types
+            .keys()
+            .map(|tid| map.get(tid).unwrap().clone())
+            .collect();
+
         let instance_typ = Type::InterfaceInstance(InterfaceInstanceType {
             token: Token {
                 kind: self.interface.kind.clone(),
@@ -359,7 +379,8 @@ impl InterfaceImplStmt {
                 loc: self.interface.loc,
             },
             base: interface_tid.clone(),
-            mapping: mapped,
+            mapping,
+            types: instance_types,
             fns_map,
             generics: self.generics.map(|generics| {
                 generics

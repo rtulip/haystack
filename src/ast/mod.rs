@@ -166,4 +166,9 @@ mod tests {
     fn blanket_impl_requirement_breach() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("stmt", "blanket_impl_requirement_breach")
     }
+
+    #[test]
+    fn interface_rimpl() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("stmt", "interface_reimpl")
+    }
 }

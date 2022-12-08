@@ -311,4 +311,9 @@ mod functional {
     fn blanket_impl() -> Result<(), std::io::Error> {
         super::test_tools::run_test("functional", "blanket_impl")
     }
+
+    #[test]
+    fn blanket_impl_override() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("functional", "blanket_impl_override")
+    }
 }

@@ -1,6 +1,3 @@
-include "std.hay"
-include "opt.hay"
-
 fn do_work(Opt<u64>: maybe) -> [Opt<bool>] {
 
     &maybe Opt.is_none if {

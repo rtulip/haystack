@@ -1,4 +1,3 @@
-include "std.hay"
 fn main() {
 
     var char[64]: chars

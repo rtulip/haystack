@@ -172,7 +172,7 @@ mod tests {
     fn interface_non_interface_requirement1() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test(
             "src/tests/stmt",
-            "interface_non_interfae_requirement1",
+            "interface_non_interface_requirement1",
             None,
         )
     }

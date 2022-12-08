@@ -1,4 +1,3 @@
-include "std.hay"
 struct pair {
     pub u64: first 
     pub u64: second

@@ -1,4 +1,3 @@
-include "std.hay" 
 interface MyPrint<T> {
     fn my_print(T)
 }

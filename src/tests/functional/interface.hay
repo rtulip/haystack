@@ -1,4 +1,3 @@
-include "std.hay"
 struct Point {
 	pub u64: x
 	pub u64: y

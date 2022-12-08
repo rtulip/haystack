@@ -1,0 +1,22 @@
+struct ConstArr<T> {
+    pub u64: size
+    pub &T: data
+impl:
+    fn ConstArr.get_ref<T>(u64: idx ConstArr<T>: arr) -> [&T] {
+        idx arr::size >= if {
+            "Cannot Get Ref: Index out of bounds: " print
+            idx println
+            1 exit
+        }
+        arr::data idx ptr+ 
+    }
+
+    fn ConstArr.get<T>(u64: idx ConstArr<T>: arr) -> [T] {
+        idx arr::size >= if {
+            "Cannot Get: Index out of bounds: " print
+            idx println
+            1 exit
+        }
+        arr::data idx ptr+ @
+    }
+}

@@ -1,5 +1,3 @@
-include "opt.hay"
-include "std.hay"
 fn main() {
 
     "Hello World" Opt.Some as [someStr]

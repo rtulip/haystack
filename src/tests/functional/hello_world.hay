@@ -1,5 +1,3 @@
-include "std.hay"
-
 fn main() {
     "Hello World!" println
 }

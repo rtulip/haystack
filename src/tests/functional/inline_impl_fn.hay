@@ -1,4 +1,3 @@
-include "std.hay"
 
 struct Foo {
     u64: bar

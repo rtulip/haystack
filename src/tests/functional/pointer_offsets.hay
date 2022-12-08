@@ -1,12 +1,4 @@
-include "std.hay"
-
-fn assert(bool) {
-    lnot if {
-        "Assertion failed!" println
-        1 exit
-    }
-}
-
+include "std/assert.hay"
 struct Foo {
     pub u8: u8
     pub char: char
@@ -34,6 +26,7 @@ fn test_ptr_offset(*Bar: bar) {
     bar::foo::bool @ true  == assert 
     bar::number    @ 54321 == assert 
 }
+
 fn main() {
 
     123u8 'q' true "Hello World!" cast(Foo) as [f]

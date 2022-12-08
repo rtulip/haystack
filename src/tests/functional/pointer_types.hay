@@ -1,5 +1,3 @@
-include "std.hay"
-
 fn my_write<T>(T *T) { ! }
 fn my_read<T>(&T) -> [T] { @ } 
 fn main() {

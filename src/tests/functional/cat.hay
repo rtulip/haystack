@@ -1,6 +1,3 @@
-include "std.hay"
-include "file.hay"
-
 fn cat(Str: path) {
     path File.str_from_path as [file_str]
     file_str println 

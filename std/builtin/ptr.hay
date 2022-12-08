@@ -1,0 +1,6 @@
+fn ptr+(*T: ptr u64: n) -> [*T] {
+    ptr cast(u64) sizeOf(T) n * + cast(*T) 
+}
+fn mut_ptr+(&T: ptr u64: n) -> [&T] {
+    ptr cast(u64) sizeOf(T) n * + cast(&T) 
+}

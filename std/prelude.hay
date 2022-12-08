@@ -1,5 +1,5 @@
 include "std/sys/prelude.hay"
-
+include "std/ops/prelude.hay"
 include "std/write.hay"
 include "std/str.hay"
 include "std/arr.hay"

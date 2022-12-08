@@ -103,7 +103,7 @@ impl Expr {
             Expr::If(e) => e.type_check(stack, frame, func, global_env, types, generic_map),
             Expr::Literal(e) => e.type_check(stack),
             Expr::Unary(e) => e.type_check(stack, frame, types, func),
-            Expr::Operator(e) => e.type_check(stack, types),
+            Expr::Operator(e) => e.type_check(stack, types, global_env),
             Expr::SizeOf(e) => e.type_check(stack, types, generic_map),
             Expr::Syscall(e) => e.type_check(stack, types),
             Expr::Var(e) => e.type_check(frame, types),

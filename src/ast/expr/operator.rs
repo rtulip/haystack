@@ -1,10 +1,11 @@
 use crate::{
+    ast::stmt::{GlobalEnv, StmtKind},
     error::HayError,
     lex::token::{Operator, Token},
     types::{Signature, Stack, Type, TypeId, TypeMap},
 };
 
-use super::TypedExpr;
+use super::{ExprIdent, TypedExpr};
 #[derive(Debug, Clone)]
 pub struct ExprOperator {
     pub op: Operator,
@@ -12,30 +13,47 @@ pub struct ExprOperator {
 }
 
 impl ExprOperator {
-    pub fn type_check(self, stack: &mut Stack, types: &mut TypeMap) -> Result<TypedExpr, HayError> {
+    pub fn type_check(
+        self,
+        stack: &mut Stack,
+        types: &mut TypeMap,
+        global_env: &mut GlobalEnv,
+    ) -> Result<TypedExpr, HayError> {
         match self.op {
             Operator::Plus => {
-                let sigs = vec![
-                    // u64 + u64 -> u64
-                    Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
-                    // u8 + u8   -> u8
-                    Signature::new(vec![Type::U8.id(), Type::U8.id()], vec![Type::U8.id()]),
-                    // u64 + u8  -> u64
-                    Signature::new(vec![Type::U64.id(), Type::U8.id()], vec![Type::U64.id()]),
-                    // u8 + u64  -> u64
-                    Signature::new(vec![Type::U8.id(), Type::U64.id()], vec![Type::U64.id()]),
-                    Signature::new(
-                        vec![Type::Char.id(), Type::Char.id()],
-                        vec![Type::Char.id()],
-                    ),
-                ];
+                let base_sig =
+                    Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]);
 
-                Signature::evaluate_many(&sigs, &self.token, stack, types)?;
+                match base_sig.evaluate(&self.token, stack, types) {
+                    Ok(_) => Ok(TypedExpr::Operator {
+                        op: self.op,
+                        typ: None,
+                    }),
+                    Err(_) => {
+                        if let Some((StmtKind::InterfaceFunction(base), _)) =
+                            global_env.get(&String::from("add"))
+                        {
+                            let interface = match types.get(base).unwrap() {
+                                Type::InterfaceBase(base) => base.clone(),
+                                _ => unreachable!(),
+                            };
 
-                Ok(TypedExpr::Operator {
-                    op: self.op,
-                    typ: None,
-                })
+                            let call_expr = ExprIdent {
+                                ident: Token {
+                                    kind: self.token.kind.clone(),
+                                    lexeme: String::from("add"),
+                                    loc: self.token.loc.clone(),
+                                },
+                            };
+
+                            Ok(TypedExpr::Call {
+                                func: interface.resolve(&call_expr, stack, types, global_env)?,
+                            })
+                        } else {
+                            panic!("Interface function `add` not found? Error in the prelude?");
+                        }
+                    }
+                }
             }
             Operator::Minus => {
                 let sigs = vec![

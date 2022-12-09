@@ -1,0 +1,85 @@
+include "std/vec.hay"
+
+struct String {
+    Vec<char>: chars
+
+impl:
+    fn String.new(Str: s) -> [String] {
+        s::size Vec.with_capacity::<char> as [mut chars]
+        0 while dup s::size < {
+            as [i]
+            s::data i ptr+ @ *chars Vec.push
+            i 1 +
+        } drop
+        chars cast(String)
+    }
+
+    fn String.null_terminate(Str: s) -> [String] {
+        s String.new 
+        '\0' String.push
+    }
+
+    fn String.clone(&String: self) -> [String] {
+        self String.as_str String.new
+    }
+
+    fn String.delete(&String: self) {
+        self::chars Vec.delete
+    }
+
+    fn String.size(&String: self) -> [u64] {
+        self::chars Vec.len
+    }
+
+    fn String.as_str(&String: self) -> [Str] {
+        self String.size        
+        self::chars Vec.slice as [slice]
+        slice::data
+
+        cast(Str)
+    }
+
+    inline fn String.push(String: mut self char: c) -> [String] {
+        c *self::chars Vec.push
+        self
+    }
+
+    fn String.push_str(String: mut self Str: s) -> [String] {
+        0 while dup s::size < {
+            as [i]
+            s::data i ptr+ @ *self::chars Vec.push
+            i 1 +
+        } drop
+        self
+    }
+
+    fn String.format(String: mut self String: other) -> [String] {
+        self 
+        0 while dup &other String.size < {
+            as [i]
+            i &other::chars Vec.at Opt.unwrap String.push
+            i 1 +
+        } drop
+        &other String.delete
+    } 
+
+    fn String.at(u64: idx &String: self) -> [Opt<char>] {
+        idx self::chars Vec.at
+    }
+}
+
+impl ToString<String> {
+    fn to_string(String) -> [String] {}
+}
+
+impl ToString<&String> {
+    fn to_string(&String) -> [String] { String.clone }
+}
+
+
+impl Write<String> {
+    fn write(String: s u64: fd) {
+        &s String.as_str fd write
+        &s String.delete
+    }
+}

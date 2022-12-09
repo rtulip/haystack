@@ -1,15 +1,15 @@
-include "std/hstring.hay"
+include "std/string.hay"
 
 fn main() {
 
     "Hello World" as [s] 
-    s HString.new as [hs]
+    s String.new as [hs]
 
     s::size            println
-    &hs HString.size   println
+    &hs String.size   println
     s                  println
-    &hs HString.as_str println
-    &hs HString.delete
+    &hs String.as_str println
+    &hs String.delete
     Heap.debug_summary
 
 }

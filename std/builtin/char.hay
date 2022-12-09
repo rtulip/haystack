@@ -1,9 +1,10 @@
-include "std/write.hay"
-include "std/ops/prelude.hay"
+fn char.as_str(&char) -> [Str] {
+    1 swap cast(Str)
+}
 
 impl Write<char> {
-    fn write(char: c u64: fd) {
-        1 &c cast(Str) fd write
+    inline fn write(char: c u64: fd) {
+        &c char.as_str fd write
     }
 }
 
@@ -12,4 +13,24 @@ impl Add<char char> {
     inline fn add(char: left char: right) -> [char] {
         left cast(u64) right cast(u64) + cast(char)
     }
+}
+
+impl ToString<&char> {
+    inline fn to_string(&char) -> [String] {
+        char.as_str String.new
+    }
+}
+
+impl ToString<char> {
+    inline fn to_string(char: c) -> [String] {
+        &c to_string
+    }
+}
+
+impl Format<char> {
+    inline fn fmt(String char) -> [String] { String.push }
+}
+
+impl Format<&char> {
+    inline fn fmt(String &char) -> [String] { @ String.push }
 }

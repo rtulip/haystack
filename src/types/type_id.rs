@@ -577,7 +577,8 @@ impl TypeId {
                 }
                 Type::Never => unreachable!("Never types should never be assigned!"),
                 Type::RecordPreDeclaration { .. } => {
-                    unreachable!("Pre-declarations should never be assigned")
+                    Ok(self.clone())
+                    // unreachable!("{token}: Pre-declarations should never be assigned -- {self}")
                 }
             },
 

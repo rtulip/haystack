@@ -1,5 +1,3 @@
-include "std/write.hay"
-
 interface Print<T> {
     fn print(T)
     fn println(T) { print "\n" print }

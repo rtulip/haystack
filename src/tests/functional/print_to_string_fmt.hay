@@ -1,0 +1,38 @@
+
+fn main() {
+
+    true false as [t f]
+    t  to_string println
+    &t to_string println
+    f  to_string println
+    &f to_string println
+
+    "" String.new t  fmt println
+    "" String.new &t fmt println
+    "" String.new f  fmt println
+    "" String.new &f fmt println
+
+    'h' as [c]
+    c  to_string         println
+    &c to_string         println
+    "" String.new c  fmt println
+    "" String.new &c fmt println
+
+    12345 as [n] {
+        n  to_string         println
+        &n to_string         println
+        "" String.new n  fmt println
+        "" String.new &n fmt println
+    }
+
+    123u8 as [n] {
+        n  to_string         println
+        &n to_string         println
+        "" String.new n  fmt println
+        "" String.new &n fmt println
+    }
+
+
+
+
+}

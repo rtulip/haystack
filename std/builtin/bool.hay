@@ -1,8 +1,29 @@
-include "std/write.hay"
+inline fn bool.to_str(bool) -> [Str] {
+    if { "true" } else { "false" }
+}
 
 impl Write<bool> {
-    fn write(bool: b u64: fd) {
-        b if { "true" } else { "false" }
-        fd write
+    inline fn write(bool: b u64: fd) {
+        b bool.to_str fd write
     }
+}
+
+impl ToString<bool> {
+    inline fn to_string(bool) -> [String] {
+        bool.to_str String.new
+    }
+}
+
+impl ToString<&bool> {
+    inline fn to_string(&bool) -> [String] { @ to_string }
+}
+
+impl Format<bool> {
+    inline fn fmt(String bool) -> [String] {
+        bool.to_str String.push_str
+    }
+}
+
+impl Format<&bool> {
+    inline fn fmt(String &bool) -> [String] { @ fmt }
 }

@@ -1,5 +1,5 @@
 include "std/sys/prelude.hay"
-include "std/write.hay"
+include "std/fmt/prelude.hay"
 include "std/str.hay"
 include "std/ops/prelude.hay"
 include "std/arr.hay"
@@ -14,7 +14,7 @@ include "std/opt.hay"
 include "std/result.hay"
 include "std/alloc.hay"
 include "std/vec.hay"
-include "std/hstring.hay"
+include "std/string.hay"
 
 fn drop<T>(T: t) {}
 fn dup<T>(T: t) -> [T T]{ t t }

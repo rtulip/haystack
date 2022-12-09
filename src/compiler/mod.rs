@@ -335,6 +335,11 @@ mod functional {
     fn vec_formatting() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/functional", "vec_formatting", None)
     }
+
+    #[test]
+    fn generic_pair_add() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/functional", "generic_pair_add", None)
+    }
 }
 
 mod examples {

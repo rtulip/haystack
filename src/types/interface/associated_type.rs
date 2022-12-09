@@ -60,6 +60,10 @@ impl AssociatedTypeInstance {
         TypeId::new(name)
     }
 
+    pub fn is_generic(&self, types: &TypeMap) -> bool {
+        self.annotations.iter().any(|t| t.is_generic(types))
+    }
+
     pub fn assign(
         &self,
         token: &Token,

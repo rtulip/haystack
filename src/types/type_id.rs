@@ -60,7 +60,7 @@ impl TypeId {
             | None => true,
             Some(Type::RecordPreDeclaration { generics, .. }) => !generics.is_empty(),
             Some(Type::Stub { .. }) => unimplemented!(),
-            Some(Type::AssociatedTypeInstance(_)) => unimplemented!(),
+            Some(Type::AssociatedTypeInstance(instance)) => instance.is_generic(types),
         }
     }
 

@@ -35,7 +35,7 @@ Please include the folloing details (if applicable) in the issue body:
 
 Don't forget to add the `bug` tag!
 
-# Submitting an Enhancement
+# Suggesting an Enhancement
 Want to suggest a feature? Please do!
 
 Create a new issue [here](https://www.github.com/rtulip/haystack/issues), and provide the following details:

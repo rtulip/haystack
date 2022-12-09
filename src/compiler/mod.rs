@@ -330,6 +330,11 @@ mod functional {
     fn print_to_string_fmt() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/functional", "print_to_string_fmt", None)
     }
+
+    #[test]
+    fn vec_formatting() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/functional", "vec_formatting", None)
+    }
 }
 
 mod examples {

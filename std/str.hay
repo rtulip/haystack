@@ -40,3 +40,11 @@ impl Write<Str> {
         s::size s::data fd sys_write drop
     }
 }
+
+impl ToString<Str> {
+    fn to_string(Str) -> [String] { String.new } 
+}
+
+impl Format<Str> {
+    fn fmt(String Str) -> [String] { String.push_str }
+}

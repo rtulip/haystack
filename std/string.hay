@@ -80,5 +80,6 @@ impl ToString<&String> {
 impl Write<String> {
     fn write(String: s u64: fd) {
         &s String.as_str fd write
+        &s String.delete
     }
 }

@@ -1,0 +1,13 @@
+fn main() {
+
+    Vec.new::<u64> as [mut v]
+    0 while dup 10 < {
+        as [i]
+        "" String.new &v fmt println
+        i *v Vec.push
+        i 1 +
+    } drop
+
+    "" String.new v fmt println
+
+}

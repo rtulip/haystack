@@ -126,3 +126,33 @@ impl:
 
     }
 }
+
+impl<T> Format<&Vec<T>>
+requires: [Format<T>] {
+
+    fn fmt(String &Vec<T>) -> [String] {
+        as [self]
+        self Vec.len 0 == if { "[ ]" fmt return }
+        
+        '[' fmt
+        0 while dup self Vec.len 1 - < {
+            as [i]
+            i self Vec.get Opt.unwrap @ fmt
+            ' '              fmt
+            i 1 +
+        } drop
+
+        self Vec.last Opt.unwrap @ fmt 
+        ']' fmt
+    }
+
+}
+
+impl<T> Format<Vec<T>>
+requires: [Format<T>] {
+    fn fmt(String Vec<T>) -> [String] {
+        as [self]
+        &self fmt
+        &self Vec.delete
+    }
+}

@@ -2,7 +2,7 @@ use crate::{
     ast::{arg::UntypedArg, member::UntypedMember},
     error::HayError,
     lex::token::Token,
-    types::{validate_requirements, RecordKind, Type, TypeId, TypeMap},
+    types::{base::validate_requirements, RecordKind, Type, TypeId, TypeMap},
 };
 
 use super::Stmt;

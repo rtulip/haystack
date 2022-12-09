@@ -137,6 +137,8 @@ impl ExprCast {
             Type::Bool => unimplemented!(),
             Type::InterfaceBase(_) => unimplemented!(),
             Type::InterfaceInstance(_) => unimplemented!(),
+            Type::AssociatedTypeBase(_) => unimplemented!(),
+            Type::AssociatedTypeInstance(_) => unimplemented!(),
             Type::GenericFunction { .. }
             | Type::UncheckedFunction { .. }
             | Type::Function { .. }

@@ -755,11 +755,31 @@ impl<'a> Parser<'a> {
                     }
                 };
 
-                let kind = TokenKind::Type(TypeToken::Parameterized {
-                    base: ident.ident()?,
-                    inner,
-                });
-                let lexeme = format!("{kind}");
+                let (kind, lexeme) = if let Ok(_) = self.matches(TokenKind::Marker(Marker::DoubleColon)) {
+
+                    match self.matches(TokenKind::ident()) {
+                        Ok(t) => {
+                            let kind = TokenKind::Type(TypeToken::Associated { base: ident.ident()?, inner, typ: t.ident()? });
+                            let lexeme = format!("{kind}");
+                            (kind, lexeme)
+                        },
+                        Err(t) => return Err(HayError::new(
+                            format!(
+                                "Expected an identifier after {}, but found {} instead.",
+                                Marker::DoubleColon,
+                                t.kind
+                            ),
+                            t.loc,
+                        ))
+                    }
+                } else {
+                    let kind = TokenKind::Type(TypeToken::Parameterized {
+                        base: ident.ident()?,
+                        inner,
+                    });
+                    let lexeme = format!("{kind}");
+                    (kind, lexeme)
+                };
 
                 Token {
                     kind,

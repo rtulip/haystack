@@ -9,8 +9,8 @@ use crate::{
     error::HayError,
     lex::token::{Token, TokenKind, TypeToken},
     types::{
-        check_requirements, GenericFunction, InterfaceInstanceType, Type, TypeId, TypeMap,
-        UncheckedFunction,
+        base::{check_requirements, InterfaceInstanceType},
+        GenericFunction, Type, TypeId, TypeMap, UncheckedFunction,
     },
 };
 

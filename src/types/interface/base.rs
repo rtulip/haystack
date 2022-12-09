@@ -7,9 +7,8 @@ use crate::{
     },
     error::HayError,
     lex::token::{Token, TokenKind, TypeToken},
+    types::{Stack, Type, TypeId, TypeMap},
 };
-
-use super::{Stack, Type, TypeId, TypeMap};
 
 #[derive(Debug, Clone)]
 pub struct InterfaceBaseType {
@@ -128,6 +127,26 @@ impl InterfaceInstanceType {
 impl InterfaceBaseType {
     pub fn id(&self) -> TypeId {
         TypeId::new(&self.name.lexeme)
+    }
+
+    pub fn associated_type_id(&self, token: &Token, typ: &TypeId) -> Result<TypeId, HayError> {
+        if self.types.contains_key(&typ) {
+            let tid = TypeId::new(format!("{}::{typ}", self.full_id()));
+            Ok(tid)
+        } else {
+            Err(HayError::new(
+                format!("Uncrecognized associated type {typ}"),
+                token.loc.clone(),
+            )
+            .with_hint(format!(
+                "Interface `{}` has the following associated types:",
+                self.id()
+            ))
+            .with_hint(format!(
+                "  {:?}",
+                self.types.keys().collect::<Vec<&TypeId>>()
+            )))
+        }
     }
 
     pub fn full_id(&self) -> TypeId {

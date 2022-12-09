@@ -3,7 +3,7 @@ use crate::{
     error::HayError,
     lex::token::Token,
     types::{
-        validate_requirements, FnTag, GenericFunction, Signature, Type, TypeId, TypeMap,
+        base::validate_requirements, FnTag, GenericFunction, Signature, Type, TypeId, TypeMap,
         UncheckedFunction,
     },
 };

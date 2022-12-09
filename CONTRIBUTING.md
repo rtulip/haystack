@@ -48,6 +48,17 @@ Provide a descriptive title, and add the `enhancement` and `Discussion` tags.
 
 There's no guarantee that your suggestion will ultimately be accepted, but it will be discussed and considered. 
 
+# How to Submit Changes
+If you want to help resolve an [issue](https://www.github.com/rtulip/haystack/issues), create a branch (you can fork the repo first if you'd like) with a descriptive title (i.e. not 'bugfix' or 'my_branch, etc.).
+
+Make the changes you need to resolve the issue. Be sure the add new tests to cover the changes, and that any other tests are updated as needed. Run `cargo clippy` and make sure it doesn't suggest changes.
+
+Once you think your changes are ready to go, submit a [pull request](https://github.com/rtulip/haystack/pulls) into the `release` branch. This is where features will go until the next release [milestone](https://github.com/rtulip/haystack/milestones), is complete.
+
+Once your pull request is in, some automated tests will run, and your changes will be reviewed. If any of the tests fail, that's ok, just fix the issue(s) and make sure `clippy` is up to date. If there's any suggested changes from review, please make the suggested changes.
+
+Once your pull request passes tests and review, your code will be merged and part of `Haystack`!
+
 # Code of Conducct
 In the interest of fostering an open and welcoming environment, we as
 contributors and maintainers pledge to making participation in our project and our community a harassment-free experience for everyone, regardless of age, body size, disability, ethnicity, gender identity and expression, level of experience, nationality, personal appearance, race, religion, or sexual identity and orientation.

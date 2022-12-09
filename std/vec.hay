@@ -31,7 +31,9 @@ impl:
     }
 
     fn Vec.push<T>(T: value *Vec<T>: self) {
-        self::len @ self::slice::size @ == if {
+        self::len @ 0 == if {
+            2 self::slice @ realloc self::slice ! 
+        } else self::len @ self::slice::size @ == if {
             self::slice::size @ 2 * self::slice @ realloc self::slice !
         }
         value self::len @ self::slice @ Arr.set

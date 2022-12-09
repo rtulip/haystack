@@ -1,0 +1,4 @@
+struct String:
+interface Format<T> {
+    fn fmt(String T) -> [String]
+}

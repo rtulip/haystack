@@ -1,5 +1,3 @@
-include "std/write.hay"
-include "std/sys/x86_64.hay"
 struct Str {
     pub u64: size
     pub &char: data

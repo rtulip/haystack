@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "true\ntrue\nfalse\nfalse\ntrue\ntrue\nfalse\nfalse\nh\nh\nh\nh\n12345\n12345\n12345\n12345\n123\n123\n123\n123\n",
+  "stderr": ""
+}

@@ -1,5 +1,27 @@
-include "std/write.hay"
-include "std/ops/prelude.hay"
+fn u64.to_str(u64: u Arr<char>: chars) -> [Str] {
+
+    chars::size 20 < if {
+        "Must provide at least 20 chars of buffer to copy u64" println
+        1 exit 
+    }
+
+    0 u == if {
+        "0" as [str] { str::size str::data } chars::data memcpy
+        1 chars::data cast(Str) 
+    } else {
+        19 u while dup 0 != {
+            as [i x]
+            x 10 % cast(char) '0' + chars::data i ptr+_mut !
+            
+            i 1 -
+            x 10 /    
+        } drop
+        
+        as [i]
+        19 i - chars::data i 1 + ptr+ cast(Str)
+    }    
+
+}
 
 impl Write<u64> {
     fn write(u64: n u64: fd) {
@@ -56,27 +78,24 @@ impl Mul<u64 u64> {
     inline fn mul(u64 u64) -> [u64] { * }
 }
 
-fn u64.to_str(u64: u Arr<char>: chars) -> [Str] {
-
-    chars::size 20 < if {
-        "Must provide at least 20 chars of buffer to copy u64" println
-        1 exit 
+impl ToString<u64> {
+    inline fn to_string(u64) -> [String] {
+        var char[32]: buffer
+        buffer @ u64.to_str String.new
     }
+}
 
-    0 u == if {
-        "0" as [str] { str::size str::data } chars::data memcpy
-        1 chars::data cast(Str) 
-    } else {
-        19 u while dup 0 != {
-            as [i x]
-            x 10 % cast(char) '0' + chars::data i ptr+_mut !
-            
-            i 1 -
-            x 10 /    
-        } drop
-        
-        as [i]
-        19 i - chars::data i 1 + ptr+ cast(Str)
-    }    
+impl ToString<&u64> {
+    inline fn to_string(&u64) -> [String] { @ to_string }
+}
 
+impl Format<u64> {
+    inline fn fmt(String u64) -> [String] { 
+        var char[32]: buffer
+        buffer @ u64.to_str String.push_str
+    }
+}
+
+impl Format<&u64> {
+    inline fn fmt(String &u64) -> [String] { @ fmt }
 }

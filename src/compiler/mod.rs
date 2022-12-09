@@ -325,6 +325,11 @@ mod functional {
     fn aliasing() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/functional", "aliasing", None)
     }
+
+    #[test]
+    fn print_to_string_fmt() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/functional", "print_to_string_fmt", None)
+    }
 }
 
 mod examples {

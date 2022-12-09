@@ -1,0 +1,4 @@
+struct String:
+interface ToString<T> {
+    fn to_string(T) -> [String]
+}

@@ -2,13 +2,11 @@ use crate::ast::arg::TypedArg;
 use crate::ast::member::TypedMember;
 use crate::error::HayError;
 use crate::lex::token::{Loc, Token, TokenKind, TypeToken};
+use crate::types::{TypeMap, Type, interface::{InterfaceBaseType, check_requirements, InterfaceInstanceType}, RecordKind, UncheckedFunction};
 use std::collections::HashMap;
 use std::hash::Hash;
 
-use super::base::{InterfaceBaseType, InterfaceInstanceType, check_requirements};
-use super::{
-    RecordKind, Type, TypeMap, UncheckedFunction,
-};
+
 
 /// Unique Identifier for types
 ///
@@ -114,12 +112,6 @@ impl TypeId {
                 Ok(arr_tid)
             }
             TypeToken::Associated { base, inner, typ } => {
-                println!("Associated type");
-                println!("  Base: {base}");
-                println!("  Inner: {inner:?}");
-                println!("  Typ: {typ}");
-                println!("Local Types: {local_types:?}");
-
                 let base_tid = TypeId::new(base);
                 let mut annotations = vec![];
                 for t in inner {

@@ -66,9 +66,6 @@ impl AssociatedTypeInstance {
         map: &HashMap<TypeId, TypeId>,
         types: &mut TypeMap,
     ) -> Result<TypeId, HayError> {
-        println!("{}", self.id());
-        println!("map: {map:?}");
-
         let mut aliased_map = HashMap::new();
         self.alias_list
             .iter()
@@ -76,8 +73,6 @@ impl AssociatedTypeInstance {
             .for_each(|(k, v)| {
                 aliased_map.insert(k.clone(), map.get(v).unwrap().clone());
             });
-
-        println!("Aliased map: {aliased_map:?}");
 
         let (interface_impl, idx) = match types.get(&self.interface) {
             Some(Type::InterfaceBase(req_base)) => (

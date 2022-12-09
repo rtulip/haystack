@@ -2,11 +2,7 @@ use crate::{
     ast::arg::UntypedArg,
     error::HayError,
     lex::token::Token,
-    types::{
-        associated_type::AssociatedTypeBase,
-        base::{validate_requirements, InterfaceBaseType},
-        Type, TypeId, TypeMap,
-    },
+    types::{validate_requirements, AssociatedTypeBase, InterfaceBaseType, Type, TypeId, TypeMap},
 };
 
 use super::{FunctionStmt, FunctionStubStmt, GlobalEnv, StmtKind};

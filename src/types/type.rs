@@ -2,11 +2,12 @@ use crate::ast::member::TypedMember;
 use crate::ast::stmt::GlobalEnv;
 use crate::error::HayError;
 use crate::lex::token::Token;
+use crate::types::{
+    AssociatedTypeBase, AssociatedTypeInstance, InterfaceBaseType, InterfaceInstanceType,
+};
 use std::collections::BTreeMap;
 
 use super::{
-    associated_type::{AssociatedTypeBase, AssociatedTypeInstance},
-    base::{InterfaceBaseType, InterfaceInstanceType},
     Function, FunctionStub, GenericFunction, RecordKind, TypeId, TypeMap, UncheckedFunction,
 };
 

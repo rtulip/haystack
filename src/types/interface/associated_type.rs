@@ -28,6 +28,7 @@ impl AssociatedTypeBase {
         let instance = AssociatedTypeInstance {
             name: self.name.clone(),
             interface: self.interface.clone(),
+            alias_list: self.annotations.clone(),
             annotations: assigned_annotations,
         };
 
@@ -41,6 +42,7 @@ impl AssociatedTypeBase {
 pub struct AssociatedTypeInstance {
     pub name: Token,
     pub interface: TypeId,
+    pub alias_list: Vec<TypeId>,
     pub annotations: Vec<TypeId>,
 }
 
@@ -56,5 +58,42 @@ impl AssociatedTypeInstance {
             self.name.lexeme
         );
         TypeId::new(name)
+    }
+
+    pub fn assign(
+        &self,
+        token: &Token,
+        map: &HashMap<TypeId, TypeId>,
+        types: &mut TypeMap,
+    ) -> Result<TypeId, HayError> {
+        println!("{}", self.id());
+        println!("map: {map:?}");
+
+        let mut aliased_map = HashMap::new();
+        self.alias_list
+            .iter()
+            .zip(self.annotations.iter())
+            .for_each(|(k, v)| {
+                aliased_map.insert(k.clone(), map.get(v).unwrap().clone());
+            });
+
+        println!("Aliased map: {aliased_map:?}");
+
+        let (interface_impl, idx) = match types.get(&self.interface) {
+            Some(Type::InterfaceBase(req_base)) => (
+                req_base.find_impl(token, &aliased_map)?,
+                req_base.type_index(&self.name)?,
+            ),
+            _ => unreachable!(),
+        };
+
+        match types.get(&interface_impl) {
+            Some(Type::InterfaceInstance(instance)) => Ok(instance
+                .types
+                .get(idx)
+                .expect("This should be in range!")
+                .clone()),
+            _ => unreachable!(),
+        }
     }
 }

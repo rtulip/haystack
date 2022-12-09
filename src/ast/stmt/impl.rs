@@ -99,7 +99,7 @@ impl InterfaceImplStmt {
 
         // Create a mapping for each associated type
         let mut to_define: HashSet<&TypeId> = HashSet::new();
-        for key in interface.types.keys() {
+        for (key, _) in &interface.types {
             to_define.insert(key);
         }
 
@@ -125,7 +125,11 @@ impl InterfaceImplStmt {
                 ))
                 .with_hint(format!(
                     "{:?}",
-                    interface.types.keys().collect::<Vec<&TypeId>>()
+                    interface
+                        .types
+                        .iter()
+                        .map(|(k, _)| k)
+                        .collect::<Vec<&TypeId>>()
                 )));
             }
         }
@@ -180,7 +184,7 @@ impl InterfaceImplStmt {
         for ann in &interface.annotations {
             mapped.push(map.get(ann).unwrap().clone());
         }
-        for typ in interface.types.keys() {
+        for (typ, _) in &interface.types {
             mapped.push(map.get(typ).unwrap().clone());
         }
 
@@ -368,8 +372,8 @@ impl InterfaceImplStmt {
             .collect();
         let instance_types = interface
             .types
-            .keys()
-            .map(|tid| map.get(tid).unwrap().clone())
+            .iter()
+            .map(|(tid, _)| map.get(tid).unwrap().clone())
             .collect();
 
         let instance_typ = Type::InterfaceInstance(InterfaceInstanceType {

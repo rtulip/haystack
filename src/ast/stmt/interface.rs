@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::{
     ast::arg::UntypedArg,
     error::HayError,
@@ -18,7 +16,7 @@ pub struct InterfaceStmt {
     pub token: Token,
     pub name: Token,
     pub annotations: Vec<UntypedArg>,
-    pub types: HashMap<TypeId, Token>,
+    pub types: Vec<(TypeId, Token)>,
     pub stubs: Vec<FunctionStubStmt>,
     pub fns: Vec<FunctionStmt>,
     pub requires: Option<Vec<Token>>,

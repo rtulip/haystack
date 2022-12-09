@@ -15,7 +15,7 @@ pub struct InterfaceBaseType {
     pub token: Token,
     pub name: Token,
     pub annotations: Vec<TypeId>,
-    pub types: HashMap<TypeId, Token>,
+    pub types: Vec<(TypeId, Token)>,
     pub fns: Vec<String>,
     pub requires: Option<Vec<Token>>,
     pub impls: Vec<TypeId>,
@@ -130,7 +130,7 @@ impl InterfaceBaseType {
     }
 
     pub fn associated_type_id(&self, token: &Token, typ: &TypeId) -> Result<TypeId, HayError> {
-        if self.types.contains_key(&typ) {
+        if self.types.iter().any(|(t, _)| t == typ) {
             let tid = TypeId::new(format!("{}::{typ}", self.full_id()));
             Ok(tid)
         } else {
@@ -144,7 +144,7 @@ impl InterfaceBaseType {
             ))
             .with_hint(format!(
                 "  {:?}",
-                self.types.keys().collect::<Vec<&TypeId>>()
+                self.types.iter().map(|(t, _)| t).collect::<Vec<&TypeId>>()
             )))
         }
     }
@@ -156,6 +156,19 @@ impl InterfaceBaseType {
         }
         name = format!("{name}{}>", self.annotations.last().unwrap());
         TypeId::new(name)
+    }
+
+    pub fn type_index(&self, token: &Token) -> Result<usize, HayError> {
+        if let Some((idx, _)) = self
+            .types
+            .iter()
+            .enumerate()
+            .find(|(_, (tid, _))| tid == &TypeId::new(&token.lexeme))
+        {
+            Ok(idx)
+        } else {
+            todo!("err")
+        }
     }
 
     pub fn resolve(

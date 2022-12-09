@@ -3,7 +3,7 @@ use crate::ast::stmt::Stmt;
 use crate::error::HayError;
 use crate::lex::token::{Keyword, Loc, Marker, Operator, Token, TokenKind, TypeToken};
 use crate::types::{FnTag, RecordKind, TypeId};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashSet};
 
 use super::arg::{IdentArg, UntypedArg};
 use super::expr::{
@@ -359,8 +359,8 @@ impl<'a> Parser<'a> {
         Ok(fns)
     }
 
-    fn interface_associated_types(&mut self) -> Result<HashMap<TypeId, Token>, HayError> {
-        let mut types = HashMap::new();
+    fn interface_associated_types(&mut self) -> Result<Vec<(TypeId, Token)>, HayError> {
+        let mut types = Vec::new();
         while let Ok(id) = self.matches(TokenKind::ident()) {
             if id.ident().unwrap() != "_" {
                 return Err(HayError::new(
@@ -382,7 +382,7 @@ impl<'a> Parser<'a> {
 
             match self.matches(TokenKind::ident()) {
                 Ok(t) => {
-                    types.insert(TypeId::new(&t.lexeme), t);
+                    types.push((TypeId::new(&t.lexeme), t));
                 }
                 Err(t) => {
                     return Err(HayError::new(

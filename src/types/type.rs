@@ -157,7 +157,7 @@ impl Type {
             Type::AssociatedTypeBase(base) => {
                 TypeId::new(format!("{}::{}", base.interface, base.name))
             }
-            Type::AssociatedTypeInstance(instance) => todo!(),
+            Type::AssociatedTypeInstance(instance) => instance.id(),
             Type::InterfaceBase(base) => base.id(),
             Type::InterfaceInstance(instance) => instance.id(),
             Type::UncheckedFunction { .. }

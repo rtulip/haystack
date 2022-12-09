@@ -605,7 +605,7 @@ impl TypeId {
                 Type::InterfaceBase(_) => unimplemented!(),
                 Type::InterfaceInstance(_) => unimplemented!(),
                 Type::AssociatedTypeBase(at_base) => at_base.assign(token, map, types),
-                Type::AssociatedTypeInstance(_) => unimplemented!(),
+                Type::AssociatedTypeInstance(at_instance) => at_instance.assign(token, map, types),
                 Type::UncheckedFunction { .. } | Type::Function { .. } => {
                     unreachable!("Should never assign to non-generic function!")
                 }

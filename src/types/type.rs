@@ -2,11 +2,13 @@ use crate::ast::member::TypedMember;
 use crate::ast::stmt::GlobalEnv;
 use crate::error::HayError;
 use crate::lex::token::Token;
+use crate::types::{
+    AssociatedTypeBase, AssociatedTypeInstance, InterfaceBaseType, InterfaceInstanceType,
+};
 use std::collections::BTreeMap;
 
 use super::{
-    Function, FunctionStub, GenericFunction, InterfaceBaseType, InterfaceInstanceType, RecordKind,
-    TypeId, TypeMap, UncheckedFunction,
+    Function, FunctionStub, GenericFunction, RecordKind, TypeId, TypeMap, UncheckedFunction,
 };
 
 /// Representation of Types within Haystack.
@@ -119,6 +121,8 @@ pub enum Type {
     },
     InterfaceBase(InterfaceBaseType),
     InterfaceInstance(InterfaceInstanceType),
+    AssociatedTypeBase(AssociatedTypeBase),
+    AssociatedTypeInstance(AssociatedTypeInstance),
 }
 
 impl Type {
@@ -151,6 +155,10 @@ impl Type {
 
                 TypeId::new(name)
             }
+            Type::AssociatedTypeBase(base) => {
+                TypeId::new(format!("{}::{}", base.interface, base.name))
+            }
+            Type::AssociatedTypeInstance(instance) => instance.id(),
             Type::InterfaceBase(base) => base.id(),
             Type::InterfaceInstance(instance) => instance.id(),
             Type::UncheckedFunction { .. }
@@ -227,14 +235,6 @@ impl Type {
             panic!("Tried to extract an unchecked function from a non-unchecked-function type")
         }
     }
-
-    // pub fn generic_function(&self) -> &GenericFunction {
-    //     if let Type::GenericFunction { func } = self {
-    //         func
-    //     } else {
-    //         panic!("Tried to extract a generic-function from a non-generic-function type")
-    //     }
-    // }
 
     pub fn try_generic_function(&self, token: &Token) -> Result<&GenericFunction, HayError> {
         if let Type::GenericFunction { func } = self {

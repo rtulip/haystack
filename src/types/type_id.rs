@@ -2,13 +2,11 @@ use crate::ast::arg::TypedArg;
 use crate::ast::member::TypedMember;
 use crate::error::HayError;
 use crate::lex::token::{Loc, Token, TokenKind, TypeToken};
+use crate::types::{TypeMap, Type, interface::{InterfaceBaseType, check_requirements, InterfaceInstanceType}, RecordKind, UncheckedFunction};
 use std::collections::HashMap;
 use std::hash::Hash;
 
-use super::{
-    check_requirements, InterfaceBaseType, InterfaceInstanceType, RecordKind, Type, TypeMap,
-    UncheckedFunction,
-};
+
 
 /// Unique Identifier for types
 ///
@@ -55,11 +53,14 @@ impl TypeId {
                 Type::GenericRecordBase { .. }
                 | Type::GenericRecordInstance { .. }
                 | Type::GenericFunction { .. }
+                | Type::AssociatedTypeBase(_)
                 | Type::InterfaceBase(_),
+                
             )
             | None => true,
             Some(Type::RecordPreDeclaration { generics, .. }) => !generics.is_empty(),
             Some(Type::Stub { .. }) => unimplemented!(),
+            Some(Type::AssociatedTypeInstance(instance)) => instance.is_generic(types),
         }
     }
 
@@ -110,6 +111,27 @@ impl TypeId {
 
                 Ok(arr_tid)
             }
+            TypeToken::Associated { base, inner, typ } => {
+                let base_tid = TypeId::new(base);
+                let mut annotations = vec![];
+                for t in inner {
+                    annotations.push(TypeId::from_type_token(
+                        token,
+                        t,
+                        types,
+                        local_types,
+                    )?);
+                }
+
+                let (at, map) = if let Some(base) = base_tid.get_interface_base(types) {
+                    (base.associated_type_id(token, &TypeId::new(typ))?, base.annotations.clone().into_iter().zip(annotations.clone().into_iter()).collect())
+                } else {
+                    todo!("error - unknown interface {base_tid}")
+                };
+
+                at.assign(token, &map, types)
+
+            },
             TypeToken::Base(base) => {
                 if types.contains_key(&TypeId::new(base))
                     || local_types.iter().any(|t| &t.0 == base)
@@ -174,6 +196,8 @@ impl TypeId {
                         | Type::GenericFunction { .. }
                         | Type::GenericRecordInstance { .. }
                         | Type::Record { .. }
+                        | Type::AssociatedTypeBase(_)
+                        | Type::AssociatedTypeInstance(_)
                         | Type::UncheckedFunction { .. },
                     ) => Err(HayError::new(
                         format!(
@@ -572,6 +596,8 @@ impl TypeId {
                 Type::Stub { .. } => unimplemented!(),
                 Type::InterfaceBase(_) => unimplemented!(),
                 Type::InterfaceInstance(_) => unimplemented!(),
+                Type::AssociatedTypeBase(at_base) => at_base.assign(token, map, types),
+                Type::AssociatedTypeInstance(at_instance) => at_instance.assign(token, map, types),
                 Type::UncheckedFunction { .. } | Type::Function { .. } => {
                     unreachable!("Should never assign to non-generic function!")
                 }
@@ -763,6 +789,8 @@ impl TypeId {
             }
             (Some(Type::InterfaceBase(_)), _) => unimplemented!(),
             (Some(Type::InterfaceInstance(_)), _) => unimplemented!(),
+            (Some(Type::AssociatedTypeBase(_)), _) => unimplemented!(),
+            (Some(Type::AssociatedTypeInstance(_)), _) => unimplemented!(),
             // Cover all the cases of mismatched types.
             (Some(Type::Pointer { .. }), _)
             | (Some(Type::Bool), _)
@@ -834,6 +862,11 @@ impl TypeId {
                 "InterfaceInstance types do not have a size",
                 Loc::new("", 0, 0, 0),
             )),
+            Type::AssociatedTypeBase(_) => Err(HayError::new(
+                "AssociatedTypeBase types do not have a size",
+                Loc::new("", 0, 0, 0),
+            )),
+            Type::AssociatedTypeInstance(_) => unimplemented!(),
             Type::Never => Err(HayError::new(
                 "Never type does not have a size",
                 Loc::new("", 0, 0, 0),
@@ -1014,6 +1047,13 @@ impl TypeId {
         }
 
         Ok(())
+    }
+
+    fn get_interface_base<'a>(&self, types: &'a TypeMap) -> Option<&'a InterfaceBaseType> {
+        match types.get(self) {
+            Some(Type::InterfaceBase(base)) => Some(base),
+            _ => None,
+        }
     }
 }
 

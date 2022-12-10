@@ -232,32 +232,40 @@ pub enum Literal {
 
 #[derive(Debug, Clone)]
 pub enum TypeToken {
-    Pointer {
-        inner: Box<TypeToken>,
-        mutable: bool,
-    },
-    Parameterized {
-        base: String,
-        inner: Vec<TypeToken>,
-    },
     Array {
         base: Box<TypeToken>,
         size: usize,
     },
+    Associated {
+        base: String,
+        inner: Vec<TypeToken>,
+        typ: String,
+    },
     Base(String),
+    Parameterized {
+        base: String,
+        inner: Vec<TypeToken>,
+    },
+    Pointer {
+        inner: Box<TypeToken>,
+        mutable: bool,
+    },
 }
 
 impl std::fmt::Display for TypeToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TypeToken::Base(s) => write!(f, "{s}"),
-            TypeToken::Pointer { inner: p, mutable } => {
-                if *mutable {
-                    write!(f, "*{p}")
-                } else {
-                    write!(f, "&{p}")
+            TypeToken::Array { base, size } => write!(f, "{base}[{size}]"),
+            TypeToken::Associated { base, inner, typ } => {
+                write!(f, "{base}<")?;
+                write!(f, "{base}<")?;
+                for inner_t in inner.iter().take(inner.len() - 1) {
+                    write!(f, "{inner_t} ")?;
                 }
+                write!(f, "{}>", inner.last().unwrap())?;
+                write!(f, "::{typ}")
             }
+            TypeToken::Base(s) => write!(f, "{s}"),
             TypeToken::Parameterized { base, inner } => {
                 write!(f, "{base}<")?;
                 for inner_t in inner.iter().take(inner.len() - 1) {
@@ -265,7 +273,13 @@ impl std::fmt::Display for TypeToken {
                 }
                 write!(f, "{}>", inner.last().unwrap())
             }
-            TypeToken::Array { base, size } => write!(f, "{base}[{size}]"),
+            TypeToken::Pointer { inner: p, mutable } => {
+                if *mutable {
+                    write!(f, "*{p}")
+                } else {
+                    write!(f, "&{p}")
+                }
+            }
         }
     }
 }

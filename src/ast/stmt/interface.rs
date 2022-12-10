@@ -1,10 +1,8 @@
-use std::collections::HashMap;
-
 use crate::{
     ast::arg::UntypedArg,
     error::HayError,
     lex::token::Token,
-    types::{validate_requirements, InterfaceBaseType, Type, TypeId, TypeMap},
+    types::{validate_requirements, AssociatedTypeBase, InterfaceBaseType, Type, TypeId, TypeMap},
 };
 
 use super::{FunctionStmt, FunctionStubStmt, GlobalEnv, StmtKind};
@@ -14,7 +12,7 @@ pub struct InterfaceStmt {
     pub token: Token,
     pub name: Token,
     pub annotations: Vec<UntypedArg>,
-    pub types: HashMap<TypeId, Token>,
+    pub types: Vec<(TypeId, Token)>,
     pub stubs: Vec<FunctionStubStmt>,
     pub fns: Vec<FunctionStmt>,
     pub requires: Option<Vec<Token>>,
@@ -36,7 +34,7 @@ impl InterfaceStmt {
             validate_requirements(requirements, types)?;
         }
 
-        let typ = Type::InterfaceBase(InterfaceBaseType {
+        let typ = InterfaceBaseType {
             token: self.token,
             name: self.name.clone(),
             annotations: self
@@ -48,10 +46,25 @@ impl InterfaceStmt {
             fns,
             requires: self.requires,
             impls: vec![],
-        });
+        };
         let tid = typ.id();
 
-        if types.insert(tid.clone(), typ).is_some() {
+        if !types.contains_key(&tid) {
+            for (at, tok) in &typ.types {
+                let at_tid = typ.associated_type_id(&self.name, at)?;
+                let at_typ = AssociatedTypeBase {
+                    name: tok.clone(),
+                    interface: tid.clone(),
+                    annotations: typ.annotations.clone(),
+                };
+                types.insert(at_tid, Type::AssociatedTypeBase(at_typ));
+            }
+        }
+
+        if types
+            .insert(tid.clone(), Type::InterfaceBase(typ))
+            .is_some()
+        {
             return Err(HayError::new(
                 format!(
                     "Interface name conflict: `{}` defined elsewhere.",

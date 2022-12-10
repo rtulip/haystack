@@ -371,4 +371,13 @@ mod tests {
     fn union_requirements() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/type_check", "union_requirements", None)
     }
+
+    #[test]
+    fn unknown_associated_type() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "unknown_associated_type",
+            None,
+        )
+    }
 }

@@ -3,7 +3,7 @@ use crate::ast::stmt::Stmt;
 use crate::error::HayError;
 use crate::lex::token::{Keyword, Loc, Marker, Operator, Token, TokenKind, TypeToken};
 use crate::types::{FnTag, RecordKind, TypeId};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashSet};
 
 use super::arg::{IdentArg, UntypedArg};
 use super::expr::{
@@ -359,8 +359,8 @@ impl<'a> Parser<'a> {
         Ok(fns)
     }
 
-    fn interface_associated_types(&mut self) -> Result<HashMap<TypeId, Token>, HayError> {
-        let mut types = HashMap::new();
+    fn interface_associated_types(&mut self) -> Result<Vec<(TypeId, Token)>, HayError> {
+        let mut types = Vec::new();
         while let Ok(id) = self.matches(TokenKind::ident()) {
             if id.ident().unwrap() != "_" {
                 return Err(HayError::new(
@@ -382,7 +382,7 @@ impl<'a> Parser<'a> {
 
             match self.matches(TokenKind::ident()) {
                 Ok(t) => {
-                    types.insert(TypeId::new(&t.lexeme), t);
+                    types.push((TypeId::new(&t.lexeme), t));
                 }
                 Err(t) => {
                     return Err(HayError::new(
@@ -755,11 +755,31 @@ impl<'a> Parser<'a> {
                     }
                 };
 
-                let kind = TokenKind::Type(TypeToken::Parameterized {
-                    base: ident.ident()?,
-                    inner,
-                });
-                let lexeme = format!("{kind}");
+                let (kind, lexeme) = if self.matches(TokenKind::Marker(Marker::DoubleColon)).is_ok() {
+
+                    match self.matches(TokenKind::ident()) {
+                        Ok(t) => {
+                            let kind = TokenKind::Type(TypeToken::Associated { base: ident.ident()?, inner, typ: t.ident()? });
+                            let lexeme = format!("{kind}");
+                            (kind, lexeme)
+                        },
+                        Err(t) => return Err(HayError::new(
+                            format!(
+                                "Expected an identifier after {}, but found {} instead.",
+                                Marker::DoubleColon,
+                                t.kind
+                            ),
+                            t.loc,
+                        ))
+                    }
+                } else {
+                    let kind = TokenKind::Type(TypeToken::Parameterized {
+                        base: ident.ident()?,
+                        inner,
+                    });
+                    let lexeme = format!("{kind}");
+                    (kind, lexeme)
+                };
 
                 Token {
                     kind,
@@ -1960,6 +1980,11 @@ mod tests {
     #[test]
     fn parse_bad_generic_impl_requires() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_generic_impl_requires", None)
+    }
+
+    #[test]
+    fn parse_type_missing_associated_type_identifier() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_type_missing_associated_type_identifier", None)
     }
 
 }

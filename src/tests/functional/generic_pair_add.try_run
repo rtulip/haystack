@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "Pair(Foo(1), Foo(2))\nPair(Bar(3), Buzz(4))\nPair(Baz(4), Qux(6))\n",
+  "stderr": ""
+}

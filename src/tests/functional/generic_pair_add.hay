@@ -1,0 +1,108 @@
+struct Pair<A B> {
+    pub A: a
+    pub B: b
+}
+
+impl<X1 X2 Y1 Y2> Add<Pair<X1 Y1> Pair<X2 Y2>>
+requires: [
+    Add<X1 X2> 
+    Add<Y1 Y2>
+]{
+    Pair<
+        Add<X1 X2>::Output 
+        Add<Y1 Y2>::Output
+    >: Output
+    fn add(Pair<X1 Y1>: left Pair<X2 Y2>: right) -> [Pair<Add<X1 X2>::Output Add<Y1 Y2>::Output>] {
+        left::a right::a +
+        left::b right::b +
+        cast(Pair)
+    }
+}
+
+impl<A B> Print<Pair<A B>>
+requires: [Print<A> Print<B>]
+{
+    fn print(Pair<A B>: self) {
+        "Pair(" print self::a print ", " print self::b print ")" print
+    }
+}
+
+struct Foo {
+    pub u64: n
+}
+
+impl Print<Foo> {
+    fn print(Foo: self) {
+        "Foo(" print self::n print ")" print
+    }
+}
+
+struct Bar {
+    pub u8: n
+}
+
+impl Print<Bar> {
+    fn print(Bar: self) {
+        "Bar(" print self::n print ")" print
+    }
+}
+struct Baz {
+    pub u64: n
+}
+
+impl Print<Baz> {
+    fn print(Baz: self) {
+        "Baz(" print self::n print ")" print
+    }
+}
+struct Buzz {
+    pub u8: n
+}
+
+impl Print<Buzz> {
+    fn print(Buzz: self) {
+        "Buzz(" print self::n print ")" print
+    }
+}
+
+struct Qux {
+    pub u64: n
+}
+
+impl Print<Qux> {
+    fn print(Qux: self) {
+        "Qux(" print self::n print ")" print
+    }
+}
+
+impl Add<Foo Bar> {
+    Baz: Output
+    fn add(Foo: left Bar: right) -> [Baz] {
+        left::n right::n + cast(Baz)
+    }
+}
+
+impl Add<Foo Buzz> {
+    Qux: Output
+    fn add(Foo: left Buzz: right) -> [Qux] {
+        left::n right::n + cast(Qux)
+    }
+}
+
+fn main() {
+
+    1 cast(Foo)
+    2 cast(Foo)
+    cast(Pair) as [p1]
+    3u8 cast(Bar)
+    4u8 cast(Buzz)
+    cast(Pair) as [p2]
+
+    1 2 cast(Pair) as [p3]
+
+    p1 println
+    p2 println
+
+    p1 p2 + println
+
+}

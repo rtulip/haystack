@@ -80,7 +80,7 @@ impl Stmt {
                     for t in &interface.annotations {
                         out.push(t.clone());
                     }
-                    for t in interface.types.keys() {
+                    for (t, _) in &interface.types {
                         out.push(t.clone());
                     }
                 }

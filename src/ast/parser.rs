@@ -755,7 +755,7 @@ impl<'a> Parser<'a> {
                     }
                 };
 
-                let (kind, lexeme) = if let Ok(_) = self.matches(TokenKind::Marker(Marker::DoubleColon)) {
+                let (kind, lexeme) = if self.matches(TokenKind::Marker(Marker::DoubleColon)).is_ok() {
 
                     match self.matches(TokenKind::ident()) {
                         Ok(t) => {

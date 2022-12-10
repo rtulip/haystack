@@ -40,7 +40,7 @@ pub fn run_test(
 
     let output = run_command(
         "cargo",
-        cargo_run_flags(&format!("{file}.hay").as_str()),
+        cargo_run_flags(format!("{file}.hay").as_str()),
         &file,
         false,
     )

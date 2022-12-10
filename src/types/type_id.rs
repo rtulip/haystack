@@ -1050,7 +1050,7 @@ impl TypeId {
     }
 
     fn get_interface_base<'a>(&self, types: &'a TypeMap) -> Option<&'a InterfaceBaseType> {
-        match types.get(&self) {
+        match types.get(self) {
             Some(Type::InterfaceBase(base)) => Some(base),
             _ => None,
         }

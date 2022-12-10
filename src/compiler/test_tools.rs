@@ -6,6 +6,16 @@ struct OutputSummary {
     stderr: String,
 }
 
+#[cfg(debug_assertions)]
+fn cargo_run_flags(file: &str) -> Vec<&str> {
+    vec!["r", "-q", "--", file]
+}
+
+#[cfg(not(debug_assertions))]
+fn cargo_run_flags(file: &str) -> Vec<&str> {
+    vec!["r", "-q", "--release", "--", file]
+}
+
 #[allow(dead_code)]
 pub fn run_test(
     directory: &str,
@@ -30,7 +40,7 @@ pub fn run_test(
 
     let output = run_command(
         "cargo",
-        vec!["r", "-q", "--release", "--", format!("{file}.hay").as_str()],
+        cargo_run_flags(&format!("{file}.hay").as_str()),
         &file,
         false,
     )

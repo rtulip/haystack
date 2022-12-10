@@ -32,7 +32,7 @@ impl InterfaceBaseType {
             Ok(tid)
         } else {
             Err(HayError::new(
-                format!("Uncrecognized associated type {typ}"),
+                format!("Unrecognized associated type: `{typ}`"),
                 token.loc.clone(),
             )
             .with_hint(format!(

@@ -1982,4 +1982,9 @@ mod tests {
         crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_generic_impl_requires", None)
     }
 
+    #[test]
+    fn parse_type_missing_associated_type_identifier() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_type_missing_associated_type_identifier", None)
+    }
+
 }

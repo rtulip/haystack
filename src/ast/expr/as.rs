@@ -1,3 +1,17 @@
+//! As Expressions
+//!
+//! This is the expression which binds elements from the stack to an identifier
+//! For example:
+//!
+//! ```haystack
+//! main() {
+//!     1 "Hello World" as [one greeting]
+//! //                  ~~~~~~~~~~~~~~~~~
+//! //                          |
+//! //              This is the as expression
+//! }
+//! ```
+//!
 use std::collections::HashMap;
 
 use crate::{
@@ -9,20 +23,6 @@ use crate::{
 
 use super::{Expr, TypedExpr};
 
-/// As Expressions
-///
-/// This is the expression which binds elements from the stack to an identifier
-/// For example:
-///
-/// ```haystack
-/// main() {
-///     1 "Hello World" as [one greeting]
-/// //                  ~~~~~~~~~~~~~~~~~
-/// //                          |
-/// //              This is the as expression
-/// }
-/// ```
-///
 #[derive(Debug, Clone)]
 pub struct AsExpr {
     /// Token of the `as` keyword

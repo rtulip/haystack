@@ -16,7 +16,6 @@ pub struct ExprIf {
     /// A list of expressions to execute if true.
     pub then: Vec<Expr>,
     /// A list of expressions for each else-if case
-    /// Note: these are guaranteed to be [`Expr::ElseIf`]
     pub otherwise: Vec<ExprElseIf>,
     /// An optional final `else` case.
     pub finally: Option<Vec<Expr>>,

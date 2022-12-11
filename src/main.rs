@@ -1,5 +1,8 @@
 #![feature(btree_drain_filter)]
 #![feature(drain_filter)]
+#![warn(missing_docs)]
+
+//! Haystack documentation...
 
 mod ast;
 mod backend;

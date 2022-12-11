@@ -7,7 +7,7 @@ use std::collections::{HashSet};
 
 use super::arg::{IdentArg, UntypedArg};
 use super::expr::{
-    ExprAccessor, ExprAnnotatedCall, ExprAs, ExprCast, ExprElseIf, ExprIdent, ExprIf, ExprLiteral,
+    AccessorExpr, ExprAnnotatedCall, ExprAs, ExprCast, ExprElseIf, ExprIdent, ExprIf, ExprLiteral,
     ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile,
 };
 use super::member::UntypedMember;
@@ -1048,7 +1048,7 @@ impl<'a> Parser<'a> {
                 if inners.is_empty() {
                     Ok(Box::new(Expr::Ident(ExprIdent { ident: token })))
                 } else {
-                    Ok(Box::new(Expr::Accessor(ExprAccessor {
+                    Ok(Box::new(Expr::Accessor(AccessorExpr {
                         token: new_token,
                         ident: token,
                         inner: inners,

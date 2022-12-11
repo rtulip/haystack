@@ -29,7 +29,7 @@ pub struct AccessorExpr {
 }
 
 impl AccessorExpr {
-    /// Converts a
+    /// Converts an untyped Accessor Expression into an [`TypedExpr`]
     pub fn type_check(
         self,
         stack: &mut Stack,

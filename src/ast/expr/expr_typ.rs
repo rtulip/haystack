@@ -5,7 +5,7 @@ use crate::types::{Frame, FramedType, Signature, Stack, Type, TypeId, TypeMap, U
 use std::collections::HashMap;
 
 use super::{
-    AccessorExpr, ExprAnnotatedCall, ExprAs, ExprCast, ExprIdent, ExprIf, ExprLiteral,
+    AccessorExpr, AnnotatedCallExpr, ExprAs, ExprCast, ExprIdent, ExprIf, ExprLiteral,
     ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile,
 };
 
@@ -44,7 +44,7 @@ pub enum Expr {
     As(ExprAs),
     Var(ExprVar),
     While(ExprWhile),
-    AnnotatedCall(ExprAnnotatedCall),
+    AnnotatedCall(AnnotatedCallExpr),
     SizeOf(ExprSizeOf),
     Return(ExprReturn),
 }
@@ -63,7 +63,7 @@ impl Expr {
             | Expr::As(ExprAs { token, .. })
             | Expr::Var(ExprVar { token, .. })
             | Expr::While(ExprWhile { token, .. })
-            | Expr::AnnotatedCall(ExprAnnotatedCall { token, .. })
+            | Expr::AnnotatedCall(AnnotatedCallExpr { token, .. })
             | Expr::SizeOf(ExprSizeOf { token, .. })
             | Expr::Return(ExprReturn { token })
             | Expr::Unary(ExprUnary {

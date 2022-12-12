@@ -160,13 +160,14 @@ impl:
         cast(Vec)
     }
 
-    fn Vec.bubble_sort<T>(Vec<T>: mut self) -> [Vec<T>] {
-
-        0 while dup &self Vec.len 1 - < { as [i]
-            i while dup &self Vec.len 1 - < { as [j]
+    fn Vec.bubble_sort<T>(Vec<T>: mut self) -> [Vec<T>] {        
+        &self Vec.len as [n]
+        0 while dup n < { as [i]
+            0 while dup n 1 - < { as [j]
 
                 j     &self Vec.at Opt.unwrap
                 j 1 + &self Vec.at Opt.unwrap as [l r]
+                
                 l r > if {
                     j     r *self Vec.set
                     j 1 + l *self Vec.set

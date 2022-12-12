@@ -30,7 +30,7 @@ impl:
         arr::data idx ptr+_mut
     }
 
-    fn Arr.get<T>(u64: idx Arr<T>: arr) -> [T] {
+    fn Arr.at<T>(u64: idx Arr<T>: arr) -> [T] {
         idx arr::size >= if {
             "Cannot Get: Index out of bounds: " print
             idx println

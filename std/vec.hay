@@ -45,7 +45,7 @@ impl:
             Opt.None::<T>
         } else {
             self::len @ 1 - self::len !
-            self::len @ self::slice @ Arr.get Opt.Some
+            self::len @ self::slice @ Arr.at Opt.Some
         }
     }
 
@@ -69,7 +69,7 @@ impl:
         idx self::len @ >= if {
             Opt.None::<T>
         } else {
-            idx self::slice @ Arr.get Opt.Some
+            idx self::slice @ Arr.at Opt.Some
         }
     }
 

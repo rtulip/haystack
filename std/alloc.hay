@@ -39,7 +39,7 @@ fn Heap.debug_summary() {
     "Heap:" println
     0 while dup n_chunks_p @ < {
         as [i]
-        "  * " print i chunks Arr.get Chunk.print
+        "  * " print i chunks Arr.at Chunk.print
         i 1 +
     } drop
 
@@ -240,7 +240,7 @@ fn find_chunk<T>(Arr<T>: arr) -> [Opt<*Chunk>] {
     }
     {
         as [n] drop
-        n chunks Arr.get as [chunk]
+        n chunks Arr.at as [chunk]
         
         arr::data cast(u64) chunk::start cast(u64) >=
         arr::data cast(u64) chunk::start cast(u64) chunk::cap + <= land if {

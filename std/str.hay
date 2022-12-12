@@ -64,6 +64,18 @@ impl:
 
     }
 
+    fn Str.split(u64: idx Str: s) -> [Str Str] {
+
+        idx s::size >= if {
+            "Cannot split, index too high!" println
+            1 exit
+        }
+
+        idx s::data cast(Str)
+        s::size idx - s::data idx ptr+ cast(Str) 
+
+    }
+
 }
 
 impl Write<Str> {

@@ -6,14 +6,30 @@ use crate::{
 
 use super::TypedExpr;
 
+/// Accessor Expressions
+///
+/// This expression represents accessing inner types of framed types or enums.
+/// For example:
+///
+/// ```haystack
+/// fn Str.size(&Str: self) -> [u64] { self::size @ }
+/// //                                      ^
+/// //                                      |
+/// //                       This is an accessor expression
+/// ```
 #[derive(Debug, Clone)]
-pub struct ExprAccessor {
+pub struct AccessorExpr {
+    /// The entire token of the accessor expression.
     pub token: Token,
+    /// The top level identifier
     pub ident: Token,
+    /// The list of inner types
+    /// __Note:__ This list should be non-empty.
     pub inner: Vec<Token>,
 }
 
-impl ExprAccessor {
+impl AccessorExpr {
+    /// Converts an untyped Accessor Expression into an [`TypedExpr`]
     pub fn type_check(
         self,
         stack: &mut Stack,

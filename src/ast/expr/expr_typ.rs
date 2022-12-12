@@ -5,7 +5,7 @@ use crate::types::{Frame, FramedType, Signature, Stack, Type, TypeId, TypeMap, U
 use std::collections::HashMap;
 
 use super::{
-    ExprAccessor, ExprAnnotatedCall, ExprAs, ExprCast, ExprIdent, ExprIf, ExprLiteral,
+    AccessorExpr, AnnotatedCallExpr, AsExpr, ExprCast, ExprIdent, ExprIf, ExprLiteral,
     ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile,
 };
 
@@ -25,7 +25,6 @@ use super::{
 /// * [`Expr::Ident`] represents words and identifiers, be it functions, vars, or framed values
 /// * [`Expr::Accessor`] is similar to ident, but is used to get at inner members of framed values or types
 /// * [`Expr::If`] is a recursively defined Expression for branching
-/// * [`Expr::ElseIf`] represents the code executed in a non-final else-branch
 /// * [`Expr::As`] represents the action of binding values to be framed
 /// * [`Expr::Var`] represents creating vars at a function level
 /// * [`Expr::While`] represents a whlie loop including and the associated conditional.
@@ -40,12 +39,12 @@ pub enum Expr {
     Syscall(ExprSyscall),
     Cast(ExprCast),
     Ident(ExprIdent),
-    Accessor(ExprAccessor),
+    Accessor(AccessorExpr),
     If(ExprIf),
-    As(ExprAs),
+    As(AsExpr),
     Var(ExprVar),
     While(ExprWhile),
-    AnnotatedCall(ExprAnnotatedCall),
+    AnnotatedCall(AnnotatedCallExpr),
     SizeOf(ExprSizeOf),
     Return(ExprReturn),
 }
@@ -59,12 +58,12 @@ impl Expr {
             | Expr::Syscall(ExprSyscall { token, .. })
             | Expr::Cast(ExprCast { token, .. })
             | Expr::Ident(ExprIdent { ident: token, .. })
-            | Expr::Accessor(ExprAccessor { token, .. })
+            | Expr::Accessor(AccessorExpr { token, .. })
             | Expr::If(ExprIf { token, .. })
-            | Expr::As(ExprAs { token, .. })
+            | Expr::As(AsExpr { token, .. })
             | Expr::Var(ExprVar { token, .. })
             | Expr::While(ExprWhile { token, .. })
-            | Expr::AnnotatedCall(ExprAnnotatedCall { token, .. })
+            | Expr::AnnotatedCall(AnnotatedCallExpr { token, .. })
             | Expr::SizeOf(ExprSizeOf { token, .. })
             | Expr::Return(ExprReturn { token })
             | Expr::Unary(ExprUnary {

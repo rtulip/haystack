@@ -1,3 +1,17 @@
+//! As Expressions
+//!
+//! This is the expression which binds elements from the stack to an identifier
+//! For example:
+//!
+//! ```haystack
+//! main() {
+//!     1 "Hello World" as [one greeting]
+//! //                  ~~~~~~~~~~~~~~~~~
+//! //                          |
+//! //              This is the as expression
+//! }
+//! ```
+//!
 use std::collections::HashMap;
 
 use crate::{
@@ -10,7 +24,7 @@ use crate::{
 use super::{Expr, TypedExpr};
 
 #[derive(Debug, Clone)]
-pub struct ExprAs {
+pub struct AsExpr {
     /// Token of the `as` keyword
     pub token: Token,
     /// The non-empty list of identifiers.
@@ -19,7 +33,8 @@ pub struct ExprAs {
     pub block: Option<Vec<Expr>>,
 }
 
-impl ExprAs {
+impl AsExpr {
+    /// Converts an untyped as expression into a Typed Expression.
     pub fn type_check(
         self,
         stack: &mut Stack,
@@ -29,7 +44,12 @@ impl ExprAs {
         types: &mut TypeMap,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<TypedExpr, HayError> {
+        // Save the initial state of the frame -- needed to return the frame
+        // to its original state if there's a block.
         let initial_frame = frame.clone();
+
+        // Make sure there's enough items on the stack. For example, this would
+        // fail: `fn main() { 1 as [one two] }`
         if stack.len() < self.idents.len() {
             let e = HayError::new_type_err(
                 "Insufficient elements on the stack to bind",
@@ -48,6 +68,8 @@ impl ExprAs {
             return Err(e);
         }
 
+        // Move the elements from the stack to the frame and track what types
+        // are being moved.
         let mut typed_args = vec![];
         self.idents.iter().rev().for_each(|arg| {
             let t = stack.pop().unwrap();
@@ -62,15 +84,12 @@ impl ExprAs {
             typed_args.push(t);
         });
 
+        // Type check the block if there is one.
         let mut typed_block = None;
         if let Some(blk) = self.block {
             let mut tmp = vec![];
             for e in blk {
                 tmp.push(e.type_check(stack, frame, func, global_env, types, generic_map)?);
-            }
-
-            for _ in 0..self.idents.len() {
-                frame.pop();
             }
 
             typed_block = Some(tmp);

@@ -9,8 +9,19 @@ use crate::{
 
 use super::TypedExpr;
 
+/// Type-Annotated Function Call Expression
+///
+/// This expression represents calling a function with explicit type
+/// annotations. This is needed in instances where types cannot be inferred.
+///
+/// For Example:
+/// ```haystack
+/// This is an annotated Expression call to `Opt.None`
+/// Opt.None::<u64>
+/// ```
+///
 #[derive(Debug, Clone)]
-pub struct ExprAnnotatedCall {
+pub struct AnnotatedCallExpr {
     /// The token for the entire annotated call.
     pub token: Token,
     /// The base identifier token
@@ -19,7 +30,8 @@ pub struct ExprAnnotatedCall {
     pub annotations: Vec<UntypedArg>,
 }
 
-impl ExprAnnotatedCall {
+impl AnnotatedCallExpr {
+    /// Converts an annotated call expression into a typed expression
     pub fn type_check(
         self,
         stack: &mut Stack,
@@ -27,11 +39,14 @@ impl ExprAnnotatedCall {
         types: &mut TypeMap,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<TypedExpr, HayError> {
+        // Expect to find the base function in the global environment
         let (_, mut sig) = global_env
             .get(&self.base.lexeme)
             .unwrap_or_else(|| panic!("Should have found function: {}", self.base))
             .clone();
 
+        // If there are any generic annotations, they need to be resolved from
+        // the `generic_map`, this will map to a new monomorphised function.
         let (annotations, tid) = if self
             .annotations
             .iter()
@@ -74,6 +89,7 @@ impl ExprAnnotatedCall {
                 )));
             }
         } else {
+            // No generic type annotations, thus need to find the monomorphised call.
             let ann = self
                 .annotations
                 .iter()
@@ -117,11 +133,9 @@ impl ExprAnnotatedCall {
             .map(|a| if let Ok(tid) = a { tid } else { unreachable!() })
             .collect::<Vec<TypeId>>();
 
+        // Check and update the stack and frame.
         sig.assign(&self.token, &annotations, types)?;
-
-        if let Some(_map) = sig.evaluate(&self.token, stack, types)? {
-            todo!("Make a concrete version of the call")
-        }
+        assert!(sig.evaluate(&self.token, stack, types)?.is_none());
 
         Ok(TypedExpr::Call { func: tid.0 })
     }

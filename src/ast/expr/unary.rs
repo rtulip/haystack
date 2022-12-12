@@ -4,7 +4,7 @@ use crate::{
     types::{Frame, FramedType, RecordKind, Stack, Type, TypeMap, UncheckedFunction},
 };
 
-use super::{Expr, ExprAccessor, ExprIdent, ExprOperator, TypedExpr};
+use super::{AccessorExpr, Expr, ExprIdent, ExprOperator, TypedExpr};
 
 #[derive(Debug, Clone)]
 pub struct ExprUnary {
@@ -23,7 +23,7 @@ impl ExprUnary {
         match (&self.op.op, *self.expr) {
             (
                 Operator::Ampersand | Operator::Star,
-                Expr::Accessor(ExprAccessor { ident, inner, .. }),
+                Expr::Accessor(AccessorExpr { ident, inner, .. }),
             ) => {
                 match frame
                     .iter()

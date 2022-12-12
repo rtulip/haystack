@@ -396,4 +396,9 @@ mod examples {
     fn variable() -> Result<(), std::io::Error> {
         super::test_tools::run_test("examples", "variable", Some("src/tests/examples"))
     }
+
+    #[test]
+    fn advanced_features() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("examples", "advanced_features", Some("src/tests/examples"))
+    }
 }

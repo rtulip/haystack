@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "7\n\t6\n\t\t5\n\t\t4\n\t3\n\t\t2\n\t\t1\n",
+  "stderr": ""
+}

@@ -1,0 +1,50 @@
+include "std/prelude.hay"
+
+// Predeclare a type by giving its name, generics followed by a `:`
+struct Tree:
+// pre-declared types allow for self-referential types.
+struct Tree {
+    pub u64: value
+    pub Vec<Tree>: leaves   
+}
+
+fn new_leaf(u64) -> [Tree] {
+    Vec.new::<Tree> cast(Tree)
+}
+
+fn add_leaf(Tree: leaf Tree: mut self) -> [Tree] {
+    leaf *self::leaves Vec.push
+    self
+}
+
+fn Tree.print(u64: level &Tree: self) {
+
+    0 while dup level < {
+        as [i]
+        '\t' print
+        i 1 + 
+    } drop
+
+    self::value @ println
+
+    0 while dup self::leaves Vec.len < {
+        as [i]
+        level 1 + i self::leaves Vec.get Opt.unwrap Tree.print
+        i 1 +
+    } drop
+}
+
+fn main() {
+    
+    1 new_leaf
+    2 new_leaf
+    3 new_leaf add_leaf add_leaf
+    4 new_leaf
+    5 new_leaf
+    6 new_leaf add_leaf add_leaf
+    7 new_leaf add_leaf add_leaf as [tree]
+
+    0 &tree Tree.print
+
+
+}

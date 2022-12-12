@@ -33,6 +33,37 @@ impl:
         Str.equals 
     }
 
+    fn Str.parse_u64(Str: s) -> [u64]{
+
+        0 0 while dup s::size < {
+            as [i]
+            i &s Str.at as [c]
+            c char.is_numeric if {
+                10 *
+                c char.parse_u8 cast(u64) + 
+            } else {
+                "Expected a fully numeric string. Found: `" print
+                s print
+                "`" println
+                "Char `" print c print "` is not numeric" println
+                1 exit
+            }
+            i 1 + 
+        } drop
+
+    } 
+
+    fn Str.at(u64: idx &Str: s) -> [char] {
+
+        idx s::size @ >= if {
+            "Cannot index into string. Index out of bounds" println
+            1 exit
+        }
+
+        s::data @ idx ptr+ @
+
+    }
+
 }
 
 impl Write<Str> {

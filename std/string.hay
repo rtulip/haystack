@@ -66,6 +66,33 @@ impl:
     fn String.at(u64: idx &String: self) -> [Opt<char>] {
         idx self::chars Vec.at
     }
+
+    fn String.substr(u64: start u64: end &String: self) -> [String] {
+
+        end start < if {
+            "Cannot take substring where end (" print
+            end                                 print
+            ") is greater than start("          print
+            start                               print 
+            ")"                                 println
+            1 exit
+        }
+        
+        start self String.size >= if {
+            self String.size 1 -
+        } else {
+            start
+        } as [start_bounded]
+
+        end self String.size >= if {
+            self String.size 1 -
+        } else {
+            end
+        } as [end_bounded]
+
+        start_bounded end_bounded self::chars Vec.subslice cast(String)
+
+    }
 }
 
 impl ToString<String> {

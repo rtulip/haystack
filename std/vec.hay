@@ -73,6 +73,13 @@ impl:
         }
     }
 
+    fn Vec.set<T>(u64: idx T: value *Vec<T>: self) {
+        idx self Vec.get_mut as [maybe_value]
+        &maybe_value Opt.is_some if {
+            value maybe_value Opt.unwrap !
+        }
+    } 
+
     inline fn Vec.last<T>(&Vec<T>: self) -> [Opt<&T>] {
         self::len @ 1- self Vec.get
     }
@@ -123,8 +130,56 @@ impl:
 
         &self Vec.delete
         rev
-
     }
+
+    fn Vec.subslice<T>(u64: start u64: end &Vec<T>: self) -> [Vec<T>] {
+
+        end start < if {
+            "Cannot take subslice of Vec where start < end" println
+            "Start: " print start println
+            "End:   " print end println
+            1 exit
+        }
+
+        start self Vec.len >= if {
+            self Vec.len 1 - 
+        } else {
+            start
+        } as [start_bounded]
+
+        end self Vec.len >= if {
+            self Vec.len 1 - 
+        } else {
+            end
+        } as [end_bounded]
+
+        end start -
+        self::slice::data @ start ptr+ cast(u64) cast(*T)
+        cast(Arr)
+        end start -
+        cast(Vec)
+    }
+
+    fn Vec.bubble_sort<T>(Vec<T>: mut self) -> [Vec<T>] {
+
+        0 while dup &self Vec.len 1 - < { as [i]
+            i while dup &self Vec.len 1 - < { as [j]
+
+                j     &self Vec.at Opt.unwrap
+                j 1 + &self Vec.at Opt.unwrap as [l r]
+                l r > if {
+                    j     r *self Vec.set
+                    j 1 + l *self Vec.set
+                }
+
+                j 1 +
+            } drop
+            i 1 +
+        } drop
+
+        self
+    }
+
 }
 
 impl<T> Format<&Vec<T>>

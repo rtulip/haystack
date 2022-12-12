@@ -2,6 +2,22 @@ fn char.as_str(&char) -> [Str] {
     1 swap cast(Str)
 }
 
+fn char.is_numeric(char: c) -> [bool] {
+    '0' cast(u8) c cast(u8) <=
+    '9' cast(u8) c cast(u8) >= land
+}
+
+fn char.parse_u8(char: c) -> [u8] {
+    c char.is_numeric if {
+        
+        c cast(u8) '0' cast(u8) - 
+    } else {
+        0u8
+        "Cannot parse u8 from non-numeric char: " print c println
+        1 exit        
+    }
+}
+
 impl Write<char> {
     inline fn write(char: c u64: fd) {
         &c char.as_str fd write

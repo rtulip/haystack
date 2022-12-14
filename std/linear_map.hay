@@ -15,6 +15,10 @@ impl:
         &opt Opt.is_some 
     }
 
+    inline fn Map.len<T>(&Map<T>: self) -> [u64] {
+        self::keys Vec.len
+    }
+
     fn Map.insert<T>(Str: key T: value *Map<T>: self) -> [Opt<T>] {
 
         key self Map.get_mut as [maybe_val]

@@ -33,7 +33,7 @@ impl:
         Str.equals 
     }
 
-    fn Str.parse_u64(Str: s) -> [u64]{
+    fn Str.parse_u64(Str: s) -> [u64] {
 
         0 0 while dup s::size < {
             as [i]

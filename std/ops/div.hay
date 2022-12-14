@@ -1,4 +1,4 @@
 interface Div<A B> {
     _: Output
-    fn div(A B) -> [Output]
+    fn Op.div(A B) -> [Output]
 }

@@ -1,4 +1,4 @@
 interface Sub<A B> {
     _: Output
-    fn sub(A B) -> [Output]
+    fn Op.sub(A B) -> [Output]
 }

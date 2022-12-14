@@ -32,50 +32,50 @@ impl Write<u64> {
 
 impl Add<u64 u8> {
     u64: Output
-    inline fn add(u64: left u8: right) -> [u64] {
+    inline fn Op.add(u64: left u8: right) -> [u64] {
         left right cast(u64) +
     }
 }
 
 impl Add<u64 u64> {
     u64: Output
-    inline fn add(u64 u64) -> [u64] { + }
+    inline fn Op.add(u64 u64) -> [u64] { + }
 }
 
 impl Sub<u64 u8> {
     u64: Output
-    inline fn sub(u64: left u8: right) -> [u64] {
+    inline fn Op.sub(u64: left u8: right) -> [u64] {
         left right cast(u64) -
     }
 }
 
 impl Sub<u64 u64> {
     u64: Output
-    inline fn sub(u64 u64) -> [u64] { - }
+    inline fn Op.sub(u64 u64) -> [u64] { - }
 }
 
 impl Div<u64 u8> {
     u64: Output
-    inline fn div(u64: left u8: right) -> [u64] {
+    inline fn Op.div(u64: left u8: right) -> [u64] {
         left right cast(u64) /
     }
 }
 
 impl Div<u64 u64> {
     u64: Output
-    inline fn div(u64 u64) -> [u64] { / }
+    inline fn Op.div(u64 u64) -> [u64] { / }
 }
 
 impl Mul<u64 u8> {
     u64: Output
-    inline fn mul(u64: left u8: right) -> [u64] {
+    inline fn Op.mul(u64: left u8: right) -> [u64] {
         left right cast(u64) *
     }
 }
 
 impl Mul<u64 u64> {
     u64: Output
-    inline fn mul(u64 u64) -> [u64] { * }
+    inline fn Op.mul(u64 u64) -> [u64] { * }
 }
 
 impl ToString<u64> {

@@ -162,7 +162,36 @@ impl super::CodeGen for X86_64 {
                     writeln!(file, "  cmovne rcx, rdx")?;
                     writeln!(file, "  push rcx")?;
                 }
-                Operator::Ampersand => unimplemented!("Bitwise `&` isn't implemented yet"),
+                Operator::Ampersand => {
+                    writeln!(file, "  pop  rbx")?;
+                    writeln!(file, "  pop  rax")?;
+                    writeln!(file, "  and  rax, rbx")?;
+                    writeln!(file, "  push rax")?;
+                }
+                Operator::Pipe => {
+                    writeln!(file, "  pop  rbx")?;
+                    writeln!(file, "  pop  rax")?;
+                    writeln!(file, "  or   rax, rbx")?;
+                    writeln!(file, "  push rax")?;
+                }
+                Operator::Caret => {
+                    writeln!(file, "  pop  rbx")?;
+                    writeln!(file, "  pop  rax")?;
+                    writeln!(file, "  xor  rax, rbx")?;
+                    writeln!(file, "  push rax")?;
+                }
+                Operator::ShiftLeft => {
+                    writeln!(file, "  pop  rcx")?;
+                    writeln!(file, "  pop  rax")?;
+                    writeln!(file, "  shl  rax, cl")?;
+                    writeln!(file, "  push rax")?;
+                }
+                Operator::ShiftRight => {
+                    writeln!(file, "  pop  rcx")?;
+                    writeln!(file, "  pop  rax")?;
+                    writeln!(file, "  shr  rax, cl")?;
+                    writeln!(file, "  push rax")?;
+                }
                 Operator::Unary { .. } => unreachable!(
                     "Unary expressions should have been converted into other instructions",
                 ),

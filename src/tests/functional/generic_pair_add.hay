@@ -12,7 +12,7 @@ requires: [
         Add<X1 X2>::Output 
         Add<Y1 Y2>::Output
     >: Output
-    fn add(Pair<X1 Y1>: left Pair<X2 Y2>: right) -> [Pair<Add<X1 X2>::Output Add<Y1 Y2>::Output>] {
+    fn Op.add(Pair<X1 Y1>: left Pair<X2 Y2>: right) -> [Pair<Add<X1 X2>::Output Add<Y1 Y2>::Output>] {
         left::a right::a +
         left::b right::b +
         cast(Pair)
@@ -77,14 +77,14 @@ impl Print<Qux> {
 
 impl Add<Foo Bar> {
     Baz: Output
-    fn add(Foo: left Bar: right) -> [Baz] {
+    fn Op.add(Foo: left Bar: right) -> [Baz] {
         left::n right::n + cast(Baz)
     }
 }
 
 impl Add<Foo Buzz> {
     Qux: Output
-    fn add(Foo: left Buzz: right) -> [Qux] {
+    fn Op.add(Foo: left Buzz: right) -> [Qux] {
         left::n right::n + cast(Qux)
     }
 }

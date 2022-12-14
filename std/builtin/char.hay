@@ -10,7 +10,7 @@ impl Write<char> {
 
 impl Add<char char> {
     char: Output
-    inline fn add(char: left char: right) -> [char] {
+    inline fn Op.add(char: left char: right) -> [char] {
         left cast(u64) right cast(u64) + cast(char)
     }
 }

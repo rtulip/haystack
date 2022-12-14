@@ -67,28 +67,63 @@ impl ExprOperator {
                 types,
                 global_env,
                 Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
-                String::from("add"),
+                String::from("Op.add"),
             ),
             Operator::Minus => self.type_check_interface_op(
                 stack,
                 types,
                 global_env,
                 Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
-                String::from("sub"),
+                String::from("Op.sub"),
             ),
             Operator::Star => self.type_check_interface_op(
                 stack,
                 types,
                 global_env,
                 Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
-                String::from("mul"),
+                String::from("Op.mul"),
             ),
             Operator::Slash => self.type_check_interface_op(
                 stack,
                 types,
                 global_env,
                 Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
-                String::from("div"),
+                String::from("Op.div"),
+            ),
+            Operator::Ampersand => self.type_check_interface_op(
+                stack,
+                types,
+                global_env,
+                Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                String::from("Op.and"),
+            ),
+            Operator::Pipe => self.type_check_interface_op(
+                stack,
+                types,
+                global_env,
+                Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                String::from("Op.or"),
+            ),
+            Operator::Caret => self.type_check_interface_op(
+                stack,
+                types,
+                global_env,
+                Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                String::from("Op.xor"),
+            ),
+            Operator::ShiftLeft => self.type_check_interface_op(
+                stack,
+                types,
+                global_env,
+                Signature::new(vec![Type::U64.id(), Type::U8.id()], vec![Type::U64.id()]),
+                String::from("Op.shl"),
+            ),
+            Operator::ShiftRight => self.type_check_interface_op(
+                stack,
+                types,
+                global_env,
+                Signature::new(vec![Type::U64.id(), Type::U8.id()], vec![Type::U64.id()]),
+                String::from("Op.shr"),
             ),
             Operator::LessThan
             | Operator::LessEqual
@@ -268,7 +303,6 @@ impl ExprOperator {
                     typ: Some(map.get(&TypeId::new("T")).unwrap().clone()),
                 })
             }
-            Operator::Ampersand => todo!("{}", self.token),
             Operator::Unary { .. } => todo!("{}", self.token),
         }
     }

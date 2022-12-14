@@ -160,6 +160,8 @@ impl Scanner {
             '<' => {
                 if self.matches('=') {
                     self.add_token(TokenKind::Operator(Operator::LessEqual))
+                } else if self.matches('<') {
+                    self.add_token(TokenKind::Operator(Operator::ShiftLeft))
                 } else {
                     self.add_token(TokenKind::Operator(Operator::LessThan))
                 }
@@ -167,6 +169,8 @@ impl Scanner {
             '>' => {
                 if self.matches('=') {
                     self.add_token(TokenKind::Operator(Operator::GreaterEqual))
+                } else if self.matches('>') {
+                    self.add_token(TokenKind::Operator(Operator::ShiftRight))
                 } else {
                     self.add_token(TokenKind::Operator(Operator::GreaterThan))
                 }
@@ -206,6 +210,8 @@ impl Scanner {
                     self.add_token(TokenKind::Operator(Operator::Ampersand))
                 }
             }
+            '|' => self.add_token(TokenKind::Operator(Operator::Pipe)),
+            '^' => self.add_token(TokenKind::Operator(Operator::Caret)),
             ' ' | '\t' | '\r' => (),
             '\n' => self.newline(),
             '"' => self.string()?,

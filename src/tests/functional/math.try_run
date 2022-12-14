@@ -1,5 +1,5 @@
 {
   "exit_code": 0,
-  "stdout": "2\n2\n2\n2\n1\n1\n1\n1\n6\n6\n6\n6\n5\n5\n5\n5\ntrue\nfalse\nfalse\ntrue\nfalse\ntrue\ntrue\ntrue\nfalse\nfalse\ntrue\ntrue\ntrue\nfalse\n",
+  "stdout": "2\n2\n2\n2\n1\n1\n1\n1\n6\n6\n6\n6\n5\n5\n5\n5\n12\n61\n49\n240\n15\ntrue\nfalse\nfalse\ntrue\nfalse\ntrue\ntrue\ntrue\nfalse\nfalse\ntrue\ntrue\ntrue\nfalse\n",
   "stderr": ""
 }

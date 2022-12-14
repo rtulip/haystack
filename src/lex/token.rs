@@ -75,6 +75,10 @@ pub enum Operator {
     Read,
     Write,
     Ampersand,
+    Pipe,
+    Caret,
+    ShiftRight,
+    ShiftLeft,
     Unary(Box<Token>),
 }
 
@@ -95,7 +99,11 @@ impl PartialEq for Operator {
             | (Operator::Read, Operator::Read)
             | (Operator::Write, Operator::Write)
             | (Operator::Ampersand, Operator::Ampersand)
-            | (Operator::Unary { .. }, Operator::Unary { .. }) => true,
+            | (Operator::Unary { .. }, Operator::Unary { .. })
+            | (Operator::Pipe, Operator::Pipe)
+            | (Operator::Caret, Operator::Caret)
+            | (Operator::ShiftRight, Operator::ShiftRight)
+            | (Operator::ShiftLeft, Operator::ShiftLeft) => true,
             (Operator::Plus, _)
             | (Operator::Minus, _)
             | (Operator::Star, _)
@@ -110,7 +118,11 @@ impl PartialEq for Operator {
             | (Operator::Read, _)
             | (Operator::Write, _)
             | (Operator::Ampersand, _)
-            | (Operator::Unary { .. }, _) => false,
+            | (Operator::Unary { .. }, _)
+            | (Operator::Pipe, _)
+            | (Operator::Caret, _)
+            | (Operator::ShiftRight, _)
+            | (Operator::ShiftLeft, _) => false,
         }
     }
 }
@@ -133,6 +145,10 @@ impl std::fmt::Display for Operator {
             Operator::Read => write!(f, "@")?,
             Operator::Write => write!(f, "!")?,
             Operator::Ampersand => write!(f, "&")?,
+            Operator::Pipe => write!(f, "|")?,
+            Operator::Caret => write!(f, "^")?,
+            Operator::ShiftRight => write!(f, ">>")?,
+            Operator::ShiftLeft => write!(f, "<<")?,
             Operator::Unary(op) => write!(f, "Unary({})", op.lexeme)?,
         }
         write!(f, "`")
@@ -387,6 +403,35 @@ impl Token {
                 line,
                 span: Range { start, end },
             },
+        }
+    }
+
+    pub fn split_op(self) -> Result<(Token, Token), HayError> {
+        let op = self.operator()?;
+        match op {
+            Operator::ShiftLeft => todo!(),
+            Operator::ShiftRight => Ok((
+                Token::new(
+                    TokenKind::Operator(Operator::GreaterThan),
+                    format!("{}", self.lexeme.chars().nth(0).unwrap()),
+                    self.loc.file.clone(),
+                    self.loc.line,
+                    self.loc.span.start,
+                    self.loc.span.end - 1,
+                ),
+                Token::new(
+                    TokenKind::Operator(Operator::GreaterThan),
+                    format!("{}", self.lexeme.chars().nth(1).unwrap()),
+                    self.loc.file.clone(),
+                    self.loc.line,
+                    self.loc.span.start + 1,
+                    self.loc.span.end,
+                ),
+            )),
+            _ => Err(HayError::new(
+                format!("Cannot split operator {op}",),
+                self.loc,
+            )),
         }
     }
 

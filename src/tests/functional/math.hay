@@ -16,6 +16,12 @@ fn main() {
     10 2u8   / println
     10u8 2u8 / println
 
+    60 13 & println // 12
+    60 13 | println // 61
+    60 13 ^ println // 49
+    60 2u8 << println // 240
+    60 2u8 >> println // 15
+
     1 1 == println
     1 2 == println
     1 1 != println

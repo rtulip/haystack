@@ -744,14 +744,25 @@ impl<'a> Parser<'a> {
                 let close = match self.matches(TokenKind::Operator(Operator::GreaterThan)) {
                     Ok(t) => t,
                     Err(t) => {
-                        return Err(HayError::new(
-                            format!(
-                                "Expected {} after type parameters, but found {} instead.",
-                                Operator::GreaterThan,
-                                t.kind
-                            ),
-                            t.loc,
-                        ))
+                        
+                        match &t.kind {
+                            TokenKind::Operator(Operator::ShiftRight) => {
+                                self.tokens.pop();
+                                let (first, second) = t.split_op()?;
+                                self.tokens.push(second);
+                                first
+                            },
+                            _ => return Err(HayError::new(
+                                format!(
+                                    "Expected {} after type parameters, but found {} instead.",
+                                    Operator::GreaterThan,
+                                    t.kind
+                                ),
+                                t.loc,
+                            ))
+                        }
+
+                        
                     }
                 };
 

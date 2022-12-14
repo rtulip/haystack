@@ -125,6 +125,16 @@ impl ExprOperator {
                 Signature::new(vec![Type::U64.id(), Type::U8.id()], vec![Type::U64.id()]),
                 String::from("Op.shr"),
             ),
+            Operator::RotateLeft | Operator::RotateRight => {
+                Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()])
+                    .evaluate(&self.token, stack, types)?;
+
+                // TODO: Comparison between pointers
+                Ok(TypedExpr::Operator {
+                    op: self.op,
+                    typ: None,
+                })
+            }
             Operator::LessThan
             | Operator::LessEqual
             | Operator::GreaterThan

@@ -79,6 +79,8 @@ pub enum Operator {
     Caret,
     ShiftRight,
     ShiftLeft,
+    RotateRight,
+    RotateLeft,
     Unary(Box<Token>),
 }
 
@@ -103,7 +105,9 @@ impl PartialEq for Operator {
             | (Operator::Pipe, Operator::Pipe)
             | (Operator::Caret, Operator::Caret)
             | (Operator::ShiftRight, Operator::ShiftRight)
-            | (Operator::ShiftLeft, Operator::ShiftLeft) => true,
+            | (Operator::ShiftLeft, Operator::ShiftLeft)
+            | (Operator::RotateRight, Operator::RotateRight)
+            | (Operator::RotateLeft, Operator::RotateLeft) => true,
             (Operator::Plus, _)
             | (Operator::Minus, _)
             | (Operator::Star, _)
@@ -122,7 +126,9 @@ impl PartialEq for Operator {
             | (Operator::Pipe, _)
             | (Operator::Caret, _)
             | (Operator::ShiftRight, _)
-            | (Operator::ShiftLeft, _) => false,
+            | (Operator::ShiftLeft, _)
+            | (Operator::RotateRight, _)
+            | (Operator::RotateLeft, _) => false,
         }
     }
 }
@@ -149,6 +155,8 @@ impl std::fmt::Display for Operator {
             Operator::Caret => write!(f, "^")?,
             Operator::ShiftRight => write!(f, ">>")?,
             Operator::ShiftLeft => write!(f, "<<")?,
+            Operator::RotateRight => write!(f, "rotr")?,
+            Operator::RotateLeft => write!(f, "rotl")?,
             Operator::Unary(op) => write!(f, "Unary({})", op.lexeme)?,
         }
         write!(f, "`")
@@ -229,6 +237,8 @@ impl Keyword {
         map.insert("interface", TokenKind::Keyword(Keyword::Interface));
         map.insert("requires", TokenKind::Keyword(Keyword::Requires));
 
+        map.insert("rotl", TokenKind::Operator(Operator::RotateLeft));
+        map.insert("rotr", TokenKind::Operator(Operator::RotateRight));
         map.insert("true", TokenKind::Literal(Literal::Bool(true)));
         map.insert("false", TokenKind::Literal(Literal::Bool(false)));
         map.insert("syscall", TokenKind::Syscall(0));

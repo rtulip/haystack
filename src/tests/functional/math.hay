@@ -22,6 +22,9 @@ fn main() {
     60 2u8 << println // 240
     60 2u8 >> println // 15
 
+    170 52u8 << 1761 | 12 u64.rotate_left println
+    7213226 12 u64.rotate_right println
+
     1 1 == println
     1 2 == println
     1 1 != println

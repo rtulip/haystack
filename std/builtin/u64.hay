@@ -20,8 +20,10 @@ fn u64.to_str(u64: u Arr<char>: chars) -> [Str] {
         as [i]
         19 i - chars::data i 1 + ptr+ cast(Str)
     }    
-
 }
+
+inline fn u64.rotate_left(u64 u64) -> [u64] { rotl }
+inline fn u64.rotate_right(u64 u64) -> [u64] { rotr }
 
 impl Write<u64> {
     fn write(u64: n u64: fd) {

@@ -192,6 +192,18 @@ impl super::CodeGen for X86_64 {
                     writeln!(file, "  shr  rax, cl")?;
                     writeln!(file, "  push rax")?;
                 }
+                Operator::RotateLeft => {
+                    writeln!(file, "  pop  rcx")?;
+                    writeln!(file, "  pop  rax")?;
+                    writeln!(file, "  rol  rax, cl")?;
+                    writeln!(file, "  push rax")?;
+                }
+                Operator::RotateRight => {
+                    writeln!(file, "  pop  rcx")?;
+                    writeln!(file, "  pop  rax")?;
+                    writeln!(file, "  ror  rax, cl")?;
+                    writeln!(file, "  push rax")?;
+                }
                 Operator::Unary { .. } => unreachable!(
                     "Unary expressions should have been converted into other instructions",
                 ),

@@ -413,7 +413,7 @@ impl Token {
             Operator::ShiftRight => Ok((
                 Token::new(
                     TokenKind::Operator(Operator::GreaterThan),
-                    format!("{}", self.lexeme.chars().nth(0).unwrap()),
+                    format!("{}", self.lexeme.chars().next().unwrap()),
                     self.loc.file.clone(),
                     self.loc.line,
                     self.loc.span.start,

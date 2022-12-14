@@ -1,0 +1,4 @@
+interface BitAnd<A B> {
+    _: Output
+    fn Op.and(A B) -> [Output]
+}

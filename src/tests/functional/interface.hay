@@ -5,7 +5,7 @@ struct Point {
 
 impl Add<Point Point> {
 	Point: Output
-	fn add(Point: a Point: b) -> [Point] {
+	fn Op.add(Point: a Point: b) -> [Point] {
 		a::x b::x +
 		a::y b::y +
 		cast(Point)

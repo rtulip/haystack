@@ -1,0 +1,4 @@
+interface ShiftRight<A B> {
+    _: Output
+    fn Op.shr(A B) -> [Output]
+}

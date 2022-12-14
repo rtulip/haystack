@@ -1,0 +1,4 @@
+interface ShiftLeft<A B> {
+    _: Output
+    fn Op.shl(A B) -> [Output]
+}

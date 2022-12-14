@@ -1,0 +1,4 @@
+interface BitOr<A B> {
+    _: Output
+    fn Op.or(A B) -> [Output]
+}

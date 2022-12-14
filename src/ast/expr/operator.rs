@@ -67,28 +67,28 @@ impl ExprOperator {
                 types,
                 global_env,
                 Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
-                String::from("add"),
+                String::from("Op.add"),
             ),
             Operator::Minus => self.type_check_interface_op(
                 stack,
                 types,
                 global_env,
                 Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
-                String::from("sub"),
+                String::from("Op.sub"),
             ),
             Operator::Star => self.type_check_interface_op(
                 stack,
                 types,
                 global_env,
                 Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
-                String::from("mul"),
+                String::from("Op.mul"),
             ),
             Operator::Slash => self.type_check_interface_op(
                 stack,
                 types,
                 global_env,
                 Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
-                String::from("div"),
+                String::from("Op.div"),
             ),
             Operator::LessThan
             | Operator::LessEqual

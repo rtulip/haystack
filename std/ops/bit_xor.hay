@@ -1,0 +1,4 @@
+interface BitXor<A B> {
+    _: Output
+    fn Op.xor(A B) -> [Output]
+}

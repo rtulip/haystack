@@ -34,7 +34,7 @@ impl:
         0 while dup self::keys Vec.len < {
             as [i]
 
-            key i self::keys Vec.at Opt.unwrap Str.equals if {
+            key i self::keys Vec.at Opt.unwrap == if {
                 i self::values Vec.get_mut return 
             }
 
@@ -47,7 +47,7 @@ impl:
     fn Map.get<T>(Str: key &Map<T>: self) -> [Opt<&T>] {
         0 while dup self::keys Vec.len < {
             as [i]
-            key i self::keys Vec.at Opt.unwrap Str.equals if {
+            key i self::keys Vec.at Opt.unwrap == if {
                 i self::values Vec.get return 
             }
 

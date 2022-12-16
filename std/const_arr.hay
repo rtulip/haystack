@@ -2,7 +2,7 @@ struct ConstArr<T> {
     pub u64: size
     pub &T: data
 impl:
-    fn ConstArr.get_ref<T>(u64: idx ConstArr<T>: arr) -> [&T] {
+    fn ConstArr.get<T>(u64: idx ConstArr<T>: arr) -> [&T] {
         idx arr::size >= if {
             "Cannot Get Ref: Index out of bounds: " print
             idx println
@@ -11,7 +11,7 @@ impl:
         arr::data idx ptr+ 
     }
 
-    fn ConstArr.get<T>(u64: idx ConstArr<T>: arr) -> [T] {
+    fn ConstArr.at<T>(u64: idx ConstArr<T>: arr) -> [T] {
         idx arr::size >= if {
             "Cannot Get: Index out of bounds: " print
             idx println
@@ -19,4 +19,25 @@ impl:
         }
         arr::data idx ptr+ @
     }
+}
+
+impl<T> Format<ConstArr<T>>
+requires: [Format<T>] {
+
+    fn fmt(String ConstArr<T>) -> [String] {
+        as [self]
+        self::size 0 == if { "[ ]" fmt return }
+        
+        '[' fmt
+        0 while dup self::size 1 - < {
+            as [i]
+            i self ConstArr.at fmt
+            ' '                fmt
+            i 1 +
+        } drop
+
+        self::size 1 - self ConstArr.at fmt 
+        ']' fmt
+    }
+
 }

@@ -1,0 +1,11 @@
+interface Hasher<T> {
+    fn Hash.finish(&T) -> [u64]
+    fn Hash.write(ConstArr<u8> *T)
+    fn Hash.write_u8(u8: byte *T: self) {
+        1 &byte cast(ConstArr<u8>) self Hash.write
+    }
+    fn Hash.write_u64(u64: value *T: self) {
+        &value u64.to_bytes self Hash.write
+    }
+
+}

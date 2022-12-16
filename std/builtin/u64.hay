@@ -24,6 +24,16 @@ fn u64.to_str(u64: u Arr<char>: chars) -> [Str] {
 
 inline fn u64.rotate_left(u64 u64) -> [u64] { rotl }
 inline fn u64.rotate_right(u64 u64) -> [u64] { rotr }
+inline fn u64.to_bytes(&u64: self) -> [ConstArr<u8>] {
+    8 self cast(u64) cast(&u8) cast(ConstArr)
+}
+inline fn u64.min(u64: left u64: right) -> [u64] {
+    left right < if {
+        left
+    } else {
+        right
+    }
+}
 
 impl Write<u64> {
     fn write(u64: n u64: fd) {

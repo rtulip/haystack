@@ -1,0 +1,247 @@
+include "std/hash/hash.hay"
+struct SipState {
+    pub u64: v0
+    pub u64: v1
+    pub u64: v2
+    pub u64: v3
+impl:
+    inline fn SipState.new() -> [SipState] {
+        0 0 0 0 cast(SipState)
+    }
+    inline fn SipState.compress(*SipState: self) {
+        self::v0 @ self::v1 @ +       self::v0 !
+        self::v1 @ 13 u64.rotate_left self::v1 !
+        self::v1 @ self::v0 @ ^       self::v1 !
+        self::v0 @ 32 u64.rotate_left self::v0 !
+        self::v2 @ self::v3 @ +       self::v2 !
+        self::v3 @ 16 u64.rotate_left self::v3 !
+        self::v3 @ self::v2 @ ^       self::v3 !
+        self::v0 @ self::v3 @ +       self::v0 !
+        self::v3 @ 21 u64.rotate_left self::v3 !
+        self::v3 @ self::v0 @ ^       self::v3 !
+        self::v2 @ self::v1 @ +       self::v2 !
+        self::v1 @ 17 u64.rotate_left self::v1 !
+        self::v1 @ self::v2 @ ^       self::v1 !
+        self::v2 @ 32 u64.rotate_left self::v2 !
+    }
+
+    inline fn Sip13Rounds.c_rounds(*SipState) {
+        SipState.compress
+    }
+
+    inline fn Sip13Rounds.d_rounds(*SipState: state) {
+        state SipState.compress
+        state SipState.compress
+        state SipState.compress
+    }
+}
+
+impl Print<SipState> {
+
+    fn print(SipState: state) {
+
+        "State {" print
+        " v0: "   print state::v0 print 
+        ", v2: "  print state::v2 print 
+        ", v1: "  print state::v1 print 
+
+        ", v3: "  print state::v3 print 
+        " }"      print
+    }
+
+}
+
+struct SipHasher {
+    pub u64: k0
+    pub u64: k1
+    pub u64: length
+    pub SipState: state
+    pub u64: tail
+    pub u64: ntail
+impl:
+    inline fn SipHasher.new() -> [SipHasher] {
+        0 0 SipHasher.new_with_keys
+    }
+
+    inline fn SipHasher.new_with_keys(u64 u64) -> [SipHasher] {
+        0
+        SipState.new
+        0
+        0
+        cast(SipHasher)
+        SipHasher.reset
+    }
+
+    fn SipHasher.v0_reset_magic_number() -> [u64] {
+        // 0x736f6d6570736575
+        1936682341 32u8 << 1886610805 |
+    }
+
+    fn SipHasher.v1_reset_magic_number() -> [u64] {
+        // 0x646f72616e646f6d
+        1685025377 32u8 << 1852075885 |
+    }
+
+    fn SipHasher.v2_reset_magic_number() -> [u64] {
+        // 0x6c7967656e657261
+        1819895653 32u8 << 1852142177 |
+    }
+
+    fn SipHasher.v3_reset_magic_number() -> [u64] {
+        // 0x7465646279746573
+        1952801890 32u8 << 2037671283 |
+    }
+
+    inline fn SipHasher.reset(SipHasher: mut self) -> [SipHasher] {
+        0 *self::length !
+        self::k0 SipHasher.v0_reset_magic_number ^ *self::state::v0 !
+        self::k1 SipHasher.v1_reset_magic_number ^ *self::state::v1 !
+        self::k0 SipHasher.v2_reset_magic_number ^ *self::state::v2 !
+        self::k1 SipHasher.v3_reset_magic_number ^ *self::state::v3 ! 
+        0 *self::ntail !
+        self
+    }
+
+}
+
+inline fn __load_int_le(ConstArr<u8>: buf u64: i) -> [u64] {
+
+    i sizeOf(u64) + buf::size <= lnot if {
+        "Not enough space to load from" println
+        "i: " print i println
+        "sizeOf(u64): " print sizeOf(u64) println
+        "buf size: " print buf::size println
+        1 exit 
+    }
+
+    0 as [mut data]
+    sizeOf(u64)
+    buf::data i ptr+
+    *data cast(u64) cast(*u8)
+    memcpy
+
+    data
+}
+
+inline fn u8tou64(ConstArr<u8>: buf u64: start u64: len) -> [u64] {
+    len 8 < lnot if {
+        "Assertion failed: len >= 8: " print len println
+        1 exit
+    }
+
+    0 0 as [mut i mut out]
+    i 3 + len < if {
+        
+        0 while dup 4 < {
+            start i + buf ConstArr.at cast(u64)
+            i 8 * cast(u8) << out | *out !
+            i 1 + *i !
+
+            1 +  
+        } drop
+
+        "out (4): " print out println
+    }
+    i 1 + len < if {
+        0 while dup 2 < {
+            start i + buf ConstArr.at cast(u64)
+            i 8 * cast(u8) << out | *out !
+            i 1 + *i !
+
+            1 +  
+        } drop
+
+        "out (2): " print out println
+    }
+    i len < if {
+        start i + buf ConstArr.at cast(u64)
+        i 8 * cast(u8) << out | *out !
+        i 1 + *i !
+        "Out (1): " print out println
+    }
+
+    i len == assert
+    out
+
+    
+}
+
+impl Hasher<SipHasher> {
+
+    fn Hash.write(ConstArr<u8>: msg *SipHasher: self) {
+
+        msg::size as [length]
+        self::length @ length + self::length !
+
+        0 as [mut needed]
+
+        self::ntail @ 0 != if {
+            8 self::ntail @ -  *needed !
+            msg 
+            0 
+            length needed u64.min 
+            u8tou64 
+            8 self::ntail @ * cast(u8) << 
+            self::tail @ | 
+            self::tail !
+
+            length needed < if {
+                self::ntail @ length + self::ntail !
+                return 
+            } else {
+        
+
+                self::state::v3 @ self::tail @ ^ self::state::v3 !
+                self::state Sip13Rounds.c_rounds
+                self::state::v0 @ self::tail @ ^ self::state::v0 !
+                0 self::ntail !
+            }
+        }
+
+        length needed - as [len]
+        len 7 &         as [left]
+
+        needed while dup len left - < {
+            as [i]
+            msg i __load_int_le as [mi]
+            "mi: " print mi println
+
+            self::state::v3 @ mi ^ self::state::v3 !
+            self::state Sip13Rounds.c_rounds
+            self::state::v0 @ mi ^ self::state::v0 !
+
+            
+
+            i 8 +
+        } as [i]
+
+        "i: " print i println
+        "left: " print left println
+
+        msg i left u8tou64 self::tail !
+        left self::ntail !
+
+        "state: " print self::state println
+        "tail:  " print self::tail println
+        "ntail: " print self::ntail println
+
+    }
+
+    fn Hash.finish(&SipHasher: self) -> [u64] { 
+        self::state @ as [mut state]
+        self::length @ 255 & 56u8 << self::tail @ | as [b]
+        state::v3 b ^ *state::v3 !
+        *state Sip13Rounds.c_rounds
+        state::v0 b ^ *state::v0 !
+
+        state::v2 255 ^ *state::v2 !
+        *state Sip13Rounds.d_rounds
+
+        state::v0 
+        state::v1 ^
+        state::v2 ^
+        state::v3 ^
+
+    }
+
+}

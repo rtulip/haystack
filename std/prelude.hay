@@ -16,6 +16,8 @@ include "std/alloc.hay"
 include "std/vec.hay"
 include "std/string.hay"
 
+include "std/hash/sip.hay"
+
 fn drop<T>(T: t) {}
 fn dup<T>(T: t) -> [T T]{ t t }
 fn swap<A B>(A: a B: b) -> [B A] { b a }

@@ -1,6 +1,10 @@
-fn ptr+(*T: ptr u64: n) -> [*T] {
+fn ptr+<T>(&T: ptr u64: n) -> [&T] {
+    ptr cast(u64) sizeOf(T) n * + cast(&T) 
+}
+fn ptr+_mut<T>(*T: ptr u64: n) -> [*T] {
     ptr cast(u64) sizeOf(T) n * + cast(*T) 
 }
-fn mut_ptr+(&T: ptr u64: n) -> [&T] {
-    ptr cast(u64) sizeOf(T) n * + cast(&T) 
+
+impl<T> Equals<&T> {
+    inline fn Op.eq(&T: left &T: right) -> [bool] { left cast(u64) right cast(u64) == }
 }

@@ -34,3 +34,7 @@ impl Format<char> {
 impl Format<&char> {
     inline fn fmt(String &char) -> [String] { @ String.push }
 }
+
+impl Equals<char> {
+    inline fn Op.eq(char: left char:right) -> [bool] { left cast(u64) right cast(u64) == }
+}

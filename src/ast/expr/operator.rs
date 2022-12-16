@@ -18,10 +18,18 @@ impl ExprOperator {
         stack: &mut Stack,
         types: &mut TypeMap,
         global_env: &mut GlobalEnv,
-        default_sig: Signature,
+        default_sigs: Vec<Signature>,
         interface_fn_name: String,
     ) -> Result<TypedExpr, HayError> {
-        match default_sig.evaluate(&self.token, stack, types) {
+        assert!(default_sigs.len() >= 1);
+
+        let eval = if default_sigs.len() == 1 {
+            default_sigs[0].evaluate(&self.token, stack, types)
+        } else {
+            Signature::evaluate_many(&default_sigs, &self.token, stack, types)
+        };
+
+        match eval {
             Ok(_) => Ok(TypedExpr::Operator {
                 op: self.op,
                 typ: None,
@@ -66,63 +74,90 @@ impl ExprOperator {
                 stack,
                 types,
                 global_env,
-                Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                vec![Signature::new(
+                    vec![Type::U64.id(), Type::U64.id()],
+                    vec![Type::U64.id()],
+                )],
                 String::from("Op.add"),
             ),
             Operator::Minus => self.type_check_interface_op(
                 stack,
                 types,
                 global_env,
-                Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                vec![Signature::new(
+                    vec![Type::U64.id(), Type::U64.id()],
+                    vec![Type::U64.id()],
+                )],
                 String::from("Op.sub"),
             ),
             Operator::Star => self.type_check_interface_op(
                 stack,
                 types,
                 global_env,
-                Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                vec![Signature::new(
+                    vec![Type::U64.id(), Type::U64.id()],
+                    vec![Type::U64.id()],
+                )],
                 String::from("Op.mul"),
             ),
             Operator::Slash => self.type_check_interface_op(
                 stack,
                 types,
                 global_env,
-                Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                vec![Signature::new(
+                    vec![Type::U64.id(), Type::U64.id()],
+                    vec![Type::U64.id()],
+                )],
                 String::from("Op.div"),
             ),
             Operator::Ampersand => self.type_check_interface_op(
                 stack,
                 types,
                 global_env,
-                Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                vec![Signature::new(
+                    vec![Type::U64.id(), Type::U64.id()],
+                    vec![Type::U64.id()],
+                )],
                 String::from("Op.and"),
             ),
             Operator::Pipe => self.type_check_interface_op(
                 stack,
                 types,
                 global_env,
-                Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                vec![Signature::new(
+                    vec![Type::U64.id(), Type::U64.id()],
+                    vec![Type::U64.id()],
+                )],
                 String::from("Op.or"),
             ),
             Operator::Caret => self.type_check_interface_op(
                 stack,
                 types,
                 global_env,
-                Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                vec![Signature::new(
+                    vec![Type::U64.id(), Type::U64.id()],
+                    vec![Type::U64.id()],
+                )],
                 String::from("Op.xor"),
             ),
             Operator::ShiftLeft => self.type_check_interface_op(
                 stack,
                 types,
                 global_env,
-                Signature::new(vec![Type::U64.id(), Type::U8.id()], vec![Type::U64.id()]),
+                vec![Signature::new(
+                    vec![Type::U64.id(), Type::U8.id()],
+                    vec![Type::U64.id()],
+                )],
                 String::from("Op.shl"),
             ),
             Operator::ShiftRight => self.type_check_interface_op(
                 stack,
                 types,
                 global_env,
-                Signature::new(vec![Type::U64.id(), Type::U8.id()], vec![Type::U64.id()]),
+                vec![Signature::new(
+                    vec![Type::U64.id(), Type::U8.id()],
+                    vec![Type::U64.id()],
+                )],
                 String::from("Op.shr"),
             ),
             Operator::RotateLeft | Operator::RotateRight => {
@@ -159,105 +194,54 @@ impl ExprOperator {
                     typ: None,
                 })
             }
-            Operator::Equal => {
-                // TODO: equality between Enums
-
-                Signature::evaluate_many(
-                    &vec![
-                        // u64 == u64 -> bool
-                        Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::Bool.id()]),
-                        // u8 == u8   -> bool
-                        Signature::new(vec![Type::U8.id(), Type::U8.id()], vec![Type::Bool.id()]),
-                        // bool == bool -> bool
-                        Signature::new(
-                            vec![Type::Bool.id(), Type::Bool.id()],
-                            vec![Type::Bool.id()],
-                        ),
-                        // char == char -> char
-                        Signature::new(
-                            vec![Type::Char.id(), Type::Char.id()],
-                            vec![Type::Bool.id()],
-                        ),
-                        // *T == *T   -> bool
-                        Signature::new_generic(
-                            vec![TypeId::new("*T"), TypeId::new("*T")],
-                            vec![Type::Bool.id()],
-                            vec![TypeId::new("T")],
-                        ),
-                        // &T == &T   -> bool
-                        Signature::new_generic(
-                            vec![TypeId::new("&T"), TypeId::new("&T")],
-                            vec![Type::Bool.id()],
-                            vec![TypeId::new("T")],
-                        ),
-                        Signature::new_generic(
-                            vec![TypeId::new("E"), TypeId::new("E")],
-                            vec![Type::Bool.id()],
-                            vec![TypeId::new("E")],
-                        )
-                        .with_predicate(
-                            &|inputs, types| match (types.get(&inputs[0]), types.get(&inputs[1])) {
-                                (
-                                    Some(Type::Enum { name: left, .. }),
-                                    Some(Type::Enum { name: right, .. }),
-                                ) => left.lexeme == right.lexeme,
-                                _ => false,
-                            },
-                            "E is an enum",
-                        ),
-                    ],
-                    &self.token,
-                    stack,
-                    types,
-                )?;
-
-                Ok(TypedExpr::Operator {
-                    op: self.op,
-                    typ: None,
-                })
-            }
-            Operator::BangEqual => {
-                Signature::evaluate_many(
-                    &vec![
-                        // u64 == u64 -> bool
-                        Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::Bool.id()]),
-                        // u8 == u8   -> bool
-                        Signature::new(vec![Type::U8.id(), Type::U8.id()], vec![Type::Bool.id()]),
-                        Signature::new(
-                            vec![Type::Char.id(), Type::Char.id()],
-                            vec![Type::Bool.id()],
-                        ),
-                        Signature::new_generic(
-                            vec![TypeId::new("*T"), TypeId::new("*T")],
-                            vec![Type::Bool.id()],
-                            vec![TypeId::new("T")],
-                        ),
-                        Signature::new_generic(
-                            vec![TypeId::new("E"), TypeId::new("E")],
-                            vec![Type::Bool.id()],
-                            vec![TypeId::new("E")],
-                        )
-                        .with_predicate(
-                            &|inputs, types| match (types.get(&inputs[0]), types.get(&inputs[1])) {
-                                (
-                                    Some(Type::Enum { name: left, .. }),
-                                    Some(Type::Enum { name: right, .. }),
-                                ) => left.lexeme == right.lexeme,
-                                _ => false,
-                            },
-                            "E is an enum",
-                        ),
-                    ],
-                    &self.token,
-                    stack,
-                    types,
-                )?;
-
-                Ok(TypedExpr::Operator {
-                    op: self.op,
-                    typ: None,
-                })
-            }
+            Operator::Equal => self.type_check_interface_op(
+                stack,
+                types,
+                global_env,
+                vec![
+                    Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::Bool.id()]),
+                    Signature::new_generic(
+                        vec![TypeId::new("E"), TypeId::new("E")],
+                        vec![Type::Bool.id()],
+                        vec![TypeId::new("E")],
+                    )
+                    .with_predicate(
+                        &|inputs, types| match (types.get(&inputs[0]), types.get(&inputs[1])) {
+                            (
+                                Some(Type::Enum { name: left, .. }),
+                                Some(Type::Enum { name: right, .. }),
+                            ) => left.lexeme == right.lexeme,
+                            _ => false,
+                        },
+                        "E is an enum",
+                    ),
+                ],
+                String::from("Op.eq"),
+            ),
+            Operator::BangEqual => self.type_check_interface_op(
+                stack,
+                types,
+                global_env,
+                vec![
+                    Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::Bool.id()]),
+                    Signature::new_generic(
+                        vec![TypeId::new("E"), TypeId::new("E")],
+                        vec![Type::Bool.id()],
+                        vec![TypeId::new("E")],
+                    )
+                    .with_predicate(
+                        &|inputs, types| match (types.get(&inputs[0]), types.get(&inputs[1])) {
+                            (
+                                Some(Type::Enum { name: left, .. }),
+                                Some(Type::Enum { name: right, .. }),
+                            ) => left.lexeme == right.lexeme,
+                            _ => false,
+                        },
+                        "E is an enum",
+                    ),
+                ],
+                String::from("Op.ne"),
+            ),
             Operator::Modulo => {
                 Signature::evaluate_many(
                     &vec![

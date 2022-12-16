@@ -19,7 +19,7 @@ fn main() {
 
     0 while dup str_arr::size < {
         as [i]
-        i str_arr ConstArr.get cast(u64) println
+        i str_arr ConstArr.at cast(u64) println
         i 1 +
     } drop
 

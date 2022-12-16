@@ -27,3 +27,9 @@ impl Format<bool> {
 impl Format<&bool> {
     inline fn fmt(String &bool) -> [String] { @ fmt }
 }
+
+impl Equals<bool> {
+    inline fn Op.eq(bool: left bool: right) -> [bool] {
+        left cast(u64) right cast(u64) == 
+    }
+}

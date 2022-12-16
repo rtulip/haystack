@@ -140,7 +140,6 @@ inline fn u8tou64(ConstArr<u8>: buf u64: start u64: len) -> [u64] {
             1 +  
         } drop
 
-        "out (4): " print out println
     }
     i 1 + len < if {
         0 while dup 2 < {
@@ -151,13 +150,11 @@ inline fn u8tou64(ConstArr<u8>: buf u64: start u64: len) -> [u64] {
             1 +  
         } drop
 
-        "out (2): " print out println
     }
     i len < if {
         start i + buf ConstArr.at cast(u64)
         i 8 * cast(u8) << out | *out !
         i 1 + *i !
-        "Out (1): " print out println
     }
 
     i len == assert
@@ -204,27 +201,15 @@ impl Hasher<SipHasher> {
         needed while dup len left - < {
             as [i]
             msg i __load_int_le as [mi]
-            "mi: " print mi println
 
             self::state::v3 @ mi ^ self::state::v3 !
             self::state Sip13Rounds.c_rounds
             self::state::v0 @ mi ^ self::state::v0 !
-
-            
-
             i 8 +
         } as [i]
 
-        "i: " print i println
-        "left: " print left println
-
         msg i left u8tou64 self::tail !
         left self::ntail !
-
-        "state: " print self::state println
-        "tail:  " print self::tail println
-        "ntail: " print self::ntail println
-
     }
 
     fn Hash.finish(&SipHasher: self) -> [u64] { 

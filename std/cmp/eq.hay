@@ -1,0 +1,4 @@
+interface Equals<T> {
+    fn Op.eq(T T) -> [bool]
+    fn Op.ne(T T) -> [bool] { Op.eq lnot}
+}

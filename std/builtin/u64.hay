@@ -111,3 +111,7 @@ impl Format<u64> {
 impl Format<&u64> {
     inline fn fmt(String &u64) -> [String] { @ fmt }
 }
+
+impl Equals<u64> {
+    inline fn Op.eq(u64 u64) -> [bool] { == }
+}

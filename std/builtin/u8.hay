@@ -76,3 +76,7 @@ impl Format<u8> {
 impl Format<&u8> {
     inline fn fmt(String &u8) -> [String] { @ fmt }
 }
+
+impl Equals<u8> {
+    inline fn Op.eq(u8: left u8: right) -> [bool] { left cast(u64) right cast(u64) == }
+}

@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "[CMD]: nasm -felf64 src/tests/type_check/cast_to_generic_union.asm\n[CMD]: ld -o cast_to_generic_union src/tests/type_check/cast_to_generic_union.o\n",
+  "stderr": ""
+}

@@ -1,0 +1,17 @@
+union Foo<T> {
+    u64: n
+    bool: b 
+    T: t
+}
+
+fn main() {
+    "Hello World" cast(Foo) as [f] {
+        f::t println
+    }
+    12345 cast(Foo<Str>) as [f] {
+        f::n println
+    }
+    true cast(Foo<Str>) as [f] {
+        f::b println
+    }
+}

@@ -380,4 +380,9 @@ mod tests {
             None,
         )
     }
+
+    #[test]
+    fn cast_to_generic_union() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "cast_to_generic_union", None)
+    }
 }

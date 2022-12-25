@@ -119,16 +119,41 @@ impl ExprCast {
                 Ok(TypedExpr::Cast { typ: typ_id })
             }
             Type::GenericRecordBase {
-                generics, members, ..
+                generics,
+                members,
+                kind,
+                ..
             } => {
-                Signature::new_generic(
-                    members.iter().map(|m| m.typ.clone()).collect(),
-                    vec![typ_id.clone()],
-                    generics.clone(),
-                )
-                .evaluate(&self.token, stack, types)?;
+                let tid = match kind {
+                    RecordKind::Struct => {
+                        Signature::new_generic(
+                            members.iter().map(|m| m.typ.clone()).collect(),
+                            vec![typ_id.clone()],
+                            generics.clone(),
+                        )
+                        .evaluate(&self.token, stack, types)?;
+                        typ_id
+                    }
+                    RecordKind::Union => {
+                        let sigs = members
+                            .iter()
+                            .map(|m| {
+                                Signature::new_generic(
+                                    vec![m.typ.clone()],
+                                    vec![typ_id.clone()],
+                                    generics.clone(),
+                                )
+                            })
+                            .collect::<Vec<Signature>>();
 
-                Ok(TypedExpr::Cast { typ: typ_id })
+                        Signature::evaluate_many(&sigs, &self.token, stack, types)?;
+
+                        typ_id
+                    }
+                    RecordKind::Interface => unreachable!(),
+                };
+
+                Ok(TypedExpr::Cast { typ: tid })
             }
             Type::Enum { .. } => Err(HayError::new_type_err(
                 "Casting to enums is unsupported.",

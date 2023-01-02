@@ -3,7 +3,7 @@ use crate::ast::member::TypedMember;
 use crate::error::HayError;
 use crate::lex::token::{Loc, Token, TokenKind, TypeToken};
 use crate::types::{TypeMap, Type, interface::{InterfaceBaseType, check_requirements, InterfaceInstanceType}, RecordKind, UncheckedFunction};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
 
@@ -822,6 +822,63 @@ impl TypeId {
                 unreachable!("Pre-Declarations types should not be part of type resolution.")
             }
         }
+    }
+
+    pub fn check_recursive(&self, token: &Token, types: &TypeMap, visited: &mut HashSet<TypeId>) -> Result<(), HayError> {
+        if !visited.insert(self.clone()) {
+            return Err(HayError::new(format!("Type {self} is recursive."), token.loc.clone())
+            .with_hint("Consider adding some kind of indirection, such as a reference."))
+        }
+        let result = match types.get(self) {
+            Some(Type::Bool
+            | Type::Char
+            | Type::U64
+            | Type::U8
+            | Type::Enum { .. }
+            | Type::Pointer { .. }) => Ok(()),
+            Some(Type::Record { members, .. } 
+            | Type::GenericRecordBase { members, .. } 
+            | Type::GenericRecordInstance { members, .. }) => {
+                for member in members {
+                    member.typ.check_recursive(token, types, visited)?;
+                }
+                Ok(())
+            },
+            Some(Type::InterfaceBase(_)) => Err(HayError::new(
+                "InterfaceBase types shouldn't be checked for being recursive",
+                token.loc.clone(),
+            )),
+            Some(Type::InterfaceInstance(_)) => Err(HayError::new(
+                "InterfaceInstance types shouldn't be checked for being recursive",
+                token.loc.clone()
+            )),
+            Some(Type::AssociatedTypeBase(_)) => Err(HayError::new(
+                "AssociatedTypeBase types shouldn't be checked for being recursive",
+                token.loc.clone()
+            )),
+            Some(Type::AssociatedTypeInstance(_)) => unimplemented!(),
+            Some(Type::Never) => Err(HayError::new(
+                "Never type shouldn't be checked for being recursive",
+                token.loc.clone()
+            )),
+            Some(Type::UncheckedFunction { .. }
+            | Type::GenericFunction { .. }
+            | Type::Function { .. }
+            | Type::Stub { .. }) => Err(HayError::new(
+                "Functions shouldn't be checked for being recursive",
+                token.loc.clone()
+            )),
+            Some(Type::RecordPreDeclaration { .. }) => Err(HayError::new(
+                "Pre-Declared shouldn't be checked for being recursive",
+                token.loc.clone()
+            )),
+            None => Ok(())
+        };
+
+        visited.remove(&self);
+
+        result
+    
     }
 
     /// Gets the size of a type in bytes.

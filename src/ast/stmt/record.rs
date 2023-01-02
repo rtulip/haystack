@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::{
     ast::{arg::UntypedArg, member::UntypedMember},
     error::HayError,
@@ -26,6 +28,8 @@ impl RecordStmt {
             validate_requirements(requirements, types)?;
         }
 
+        let tid = TypeId::new(&self.name.lexeme);
+
         let prev = match generics.len() {
             0 => {
                 if self.requires.is_some() {
@@ -39,7 +43,7 @@ impl RecordStmt {
                 }
 
                 types.insert(
-                    TypeId::new(&self.name.lexeme),
+                    tid.clone(),
                     Type::Record {
                         token: self.token.clone(),
                         name: self.name.clone(),
@@ -49,7 +53,7 @@ impl RecordStmt {
                 )
             }
             _ => types.insert(
-                TypeId::new(&self.name.lexeme),
+                tid.clone(),
                 Type::GenericRecordBase {
                     token: self.token.clone(),
                     name: self.name.clone(),
@@ -90,6 +94,8 @@ impl RecordStmt {
                 ))
             }
         }
+
+        tid.check_recursive(&self.name, types, &mut HashSet::new())?;
 
         Ok(())
     }

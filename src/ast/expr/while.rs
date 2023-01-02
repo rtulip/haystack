@@ -40,7 +40,7 @@ impl ExprWhile {
         if *frame != frame_before {
             return Err(HayError::new_type_err(
                 "Frame cannot change within the while loop condition.",
-                self.token.loc.clone(),
+                self.token.loc,
             )
             .with_hint(format!(
                 "Frame Before: {}",

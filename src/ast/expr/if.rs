@@ -95,9 +95,7 @@ impl ExprIf {
         }
 
         if !end_stacks.is_empty()
-            && !(0..end_stacks.len() - 1)
-                .into_iter()
-                .all(|i| end_stacks[i].1 == end_stacks[i + 1].1)
+            && !(0..end_stacks.len() - 1).all(|i| end_stacks[i].1 == end_stacks[i + 1].1)
         {
             let mut err = HayError::new_type_err(
                 "If block creates stacks of diferent shapes",

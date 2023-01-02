@@ -39,11 +39,15 @@ impl AnnotatedCallExpr {
         types: &mut TypeMap,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<TypedExpr, HayError> {
-        // Expect to find the base function in the global environment
-        let (_, mut sig) = global_env
-            .get(&self.base.lexeme)
-            .unwrap_or_else(|| panic!("Should have found function: {}", self.base))
-            .clone();
+        let mut sig = match global_env.get(&self.base.lexeme) {
+            Some((_, sig)) => sig.clone(),
+            None => {
+                return Err(HayError::new_type_err(
+                    format!("Unrecognized function `{}`", self.base.lexeme),
+                    self.token.loc,
+                ))
+            }
+        };
 
         // If there are any generic annotations, they need to be resolved from
         // the `generic_map`, this will map to a new monomorphised function.

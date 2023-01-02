@@ -73,7 +73,7 @@ impl ExprIdent {
 
         Err(HayError::new_type_err(
             format!("Unrecognized word `{}`", self.ident.lexeme),
-            self.ident.loc.clone(),
+            self.ident.loc,
         ))
     }
 }

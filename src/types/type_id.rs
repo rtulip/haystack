@@ -875,7 +875,7 @@ impl TypeId {
             None => Ok(())
         };
 
-        visited.remove(&self);
+        visited.remove(self);
 
         result
     

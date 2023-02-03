@@ -266,6 +266,9 @@ pub enum TypeToken {
         inner: Box<TypeToken>,
         mutable: bool,
     },
+    Tuple {
+        inner: Vec<Token>,
+    },
 }
 
 impl std::fmt::Display for TypeToken {
@@ -295,6 +298,16 @@ impl std::fmt::Display for TypeToken {
                 } else {
                     write!(f, "&{p}")
                 }
+            }
+            TypeToken::Tuple { inner } => {
+                write!(f, "[")?;
+                for inner_t in inner.iter().take(inner.len() - 1) {
+                    write!(f, "{inner_t} ")?;
+                }
+                if let Some(last) = inner.last() {
+                    write!(f, "{last}")?;
+                }
+                write!(f, "]")
             }
         }
     }

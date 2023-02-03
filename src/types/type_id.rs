@@ -48,6 +48,9 @@ impl TypeId {
                 | Type::Never
                 | Type::InterfaceInstance(_),
             ) => false,
+            Some(Type::Tuple { inner }) => {
+                inner.iter().any(|t| t.is_generic(types))
+            }
             Some(Type::Pointer { inner, .. }) => inner.is_generic(types),
             Some(
                 Type::GenericRecordBase { .. }
@@ -192,6 +195,7 @@ impl TypeId {
                         | Type::U64
                         | Type::Enum { .. }
                         | Type::Pointer { .. }
+                        | Type::Tuple { ..  }
                         | Type::Function { .. }
                         | Type::GenericFunction { .. }
                         | Type::GenericRecordInstance { .. }
@@ -221,6 +225,18 @@ impl TypeId {
                 let inner_typ_id = TypeId::from_type_token(token, inner, types, local_types)?;
                 Ok(inner_typ_id.ptr_of(*mutable, types))
             }
+            TypeToken::Tuple { inner } => {
+                
+                let mut typs = vec![];
+                for t in inner {
+                    typs.push(TypeId::from_token(t, types, local_types)?);
+                }
+                let t = Type::Tuple { inner: typs };
+
+                let tid= t.id();
+                types.insert(t.id(), t);
+                Ok(tid)
+            },
         }
     }
 
@@ -593,6 +609,21 @@ impl TypeId {
 
                     Ok(tid)
                 }
+                Type::Tuple { inner } => {
+
+                    let mut assigned_inner = vec![];
+
+                    for t in inner {
+                        assigned_inner.push(t.assign(token, map, types)?);
+                    }
+
+                    let tuple = Type::Tuple { inner: assigned_inner };
+                    let tid = tuple.id();
+
+                    types.insert(tid.clone(), tuple);
+
+                    Ok(tid)
+                },
                 Type::Stub { .. } => unimplemented!(),
                 Type::InterfaceBase(_) => unimplemented!(),
                 Type::InterfaceInstance(_) => unimplemented!(),
@@ -787,6 +818,22 @@ impl TypeId {
 
                 Ok(concrete.clone())
             }
+            (Some(Type::Tuple { inner }), Some(Type::Tuple { inner: concrete_inner })) => {
+
+                if inner.len() != concrete_inner.len() {
+                    return Err(HayError::new(format!("Cannot resolve {self} from {concrete}"), token.loc.clone()));
+                }
+
+                for (t, c) in inner.into_iter().zip(concrete_inner.iter()) {
+                    t.resolve(token, c, map, types)?;
+                }                
+
+                Ok(concrete.clone())
+            },
+            (Some(Type::Tuple { .. }), Some(x)) => {
+                Err(HayError::new(format!("Cannot resolve {self} from {concrete}"), token.loc.clone()))
+            },
+            (Some(Type::Tuple { .. }), None) => todo!(),
             (Some(Type::InterfaceBase(_)), _) => unimplemented!(),
             (Some(Type::InterfaceInstance(_)), _) => unimplemented!(),
             (Some(Type::AssociatedTypeBase(_)), _) => unimplemented!(),
@@ -835,7 +882,8 @@ impl TypeId {
             | Type::U64
             | Type::U8
             | Type::Enum { .. }
-            | Type::Pointer { .. }) => Ok(()),
+            | Type::Pointer { .. }
+            | Type::Tuple { .. }) => Ok(()),
             Some(Type::Record { members, .. } 
             | Type::GenericRecordBase { members, .. } 
             | Type::GenericRecordInstance { members, .. }) => {
@@ -890,6 +938,13 @@ impl TypeId {
             | Type::U8
             | Type::Enum { .. }
             | Type::Pointer { .. } => Ok(1),
+            Type::Tuple { inner } => {
+                let mut sum = 0;
+                for t in inner {
+                    sum += t.size(types)?;
+                }
+                Ok(sum)
+            }
             Type::Record { members, kind, .. } => match kind {
                 RecordKind::Struct => {
                     let mut sum = 0;

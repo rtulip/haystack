@@ -731,6 +731,39 @@ impl<'a> Parser<'a> {
                 (op, Some(_)) => unimplemented!("Unary {op} is not supported"),
                 (op, None) => unreachable!("Unary {op} with no type???"),
             }
+        } else if let Ok(left_bracket) =  self.matches(TokenKind::Marker(Marker::LeftBracket)) {
+            
+            let mut inner = vec![];
+
+            while let Some(typ) = self.parse_type()? {
+                inner.push(typ);
+            }
+
+            let new_tok = match self.matches(TokenKind::Marker(Marker::RightBracket)) {
+                Ok(x) => {
+                    let mut lexeme = left_bracket.lexeme;
+
+                    for t in &inner {
+                        lexeme = format!("{lexeme} {t}");
+                    }
+                    
+                    lexeme = format!("{lexeme}]");
+                    Token::new(TokenKind::Type(
+                        TypeToken::Tuple { 
+                            inner 
+                        }
+                    ), 
+                    lexeme, 
+                    left_bracket.loc.file, 
+                    left_bracket.loc.line, 
+                    left_bracket.loc.span.start, 
+                    x.loc.span.end)
+                },
+                Err(x) => todo!("Error"),
+            };
+
+            Ok(Some(new_tok))
+
         } else if let Ok(ident) = self.matches(TokenKind::ident()) {
             let typ = if self
                 .matches(TokenKind::Operator(Operator::LessThan))

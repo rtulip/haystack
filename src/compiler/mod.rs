@@ -345,6 +345,11 @@ mod functional {
     fn tuple_printing() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/functional", "tuple_printing", None)
     }
+
+    #[test]
+    fn array_of_tuples() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/functional", "array_of_tuples", None)
+    }
 }
 
 mod examples {

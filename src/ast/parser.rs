@@ -2037,4 +2037,14 @@ mod tests {
         crate::compiler::test_tools::run_test("src/tests/parser", "parse_recursive_type", None)
     }
 
+    #[test]
+    fn parse_tuple_empty() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_tuple_empty", None)
+    }
+
+    #[test]
+    fn parse_tuple_bad_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_tuple_bad_close", None)
+    }
+
 }

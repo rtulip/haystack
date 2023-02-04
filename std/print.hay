@@ -13,6 +13,12 @@ requires: [Print<T>] {
     fn print(&T) { @ print }
 }
 
+impl Print<[]> {
+    fn print([]: _) {
+        "[]" print
+    }
+}
+
 impl<A> Print<[A]>
 requires: [Print<A>] {
     fn print([A]: t) { '[' print t::0 print ']' print }

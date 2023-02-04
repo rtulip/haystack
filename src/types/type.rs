@@ -160,9 +160,12 @@ impl Type {
             }
             Type::Tuple { inner } => {
                 let mut name = format!("[{}", inner.first().unwrap_or(&TypeId::new("")));
-                for t in &inner[1..] {
-                    name = format!("{name} {t}");
+                if inner.len() > 0 {
+                    for t in &inner[1..] {
+                        name = format!("{name} {t}");
+                    }
                 }
+
                 name = format!("{name}]",);
 
                 TypeId::new(name)

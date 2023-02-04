@@ -1,0 +1,12 @@
+fn main() {
+
+    'c' println
+    'x' "Str" cast([char Str]) println
+
+    "one" cast([Str]) println
+    "one" true cast([Str bool]) println
+    "one" true 3 cast([Str bool u64]) println
+    "one" true 3 '4' cast([Str bool u64 char]) println
+    "one" true 3 '4' "five" cast([char Str]) cast([Str bool u64 [char Str]]) println
+
+}

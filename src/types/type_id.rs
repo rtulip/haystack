@@ -830,10 +830,9 @@ impl TypeId {
 
                 Ok(concrete.clone())
             },
-            (Some(Type::Tuple { .. }), Some(x)) => {
+            (Some(Type::Tuple { .. }), _) => {
                 Err(HayError::new(format!("Cannot resolve {self} from {concrete}"), token.loc.clone()))
             },
-            (Some(Type::Tuple { .. }), None) => todo!(),
             (Some(Type::InterfaceBase(_)), _) => unimplemented!(),
             (Some(Type::InterfaceInstance(_)), _) => unimplemented!(),
             (Some(Type::AssociatedTypeBase(_)), _) => unimplemented!(),

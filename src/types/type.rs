@@ -1,7 +1,7 @@
 use crate::ast::member::TypedMember;
 use crate::ast::stmt::GlobalEnv;
 use crate::error::HayError;
-use crate::lex::token::{Token, TokenKind, TypeToken};
+use crate::lex::token::Token;
 use crate::types::{
     AssociatedTypeBase, AssociatedTypeInstance, InterfaceBaseType, InterfaceInstanceType,
 };

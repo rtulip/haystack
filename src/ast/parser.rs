@@ -759,7 +759,7 @@ impl<'a> Parser<'a> {
                     left_bracket.loc.span.start, 
                     x.loc.span.end)
                 },
-                Err(x) => todo!("Error"),
+                Err(e) => return Err(HayError::new(format!("Expected a {} to close the tuple, but found {} instead", Marker::RightBracket, e.lexeme), e.loc.clone(),)),
             };
 
             Ok(Some(new_tok))
@@ -843,54 +843,8 @@ impl<'a> Parser<'a> {
                 }
             };
 
-            if self.matches(TokenKind::Marker(Marker::LeftBracket)).is_ok() {
-                let n = match self.matches(TokenKind::u64()) {
-                    Ok(n) => n.u64()?,
-                    Err(t) => {
-                        return Err(HayError::new(
-                            format!(
-                                "Expected array size after {}, but found {}",
-                                Marker::LeftBracket,
-                                t.kind
-                            ),
-                            t.loc,
-                        ))
-                    }
-                };
-
-                let close = match self.matches(TokenKind::Marker(Marker::RightBracket)) {
-                    Ok(t) => t,
-                    Err(t) => {
-                        return Err(HayError::new(
-                            format!(
-                                "Expected {} after array size, but found {}",
-                                Marker::RightBracket,
-                                t.kind
-                            ),
-                            t.loc,
-                        ))
-                    }
-                };
-
-                let kind = TokenKind::Type(TypeToken::Array {
-                    base: Box::new(typ.typ()?),
-                    size: n as usize,
-                });
-                let lexeme = format!("{kind}");
-
-                Ok(Some(Token {
-                    kind,
-                    lexeme,
-                    loc: Loc::new(
-                        typ.loc.file,
-                        typ.loc.line,
-                        typ.loc.span.start,
-                        close.loc.span.end,
-                    ),
-                }))
-            } else {
-                Ok(Some(typ))
-            }
+            Ok(Some(typ))
+            
         } else if let Ok(tok) = self.matches(TokenKind::Operator(Operator::Ampersand)) {
             return Err(HayError::new(
                 format!(
@@ -1544,7 +1498,7 @@ impl<'a> Parser<'a> {
     }
 
     fn var(&mut self, token: Token) -> Result<ExprVar, HayError> {
-        let typ = match self.parse_type()? {
+        let mut typ = match self.parse_type()? {
             Some(t) => t,
             None => {
                 return Err(HayError::new(
@@ -1557,6 +1511,53 @@ impl<'a> Parser<'a> {
                 ))
             }
         };
+
+        if self.matches(TokenKind::Marker(Marker::LeftBracket)).is_ok() {
+            let n = match self.matches(TokenKind::u64()) {
+                Ok(n) => n.u64()?,
+                Err(t) => {
+                    return Err(HayError::new(
+                        format!(
+                            "Expected array size after {}, but found {}",
+                            Marker::LeftBracket,
+                            t.kind
+                        ),
+                        t.loc,
+                    ))
+                }
+            };
+
+            let close = match self.matches(TokenKind::Marker(Marker::RightBracket)) {
+                Ok(t) => t,
+                Err(t) => {
+                    return Err(HayError::new(
+                        format!(
+                            "Expected {} after array size, but found {}",
+                            Marker::RightBracket,
+                            t.kind
+                        ),
+                        t.loc,
+                    ))
+                }
+            };
+
+            let kind = TokenKind::Type(TypeToken::Array {
+                base: Box::new(typ.typ()?),
+                size: n as usize,
+            });
+            let lexeme = format!("{kind}");
+
+            typ = Token {
+                kind,
+                lexeme,
+                loc: Loc::new(
+                    typ.loc.file,
+                    typ.loc.line,
+                    typ.loc.span.start,
+                    close.loc.span.end,
+                ),
+            };
+        }
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::Colon)) {
             return Err(HayError::new(

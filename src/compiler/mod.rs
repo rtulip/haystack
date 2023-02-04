@@ -340,6 +340,11 @@ mod functional {
     fn generic_pair_add() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/functional", "generic_pair_add", None)
     }
+
+    #[test]
+    fn tuple_printing() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/functional", "tuple_printing", None)
+    }
 }
 
 mod examples {

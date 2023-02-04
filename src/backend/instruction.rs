@@ -118,8 +118,8 @@ impl Instruction {
                 let mut typ = &frame[idx].1.typ;
                 let bytes = if let Some(inner) = &inner {
                     for inner in inner {
-                        typ = if let Type::Record { members, kind, .. } = types.get(typ).unwrap() {
-                            match kind {
+                        typ = match types.get(typ).unwrap() {
+                            Type::Record { members, kind, .. } => match kind {
                                 RecordKind::Struct => {
                                     let idx = members
                                         .iter()
@@ -145,9 +145,17 @@ impl Instruction {
                                     &members[idx].typ
                                 }
                                 RecordKind::Interface => unreachable!(),
+                            },
+                            Type::Tuple {
+                                inner: tuple_members,
+                            } => {
+                                let idx = inner
+                                    .parse::<usize>()
+                                    .expect(format!("{inner} should be a usize").as_str());
+
+                                &tuple_members[idx]
                             }
-                        } else {
-                            panic!("{typ}");
+                            _ => panic!("Didn't expect to find {typ} here!"),
                         }
                     }
 

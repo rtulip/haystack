@@ -1,7 +1,7 @@
 use crate::ast::expr::Expr;
 use crate::ast::stmt::Stmt;
 use crate::error::HayError;
-use crate::lex::token::{Keyword, Loc, Marker, Operator, Token, TokenKind, TypeToken};
+use crate::lex::token::{Keyword, Loc, Marker, Operator, Token, TokenKind, TypeToken, Literal};
 use crate::types::{FnTag, RecordKind, TypeId};
 use std::collections::{HashSet};
 
@@ -1049,7 +1049,7 @@ impl<'a> Parser<'a> {
                                 annotations,
                             })));
                         }
-                        TokenKind::Ident(_) => {
+                        TokenKind::Ident(_) | TokenKind::Literal(Literal::U64(_)) => {
                             let new_lexeme =
                                 format!("{}{}{}", new_token.lexeme, dc.lexeme, next.lexeme);
                             new_token = Token {

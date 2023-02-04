@@ -48,7 +48,7 @@ impl AccessorExpr {
             .find(|(_, (k, _))| k == &self.ident.lexeme)
         {
             match types.get(&ft.typ).unwrap() {
-                Type::Record { .. } => {
+                Type::Record { .. } | Type::Tuple { .. } => {
                     // find the type of the inner accessor
                     let final_tid =
                         ft.typ
@@ -124,6 +124,10 @@ impl AccessorExpr {
                     .lexeme
                     .clone(),
             })
+        } else if let Some(Type::Tuple { .. }) = types.get(&TypeId::new(&self.ident.lexeme)) {
+            // find the type of the inner accessor
+
+            todo!();
         } else {
             Err(HayError::new(
                 format!("Unknown identifier `{}`", self.ident.lexeme),

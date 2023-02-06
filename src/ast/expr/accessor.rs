@@ -124,10 +124,6 @@ impl AccessorExpr {
                     .lexeme
                     .clone(),
             })
-        } else if let Some(Type::Tuple { .. }) = types.get(&TypeId::new(&self.ident.lexeme)) {
-            // find the type of the inner accessor
-
-            todo!();
         } else {
             Err(HayError::new(
                 format!("Unknown identifier `{}`", self.ident.lexeme),

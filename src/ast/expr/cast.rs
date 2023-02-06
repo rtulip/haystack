@@ -33,7 +33,15 @@ impl ExprCast {
         } else {
             typ_id
         };
-        let cast_type = types.get(&typ_id).unwrap().clone();
+
+        let cast_type = if let Some(typ) = types.get(&typ_id) {
+            typ.clone()
+        } else {
+            return Err(HayError::new(
+                format!("Cannot cast to unknown type: {typ_id}"),
+                self.token.loc,
+            ));
+        };
 
         match &cast_type {
             Type::Record { members, kind, .. } => match kind {
@@ -108,6 +116,15 @@ impl ExprCast {
                     stack,
                     types,
                 )?;
+                Ok(TypedExpr::Cast { typ: typ_id })
+            }
+            Type::Tuple { inner } => {
+                Signature::new(inner.clone(), vec![typ_id.clone()]).evaluate(
+                    &self.token,
+                    stack,
+                    types,
+                )?;
+
                 Ok(TypedExpr::Cast { typ: typ_id })
             }
             Type::Pointer { .. } => {

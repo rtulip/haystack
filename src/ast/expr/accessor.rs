@@ -48,7 +48,7 @@ impl AccessorExpr {
             .find(|(_, (k, _))| k == &self.ident.lexeme)
         {
             match types.get(&ft.typ).unwrap() {
-                Type::Record { .. } => {
+                Type::Record { .. } | Type::Tuple { .. } => {
                     // find the type of the inner accessor
                     let final_tid =
                         ft.typ

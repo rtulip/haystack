@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "c\n[x Str]\n[one]\n[one true]\n[one true 3]\n[one true 3 4]\n[one true 3 [4 five]]\n",
+  "stderr": ""
+}

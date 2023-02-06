@@ -266,6 +266,9 @@ pub enum TypeToken {
         inner: Box<TypeToken>,
         mutable: bool,
     },
+    Tuple {
+        inner: Vec<Token>,
+    },
 }
 
 impl std::fmt::Display for TypeToken {
@@ -296,11 +299,24 @@ impl std::fmt::Display for TypeToken {
                     write!(f, "&{p}")
                 }
             }
+            TypeToken::Tuple { inner } => {
+                write!(f, "[")?;
+                if !inner.is_empty() {
+                    for inner_t in inner.iter().take(inner.len() - 1) {
+                        write!(f, "{inner_t} ")?;
+                    }
+                }
+
+                if let Some(last) = inner.last() {
+                    write!(f, "{last}")?;
+                }
+                write!(f, "]")
+            }
         }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum TokenKind {
     Ident(String),
     Marker(Marker),
@@ -309,13 +325,8 @@ pub enum TokenKind {
     Literal(Literal),
     Syscall(usize),
     Type(TypeToken),
+    #[default]
     EoF,
-}
-
-impl Default for TokenKind {
-    fn default() -> Self {
-        TokenKind::EoF
-    }
 }
 
 impl TokenKind {

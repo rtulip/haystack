@@ -12,3 +12,62 @@ impl<T> Print<&T>
 requires: [Print<T>] {
     fn print(&T) { @ print }
 }
+
+impl Print<[]> {
+    fn print([]: _) {
+        "[]" print
+    }
+}
+
+impl<A> Print<[A]>
+requires: [Print<A>] {
+    fn print([A]: t) { '[' print t::0 print ']' print }
+}
+
+impl<A B> Print<[A B]>
+requires: [Print<A> Print<B>] {
+    fn print([A B]: t) {
+        '[' print
+        t::0 print ' ' print
+        t::1 print ']' print
+    }
+}
+
+impl<A B C> Print<[A B C]>
+requires: [Print<A> Print<B> Print<C>] {
+    fn print([A B C]: t) {
+        '[' print
+        t::0 print ' ' print
+        t::1 print ' ' print
+        t::2 print ']' print
+    }
+}
+
+impl<A B C D> Print<[A B C D]>
+requires: [Print<A> Print<B> Print<C> Print<D>] {
+    fn print([A B C D]: t) {
+        '[' print
+        t::0 print ' ' print
+        t::1 print ' ' print
+        t::2 print ' ' print
+        t::3 print ']' print
+    }
+}
+
+impl<A B C D E> Print<[A B C D E]>
+requires: [
+    Print<A> 
+    Print<B> 
+    Print<C> 
+    Print<D> 
+    Print<E>
+] {
+    fn print([A B C D E]: t) {
+        '[' print
+        t::0 print ' ' print
+        t::1 print ' ' print
+        t::2 print ' ' print
+        t::3 print ' ' print
+        t::4 print ']' print
+    }
+}

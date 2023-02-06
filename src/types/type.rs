@@ -38,6 +38,9 @@ pub enum Type {
     Bool,
     /// Built-in Never-type for early returns and functions that will never return.
     Never,
+    Tuple {
+        inner: Vec<TypeId>,
+    },
     /// Pointer type.
     Pointer {
         /// The type being pointed to.
@@ -152,6 +155,18 @@ impl Type {
                     name = format!("{name}{t} ");
                 }
                 name = format!("{name}{}>", alias_list.last().unwrap());
+
+                TypeId::new(name)
+            }
+            Type::Tuple { inner } => {
+                let mut name = format!("[{}", inner.first().unwrap_or(&TypeId::new("")));
+                if !inner.is_empty() {
+                    for t in &inner[1..] {
+                        name = format!("{name} {t}");
+                    }
+                }
+
+                name = format!("{name}]",);
 
                 TypeId::new(name)
             }

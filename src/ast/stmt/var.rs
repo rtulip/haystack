@@ -53,15 +53,13 @@ impl VarStmt {
 
         match global_env.insert(self.expr.ident.lexeme.clone(), (StmtKind::Var, sig)) {
             None => Ok(()),
-            Some(_) => {
-                return Err(HayError::new(
-                    format!(
-                        "Var conflict. `{}` defined elsewhere",
-                        self.expr.ident.lexeme
-                    ),
-                    self.token.loc,
-                ))
-            }
+            Some(_) => Err(HayError::new(
+                format!(
+                    "Var conflict. `{}` defined elsewhere",
+                    self.expr.ident.lexeme
+                ),
+                self.token.loc,
+            )),
         }
     }
 }

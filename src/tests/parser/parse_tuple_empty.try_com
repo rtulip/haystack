@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "[CMD]: nasm -felf64 src/tests/parser/parse_tuple_empty.asm\n[CMD]: ld -o parse_tuple_empty src/tests/parser/parse_tuple_empty.o\n",
+  "stderr": ""
+}

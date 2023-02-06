@@ -1,7 +1,7 @@
 use crate::ast::arg::TypedArg;
 use crate::ast::member::TypedMember;
 use crate::error::HayError;
-use crate::lex::token::{Loc, Token, TokenKind, TypeToken};
+use crate::lex::token::{Loc, Token, TokenKind, TypeToken, Literal};
 use crate::types::{TypeMap, Type, interface::{InterfaceBaseType, check_requirements, InterfaceInstanceType}, RecordKind, UncheckedFunction};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
@@ -48,6 +48,9 @@ impl TypeId {
                 | Type::Never
                 | Type::InterfaceInstance(_),
             ) => false,
+            Some(Type::Tuple { inner }) => {
+                inner.iter().any(|t| t.is_generic(types))
+            }
             Some(Type::Pointer { inner, .. }) => inner.is_generic(types),
             Some(
                 Type::GenericRecordBase { .. }
@@ -179,7 +182,7 @@ impl TypeId {
                         Type::InterfaceBase(InterfaceBaseType { name, .. })
                         | Type::InterfaceInstance(InterfaceInstanceType { token: name, .. }),
                     ) => {
-                        return Err(HayError::new(
+                        Err(HayError::new(
                             format!("Cannot create an instance of interface `{}`", name.lexeme),
                             token.loc.clone(),
                         )
@@ -192,6 +195,7 @@ impl TypeId {
                         | Type::U64
                         | Type::Enum { .. }
                         | Type::Pointer { .. }
+                        | Type::Tuple { ..  }
                         | Type::Function { .. }
                         | Type::GenericFunction { .. }
                         | Type::GenericRecordInstance { .. }
@@ -221,6 +225,18 @@ impl TypeId {
                 let inner_typ_id = TypeId::from_type_token(token, inner, types, local_types)?;
                 Ok(inner_typ_id.ptr_of(*mutable, types))
             }
+            TypeToken::Tuple { inner } => {
+                
+                let mut typs = vec![];
+                for t in inner {
+                    typs.push(TypeId::from_token(t, types, local_types)?);
+                }
+                let t = Type::Tuple { inner: typs };
+
+                let tid= t.id();
+                types.insert(t.id(), t);
+                Ok(tid)
+            },
         }
     }
 
@@ -593,6 +609,21 @@ impl TypeId {
 
                     Ok(tid)
                 }
+                Type::Tuple { inner } => {
+
+                    let mut assigned_inner = vec![];
+
+                    for t in inner {
+                        assigned_inner.push(t.assign(token, map, types)?);
+                    }
+
+                    let tuple = Type::Tuple { inner: assigned_inner };
+                    let tid = tuple.id();
+
+                    types.insert(tid.clone(), tuple);
+
+                    Ok(tid)
+                },
                 Type::Stub { .. } => unimplemented!(),
                 Type::InterfaceBase(_) => unimplemented!(),
                 Type::InterfaceInstance(_) => unimplemented!(),
@@ -787,6 +818,21 @@ impl TypeId {
 
                 Ok(concrete.clone())
             }
+            (Some(Type::Tuple { inner }), Some(Type::Tuple { inner: concrete_inner })) => {
+
+                if inner.len() != concrete_inner.len() {
+                    return Err(HayError::new(format!("Cannot resolve {self} from {concrete}"), token.loc.clone()));
+                }
+
+                for (t, c) in inner.into_iter().zip(concrete_inner.iter()) {
+                    t.resolve(token, c, map, types)?;
+                }                
+
+                Ok(concrete.clone())
+            },
+            (Some(Type::Tuple { .. }), _) => {
+                Err(HayError::new(format!("Cannot resolve {self} from {concrete}"), token.loc.clone()))
+            },
             (Some(Type::InterfaceBase(_)), _) => unimplemented!(),
             (Some(Type::InterfaceInstance(_)), _) => unimplemented!(),
             (Some(Type::AssociatedTypeBase(_)), _) => unimplemented!(),
@@ -835,7 +881,8 @@ impl TypeId {
             | Type::U64
             | Type::U8
             | Type::Enum { .. }
-            | Type::Pointer { .. }) => Ok(()),
+            | Type::Pointer { .. }
+            | Type::Tuple { .. }) => Ok(()),
             Some(Type::Record { members, .. } 
             | Type::GenericRecordBase { members, .. } 
             | Type::GenericRecordInstance { members, .. }) => {
@@ -890,6 +937,13 @@ impl TypeId {
             | Type::U8
             | Type::Enum { .. }
             | Type::Pointer { .. } => Ok(1),
+            Type::Tuple { inner } => {
+                let mut sum = 0;
+                for t in inner {
+                    sum += t.size(types)?;
+                }
+                Ok(sum)
+            }
             Type::Record { members, kind, .. } => match kind {
                 RecordKind::Struct => {
                     let mut sum = 0;
@@ -966,65 +1020,89 @@ impl TypeId {
         let mut typ = self;
 
         for inner_member in inner {
-            if let Type::Record {
-                name,
-                members,
-                kind,
-                ..
-            } = types.get(typ).unwrap()
-            {
-                if let Some(m) = members
-                    .iter()
-                    .find(|m| m.ident.lexeme == inner_member.lexeme)
-                {
-                    if !m.is_public() {
-                        match &func.impl_on {
-                            Some(typ) => if &m.parent != typ {
-                                return Err(
+            match types.get(typ).unwrap() {
+                Type::Record {
+                    name,
+                    members,
+                    kind,
+                    ..
+                } => {
+                    if let Some(m) = members
+                        .iter()
+                        .find(|m| m.ident.lexeme == inner_member.lexeme)
+                    {
+                        if !m.is_public() {
+                            match &func.impl_on {
+                                Some(typ) => if &m.parent != typ {
+                                    return Err(
+                                        HayError::new_type_err(
+                                            format!("Cannot access {kind} `{}` member `{}` as it is declared as private.", name.lexeme, m.ident.lexeme), 
+                                            token.loc
+                                        ).with_hint_and_custom_note(format!("{kind} `{}` declared here", name.lexeme), format!("{}", name.loc))
+                                    )
+                                }
+                                _ => return Err(
                                     HayError::new_type_err(
                                         format!("Cannot access {kind} `{}` member `{}` as it is declared as private.", name.lexeme, m.ident.lexeme), 
                                         token.loc
                                     ).with_hint_and_custom_note(format!("{kind} `{}` declared here", name.lexeme), format!("{}", name.loc))
                                 )
                             }
-                            _ => return Err(
-                                HayError::new_type_err(
-                                    format!("Cannot access {kind} `{}` member `{}` as it is declared as private.", name.lexeme, m.ident.lexeme), 
-                                    token.loc
-                                ).with_hint_and_custom_note(format!("{kind} `{}` declared here", name.lexeme), format!("{}", name.loc))
-                            )
                         }
+    
+                        typ = &m.typ;
+                    } else {
+                        return Err(HayError::new_type_err(
+                            format!(
+                                "{} `{}` doesn't have a member `{}`",
+                                match kind {
+                                    RecordKind::Union => "Union",
+                                    RecordKind::Struct => "Struct",
+                                    RecordKind::Interface => unreachable!(),
+                                },
+                                name.lexeme,
+                                inner_member.lexeme,
+                            ),
+                            token.loc,
+                        )
+                        .with_hint(format!(
+                            "`{}` has the following members: {:?}",
+                            name.lexeme,
+                            members
+                                .iter()
+                                .map(|m| &m.ident.lexeme)
+                                .collect::<Vec<&String>>()
+                        )));
+                    }
+                }
+                Type::Tuple { inner: tuple_inner } => {
+
+                    match &inner_member.kind {
+                        TokenKind::Literal(Literal::U64(n)) => {
+                            if *n as usize >= tuple_inner.len() {
+                                return Err(HayError::new(
+                                    format!(
+                                        "{n} is out of range for `{typ}`. Expected a value between 0 and {} inclusive.", 
+                                        tuple_inner.len() -1
+                                    ), 
+                                    token.loc
+                                ));
+                            }
+
+                            typ = &tuple_inner[*n as usize];
+                        },
+                        kind => return Err(
+                            HayError::new(
+                                format!("Expected a number literal to access into `{typ}`, but found {kind} instead."), 
+                                token.loc
+                        ))
                     }
 
-                    typ = &m.typ;
-                } else {
-                    return Err(HayError::new_type_err(
-                        format!(
-                            "{} `{}` doesn't have a member `{}`",
-                            match kind {
-                                RecordKind::Union => "Union",
-                                RecordKind::Struct => "Struct",
-                                RecordKind::Interface => unreachable!(),
-                            },
-                            name.lexeme,
-                            inner_member.lexeme,
-                        ),
-                        token.loc,
-                    )
-                    .with_hint(format!(
-                        "`{}` has the following members: {:?}",
-                        name.lexeme,
-                        members
-                            .iter()
-                            .map(|m| &m.ident.lexeme)
-                            .collect::<Vec<&String>>()
-                    )));
-                }
-            } else {
-                return Err(HayError::new(
+                },
+                _ => {return Err(HayError::new(
                     format!("Cannot access into non-record type `{typ}`"),
                     token.loc,
-                ));
+                ));}
             }
         }
         Ok(typ.clone())

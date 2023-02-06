@@ -1,0 +1,10 @@
+var [][123]: Foo
+
+fn main() {
+    "Hello World!" cast([]) cast([Str []]) 12345 cast([[Str []] u64]) as [x]
+    x::0::0 println
+    x::0::1 println
+    x::1 println
+
+    sizeOf([]) println
+}

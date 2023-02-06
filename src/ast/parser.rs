@@ -1,7 +1,7 @@
 use crate::ast::expr::Expr;
 use crate::ast::stmt::Stmt;
 use crate::error::HayError;
-use crate::lex::token::{Keyword, Loc, Marker, Operator, Token, TokenKind, TypeToken};
+use crate::lex::token::{Keyword, Loc, Marker, Operator, Token, TokenKind, TypeToken, Literal};
 use crate::types::{FnTag, RecordKind, TypeId};
 use std::collections::{HashSet};
 
@@ -731,6 +731,46 @@ impl<'a> Parser<'a> {
                 (op, Some(_)) => unimplemented!("Unary {op} is not supported"),
                 (op, None) => unreachable!("Unary {op} with no type???"),
             }
+        } else if let Ok(left_bracket) =  self.matches(TokenKind::Marker(Marker::LeftBracket)) {
+            
+            let mut inner = vec![];
+
+            while let Some(typ) = self.parse_type()? {
+                inner.push(typ);
+            }
+
+            let new_tok = match self.matches(TokenKind::Marker(Marker::RightBracket)) {
+                Ok(x) => {
+                    let mut lexeme = left_bracket.lexeme;
+
+                    for t in &inner {
+                        lexeme = format!("{lexeme} {t}");
+                    }
+                    
+                    lexeme = format!("{lexeme}]");
+                    Token::new(TokenKind::Type(
+                        TypeToken::Tuple { 
+                            inner 
+                        }
+                    ), 
+                    lexeme, 
+                    left_bracket.loc.file, 
+                    left_bracket.loc.line, 
+                    left_bracket.loc.span.start, 
+                    x.loc.span.end)
+                },
+                Err(e) => return Err(HayError::new(
+                    format!(
+                        "Expected a {} to close the tuple, but found {} instead", 
+                        Marker::RightBracket,
+                         e.lexeme
+                    ), 
+                    e.loc,
+                )),
+            };
+
+            Ok(Some(new_tok))
+
         } else if let Ok(ident) = self.matches(TokenKind::ident()) {
             let typ = if self
                 .matches(TokenKind::Operator(Operator::LessThan))
@@ -810,54 +850,8 @@ impl<'a> Parser<'a> {
                 }
             };
 
-            if self.matches(TokenKind::Marker(Marker::LeftBracket)).is_ok() {
-                let n = match self.matches(TokenKind::u64()) {
-                    Ok(n) => n.u64()?,
-                    Err(t) => {
-                        return Err(HayError::new(
-                            format!(
-                                "Expected array size after {}, but found {}",
-                                Marker::LeftBracket,
-                                t.kind
-                            ),
-                            t.loc,
-                        ))
-                    }
-                };
-
-                let close = match self.matches(TokenKind::Marker(Marker::RightBracket)) {
-                    Ok(t) => t,
-                    Err(t) => {
-                        return Err(HayError::new(
-                            format!(
-                                "Expected {} after array size, but found {}",
-                                Marker::RightBracket,
-                                t.kind
-                            ),
-                            t.loc,
-                        ))
-                    }
-                };
-
-                let kind = TokenKind::Type(TypeToken::Array {
-                    base: Box::new(typ.typ()?),
-                    size: n as usize,
-                });
-                let lexeme = format!("{kind}");
-
-                Ok(Some(Token {
-                    kind,
-                    lexeme,
-                    loc: Loc::new(
-                        typ.loc.file,
-                        typ.loc.line,
-                        typ.loc.span.start,
-                        close.loc.span.end,
-                    ),
-                }))
-            } else {
-                Ok(Some(typ))
-            }
+            Ok(Some(typ))
+            
         } else if let Ok(tok) = self.matches(TokenKind::Operator(Operator::Ampersand)) {
             return Err(HayError::new(
                 format!(
@@ -1016,7 +1010,7 @@ impl<'a> Parser<'a> {
                                 annotations,
                             })));
                         }
-                        TokenKind::Ident(_) => {
+                        TokenKind::Ident(_) | TokenKind::Literal(Literal::U64(_)) => {
                             let new_lexeme =
                                 format!("{}{}{}", new_token.lexeme, dc.lexeme, next.lexeme);
                             new_token = Token {
@@ -1511,7 +1505,7 @@ impl<'a> Parser<'a> {
     }
 
     fn var(&mut self, token: Token) -> Result<ExprVar, HayError> {
-        let typ = match self.parse_type()? {
+        let mut typ = match self.parse_type()? {
             Some(t) => t,
             None => {
                 return Err(HayError::new(
@@ -1524,6 +1518,53 @@ impl<'a> Parser<'a> {
                 ))
             }
         };
+
+        if self.matches(TokenKind::Marker(Marker::LeftBracket)).is_ok() {
+            let n = match self.matches(TokenKind::u64()) {
+                Ok(n) => n.u64()?,
+                Err(t) => {
+                    return Err(HayError::new(
+                        format!(
+                            "Expected array size after {}, but found {}",
+                            Marker::LeftBracket,
+                            t.kind
+                        ),
+                        t.loc,
+                    ))
+                }
+            };
+
+            let close = match self.matches(TokenKind::Marker(Marker::RightBracket)) {
+                Ok(t) => t,
+                Err(t) => {
+                    return Err(HayError::new(
+                        format!(
+                            "Expected {} after array size, but found {}",
+                            Marker::RightBracket,
+                            t.kind
+                        ),
+                        t.loc,
+                    ))
+                }
+            };
+
+            let kind = TokenKind::Type(TypeToken::Array {
+                base: Box::new(typ.typ()?),
+                size: n as usize,
+            });
+            let lexeme = format!("{kind}");
+
+            typ = Token {
+                kind,
+                lexeme,
+                loc: Loc::new(
+                    typ.loc.file,
+                    typ.loc.line,
+                    typ.loc.span.start,
+                    close.loc.span.end,
+                ),
+            };
+        }
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::Colon)) {
             return Err(HayError::new(
@@ -2001,6 +2042,16 @@ mod tests {
     #[test]
     fn parse_recursive_type() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/parser", "parse_recursive_type", None)
+    }
+
+    #[test]
+    fn parse_tuple_empty() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_tuple_empty", None)
+    }
+
+    #[test]
+    fn parse_tuple_bad_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_tuple_bad_close", None)
     }
 
 }

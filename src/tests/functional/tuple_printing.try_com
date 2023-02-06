@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "[CMD]: nasm -felf64 src/tests/functional/tuple_printing.asm\n[CMD]: ld -o tuple_printing src/tests/functional/tuple_printing.o\n",
+  "stderr": ""
+}

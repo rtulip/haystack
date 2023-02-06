@@ -316,7 +316,7 @@ impl std::fmt::Display for TypeToken {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum TokenKind {
     Ident(String),
     Marker(Marker),
@@ -325,13 +325,8 @@ pub enum TokenKind {
     Literal(Literal),
     Syscall(usize),
     Type(TypeToken),
+    #[default]
     EoF,
-}
-
-impl Default for TokenKind {
-    fn default() -> Self {
-        TokenKind::EoF
-    }
 }
 
 impl TokenKind {

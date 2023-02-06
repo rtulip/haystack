@@ -102,15 +102,13 @@ impl FunctionStmt {
 
                 Ok(())
             }
-            Some(_) => {
-                return Err(HayError::new(
-                    format!(
-                        "Function name conflict. `{}` defined elsewhere",
-                        self.name.lexeme
-                    ),
-                    self.name.loc,
-                ));
-            }
+            Some(_) => Err(HayError::new(
+                format!(
+                    "Function name conflict. `{}` defined elsewhere",
+                    self.name.lexeme
+                ),
+                self.name.loc,
+            )),
         }
     }
 }

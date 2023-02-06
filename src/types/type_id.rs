@@ -182,7 +182,7 @@ impl TypeId {
                         Type::InterfaceBase(InterfaceBaseType { name, .. })
                         | Type::InterfaceInstance(InterfaceInstanceType { token: name, .. }),
                     ) => {
-                        return Err(HayError::new(
+                        Err(HayError::new(
                             format!("Cannot create an instance of interface `{}`", name.lexeme),
                             token.loc.clone(),
                         )

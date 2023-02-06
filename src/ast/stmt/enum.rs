@@ -21,12 +21,10 @@ impl EnumStmt {
         };
         match types.insert(tid, t) {
             None => Ok(()),
-            Some(_) => {
-                return Err(HayError::new(
-                    format!("Name conflict. `{}` defined elsewhere", self.name.lexeme),
-                    self.name.loc,
-                ))
-            }
+            Some(_) => Err(HayError::new(
+                format!("Name conflict. `{}` defined elsewhere", self.name.lexeme),
+                self.name.loc,
+            )),
         }
     }
 }

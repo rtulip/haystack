@@ -18,8 +18,8 @@ impl super::CodeGen for X86_64 {
             '&' => s.push_str("_amp_"),
             '_' => s.push_str("__"),
             ':' => s.push('_'),
-            '[' => s.push('_'),
-            ']' => s.push('_'),
+            '[' => s.push_str("_lbrace_"),
+            ']' => s.push_str("_rbrace_"),
             c => s.push(c),
         });
         s

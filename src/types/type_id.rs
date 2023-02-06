@@ -1085,7 +1085,7 @@ impl TypeId {
                                         "{n} is out of range for `{typ}`. Expected a value between 0 and {} inclusive.", 
                                         tuple_inner.len() -1
                                     ), 
-                                    token.loc.clone()
+                                    token.loc
                                 ));
                             }
 
@@ -1094,7 +1094,7 @@ impl TypeId {
                         kind => return Err(
                             HayError::new(
                                 format!("Expected a number literal to access into `{typ}`, but found {kind} instead."), 
-                                token.loc.clone()
+                                token.loc
                         ))
                     }
 

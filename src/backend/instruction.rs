@@ -151,7 +151,7 @@ impl Instruction {
                             } => {
                                 let idx = inner
                                     .parse::<usize>()
-                                    .expect(format!("{inner} should be a usize").as_str());
+                                    .unwrap_or_else(|_| panic!("{inner} should be a usize"));
                                 for m in &tuple_members[0..idx] {
                                     offset += m.size(types).unwrap()
                                 }

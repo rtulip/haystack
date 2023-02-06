@@ -759,7 +759,14 @@ impl<'a> Parser<'a> {
                     left_bracket.loc.span.start, 
                     x.loc.span.end)
                 },
-                Err(e) => return Err(HayError::new(format!("Expected a {} to close the tuple, but found {} instead", Marker::RightBracket, e.lexeme), e.loc.clone(),)),
+                Err(e) => return Err(HayError::new(
+                    format!(
+                        "Expected a {} to close the tuple, but found {} instead", 
+                        Marker::RightBracket,
+                         e.lexeme
+                    ), 
+                    e.loc,
+                )),
             };
 
             Ok(Some(new_tok))

@@ -301,9 +301,12 @@ impl std::fmt::Display for TypeToken {
             }
             TypeToken::Tuple { inner } => {
                 write!(f, "[")?;
-                for inner_t in inner.iter().take(inner.len() - 1) {
-                    write!(f, "{inner_t} ")?;
+                if !inner.is_empty() {
+                    for inner_t in inner.iter().take(inner.len() - 1) {
+                        write!(f, "{inner_t} ")?;
+                    }
                 }
+
                 if let Some(last) = inner.last() {
                     write!(f, "{last}")?;
                 }

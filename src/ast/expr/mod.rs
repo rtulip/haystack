@@ -10,6 +10,7 @@ mod operator;
 mod r#return;
 mod size_of;
 mod syscall;
+mod tuple;
 mod unary;
 mod var;
 mod r#while;
@@ -27,6 +28,7 @@ pub use r#return::*;
 pub use r#while::*;
 pub use size_of::*;
 pub use syscall::*;
+pub use tuple::*;
 pub use unary::*;
 pub use var::*;
 

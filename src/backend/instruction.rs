@@ -570,6 +570,17 @@ impl Instruction {
                     panic!();
                 }
             }
+            TypedExpr::Tuple { exprs } => {
+                for e in exprs {
+                    ops.append(&mut Instruction::from_expr(
+                        e,
+                        types,
+                        init_data,
+                        jump_count,
+                        frame_reserved,
+                    ))
+                }
+            }
             TypedExpr::Pad { padding } => {
                 for _ in 0..padding {
                     ops.push(Instruction::PushU64(0));

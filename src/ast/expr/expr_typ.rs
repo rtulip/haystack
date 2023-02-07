@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use super::{
     AccessorExpr, AnnotatedCallExpr, AsExpr, ExprCast, ExprIdent, ExprIf, ExprLiteral,
-    ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile,
+    ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr,
 };
 
 /// Haystack's Expression Representation
@@ -34,6 +34,7 @@ use super::{
 #[derive(Debug, Clone)]
 pub enum Expr {
     Literal(ExprLiteral),
+    Tuple(TupleExpr),
     Operator(ExprOperator),
     Unary(ExprUnary),
     Syscall(ExprSyscall),
@@ -54,6 +55,7 @@ impl Expr {
     pub fn token(&self) -> &Token {
         match self {
             Expr::Literal(ExprLiteral { token, .. })
+            | Expr::Tuple(TupleExpr { token, .. })
             | Expr::Operator(ExprOperator { token, .. })
             | Expr::Syscall(ExprSyscall { token, .. })
             | Expr::Cast(ExprCast { token, .. })
@@ -101,6 +103,7 @@ impl Expr {
             Expr::Ident(e) => e.type_check(stack, frame, types, global_env),
             Expr::If(e) => e.type_check(stack, frame, func, global_env, types, generic_map),
             Expr::Literal(e) => e.type_check(stack),
+            Expr::Tuple(e) => e.type_check(stack, frame, func, global_env, types, generic_map),
             Expr::Unary(e) => e.type_check(stack, frame, types, func),
             Expr::Operator(e) => e.type_check(stack, types, global_env),
             Expr::SizeOf(e) => e.type_check(stack, types, generic_map),
@@ -170,6 +173,9 @@ pub enum TypedExpr {
     Enum {
         typ: TypeId,
         variant: String,
+    },
+    Tuple {
+        exprs: Vec<TypedExpr>,
     },
     Global {
         ident: String,

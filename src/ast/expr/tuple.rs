@@ -43,10 +43,9 @@ impl TupleExpr {
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<TypedExpr, HayError> {
         let mut typed_exprs = vec![];
-
         let mut inner_stack = vec![];
 
-        for e in self.exprs.clone() {
+        for e in self.exprs {
             typed_exprs.push(e.type_check(
                 &mut inner_stack,
                 frame,

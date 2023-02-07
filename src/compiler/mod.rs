@@ -350,6 +350,11 @@ mod functional {
     fn array_of_tuples() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/functional", "array_of_tuples", None)
     }
+
+    #[test]
+    fn tuple_expressions() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/functional", "tuple_expressions", None)
+    }
 }
 
 mod examples {

@@ -2082,5 +2082,9 @@ mod tests {
     fn parse_tuple_bad_close() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/parser", "parse_tuple_bad_close", None)
     }
+    #[test]
+    fn parse_bad_tuple_expression_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_tuple_expression_close", None)
+    }
 
 }

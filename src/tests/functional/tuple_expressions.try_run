@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "[7 false 4]\n[4 true 7]\n[2 4]\n[12345 false]\n[1 [2 false]]\n0\n[]\n",
+  "stderr": ""
+}

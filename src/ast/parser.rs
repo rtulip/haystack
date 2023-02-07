@@ -8,7 +8,7 @@ use std::collections::{HashSet};
 use super::arg::{IdentArg, UntypedArg};
 use super::expr::{
     AccessorExpr, AnnotatedCallExpr, AsExpr, ExprCast, ExprElseIf, ExprIdent, ExprIf, ExprLiteral,
-    ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile,
+    ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr,
 };
 use super::member::UntypedMember;
 use super::stmt::{RecordStmt, EnumStmt, FunctionStmt, FunctionStubStmt, InterfaceStmt, InterfaceImplStmt, VarStmt, PreDeclarationStmt};
@@ -1072,11 +1072,40 @@ impl<'a> Parser<'a> {
             TokenKind::Keyword(Keyword::While) => self.parse_while(token),
             TokenKind::Keyword(Keyword::SizeOf) => self.size_of(token),
             TokenKind::Keyword(Keyword::Return) => Ok(Box::new(Expr::Return(ExprReturn { token }))),
+            TokenKind::Marker(Marker::LeftBracket) => self.parse_tuple_expr(token),
             kind => Err(HayError::new(
                 format!("Not sure how to parse expression from {kind} yet"),
                 token.loc,
             )),
         }
+    }
+
+    fn parse_tuple_expr(&mut self, token: Token) -> Result<Box<Expr>, HayError> {
+
+        let mut exprs = vec![];
+        loop {
+            match self.matches(TokenKind::Marker(Marker::RightBracket)) {
+                Ok(_) => {
+                    break;
+                }
+                Err(e) => {
+                    if self.is_at_end() {
+                        return Err(HayError::new(format!("Expected {}, but found end of file instead.", Marker::RightBracket), e.loc))
+                    }
+                    exprs.push(*self.expression()?);
+                }
+            }            
+        }
+        
+        let tuple_expr = Expr::Tuple(
+            TupleExpr {
+                token,
+                exprs,
+            }
+        );
+
+        Ok(Box::new(tuple_expr))
+        
     }
 
     fn cast(&mut self, cast_tok: Token) -> Result<Box<Expr>, HayError> {
@@ -2052,6 +2081,10 @@ mod tests {
     #[test]
     fn parse_tuple_bad_close() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/parser", "parse_tuple_bad_close", None)
+    }
+    #[test]
+    fn parse_bad_tuple_expression_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_tuple_expression_close", None)
     }
 
 }

@@ -1,0 +1,27 @@
+fn foo(u64: x u64: y) -> [u64 bool u64] {
+   x x y < y
+}
+
+fn bar(u64: x) -> [[u64 u64]] {
+    [ 
+        x     // First element is x 
+        x x * // Second element is x^2
+    ]
+}
+
+fn baz(u64: x u64: y) -> [[u64 bool u64]] {
+   [x y foo]
+}
+
+fn nested() -> [ u64 [ u64 [ u64 bool ]] ] {
+    0 [ 1 [ 2 false ]]
+}
+
+fn main() {
+    [7 4 foo] println
+    4 7 baz   println
+    2 bar     println
+    [12345 false] println
+    nested    println println
+    [] println
+}

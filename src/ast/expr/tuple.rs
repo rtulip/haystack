@@ -1,14 +1,14 @@
-//! As Expressions
+//! Tuple Expressions
 //!
-//! This is the expression which binds elements from the stack to an identifier
+//! This is the expression to build tuple literals
 //! For example:
 //!
 //! ```haystack
 //! main() {
-//!     1 "Hello World" as [one greeting]
-//! //                  ~~~~~~~~~~~~~~~~~
-//! //                          |
-//! //              This is the as expression
+//!     [1 "Hello Wolrd"] as [tuple]
+//! //  ~~~~~~~~~~~~~~~~~
+//! //          |
+//! // This is the tuple expression
 //! }
 //! ```
 //!

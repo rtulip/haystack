@@ -253,8 +253,7 @@ pub enum TypeToken {
         size: usize,
     },
     Associated {
-        base: String,
-        inner: Vec<TypeToken>,
+        base: Box<TypeToken>,
         typ: String,
     },
     Base(String),
@@ -275,8 +274,14 @@ impl std::fmt::Display for TypeToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             TypeToken::Array { base, size } => write!(f, "{base}[{size}]"),
-            TypeToken::Associated { base, inner, typ } => {
-                write!(f, "{base}<")?;
+            TypeToken::Associated { base, typ } => {
+                assert!(matches!(**base, TypeToken::Parameterized { .. }));
+
+                let (base, inner) = match &**base {
+                    TypeToken::Parameterized { base, inner } => (base, inner),
+                    _ => unreachable!(),
+                };
+
                 write!(f, "{base}<")?;
                 for inner_t in inner.iter().take(inner.len() - 1) {
                     write!(f, "{inner_t} ")?;

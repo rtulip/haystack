@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "[1 true]\n[Hello Tuples]\n[3 6 9]\n[5 10 15]\n",
+  "stderr": ""
+}

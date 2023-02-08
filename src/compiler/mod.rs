@@ -355,6 +355,11 @@ mod functional {
     fn tuple_expressions() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/functional", "tuple_expressions", None)
     }
+
+    #[test]
+    fn tuple_expressions2() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/functional", "tuple_expressions2", None)
+    }
 }
 
 mod examples {

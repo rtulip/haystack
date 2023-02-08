@@ -61,6 +61,7 @@ impl TupleExpr {
         };
 
         let tid = tuple.id();
+        types.insert(tid.clone(), tuple);
         stack.push(tid);
 
         let t = TypedExpr::Tuple { exprs: typed_exprs };

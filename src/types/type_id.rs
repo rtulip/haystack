@@ -114,7 +114,16 @@ impl TypeId {
 
                 Ok(arr_tid)
             }
-            TypeToken::Associated { base, inner, typ } => {
+            TypeToken::Associated { base, typ } => {
+                assert!(matches!(**base, TypeToken::Parameterized { .. }));
+
+                let (base, inner) = match &**base {
+                    TypeToken::Parameterized { base, inner } => {
+                        (base, inner)
+                    }
+                    _ => unreachable!()
+                };
+
                 let base_tid = TypeId::new(base);
                 let mut annotations = vec![];
                 for t in inner {
@@ -127,7 +136,10 @@ impl TypeId {
                 }
 
                 let (at, map) = if let Some(base) = base_tid.get_interface_base(types) {
-                    (base.associated_type_id(token, &TypeId::new(typ))?, base.annotations.clone().into_iter().zip(annotations.clone().into_iter()).collect())
+                    (
+                        base.associated_type_id(token, &TypeId::new(typ))?, 
+                        base.annotations.clone().into_iter().zip(annotations.clone().into_iter()).collect()
+                    )
                 } else {
                     todo!("error - unknown interface {base_tid}")
                 };
@@ -267,11 +279,11 @@ impl TypeId {
         map: &HashMap<TypeId, TypeId>,
         types: &mut TypeMap,
     ) -> Result<TypeId, HayError> {
+        
         // If the TypeId is in the map return the concrete type.
         if let Some(new_t) = map.get(self) {
             return Ok(new_t.clone());
         }
-
         let maybe_typ = types.get(self).cloned();
         match maybe_typ {
             // The TypeId is a known type.
@@ -284,8 +296,7 @@ impl TypeId {
                     members,
                     kind,
                     requires,
-                } => {
-                    
+                } => { 
                     if let Some(requirements) = &requires {
                         match check_requirements(token, requirements, types, map) {
                             Err((Some(r), e)) => return Err(HayError::new(
@@ -625,7 +636,7 @@ impl TypeId {
                     Ok(tid)
                 },
                 Type::Stub { .. } => unimplemented!(),
-                Type::InterfaceBase(_) => unimplemented!(),
+                Type::InterfaceBase(_) =>  unimplemented!(),
                 Type::InterfaceInstance(_) => unimplemented!(),
                 Type::AssociatedTypeBase(at_base) => at_base.assign(token, map, types),
                 Type::AssociatedTypeInstance(at_instance) => at_instance.assign(token, map, types),

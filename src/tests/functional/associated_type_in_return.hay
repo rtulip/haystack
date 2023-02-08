@@ -1,0 +1,7 @@
+fn foo() -> [Add<u64 u64>::Output] {
+    3 4 +
+}
+
+fn main() {
+    foo println
+}

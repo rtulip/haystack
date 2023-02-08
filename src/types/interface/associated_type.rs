@@ -25,11 +25,32 @@ impl AssociatedTypeBase {
             assigned_annotations.push(t.assign(token, map, types)?);
         }
 
+        if assigned_annotations.iter().all(|t| !t.is_generic(types)) {
+            let mut name = format!("{}<", self.interface);
+            for t in &assigned_annotations[0..assigned_annotations.len() - 1] {
+                name = format!("{name}{t} ");
+            }
+            name = format!("{name}{}>", assigned_annotations.last().unwrap());
+
+            let concrete_tid = TypeId::new(name);
+
+            match (types.get(&self.interface), types.get(&concrete_tid)) {
+                (
+                    Some(Type::InterfaceBase(interface_base)),
+                    Some(Type::InterfaceInstance(ref interface_instance)),
+                ) => {
+                    let idx = interface_base.type_index(&self.name)?;
+                    return Ok(interface_instance.types[idx].clone());
+                }
+                _ => todo!("Err!"),
+            }
+        }
+
         let instance = AssociatedTypeInstance {
             name: self.name.clone(),
             interface: self.interface.clone(),
             alias_list: self.annotations.clone(),
-            annotations: assigned_annotations,
+            annotations: assigned_annotations.clone(),
         };
 
         let instance_id = instance.id();

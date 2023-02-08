@@ -360,6 +360,15 @@ mod functional {
     fn tuple_expressions2() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/functional", "tuple_expressions2", None)
     }
+
+    #[test]
+    fn associated_type_in_return() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/functional",
+            "associated_type_in_return",
+            None,
+        )
+    }
 }
 
 mod examples {

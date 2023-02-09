@@ -9,6 +9,7 @@ use std::collections::BTreeMap;
 
 use super::{
     Function, FunctionStub, GenericFunction, RecordKind, TypeId, TypeMap, UncheckedFunction,
+    VariantType,
 };
 
 /// Representation of Types within Haystack.
@@ -126,6 +127,7 @@ pub enum Type {
     InterfaceInstance(InterfaceInstanceType),
     AssociatedTypeBase(AssociatedTypeBase),
     AssociatedTypeInstance(AssociatedTypeInstance),
+    Variant(VariantType),
 }
 
 impl Type {
@@ -183,6 +185,9 @@ impl Type {
                 unimplemented!("Haven't implemented name from Functions.")
             }
             Type::RecordPreDeclaration { .. } => unreachable!(),
+            Type::Variant(VariantType { base, variant }) => {
+                TypeId::new(format!("{base}::{variant}"))
+            }
         }
     }
 

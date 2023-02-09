@@ -29,7 +29,7 @@ impl ExprWhile {
         types: &mut TypeMap,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<TypedExpr, HayError> {
-        let stack_before = stack.clone();
+        let mut stack_before = stack.clone();
         let frame_before = frame.clone();
         // Evaluate up to the body
         let mut typed_cond = vec![];
@@ -71,7 +71,21 @@ impl ExprWhile {
 
         if !stack.contains(&Type::Never.id())
             && (stack.len() != stack_before.len()
-                || stack.iter().zip(&stack_before).any(|(t1, t2)| t1 != t2))
+                || !stack.iter().zip(stack_before.iter_mut()).all(|(t, r)| {
+                    match (
+                        t == r,
+                        &t.supertype(types) == r,
+                        t.supertype(types) == r.supertype(types),
+                    ) {
+                        (true, _, _) => true,
+                        (_, true, _) => true,
+                        (_, _, true) => {
+                            *r = r.supertype(types);
+                            true
+                        }
+                        _ => false,
+                    }
+                }))
         {
             return Err(HayError::new(
                 "While loop must not change stack between iterations.",

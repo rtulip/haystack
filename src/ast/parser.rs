@@ -772,7 +772,7 @@ impl<'a> Parser<'a> {
             Ok(Some(new_tok))
 
         } else if let Ok(ident) = self.matches(TokenKind::ident()) {
-            let typ = if self
+            let mut typ_tok = if self
                 .matches(TokenKind::Operator(Operator::LessThan))
                 .is_ok()
             {
@@ -781,16 +781,12 @@ impl<'a> Parser<'a> {
                     inner.push(t.typ()?);
                 }
 
-                let close = match self.matches(TokenKind::Operator(Operator::GreaterThan)) {
-                    Ok(t) => t,
-                    Err(t) => {
-                        
+                if let Err(t) = self.matches(TokenKind::Operator(Operator::GreaterThan)) {    
                         match &t.kind {
                             TokenKind::Operator(Operator::ShiftRight) => {
                                 self.tokens.pop();
-                                let (first, second) = t.split_op()?;
+                                let (_, second) = t.split_op()?;
                                 self.tokens.push(second);
-                                first
                             },
                             _ => return Err(HayError::new(
                                 format!(
@@ -801,56 +797,37 @@ impl<'a> Parser<'a> {
                                 t.loc,
                             ))
                         }
-
-                        
-                    }
                 };
-
-                let (kind, lexeme) = if self.matches(TokenKind::Marker(Marker::DoubleColon)).is_ok() {
-
-                    match self.matches(TokenKind::ident()) {
-                        Ok(t) => {
-                            let kind = TokenKind::Type(TypeToken::Associated { base: ident.ident()?, inner, typ: t.ident()? });
-                            let lexeme = format!("{kind}");
-                            (kind, lexeme)
-                        },
-                        Err(t) => return Err(HayError::new(
-                            format!(
-                                "Expected an identifier after {}, but found {} instead.",
-                                Marker::DoubleColon,
-                                t.kind
-                            ),
-                            t.loc,
-                        ))
-                    }
-                } else {
-                    let kind = TokenKind::Type(TypeToken::Parameterized {
-                        base: ident.ident()?,
-                        inner,
-                    });
-                    let lexeme = format!("{kind}");
-                    (kind, lexeme)
-                };
-
-                Token {
-                    kind,
-                    lexeme,
-                    loc: Loc::new(
-                        ident.loc.file,
-                        ident.loc.line,
-                        ident.loc.span.start,
-                        close.loc.span.end,
-                    ),
-                }
+                TypeToken::Parameterized { base: ident.ident()?, inner }
             } else {
-                Token {
-                    kind: TokenKind::Type(TypeToken::Base(ident.lexeme.clone())),
-                    lexeme: ident.lexeme,
-                    loc: ident.loc,
-                }
+                TypeToken::Base(ident.lexeme.clone())
             };
 
-            Ok(Some(typ))
+            if self.matches(TokenKind::Marker(Marker::DoubleColon)).is_ok() {
+                match self.matches(TokenKind::ident()) {
+                    Ok(t) => {
+                        typ_tok = TypeToken::Associated { base: Box::new(typ_tok), typ: t.ident()? };
+                    },
+                    Err(t) => return Err(HayError::new(
+                        format!(
+                            "Expected an identifier after {}, but found {} instead.",
+                            Marker::DoubleColon,
+                            t.kind
+                        ),
+                        t.loc,
+                    ))
+                }
+            }
+
+            let kind = TokenKind::Type(typ_tok);
+
+            let tok = Token {
+                lexeme: format!("{kind}"),
+                kind,
+                loc: ident.loc
+            };
+
+            Ok(Some(tok))
             
         } else if let Ok(tok) = self.matches(TokenKind::Operator(Operator::Ampersand)) {
             return Err(HayError::new(

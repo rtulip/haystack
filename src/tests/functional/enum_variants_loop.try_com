@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "[CMD]: nasm -felf64 src/tests/functional/enum_variants_loop.asm\n[CMD]: ld -o enum_variants_loop src/tests/functional/enum_variants_loop.o\n",
+  "stderr": ""
+}

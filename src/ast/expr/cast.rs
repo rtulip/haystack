@@ -176,6 +176,10 @@ impl ExprCast {
                 "Casting to enums is unsupported.",
                 self.token.loc,
             )),
+            Type::Variant(_) => Err(HayError::new_type_err(
+                "Casting to variants is unsupported.",
+                self.token.loc,
+            )),
             Type::Bool => unimplemented!(),
             Type::InterfaceBase(_) => unimplemented!(),
             Type::InterfaceInstance(_) => unimplemented!(),

@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/variant_resolve_bad_bases.hay:8:14] Error: Cannot resolve variant `A_::a1` from `B_::b1`\n    [Note]: Bases do not align: `A_` and `B_` are not the same\n"
+}

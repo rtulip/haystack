@@ -2,7 +2,7 @@ use crate::error::HayError;
 use crate::lex::token::Token;
 use std::collections::HashMap;
 
-use super::{Type, TypeId, TypeMap};
+use super::{TypeId, TypeMap};
 type Predicate = dyn Fn(&Vec<TypeId>, &TypeMap) -> bool;
 
 /// A Structure to describe changes to the stack.
@@ -201,25 +201,10 @@ impl<'pred> Signature<'pred> {
         } else {
             self
         };
+
         // Check that each input matches the element on the stack.
         for (input, stk) in sig.inputs.iter().rev().zip(stack.iter().rev()) {
-            if input != stk {
-                if let (
-                    Some(Type::Pointer {
-                        inner: input_inner,
-                        mutable: false,
-                    }),
-                    Some(Type::Pointer {
-                        inner: stk_inner,
-                        mutable: true,
-                    }),
-                ) = (types.get(input), types.get(stk))
-                {
-                    if input_inner == stk_inner {
-                        continue;
-                    }
-                }
-
+            if input != stk && input != &stk.supertype(types) {
                 return Err(HayError::new_type_err(
                     format!("Invalid inputs for `{}`", token.lexeme).as_str(),
                     token.loc.clone(),

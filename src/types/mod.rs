@@ -5,6 +5,7 @@ mod record_kind;
 mod signature;
 mod r#type;
 mod type_id;
+mod variant;
 
 pub use framed_type::*;
 pub use function::*;
@@ -13,6 +14,7 @@ pub use r#type::*;
 pub use record_kind::*;
 pub use signature::*;
 pub use type_id::*;
+pub use variant::*;
 
 use std::collections::BTreeMap;
 pub type TypeMap = BTreeMap<TypeId, Type>;

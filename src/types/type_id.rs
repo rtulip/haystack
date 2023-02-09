@@ -6,6 +6,8 @@ use crate::types::{TypeMap, Type, interface::{InterfaceBaseType, check_requireme
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
+use super::VariantType;
+
 
 
 /// Unique Identifier for types
@@ -64,6 +66,7 @@ impl TypeId {
             Some(Type::RecordPreDeclaration { generics, .. }) => !generics.is_empty(),
             Some(Type::Stub { .. }) => unimplemented!(),
             Some(Type::AssociatedTypeInstance(instance)) => instance.is_generic(types),
+            Some(Type::Variant(VariantType { base, .. })) => base.is_generic(types),
         }
     }
 
@@ -114,25 +117,57 @@ impl TypeId {
 
                 Ok(arr_tid)
             }
-            TypeToken::Associated { base, inner, typ } => {
-                let base_tid = TypeId::new(base);
-                let mut annotations = vec![];
-                for t in inner {
-                    annotations.push(TypeId::from_type_token(
-                        token,
-                        t,
-                        types,
-                        local_types,
-                    )?);
+            TypeToken::Associated { base, typ } => {
+                match &**base {
+                    TypeToken::Parameterized { base, inner } => {
+                        let base_tid = TypeId::new(base);
+                        let mut annotations = vec![];
+                        for t in inner {
+                            annotations.push(TypeId::from_type_token(
+                                token,
+                                t,
+                                types,
+                                local_types,
+                            )?);
+                        }
+
+                        let (at, map) = if let Some(base) = base_tid.get_interface_base(types) {
+                            (
+                                base.associated_type_id(token, &TypeId::new(typ))?, 
+                                base.annotations.clone().into_iter().zip(annotations.clone().into_iter()).collect()
+                            )
+                        } else {
+                            return Err(HayError::new(format!("Unknown interface `{base_tid}`"), token.loc.clone()))
+                        };
+
+                        at.assign(token, &map, types)
+                    }
+                    TypeToken::Base(base) => {
+                        
+                        let base_tid = TypeId::new(base);
+                        match types.get(&base_tid) {
+                            Some(Type::Enum { variants, .. }) => {
+
+                                match variants.iter().find(|tok| &tok.lexeme == typ) {
+                                    Some(_) => {
+                                        let variant = Type::Variant(VariantType { base: base_tid, variant: typ.clone() });
+                                        let tid = variant.id();
+                                        types.insert(tid.clone(), variant);
+                                        Ok(tid)
+                                    },
+                                    None => Err(HayError::new(format!("Unknown variant {typ} for enum {base_tid}"), token.loc.clone())),
+                                }
+
+                            },
+                            Some(_) => Err(HayError::new(format!("Can't create a variant type from {base_tid}"), token.loc.clone())),
+                            None => Err(HayError::new(format!("Can't create variant type from unknown type: {base_tid}"), token.loc.clone())),
+                        }
+
+                    },
+                    other => panic!("Expected either a Parameterized or Base TypeToken, but found {other:?}"),
                 }
 
-                let (at, map) = if let Some(base) = base_tid.get_interface_base(types) {
-                    (base.associated_type_id(token, &TypeId::new(typ))?, base.annotations.clone().into_iter().zip(annotations.clone().into_iter()).collect())
-                } else {
-                    todo!("error - unknown interface {base_tid}")
-                };
-
-                at.assign(token, &map, types)
+                
 
             },
             TypeToken::Base(base) => {
@@ -188,6 +223,7 @@ impl TypeId {
                         )
                         .with_hint("Consider adding a `requires` block."))
                     }
+                    Some(Type::Variant(_)) => unreachable!(),
                     Some(
                         Type::Bool
                         | Type::Char
@@ -267,11 +303,11 @@ impl TypeId {
         map: &HashMap<TypeId, TypeId>,
         types: &mut TypeMap,
     ) -> Result<TypeId, HayError> {
+        
         // If the TypeId is in the map return the concrete type.
         if let Some(new_t) = map.get(self) {
             return Ok(new_t.clone());
         }
-
         let maybe_typ = types.get(self).cloned();
         match maybe_typ {
             // The TypeId is a known type.
@@ -284,8 +320,7 @@ impl TypeId {
                     members,
                     kind,
                     requires,
-                } => {
-                    
+                } => { 
                     if let Some(requirements) = &requires {
                         match check_requirements(token, requirements, types, map) {
                             Err((Some(r), e)) => return Err(HayError::new(
@@ -624,8 +659,12 @@ impl TypeId {
 
                     Ok(tid)
                 },
+                Type::Variant(_) => {
+                    assert!(!self.is_generic(types));
+                    Ok(self.clone())
+                },
                 Type::Stub { .. } => unimplemented!(),
-                Type::InterfaceBase(_) => unimplemented!(),
+                Type::InterfaceBase(_) =>  unimplemented!(),
                 Type::InterfaceInstance(_) => unimplemented!(),
                 Type::AssociatedTypeBase(at_base) => at_base.assign(token, map, types),
                 Type::AssociatedTypeInstance(at_instance) => at_instance.assign(token, map, types),
@@ -723,15 +762,21 @@ impl TypeId {
                 // Map the placeholder to the concrete value & check for collisions.
                 if let Some(prev) = map.insert(self.clone(), concrete.clone()) {
                     if &prev != concrete {
-                        return Err(HayError::new_type_err(
-                            "Conflict in type resolution",
-                            token.loc.clone(),
-                        )
-                        .with_hint(format!("Failed to resolve generic type {self}"))
-                        .with_hint(format!("Tried to resolve to both {prev} and {concrete}")));
-                    }
-                }
+                        let prev_st = prev.supertype(types);
+                        let concrete_st = concrete.supertype(types);
 
+                        if prev_st != concrete_st {
+                            return Err(HayError::new_type_err(
+                                "Conflict in type resolution",
+                                token.loc.clone(),
+                            )
+                            .with_hint(format!("Failed to resolve generic type {self}"))
+                            .with_hint(format!("Tried to resolve to both {prev} and {concrete}")));    
+                        }
+                        
+                        
+                    }
+                } 
                 Ok(concrete.clone())
             }
             (Some(Type::U64), Some(Type::U64))
@@ -818,6 +863,23 @@ impl TypeId {
 
                 Ok(concrete.clone())
             }
+            (
+                Some(Type::Enum { name, .. }),
+                Some(Type::Variant(VariantType { base, .. })),
+            ) => {
+                // Make sure enums are of the same type.
+                if name.lexeme != base.0 {
+                    return Err(HayError::new(
+                        format!(
+                            "Failed to resolve enum type `{}` from `{}`",
+                            name.lexeme, base.0
+                        ),
+                        token.loc.clone(),
+                    ));
+                }
+
+                Ok(concrete.clone())
+            }
             (Some(Type::Tuple { inner }), Some(Type::Tuple { inner: concrete_inner })) => {
 
                 if inner.len() != concrete_inner.len() {
@@ -833,6 +895,21 @@ impl TypeId {
             (Some(Type::Tuple { .. }), _) => {
                 Err(HayError::new(format!("Cannot resolve {self} from {concrete}"), token.loc.clone()))
             },
+            (
+                Some(Type::Variant(VariantType { base, variant })), 
+                Some(Type::Variant(VariantType { base: concrete_base, variant: concrete_variant }))
+            ) => {
+                if base != concrete_base {
+                    return Err(HayError::new(format!("Cannot resolve variant `{self}` from `{concrete}`"), token.loc.clone())
+                .with_hint(format!("Bases do not align: `{base}` and `{concrete_base}` are not the same")));
+                }
+
+                if variant != concrete_variant {
+                    return Err(HayError::new(format!("Cannot resolve variant `{self}` from `{concrete}`"), token.loc.clone()));
+                }
+
+                Ok(concrete.clone())
+            },
             (Some(Type::InterfaceBase(_)), _) => unimplemented!(),
             (Some(Type::InterfaceInstance(_)), _) => unimplemented!(),
             (Some(Type::AssociatedTypeBase(_)), _) => unimplemented!(),
@@ -845,7 +922,8 @@ impl TypeId {
             | (Some(Type::U64), _)
             | (Some(Type::Enum { .. }), _)
             | (Some(Type::GenericRecordInstance { .. }), _)
-            | (Some(Type::Record { .. }), _) => Err(HayError::new_type_err(
+            | (Some(Type::Record { .. }), _)
+            | (Some(Type::Variant(_)), _) => Err(HayError::new_type_err(
                 format!("Cannot resolve {self} from {concrete}"),
                 token.loc.clone(),
             )),
@@ -870,6 +948,21 @@ impl TypeId {
         }
     }
 
+    pub fn supertype(&self, types: &TypeMap) -> Self {
+        match types.get(self) {
+            Some(Type::Variant(VariantType { ref base, .. })) => base.clone(),
+            Some(Type::Pointer { ref inner, mutable: true, }) => {
+                let t = Type::Pointer {
+                    inner: inner.clone(),
+                    mutable: false
+                };
+                t.id()
+            },
+            Some(_) => self.clone(),
+            None => todo!("Not sure what should happen here..."),
+        }
+    }
+
     pub fn check_recursive(&self, token: &Token, types: &TypeMap, visited: &mut HashSet<TypeId>) -> Result<(), HayError> {
         if !visited.insert(self.clone()) {
             return Err(HayError::new(format!("Type {self} is recursive."), token.loc.clone())
@@ -891,6 +984,10 @@ impl TypeId {
                 }
                 Ok(())
             },
+            Some(Type::Variant(_)) => Err(HayError::new(
+                "Variant types shouldn't be checked for being recursive",
+                token.loc.clone(),
+            )),
             Some(Type::InterfaceBase(_)) => Err(HayError::new(
                 "InterfaceBase types shouldn't be checked for being recursive",
                 token.loc.clone(),
@@ -965,6 +1062,7 @@ impl TypeId {
                 }
                 RecordKind::Interface => unreachable!(),
             },
+            Type::Variant(VariantType {base, ..}) => base.size(types),
             Type::InterfaceBase(_) => Err(HayError::new(
                 "InterfaceBase types do not have a size",
                 Loc::new("", 0, 0, 0),
@@ -999,6 +1097,7 @@ impl TypeId {
                 "Pre-Declared types does not have a size",
                 Loc::new("", 0, 0, 0),
             )),
+            
         }
     }
 

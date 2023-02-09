@@ -1,0 +1,11 @@
+fn main() {
+
+    0 as [mut n]
+
+    12345 false if {
+        &n
+    } else {
+        *n
+    } !
+
+}

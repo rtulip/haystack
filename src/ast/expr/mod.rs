@@ -396,4 +396,70 @@ mod tests {
             None,
         )
     }
+
+    #[test]
+    fn associated_types_no_impl() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "associated_types_no_impl",
+            None,
+        )
+    }
+    #[test]
+    fn associated_types() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "associated_types", None)
+    }
+    #[test]
+    fn associated_type_unknown_interface() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "associated_type_unknown_interface",
+            None,
+        )
+    }
+    #[test]
+    fn enum_bad_variant() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "enum_bad_variant", None)
+    }
+    #[test]
+    fn enum_bad_variant2() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "enum_bad_variant2", None)
+    }
+
+    #[test]
+    fn variant_bad_resolve() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "variant_bad_resolve", None)
+    }
+
+    #[test]
+    fn variant_resolve_bad_variant() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "variant_resolve_bad_variant",
+            None,
+        )
+    }
+
+    #[test]
+    fn variant_resolve_bad_bases() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "variant_resolve_bad_bases",
+            None,
+        )
+    }
+
+    #[test]
+    fn cast_variant() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "cast_variant", None)
+    }
+
+    #[test]
+    fn pointer_supertype_resolution() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "pointer_supertype_resolution",
+            None,
+        )
+    }
 }

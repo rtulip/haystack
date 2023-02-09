@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/cast_variant.hay:5:7] Error: Type Error: Casting to variants is unsupported.\n"
+}

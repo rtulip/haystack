@@ -1,0 +1,40 @@
+enum Foo { Bar Baz }
+
+impl Print<Foo> {
+    fn print(Foo: f) {
+        f Foo::Bar == if {
+            "Foo::Bar" print
+        } else {
+            "Foo::Baz" print
+        }
+    }
+}
+
+fn makes_a_foo() -> [Foo] {
+    Foo::Bar
+} 
+
+fn build_foo(u64: x) -> [Foo] {
+    false if {
+        makes_a_foo
+    } else x 10 < if {
+        do_work_and_build_bar
+    } else {
+        do_work_and_build_baz
+    }
+}
+
+fn do_work_and_build_bar() -> [Foo::Bar] {
+    "A bunch of logic which always results in Foo::Bar" println
+    Foo::Bar 
+}
+
+fn do_work_and_build_baz() -> [Foo::Baz] {
+    "A bunch of logic which always results in Foo::Baz" println
+    Foo::Baz
+}
+
+fn main() {
+    0  build_foo println
+    11 build_foo println
+}

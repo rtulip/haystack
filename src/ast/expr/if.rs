@@ -115,7 +115,6 @@ impl ExprIf {
                                 (true, _, _) => true,
                                 (_, true, _) => true,
                                 (_, _, true) => {
-                                    println!("{t} {r} {}", r.supertype(types));
                                     *r = r.supertype(types);
                                     true
                                 }

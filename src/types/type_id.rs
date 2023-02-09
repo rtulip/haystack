@@ -137,7 +137,7 @@ impl TypeId {
                                 base.annotations.clone().into_iter().zip(annotations.clone().into_iter()).collect()
                             )
                         } else {
-                            todo!("error - unknown interface {base_tid}")
+                            return Err(HayError::new(format!("Unknown interface `{base_tid}`"), token.loc.clone()))
                         };
 
                         at.assign(token, &map, types)

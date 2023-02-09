@@ -1,0 +1,1 @@
+fn foo(Foo<u64>::Bar: _) {}

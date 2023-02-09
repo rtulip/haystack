@@ -1,0 +1,31 @@
+enum Foo {
+    Bar
+    Baz
+}
+
+fn always_bar() -> [Foo::Bar] { Foo::Bar }
+fn always_baz() -> [Foo::Baz] { Foo::Baz }
+
+fn takes_bar(Foo::Bar: _) { "Bar" println }
+fn takes_baz(Foo::Baz: _) { "Baz" println }
+
+fn into_foo(Foo) -> [Foo] {}
+fn takes_foo(Foo: f) {
+    f Foo::Bar == if {
+        "Found a bar!" println
+    } else f Foo::Baz == if {
+        "Found a baz!" println
+    } else {
+        "Enum's in a bad state :(" println
+    }
+}
+
+fn main() {
+
+    always_bar takes_bar
+    always_baz takes_baz
+    always_bar takes_foo
+    always_baz takes_foo
+    always_bar into_foo takes_foo
+    always_baz into_foo takes_foo
+}

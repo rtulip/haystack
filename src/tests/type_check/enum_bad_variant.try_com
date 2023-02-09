@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/enum_bad_variant.hay:8:14] Error: Type Error: Invalid inputs for `takes_bar`\n    [Note]: Expected: [Foo::Bar]\n    [Note]: Found:    [Foo::Baz]\n"
+}

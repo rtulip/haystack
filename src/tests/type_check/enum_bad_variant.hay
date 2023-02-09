@@ -1,0 +1,9 @@
+enum Foo {
+    Bar
+    Baz
+}
+
+fn takes_bar(Foo::Bar: foo) {}
+fn main() {
+    Foo::Baz takes_bar
+}

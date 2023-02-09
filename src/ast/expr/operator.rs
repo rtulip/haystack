@@ -151,7 +151,6 @@ impl ExprOperator {
             }
             Operator::Equal => {
                 // TODO: equality between Enums
-
                 Signature::evaluate_many(
                     &vec![
                         // u64 == u64 -> bool
@@ -186,7 +185,10 @@ impl ExprOperator {
                             vec![TypeId::new("E")],
                         )
                         .with_predicate(
-                            &|inputs, types| match (types.get(&inputs[0]), types.get(&inputs[1])) {
+                            &|inputs, types| match (
+                                types.get(&inputs[0].supertype(types)),
+                                types.get(&inputs[1].supertype(types)),
+                            ) {
                                 (
                                     Some(Type::Enum { name: left, .. }),
                                     Some(Type::Enum { name: right, .. }),
@@ -228,7 +230,10 @@ impl ExprOperator {
                             vec![TypeId::new("E")],
                         )
                         .with_predicate(
-                            &|inputs, types| match (types.get(&inputs[0]), types.get(&inputs[1])) {
+                            &|inputs, types| match (
+                                types.get(&inputs[0].supertype(types)),
+                                types.get(&inputs[1].supertype(types)),
+                            ) {
                                 (
                                     Some(Type::Enum { name: left, .. }),
                                     Some(Type::Enum { name: right, .. }),

@@ -1,7 +1,7 @@
 use crate::{
     error::HayError,
     lex::token::Token,
-    types::{Frame, Stack, Type, TypeId, TypeMap, UncheckedFunction},
+    types::{Frame, Stack, Type, TypeId, TypeMap, UncheckedFunction, VariantType},
 };
 
 use super::TypedExpr;
@@ -113,7 +113,12 @@ impl AccessorExpr {
                 )));
             }
 
-            stack.push(TypeId::new(&self.ident.lexeme));
+            let variant_typ = Type::Variant(VariantType {
+                base: TypeId::new(&self.ident.lexeme),
+                variant: self.inner[0].lexeme.clone(),
+            });
+
+            stack.push(variant_typ.id());
 
             Ok(TypedExpr::Enum {
                 typ: TypeId::new(&self.ident.lexeme),

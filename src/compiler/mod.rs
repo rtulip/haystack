@@ -369,6 +369,11 @@ mod functional {
             None,
         )
     }
+
+    #[test]
+    fn enum_variants() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/functional", "enum_variants", None)
+    }
 }
 
 mod examples {

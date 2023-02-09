@@ -42,7 +42,20 @@ impl AssociatedTypeBase {
                     let idx = interface_base.type_index(&self.name)?;
                     return Ok(interface_instance.types[idx].clone());
                 }
-                _ => todo!("Err!"),
+                (Some(Type::InterfaceBase(_)), None) => {
+                    return Err(HayError::new(
+                        format!(
+                            "Failed to find associated type {} for {concrete_tid}",
+                            self.name.lexeme
+                        ),
+                        token.loc.clone(),
+                    )
+                    .with_hint(format!(
+                        "Interface {} is not implemented with {map:?}",
+                        self.interface
+                    )))
+                }
+                _ => unimplemented!(),
             }
         }
 

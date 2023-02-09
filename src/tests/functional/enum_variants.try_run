@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "Bar\nBaz\nFound a bar!\nFound a baz!\nFound a bar!\nFound a baz!\n",
+  "stderr": ""
+}

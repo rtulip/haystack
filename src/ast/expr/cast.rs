@@ -176,6 +176,7 @@ impl ExprCast {
                 "Casting to enums is unsupported.",
                 self.token.loc,
             )),
+            Type::Variant(_) => todo!(),
             Type::Bool => unimplemented!(),
             Type::InterfaceBase(_) => unimplemented!(),
             Type::InterfaceInstance(_) => unimplemented!(),

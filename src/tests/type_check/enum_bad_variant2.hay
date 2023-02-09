@@ -1,0 +1,14 @@
+enum Foo {
+    Bar
+    Baz
+}
+
+fn return_foo() -> [Foo] {
+    Foo::Bar
+}
+
+fn takes_baz(Foo::Baz: x) {}
+
+fn main() {
+    return_foo takes_baz
+}

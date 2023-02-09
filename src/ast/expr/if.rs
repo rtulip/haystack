@@ -94,25 +94,53 @@ impl ExprIf {
             end_stacks.push((then_end_tok, otherwise_stack));
         }
 
-        if !end_stacks.is_empty()
-            && !(0..end_stacks.len() - 1).all(|i| end_stacks[i].1 == end_stacks[i + 1].1)
-        {
-            let mut err = HayError::new_type_err(
-                "If block creates stacks of diferent shapes",
-                self.token.loc,
-            )
-            .with_hint("Each branch of if block must evaluate to the same stack layout.");
+        let mut resulting_stack = vec![];
 
-            for (i, (tok, stk)) in end_stacks.iter().enumerate() {
-                err = err.with_hint(format!("{} Branch {}: {:?}", tok.loc, i + 1, stk));
+        if !end_stacks.is_empty() {
+            resulting_stack = end_stacks[0].1.clone();
+            if end_stacks
+                .iter()
+                .any(|(_, s)| s.len() != resulting_stack.len())
+                || (1..end_stacks.len()).into_iter().any(|i| {
+                    !end_stacks[i]
+                        .1
+                        .iter()
+                        .zip(resulting_stack.iter_mut())
+                        .all(|(t, r)| {
+                            match (
+                                t == r,
+                                &t.supertype(types) == r,
+                                t.supertype(types) == r.supertype(types),
+                            ) {
+                                (true, _, _) => true,
+                                (_, true, _) => true,
+                                (_, _, true) => {
+                                    println!("{t} {r} {}", r.supertype(types));
+                                    *r = r.supertype(types);
+                                    true
+                                }
+                                _ => false,
+                            }
+                        })
+                })
+            {
+                let mut err = HayError::new_type_err(
+                    "If block creates stacks of diferent shapes",
+                    self.token.loc,
+                )
+                .with_hint("Each branch of if block must evaluate to the same stack layout.");
+
+                for (i, (tok, stk)) in end_stacks.iter().enumerate() {
+                    err = err.with_hint(format!("{} Branch {}: {:?}", tok.loc, i + 1, stk));
+                }
+
+                return Err(err);
             }
-
-            return Err(err);
         }
 
         *frame = initial_frame;
         if !end_stacks.is_empty() {
-            *stack = end_stacks[0].1.clone();
+            *stack = resulting_stack;
         }
         Ok(TypedExpr::If {
             then: typed_then,

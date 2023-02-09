@@ -374,6 +374,15 @@ mod functional {
     fn enum_variants() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/functional", "enum_variants", None)
     }
+
+    #[test]
+    fn enum_variants_branching() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/functional",
+            "enum_variants_branching",
+            None,
+        )
+    }
 }
 
 mod examples {

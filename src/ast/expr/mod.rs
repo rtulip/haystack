@@ -453,4 +453,13 @@ mod tests {
     fn cast_variant() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/type_check", "cast_variant", None)
     }
+
+    #[test]
+    fn pointer_supertype_resolution() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "pointer_supertype_resolution",
+            None,
+        )
+    }
 }

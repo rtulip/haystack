@@ -118,7 +118,13 @@ impl UncheckedFunction {
             .map(|arg| &arg.typ)
             .collect::<Vec<&TypeId>>();
 
-        if !stack_tids.contains(&&Type::Never.id()) && stack_tids != output_tids {
+        if !stack_tids.contains(&&Type::Never.id())
+            && (stack_tids.len() != output_tids.len()
+                || stack_tids
+                    .iter()
+                    .zip(output_tids.iter())
+                    .any(|(s, o)| s != o && &&s.supertype(types) != o))
+        {
             return Err(HayError::new_type_err(
                 format!(
                     "Function `{}` doesn't produce the correct outputs",

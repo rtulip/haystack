@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "A bunch of logic which always results in Foo::Bar\nFoo::Bar\nA bunch of logic which always results in Foo::Baz\nFoo::Baz\n",
+  "stderr": ""
+}

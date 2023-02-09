@@ -51,7 +51,7 @@ impl AssociatedTypeBase {
                         token.loc.clone(),
                     )
                     .with_hint(format!(
-                        "Interface {} is not implemented with {map:?}",
+                        "Interface {} is not implemented for {concrete_tid}",
                         self.interface
                     )))
                 }

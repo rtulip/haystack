@@ -798,12 +798,12 @@ impl<'a> Parser<'a> {
                             ))
                         }
                 };
-                TypeToken::Parameterized { base: ident.ident()?, inner: inner }
+                TypeToken::Parameterized { base: ident.ident()?, inner }
             } else {
                 TypeToken::Base(ident.lexeme.clone())
             };
 
-            if let Ok(_) = self.matches(TokenKind::Marker(Marker::DoubleColon)) {
+            if self.matches(TokenKind::Marker(Marker::DoubleColon)).is_ok() {
                 match self.matches(TokenKind::ident()) {
                     Ok(t) => {
                         typ_tok = TypeToken::Associated { base: Box::new(typ_tok), typ: t.ident()? };

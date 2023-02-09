@@ -660,7 +660,7 @@ impl TypeId {
                     Ok(tid)
                 },
                 Type::Variant(_) => {
-                    assert_eq!(self.is_generic(types), false);
+                    assert!(!self.is_generic(types));
                     Ok(self.clone())
                 },
                 Type::Stub { .. } => unimplemented!(),

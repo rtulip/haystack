@@ -101,7 +101,7 @@ impl ExprIf {
             if end_stacks
                 .iter()
                 .any(|(_, s)| s.len() != resulting_stack.len())
-                || (1..end_stacks.len()).into_iter().any(|i| {
+                || (1..end_stacks.len()).any(|i| {
                     !end_stacks[i]
                         .1
                         .iter()

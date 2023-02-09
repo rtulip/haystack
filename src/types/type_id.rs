@@ -984,7 +984,10 @@ impl TypeId {
                 }
                 Ok(())
             },
-            Some(Type::Variant(_)) => todo!(),
+            Some(Type::Variant(_)) => Err(HayError::new(
+                "Variant types shouldn't be checked for being recursive",
+                token.loc.clone(),
+            )),
             Some(Type::InterfaceBase(_)) => Err(HayError::new(
                 "InterfaceBase types shouldn't be checked for being recursive",
                 token.loc.clone(),

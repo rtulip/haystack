@@ -448,4 +448,9 @@ mod tests {
             None,
         )
     }
+
+    #[test]
+    fn cast_variant() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "cast_variant", None)
+    }
 }

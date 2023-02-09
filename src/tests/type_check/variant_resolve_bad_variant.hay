@@ -1,0 +1,8 @@
+enum A_ { a1 a2 }
+
+fn foo<T>(A_::a1: _ T: _) {}
+
+fn main() {
+    A_::a1 0 foo
+    A_::a2 0 foo
+}

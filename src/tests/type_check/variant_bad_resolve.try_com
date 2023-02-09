@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/variant_bad_resolve.hay:6:9] Error: Type Error: Cannot resolve A_::a1 from u64\n"
+}

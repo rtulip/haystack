@@ -66,7 +66,7 @@ impl TypeId {
             Some(Type::RecordPreDeclaration { generics, .. }) => !generics.is_empty(),
             Some(Type::Stub { .. }) => unimplemented!(),
             Some(Type::AssociatedTypeInstance(instance)) => instance.is_generic(types),
-            Some(Type::Variant(_)) => todo!(),
+            Some(Type::Variant(VariantType { base, .. })) => base.is_generic(types),
         }
     }
 
@@ -223,7 +223,7 @@ impl TypeId {
                         )
                         .with_hint("Consider adding a `requires` block."))
                     }
-                    Some(Type::Variant(_)) => todo!(),
+                    Some(Type::Variant(_)) => unreachable!(),
                     Some(
                         Type::Bool
                         | Type::Char
@@ -659,7 +659,10 @@ impl TypeId {
 
                     Ok(tid)
                 },
-                Type::Variant(_) => todo!(),
+                Type::Variant(_) => {
+                    assert_eq!(self.is_generic(types), false);
+                    Ok(self.clone())
+                },
                 Type::Stub { .. } => unimplemented!(),
                 Type::InterfaceBase(_) =>  unimplemented!(),
                 Type::InterfaceInstance(_) => unimplemented!(),
@@ -892,7 +895,21 @@ impl TypeId {
             (Some(Type::Tuple { .. }), _) => {
                 Err(HayError::new(format!("Cannot resolve {self} from {concrete}"), token.loc.clone()))
             },
-            (Some(Type::Variant(_)), _ ) => todo!(),
+            (
+                Some(Type::Variant(VariantType { base, variant })), 
+                Some(Type::Variant(VariantType { base: concrete_base, variant: concrete_variant }))
+            ) => {
+                if base != concrete_base {
+                    return Err(HayError::new(format!("Cannot resolve variant `{self}` from `{concrete}`"), token.loc.clone())
+                .with_hint(format!("Bases do not align: `{base}` and `{concrete_base}` are not the same")));
+                }
+
+                if variant != concrete_variant {
+                    return Err(HayError::new(format!("Cannot resolve variant `{self}` from `{concrete}`"), token.loc.clone()));
+                }
+
+                Ok(concrete.clone())
+            },
             (Some(Type::InterfaceBase(_)), _) => unimplemented!(),
             (Some(Type::InterfaceInstance(_)), _) => unimplemented!(),
             (Some(Type::AssociatedTypeBase(_)), _) => unimplemented!(),
@@ -905,7 +922,8 @@ impl TypeId {
             | (Some(Type::U64), _)
             | (Some(Type::Enum { .. }), _)
             | (Some(Type::GenericRecordInstance { .. }), _)
-            | (Some(Type::Record { .. }), _) => Err(HayError::new_type_err(
+            | (Some(Type::Record { .. }), _)
+            | (Some(Type::Variant(_)), _) => Err(HayError::new_type_err(
                 format!("Cannot resolve {self} from {concrete}"),
                 token.loc.clone(),
             )),

@@ -131,7 +131,6 @@ pub enum TypedExpr {
         typ: TypeId,
     },
     CastEnumStruct {
-        typ: TypeId,
         padding: usize,
         idx: usize,
     },

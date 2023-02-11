@@ -199,11 +199,7 @@ impl ExprCast {
 
                         signature.evaluate(&self.token, stack, types)?;
 
-                        Ok(TypedExpr::CastEnumStruct {
-                            typ: typ_id,
-                            padding,
-                            idx,
-                        })
+                        Ok(TypedExpr::CastEnumStruct { padding, idx })
                     }
                     _ => Err(HayError::new_type_err(
                         format!("Casting to non-enum-struct variant is unsupported"),

@@ -1040,7 +1040,7 @@ impl TypeId {
 
     /// Gets the size of a type in bytes.
     pub fn size(&self, types: &TypeMap) -> Result<usize, HayError> {
-        match types.get(self).unwrap() {
+        match types.get(self).expect(format!("{self} should be a known type in the type system").as_str()) {
             Type::Bool
             | Type::Char
             | Type::U64

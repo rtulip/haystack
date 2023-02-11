@@ -4,7 +4,7 @@ use crate::{
     ast::{arg::UntypedArg, member::UntypedMember},
     error::HayError,
     lex::token::Token,
-    types::{validate_requirements, RecordKind, Type, TypeId, TypeMap},
+    types::{validate_requirements, RecordKind, Type, TypeId, TypeMap, VariantType},
 };
 
 use super::Stmt;
@@ -29,6 +29,19 @@ impl RecordStmt {
         }
 
         let tid = TypeId::new(&self.name.lexeme);
+
+        match &self.kind {
+            RecordKind::EnumStruct => {
+                for m in &members {
+                    let t = Type::Variant(VariantType {
+                        base: tid.clone(),
+                        variant: m.ident.lexeme.clone(),
+                    });
+                    assert!(types.insert(t.id(), t).is_none())
+                }
+            }
+            _ => (),
+        }
 
         let prev = match generics.len() {
             0 => {

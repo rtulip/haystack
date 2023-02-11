@@ -1,7 +1,7 @@
 use crate::{
     error::HayError,
     lex::token::Token,
-    types::{Frame, Stack, Type, TypeId, TypeMap, UncheckedFunction, VariantType},
+    types::{Frame, RecordKind, Stack, Type, TypeId, TypeMap, UncheckedFunction, VariantType},
 };
 
 use super::TypedExpr;
@@ -41,6 +41,8 @@ impl AccessorExpr {
         // 1. Ident is a framed record or pointer
         // 2. Ident is an enum found in types.
         // 3. Ident is unrecognized.
+
+        let tid = TypeId::new(&self.ident.lexeme);
 
         if let Some((i, (_, ft))) = frame
             .iter()
@@ -84,9 +86,7 @@ impl AccessorExpr {
                     self.token.loc,
                 )),
             }
-        } else if let Some(Type::Enum { variants, .. }) =
-            types.get(&TypeId::new(&self.ident.lexeme))
-        {
+        } else if let Some(Type::Enum { variants, .. }) = types.get(&tid) {
             if self.inner.len() != 1 {
                 return Err(HayError::new(
                     "Cannot have multiple inner accessor for an enum type.",
@@ -129,6 +129,72 @@ impl AccessorExpr {
                     .lexeme
                     .clone(),
             })
+        } else if let Some(Type::Record {
+            members,
+            kind: RecordKind::EnumStruct,
+            ..
+        }) = types.get(&tid)
+        {
+            if self.inner.len() != 1 {
+                return Err(HayError::new(
+                    "Cannot have multiple inner accessor for an enum type.",
+                    self.token.loc,
+                )
+                .with_hint(format!(
+                    "Found accessors: {:?}",
+                    self.inner
+                        .iter()
+                        .map(|t| &t.lexeme)
+                        .collect::<Vec<&String>>()
+                )));
+            }
+
+            let (idx, m) = match members
+                .iter()
+                .enumerate()
+                .find(|(_, m)| &m.ident.lexeme == &self.inner[0].lexeme)
+            {
+                Some((i, m)) => (i, m),
+                None => {
+                    return Err(HayError::new(
+                        format!("Unknown enum struct variant `{}`", self.inner[0].lexeme),
+                        self.token.loc,
+                    )
+                    .with_hint(format!(
+                        "Enum struct `{}` has variants: {:?}",
+                        self.ident.lexeme,
+                        members
+                            .iter()
+                            .map(|m| &m.ident.lexeme)
+                            .collect::<Vec<&String>>()
+                    )))
+                }
+            };
+
+            if &m.typ != &TypeId::new("[]") {
+                return Err(HayError::new(
+                    format!(
+                        "Enum struct `{}` variant `{}` requires a cast",
+                        self.ident.lexeme, self.inner[0].lexeme
+                    ),
+                    self.token.loc,
+                )
+                .with_hint(format!(
+                    "Variant `{}` has a type {}.",
+                    self.inner[0].lexeme, m.typ
+                ))
+                .with_hint(format!("Try using `cast({})` instead.", self.token.lexeme)));
+            }
+
+            let variant_typ = Type::Variant(VariantType {
+                base: tid.clone(),
+                variant: self.inner[0].lexeme.clone(),
+            });
+
+            stack.push(variant_typ.id());
+            let padding = tid.size(types)? - 1;
+
+            Ok(TypedExpr::CastEnumStruct { padding, idx })
         } else {
             Err(HayError::new(
                 format!("Unknown identifier `{}`", self.ident.lexeme),

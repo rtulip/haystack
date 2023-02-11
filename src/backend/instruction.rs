@@ -144,6 +144,7 @@ impl Instruction {
 
                                     &members[idx].typ
                                 }
+                                RecordKind::EnumStruct => todo!(),
                                 RecordKind::Interface => unreachable!(),
                             },
                             Type::Tuple {
@@ -207,6 +208,7 @@ impl Instruction {
 
                                     &members[idx].typ
                                 }
+                                RecordKind::EnumStruct => todo!(),
                                 RecordKind::Interface => unreachable!(),
                             }
                         } else {
@@ -262,6 +264,7 @@ impl Instruction {
 
                                     &members[idx].typ
                                 }
+                                RecordKind::EnumStruct => todo!(),
                                 RecordKind::Interface => unreachable!(),
                             }
                         } else {
@@ -462,6 +465,12 @@ impl Instruction {
                 }
             }
             TypedExpr::Cast { .. } => (),
+            TypedExpr::CastEnumStruct { idx, padding, .. } => {
+                for _ in 0..padding {
+                    ops.push(Instruction::PushU64(0));
+                }
+                ops.push(Instruction::PushU64(idx as u64))
+            }
             TypedExpr::Var { size, width, data } => {
                 // Space is reserved for all local var's within a function's scope.
                 // Space is reserved in parsing order.

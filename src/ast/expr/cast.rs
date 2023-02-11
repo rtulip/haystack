@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     error::HayError,
     lex::token::Token,
-    types::{RecordKind, Signature, Stack, Type, TypeId, TypeMap},
+    types::{RecordKind, Signature, Stack, Type, TypeId, TypeMap, VariantType},
 };
 
 use super::TypedExpr;
@@ -65,6 +65,7 @@ impl ExprCast {
 
                     Ok(TypedExpr::Pad { padding })
                 }
+                RecordKind::EnumStruct => todo!(),
                 RecordKind::Interface => unreachable!(),
             },
             Type::U64 => {
@@ -167,6 +168,7 @@ impl ExprCast {
 
                         typ_id
                     }
+                    RecordKind::EnumStruct => todo!(),
                     RecordKind::Interface => unreachable!(),
                 };
 
@@ -176,10 +178,39 @@ impl ExprCast {
                 "Casting to enums is unsupported.",
                 self.token.loc,
             )),
-            Type::Variant(_) => Err(HayError::new_type_err(
-                "Casting to variants is unsupported.",
-                self.token.loc,
-            )),
+            Type::Variant(VariantType { base, variant }) => {
+                match types
+                    .get(base)
+                    .expect(format!("{base} should be a recognized type!").as_str())
+                {
+                    Type::Record {
+                        kind: RecordKind::EnumStruct,
+                        members,
+                        ..
+                    } => {
+                        let (idx, member) = members.iter().enumerate().find(|(_, m)| &m.ident.lexeme == variant).expect(
+                            format!("Enum struct `{base}` variant `{variant}` should be real at this point.").as_str(),
+                        );
+
+                        let padding = base.size(types)? - 1 - member.typ.size(types)?;
+
+                        let signature =
+                            Signature::new(vec![member.typ.clone()], vec![typ_id.clone()]);
+
+                        signature.evaluate(&self.token, stack, types)?;
+
+                        Ok(TypedExpr::CastEnumStruct {
+                            typ: typ_id,
+                            padding,
+                            idx,
+                        })
+                    }
+                    _ => Err(HayError::new_type_err(
+                        format!("Casting to non-enum-struct variant is unsupported"),
+                        self.token.loc,
+                    )),
+                }
+            }
             Type::Bool => unimplemented!(),
             Type::InterfaceBase(_) => unimplemented!(),
             Type::InterfaceInstance(_) => unimplemented!(),

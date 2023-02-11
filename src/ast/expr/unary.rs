@@ -99,6 +99,7 @@ impl ExprUnary {
                                             match kind {
                                                 RecordKind::Union => "Union",
                                                 RecordKind::Struct => "Struct",
+                                                RecordKind::EnumStruct => "Enum struct",
                                                 RecordKind::Interface => unreachable!(),
                                             },
                                             name.lexeme,

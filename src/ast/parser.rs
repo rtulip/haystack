@@ -80,9 +80,8 @@ impl<'a> Parser<'a> {
         match &token.kind {
             TokenKind::Keyword(Keyword::Inline) => self.inline_function(token, None),
             TokenKind::Keyword(Keyword::Function) => self.function(token, vec![], None),
-            TokenKind::Keyword(Keyword::Struct) | TokenKind::Keyword(Keyword::Union) => {
-                self.record(token)
-            }
+            TokenKind::Keyword(Keyword::Struct) => self.record(token, RecordKind::Struct),
+            TokenKind::Keyword(Keyword::Union) => self.record(token, RecordKind::Union),
             TokenKind::Keyword(Keyword::Enum) => self.enumeration(token),
             TokenKind::Keyword(Keyword::Include) => self.include(token),
             TokenKind::Keyword(Keyword::Var) => {
@@ -1148,8 +1147,16 @@ impl<'a> Parser<'a> {
         Ok(Box::new(Expr::Cast(ExprCast { token, typ })))
     }
 
+    fn enum_struct(&mut self, struct_token: Token) -> Result<Vec<Stmt>, HayError> {
+        self.record(struct_token, RecordKind::EnumStruct)
+    }
+
     // enum -> "enum" IDENT "{" IDENT+ "}"
     fn enumeration(&mut self, start: Token) -> Result<Vec<Stmt>, HayError> {
+        if let Ok(struct_token) = self.matches(TokenKind::Keyword(Keyword::Struct)) {
+            return self.enum_struct(struct_token);
+        }
+
         let name = match self.matches(TokenKind::ident()) {
             Ok(t) => t,
             Err(t) => {
@@ -1208,14 +1215,8 @@ impl<'a> Parser<'a> {
 
     // structure -> "struct" IDENT "{" named_args_list (impls)? "}"
     // impls     -> "impl" ":" function+
-    fn record(&mut self, start: Token) -> Result<Vec<Stmt>, HayError> {
+    fn record(&mut self, start: Token, kind: RecordKind) -> Result<Vec<Stmt>, HayError> {
         let kw = start.keyword()?;
-        let kind = if kw == Keyword::Union {
-            RecordKind::Union
-        } else {
-            RecordKind::Struct
-        };
-
         let name = match self.matches(TokenKind::ident()) {
             Ok(t) => t,
             Err(t) => {
@@ -1379,6 +1380,7 @@ impl<'a> Parser<'a> {
             parent: typ.clone(),
             vis: match kind {
                 RecordKind::Union => Visitiliby::Public,
+                RecordKind::EnumStruct => Visitiliby::Public,
                 RecordKind::Struct => vis,
                 RecordKind::Interface => Visitiliby::Public,
             },

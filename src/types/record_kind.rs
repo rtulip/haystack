@@ -3,6 +3,7 @@
 pub enum RecordKind {
     Struct,
     Union,
+    EnumStruct,
     Interface,
 }
 
@@ -12,6 +13,7 @@ impl std::fmt::Display for RecordKind {
             RecordKind::Struct => write!(f, "struct"),
             RecordKind::Union => write!(f, "union"),
             RecordKind::Interface => write!(f, "interface"),
+            RecordKind::EnumStruct => write!(f, "enum struct"),
         }
     }
 }

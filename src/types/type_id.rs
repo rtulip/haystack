@@ -159,6 +159,19 @@ impl TypeId {
                                 }
 
                             },
+                            Some(Type::Record { members, kind: RecordKind::EnumStruct, .. }) => {
+
+                                match members.iter().find(|m| &m.ident.lexeme == typ) {
+                                    Some(_) => {
+                                        let variant = Type::Variant(VariantType { base: base_tid, variant: typ.clone() });
+                                        let tid = variant.id();
+                                        types.insert(tid.clone(), variant);
+                                        Ok(tid)
+                                    },
+                                    None => Err(HayError::new(format!("Unknown variant {typ} for {} {base_tid}", RecordKind::EnumStruct), token.loc.clone())),
+                                }
+
+                            },
                             Some(_) => Err(HayError::new(format!("Can't create a variant type from {base_tid}"), token.loc.clone())),
                             None => Err(HayError::new(format!("Can't create variant type from unknown type: {base_tid}"), token.loc.clone())),
                         }
@@ -1060,6 +1073,13 @@ impl TypeId {
 
                     Ok(max)
                 }
+                RecordKind::EnumStruct => {
+                    let mut sum = 1; // Size starts at 1 for the discriminator
+                    for member in members {
+                        sum += member.typ.size(types)?;
+                    }
+                    Ok(sum)
+                },
                 RecordKind::Interface => unreachable!(),
             },
             Type::Variant(VariantType {base, ..}) => base.size(types),
@@ -1157,6 +1177,7 @@ impl TypeId {
                                 match kind {
                                     RecordKind::Union => "Union",
                                     RecordKind::Struct => "Struct",
+                                    RecordKind::EnumStruct => "Enum struct",
                                     RecordKind::Interface => unreachable!(),
                                 },
                                 name.lexeme,

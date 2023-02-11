@@ -130,6 +130,11 @@ pub enum TypedExpr {
     Cast {
         typ: TypeId,
     },
+    CastEnumStruct {
+        typ: TypeId,
+        padding: usize,
+        idx: usize,
+    },
     If {
         then: Vec<TypedExpr>,
         otherwise: Vec<TypedExpr>,

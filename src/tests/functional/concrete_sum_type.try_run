@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "Foo::Unit\nFoo::Value(Hello Sum Types)\nFoo::Tuple[1 two false]\n",
+  "stderr": ""
+}

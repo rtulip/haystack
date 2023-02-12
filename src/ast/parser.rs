@@ -1,4 +1,4 @@
-use crate::ast::expr::Expr;
+use crate::ast::expr::{Expr, MatchCaseExpr};
 use crate::ast::stmt::Stmt;
 use crate::error::HayError;
 use crate::lex::token::{Keyword, Loc, Marker, Operator, Token, TokenKind, TypeToken, Literal};
@@ -8,7 +8,7 @@ use std::collections::{HashSet};
 use super::arg::{IdentArg, UntypedArg};
 use super::expr::{
     AccessorExpr, AnnotatedCallExpr, AsExpr, ExprCast, ExprElseIf, ExprIdent, ExprIf, ExprLiteral,
-    ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr,
+    ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr, MatchExpr,
 };
 use super::member::UntypedMember;
 use super::stmt::{RecordStmt, EnumStmt, FunctionStmt, FunctionStubStmt, InterfaceStmt, InterfaceImplStmt, VarStmt, PreDeclarationStmt};
@@ -1048,12 +1048,94 @@ impl<'a> Parser<'a> {
             TokenKind::Keyword(Keyword::While) => self.parse_while(token),
             TokenKind::Keyword(Keyword::SizeOf) => self.size_of(token),
             TokenKind::Keyword(Keyword::Return) => Ok(Box::new(Expr::Return(ExprReturn { token }))),
+            TokenKind::Keyword(Keyword::Match) => self.match_expr(token),
             TokenKind::Marker(Marker::LeftBracket) => self.parse_tuple_expr(token),
             kind => Err(HayError::new(
                 format!("Not sure how to parse expression from {kind} yet"),
                 token.loc,
             )),
         }
+    }
+
+    fn match_expr(&mut self, token: Token) -> Result<Box<Expr>, HayError> {
+
+        if let Err(e) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
+            return Err(HayError::new(format!("Expected {} after {}, but found {} instead", Marker::LeftBrace, Keyword::Match, &e.kind), e.loc))
+        }
+
+        let mut cases = vec![];
+
+        while let Some(variant) = self.parse_type()? {            
+            let idents = if self.matches(TokenKind::Keyword(Keyword::As)).is_ok() {
+                if let Err(e) = self.matches(TokenKind::Marker(Marker::LeftBracket)) {
+                    return Err(HayError::new(
+                        format!(
+                            "Expected {} after {}, but found {} instead", 
+                            Marker::LeftBracket, 
+                            Keyword::As, 
+                            e.kind
+                        ), 
+                        e.loc
+                    ))
+                }
+                
+                let idents = Some(self.maybe_mut_ident_list()?);
+                if let Err(e) = self.matches(TokenKind::Marker(Marker::RightBracket)) {
+                    return Err(HayError::new(
+                        format!(
+                            "Expected {} after match case assignments, but found {} instad", 
+                            Keyword::Match, 
+                            e.kind
+                        ), 
+                        e.loc
+                    ))
+                }
+                idents
+            } else {
+                None
+            };
+
+            if let Err(e) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
+                return Err(HayError::new(
+                    format!(
+                        "Expected {} to open match case expression, but found {} instead", 
+                        Marker::LeftBrace, 
+                        e.kind
+                    ), 
+                    e.loc
+                ))
+            }
+
+            let mut body = vec![];
+
+            while !matches!(self.peek().kind, TokenKind::Marker(Marker::RightBrace)) && !self.is_at_end() {
+                body.push(*self.expression()?);
+            }
+
+            if let Err(e) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
+                return Err(HayError::new(
+                    format!(
+                        "Expected {} after match case block, but found {} instead", 
+                        Marker::RightBrace, 
+                        e.kind
+                    ), 
+                    e.loc
+                ))
+            }
+
+            cases.push(MatchCaseExpr {
+                variant, 
+                idents,
+                body
+            })
+        } 
+
+
+        if let Err(e) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
+            return Err(HayError::new(format!("Expected {} after {} cases, but found {} instead", Marker::RightBrace, Keyword::Match, &e.kind), e.loc))
+        }
+
+        return Ok(Box::new(Expr::Match(MatchExpr{ token, cases})))
     }
 
     fn parse_tuple_expr(&mut self, token: Token) -> Result<Box<Expr>, HayError> {

@@ -1141,6 +1141,32 @@ impl TypeId {
         for inner_member in inner {
             match types.get(typ).unwrap() {
                 Type::Record {
+                    members,
+                    kind: RecordKind::EnumStruct,
+                    ..
+                } => {
+                    match &inner_member.kind {
+                        TokenKind::Literal(Literal::U64(n)) => {
+                            if *n as usize >= members.len() {
+                                return Err(HayError::new(
+                                    format!(
+                                        "{n} is out of range for `{typ}`. Expected a value between 0 and {} inclusive.", 
+                                        members.len() -1
+                                    ), 
+                                    token.loc
+                                ));
+                            }
+
+                            typ = &members[*n as usize].typ;
+                        },
+                        kind => return Err(
+                            HayError::new(
+                                format!("Internal Error: Expected a number literal to access into `{typ}`, but found {kind} instead."), 
+                                token.loc
+                        ))
+                    }
+                },
+                Type::Record {
                     name,
                     members,
                     kind,

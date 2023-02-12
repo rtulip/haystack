@@ -117,52 +117,65 @@ impl Instruction {
 
                 let mut typ = &frame[idx].1.typ;
                 let bytes = if let Some(inner) = &inner {
-                    for inner in inner {
-                        typ = match types.get(typ).unwrap() {
-                            Type::Record { members, kind, .. } => match kind {
-                                RecordKind::Struct => {
-                                    let idx = members
-                                        .iter()
-                                        .enumerate()
-                                        .find(|(_, m)| &m.ident.lexeme == inner)
-                                        .unwrap()
-                                        .0;
-
-                                    for m in &members[0..idx] {
-                                        offset += m.typ.size(types).unwrap()
-                                    }
-
-                                    &members[idx].typ
-                                }
-                                RecordKind::Union => {
-                                    let idx = members
-                                        .iter()
-                                        .enumerate()
-                                        .find(|(_, m)| &m.ident.lexeme == inner)
-                                        .unwrap()
-                                        .0;
-
-                                    &members[idx].typ
-                                }
-                                RecordKind::EnumStruct => todo!(),
-                                RecordKind::Interface => unreachable!(),
-                            },
-                            Type::Tuple {
-                                inner: tuple_members,
-                            } => {
-                                let idx = inner
-                                    .parse::<usize>()
-                                    .unwrap_or_else(|_| panic!("{inner} should be a usize"));
-                                for m in &tuple_members[0..idx] {
-                                    offset += m.size(types).unwrap()
-                                }
-                                &tuple_members[idx]
-                            }
-                            _ => panic!("Didn't expect to find {typ} here!"),
+                    if inner.is_empty() {
+                        match types.get(typ).unwrap() {
+                            Type::Record {kind: RecordKind::EnumStruct, ..} => {
+                                offset += typ.size(types).unwrap() - 1;
+                                1
+                            }, 
+                            _ => unreachable!("Internal Error: framed inner should only be empty on Enum Struct types"),
                         }
-                    }
 
-                    typ.size(types).unwrap()
+                    } else {
+                        for inner in inner {
+                            typ = match types.get(typ).unwrap() {
+                                Type::Record { members, kind, .. } => match kind {
+                                    RecordKind::Struct => {
+                                        let idx = members
+                                            .iter()
+                                            .enumerate()
+                                            .find(|(_, m)| &m.ident.lexeme == inner)
+                                            .unwrap()
+                                            .0;
+
+                                        for m in &members[0..idx] {
+                                            offset += m.typ.size(types).unwrap()
+                                        }
+
+                                        &members[idx].typ
+                                    }
+                                    RecordKind::Union => {
+                                        let idx = members
+                                            .iter()
+                                            .enumerate()
+                                            .find(|(_, m)| &m.ident.lexeme == inner)
+                                            .unwrap()
+                                            .0;
+
+                                        &members[idx].typ
+                                    }
+                                    RecordKind::EnumStruct => {
+                                        let idx = inner.parse::<usize>().expect("Internal error - this should be a formatted usize");
+                                        &members[idx].typ
+                                    },
+                                    RecordKind::Interface => unreachable!(),
+                                },
+                                Type::Tuple {
+                                    inner: tuple_members,
+                                } => {
+                                    let idx = inner
+                                        .parse::<usize>()
+                                        .unwrap_or_else(|_| panic!("{inner} should be a usize"));
+                                    for m in &tuple_members[0..idx] {
+                                        offset += m.size(types).unwrap()
+                                    }
+                                    &tuple_members[idx]
+                                }
+                                _ => panic!("Didn't expect to find {typ} here!"),
+                            }
+                        }
+                        typ.size(types).unwrap()
+                    }
                 } else {
                     typ.size(types).unwrap()
                 };

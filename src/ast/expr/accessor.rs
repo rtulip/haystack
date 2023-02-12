@@ -50,6 +50,30 @@ impl AccessorExpr {
             .find(|(_, (k, _))| k == &self.ident.lexeme)
         {
             match types.get(&ft.typ).unwrap() {
+                Type::Record {
+                    kind: RecordKind::EnumStruct,
+                    ..
+                } => {
+                    if self.inner.is_empty() {
+                        stack.push(Type::U64.id());
+                        Ok(TypedExpr::Framed {
+                            frame: frame.clone(),
+                            idx: i,
+                            inner: Some(vec![]),
+                        })
+                    } else {
+                        let final_tid =
+                            ft.typ
+                                .get_inner_accessors(self.token, &self.inner, func, types)?;
+
+                        stack.push(final_tid);
+                        Ok(TypedExpr::Framed {
+                            frame: frame.clone(),
+                            idx: i,
+                            inner: Some(self.inner.iter().map(|t| t.lexeme.clone()).collect()),
+                        })
+                    }
+                }
                 Type::Record { .. } | Type::Tuple { .. } => {
                     // find the type of the inner accessor
                     let final_tid =

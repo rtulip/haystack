@@ -1066,33 +1066,54 @@ impl<'a> Parser<'a> {
         let mut cases = vec![];
 
         while let Some(variant) = self.parse_type()? {            
-            let idents = if self.matches(TokenKind::Keyword(Keyword::As)).is_ok() {
-                if let Err(e) = self.matches(TokenKind::Marker(Marker::LeftBracket)) {
-                    return Err(HayError::new(
-                        format!(
-                            "Expected {} after {}, but found {} instead", 
-                            Marker::LeftBracket, 
-                            Keyword::As, 
-                            e.kind
-                        ), 
-                        e.loc
-                    ))
-                }
-                
-                let idents = Some(self.maybe_mut_ident_list()?);
-                if let Err(e) = self.matches(TokenKind::Marker(Marker::RightBracket)) {
-                    return Err(HayError::new(
-                        format!(
-                            "Expected {} after match case assignments, but found {} instad", 
-                            Keyword::Match, 
-                            e.kind
-                        ), 
-                        e.loc
-                    ))
-                }
-                idents
-            } else {
-                None
+            let ident = match self.matches(TokenKind::Keyword(Keyword::As)) {
+                Ok(as_kw) => {
+                    if let Err(e) = self.matches(TokenKind::Marker(Marker::LeftBracket)) {
+                        return Err(HayError::new(
+                            format!(
+                                "Expected {} after {}, but found {} instead", 
+                                Marker::LeftBracket, 
+                                Keyword::As, 
+                                e.kind
+                            ), 
+                            e.loc
+                        ))
+                    }
+                    
+                    let mut idents = self.maybe_mut_ident_list()?;
+                    if let Err(e) = self.matches(TokenKind::Marker(Marker::RightBracket)) {
+                        return Err(HayError::new(
+                            format!(
+                                "Expected {} after {} case assignments, but found {} instead", 
+                                Marker::RightBracket,
+                                Keyword::Match, 
+                                e.kind
+                            ), 
+                            e.loc
+                        ))
+                    }
+    
+                    if idents.len() != 1 {
+                        return Err(
+                            HayError::new(
+                                format!(
+                                    "{} case statement as block expects only one ident.", 
+                                    Keyword::Match
+                                ), 
+                                as_kw.loc
+                            ).with_hint(
+                                format!(
+                                    "Found: {:?}", 
+                                    idents.iter()
+                                        .map(|arg| &arg.token.lexeme)
+                                        .collect::<Vec<&String>>()
+                                )
+                            )
+                        )
+                    }
+                    Some(idents.pop().unwrap())
+                },
+                Err(_) => None,
             };
 
             if let Err(e) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
@@ -1125,7 +1146,7 @@ impl<'a> Parser<'a> {
 
             cases.push(MatchCaseExpr {
                 variant, 
-                idents,
+                ident,
                 body
             })
         } 
@@ -2143,9 +2164,47 @@ mod tests {
     fn parse_tuple_bad_close() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/parser", "parse_tuple_bad_close", None)
     }
+    
     #[test]
     fn parse_bad_tuple_expression_close() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_tuple_expression_close", None)
     }
+
+    #[test]
+    fn parse_match_as_too_many_args() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_as_too_many_args", None)
+    }
+
+    #[test]
+    fn parse_match_bad_as_open() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_as_open", None)
+    }
+
+    #[test]
+    fn parse_match_bad_as_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_as_close", None)
+    }
+
+    #[test]
+    fn parse_match_bad_case_open() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_case_open", None)
+    }
+
+    #[test]
+    fn parse_match_bad_case_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_case_close", None)
+    }
+
+    #[test]
+    fn parse_match_bad_open() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_open", None)
+    }
+
+    #[test]
+    fn parse_match_bad_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_close", None)
+    }
+
+
 
 }

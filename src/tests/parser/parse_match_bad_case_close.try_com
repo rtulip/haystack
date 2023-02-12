@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parser/parse_match_bad_case_close.hay:4:19] Error: Expected `}` after match case block, but found end of file instead\n"
+}

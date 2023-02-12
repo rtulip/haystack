@@ -8,7 +8,7 @@ use crate::{
         stmt::GlobalEnv,
     },
     error::HayError,
-    lex::token::{Literal, Operator, Token, TokenKind},
+    lex::token::{Keyword, Literal, Operator, Token, TokenKind},
     types::{Frame, RecordKind, Stack, Type, TypeId, TypeMap, UncheckedFunction, VariantType},
 };
 
@@ -23,7 +23,7 @@ pub struct MatchExpr {
 #[derive(Debug, Clone)]
 pub struct MatchCaseExpr {
     pub variant: Token,
-    pub idents: Option<Vec<IdentArg>>,
+    pub ident: Option<IdentArg>,
     pub body: Vec<Expr>,
 }
 
@@ -39,24 +39,45 @@ impl MatchExpr {
     ) -> Result<TypedExpr, HayError> {
         let base_tid = match stack.last() {
             Some(t) => t.clone(),
-            None => todo!("Err: Stack is empty"),
+            None => {
+                return Err(HayError::new(
+                    format!(
+                        "{} expects one element on the stack. Found none.",
+                        Keyword::Match
+                    ),
+                    self.token.loc,
+                ))
+            }
         };
 
-        let base_variants = match types.get(&base_tid) {
+        let (base_tid, base_variants) = match types.get(&base_tid) {
             Some(Type::Record {
                 members,
                 kind: RecordKind::EnumStruct,
                 ..
-            }) => members.clone(),
+            }) => (base_tid, members.clone()),
             Some(Type::Variant(VariantType { base, .. })) => match types.get(&base) {
                 Some(Type::Record {
                     members,
                     kind: RecordKind::EnumStruct,
                     ..
-                }) => members.clone(),
-                _ => todo!("Err: expected a enum struct"),
+                }) => (base.clone(), members.clone()),
+                t => unreachable!("Internal Error: Expected an EnumStruct. Found {t:?}"),
             },
-            _ => todo!("Err: Expected an enum struct"),
+            Some(_) => {
+                return Err(HayError::new(
+                    format!(
+                        "{} expects an `{}`, but found `{}` instead",
+                        Keyword::Match,
+                        RecordKind::EnumStruct,
+                        base_tid
+                    ),
+                    self.token.loc,
+                ))
+            }
+            _ => unreachable!(
+                "Internal error: Type {base_tid} was on the stack, but unknown to type system."
+            ),
         };
 
         let mut cases_handled = vec![];
@@ -141,16 +162,7 @@ impl MatchExpr {
 
         let mut then_exprs = vec![];
 
-        if let Some(idents) = &case.idents {
-            if idents.is_empty() {
-                todo!("Err: Canot have empty idents")
-            }
-            if idents.len() != 1 {
-                todo!("Err: Expect only a single ident")
-            }
-
-            let ident = &case.idents.as_ref().unwrap()[0];
-
+        if let Some(ident) = &case.ident {
             then_exprs.push(Expr::Accessor(AccessorExpr {
                 token: case.variant.clone(),
                 ident: Token {
@@ -187,21 +199,38 @@ impl MatchExpr {
         let tid = TypeId::from_token(variant, types, &vec![])?;
 
         match types.get(&tid) {
-            Some(Type::Variant(VariantType { base, variant })) => {
+            Some(Type::Variant(VariantType {
+                base,
+                variant: variant_str,
+            })) => {
                 if base != base_tid {
-                    todo!("Err: bases dont match");
+                    return Err(HayError::new(
+                        format!("{tid} is not a variant of {base_tid}"),
+                        variant.loc.clone(),
+                    ));
                 }
 
                 match base_variants
                     .iter()
                     .enumerate()
-                    .find(|(_, m)| &m.ident.lexeme == variant)
+                    .find(|(_, m)| &m.ident.lexeme == variant_str)
                 {
                     Some((i, _)) => Ok(i),
-                    None => todo!("Err: Unknown variant"),
+                    None => unreachable!(
+                        "Internal Error: Unknown variant `{variant_str}` for base `{base}`"
+                    ),
                 }
             }
-            _ => todo!("Err: Expeted a variant"),
+            _ => {
+                return Err(HayError::new(
+                    format!(
+                        "{} case expected a variant of `{base_tid}`.",
+                        Keyword::Match
+                    ),
+                    variant.loc.clone(),
+                )
+                .with_hint(format!("Found type `{tid}` instead.")))
+            }
         }
     }
 }

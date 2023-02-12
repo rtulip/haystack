@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/match_mismatched_bases.hay:7:9] Error: Bar::B is not a variant of Foo\n"
+}

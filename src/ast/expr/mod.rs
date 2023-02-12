@@ -464,4 +464,41 @@ mod tests {
             None,
         )
     }
+
+    #[test]
+    fn match_bad_type() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "match_bad_type", None)
+    }
+
+    #[test]
+    fn match_empty_stack() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "match_empty_stack", None)
+    }
+
+    #[test]
+    fn match_mismatched_bases() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "match_mismatched_bases",
+            None,
+        )
+    }
+
+    #[test]
+    fn match_non_variant_case() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "match_non_variant_case",
+            None,
+        )
+    }
+
+    #[test]
+    fn match_unknown_type_case() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "match_unknown_type_case",
+            None,
+        )
+    }
 }

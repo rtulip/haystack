@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/match_unknown_type_case.hay:8:9] Error: Unrecognized type: x\n"
+}

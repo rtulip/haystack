@@ -219,6 +219,17 @@ impl AccessorExpr {
             let padding = tid.size(types)? - 1;
 
             Ok(TypedExpr::CastEnumStruct { padding, idx })
+        } else if let Some(Type::GenericRecordBase {
+            kind: RecordKind::EnumStruct,
+            generics,
+            ..
+        }) = types.get(&tid)
+        {
+            Err(HayError::new(
+                format!("Cannot create instance instance of generic type `{tid}`."),
+                self.token.loc,
+            )
+            .with_hint(format!("`{tid}` is generic over {generics:?}")))
         } else {
             Err(HayError::new(
                 format!("Unknown identifier `{}`", self.ident.lexeme),

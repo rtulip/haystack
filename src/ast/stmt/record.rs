@@ -62,6 +62,7 @@ impl RecordStmt {
                         name: self.name.clone(),
                         members,
                         kind: self.kind,
+                        parent: None,
                     },
                 )
             }

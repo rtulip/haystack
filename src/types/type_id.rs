@@ -398,6 +398,13 @@ impl TypeId {
                     }
                     let name = TypeId::new(format!("{name}{}>", resolved_generics.last().unwrap()));
 
+                    if matches!(kind, RecordKind::EnumStruct) {
+                        for m in &resolved_members {
+                            let t = Type::Variant(VariantType { base: name.clone(), variant: m.ident.lexeme.clone() });
+                            types.insert(t.id(), t);
+                        }
+                    }
+
                     // Construct a new record type.
                     let t = Type::Record {
                         token: base_token,
@@ -408,6 +415,7 @@ impl TypeId {
                         },
                         members: resolved_members,
                         kind,
+                        parent: Some(self.clone()),
                     };
                     types.insert(name.clone(), t);
 
@@ -533,6 +541,7 @@ impl TypeId {
                         ),
                         members: resolved_members,
                         kind,
+                        parent: Some(base.clone()),
                     };
 
                     let tid = t.id();
@@ -672,9 +681,14 @@ impl TypeId {
 
                     Ok(tid)
                 },
-                Type::Variant(_) => {
-                    assert!(!self.is_generic(types));
-                    Ok(self.clone())
+                Type::Variant(VariantType { base, variant }) => {
+                    if self.is_generic(types) {
+                        let new_base = base.assign(token, map, types)?;
+                        let new_variant = Type::Variant(VariantType{ base: new_base, variant});
+                        Ok(new_variant.id())
+                    } else {
+                        Ok(self.clone())
+                    }
                 },
                 Type::Stub { .. } => unimplemented!(),
                 Type::InterfaceBase(_) =>  unimplemented!(),
@@ -923,6 +937,19 @@ impl TypeId {
 
                 Ok(concrete.clone())
             },
+            (
+                Some(Type::GenericRecordInstance { 
+                    kind: RecordKind::EnumStruct, 
+                    .. 
+                }), 
+                Some(Type::Variant(VariantType { base: ref concrete_base, .. }))) => {
+                    let instance_base = self.resolve(token, concrete_base, map, types)?;
+                    
+                    if &instance_base != concrete_base {
+                        todo!("Err: Instance doesn't match");
+                    }
+                    Ok(concrete.clone())
+                },
             (Some(Type::InterfaceBase(_)), _) => unimplemented!(),
             (Some(Type::InterfaceInstance(_)), _) => unimplemented!(),
             (Some(Type::AssociatedTypeBase(_)), _) => unimplemented!(),
@@ -936,7 +963,7 @@ impl TypeId {
             | (Some(Type::Enum { .. }), _)
             | (Some(Type::GenericRecordInstance { .. }), _)
             | (Some(Type::Record { .. }), _)
-            | (Some(Type::Variant(_)), _) => Err(HayError::new_type_err(
+            | (Some(Type::Variant(_)), _)  => Err(HayError::new_type_err(
                 format!("Cannot resolve {self} from {concrete}"),
                 token.loc.clone(),
             )),
@@ -971,6 +998,7 @@ impl TypeId {
                 };
                 t.id()
             },
+            Some(Type::Record { parent: Some(parent), .. }) => parent.clone(),
             Some(_) => self.clone(),
             None => todo!("Not sure what should happen here..."),
         }

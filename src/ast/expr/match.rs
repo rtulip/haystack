@@ -203,7 +203,7 @@ impl MatchExpr {
                 base,
                 variant: variant_str,
             })) => {
-                if base != base_tid {
+                if base_tid != base && &base_tid.supertype(types) != base {
                     return Err(HayError::new(
                         format!("{tid} is not a variant of {base_tid}"),
                         variant.loc.clone(),

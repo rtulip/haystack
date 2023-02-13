@@ -201,6 +201,35 @@ impl ExprCast {
 
                         Ok(TypedExpr::CastEnumStruct { padding, idx })
                     }
+                    Type::GenericRecordBase {
+                        kind: RecordKind::EnumStruct,
+                        members,
+                        generics,
+                        ..
+                    } => {
+                        let (idx, member) = members.iter().enumerate().find(|(_, m)| &m.ident.lexeme == variant).expect(
+                            format!("Enum struct `{base}` variant `{variant}` should be real at this point.").as_str(),
+                        );
+
+                        let member = member.clone();
+
+                        let signature = Signature::new_generic(
+                            vec![member.typ.clone()],
+                            vec![typ_id.clone()],
+                            generics.clone(),
+                        );
+
+                        let padding =
+                            if let Some(map) = signature.evaluate(&self.token, stack, types)? {
+                                stack.last().unwrap().size(types)?
+                                    - 1
+                                    - member.typ.assign(&self.token, &map, types)?.size(types)?
+                            } else {
+                                stack.last().unwrap().size(types)? - 1 - member.typ.size(types)?
+                            };
+
+                        Ok(TypedExpr::CastEnumStruct { padding, idx })
+                    }
                     _ => Err(HayError::new_type_err(
                         format!("Casting to non-enum-struct variant is unsupported"),
                         self.token.loc,

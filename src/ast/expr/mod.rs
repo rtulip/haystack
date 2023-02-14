@@ -551,4 +551,19 @@ mod tests {
     fn cast_enum_struct() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/type_check", "cast_enum_struct", None)
     }
+
+    #[test]
+    fn match_non_exhaustive() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "match_non_exhaustive", None)
+    }
+
+    #[test]
+    fn match_else_case() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "match_else_case", None)
+    }
+
+    #[test]
+    fn match_empty() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "match_empty", None)
+    }
 }

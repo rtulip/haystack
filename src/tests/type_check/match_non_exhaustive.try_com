@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/match_non_exhaustive.hay:9:22] Error: Match expression doesn't handle all cases for enum-struct `Foo`\n    [Note]: The following cases are not handled:\n    [Note]:  - Foo::Baz\n    [Note]:  - Foo::Buzz\n"
+}

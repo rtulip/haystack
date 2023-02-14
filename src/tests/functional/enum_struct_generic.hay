@@ -1,0 +1,22 @@
+enum struct Foo<T> {
+    T: Bar
+    []: _
+}
+
+impl<T> Print<Foo<T>>
+requires: [Print<T>] {
+    fn print(Foo<T>) {
+        match {
+            Foo::Bar as [t] { t print }
+            Foo::_ { "_" print }
+        }
+    }
+}
+
+fn main() {
+
+    1 cast(Foo::Bar)     println
+    [] cast(Foo<u64>::_) println
+    "Hello World"        println 
+    [] cast(Foo<Str>::_) println
+}

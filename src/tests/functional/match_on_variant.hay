@@ -1,0 +1,17 @@
+enum struct Foo {
+    u64: Bar
+    Str: Baz
+}
+
+fn take_foo_bar(Foo::Bar) {
+    match {
+        Foo::Bar as [u] { u println }
+        else { "unreachable" println } 
+    }
+}
+
+fn main() {
+
+    12345 cast(Foo::Bar) take_foo_bar
+
+}

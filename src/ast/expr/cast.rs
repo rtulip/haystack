@@ -65,7 +65,19 @@ impl ExprCast {
 
                     Ok(TypedExpr::Pad { padding })
                 }
-                RecordKind::EnumStruct => todo!(),
+                RecordKind::EnumStruct => {
+                    let mut e = HayError::new(
+                        format!("Cannot cast to enum struct base: `{typ_id}`"),
+                        self.token.loc.clone(),
+                    )
+                    .with_hint("Cast to one of the following variants instead:");
+
+                    for member in members {
+                        e = e.with_hint(format!(" - {typ_id}::{}", member.ident.lexeme))
+                    }
+
+                    Err(e)
+                }
                 RecordKind::Interface => unreachable!(),
             },
             Type::U64 => {
@@ -168,7 +180,19 @@ impl ExprCast {
 
                         typ_id
                     }
-                    RecordKind::EnumStruct => todo!(),
+                    RecordKind::EnumStruct => {
+                        let mut e = HayError::new(
+                            format!("Cannot cast to enum struct base: `{typ_id}`"),
+                            self.token.loc.clone(),
+                        )
+                        .with_hint("Cast to one of the following variants instead:");
+
+                        for member in members {
+                            e = e.with_hint(format!(" - {typ_id}::{}", member.ident.lexeme))
+                        }
+
+                        return Err(e);
+                    }
                     RecordKind::Interface => unreachable!(),
                 };
 

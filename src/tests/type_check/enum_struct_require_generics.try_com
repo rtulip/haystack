@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/enum_struct_require_generics.hay:4:5] Error: Cannot create instance instance of generic type `Foo` without annotations.\n    [Note]: `Foo` is generic over [T]\n"
+}

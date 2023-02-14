@@ -1,0 +1,7 @@
+enum struct Foo { u64: Bar }
+
+fn main() {
+
+    Foo::Bar::Baz
+
+}

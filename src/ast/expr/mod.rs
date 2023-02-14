@@ -501,4 +501,54 @@ mod tests {
             None,
         )
     }
+
+    #[test]
+    fn enum_struct_multiple_inner() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "enum_struct_multiple_inner",
+            None,
+        )
+    }
+
+    #[test]
+    fn enum_struct_unknown_variant() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "enum_struct_unknown_variant",
+            None,
+        )
+    }
+
+    #[test]
+    fn enum_struct_require_cast() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "enum_struct_require_cast",
+            None,
+        )
+    }
+
+    #[test]
+    fn enum_struct_require_generics() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "enum_struct_require_generics",
+            None,
+        )
+    }
+
+    #[test]
+    fn cast_enum_struct_generic() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "cast_enum_struct_generic",
+            None,
+        )
+    }
+
+    #[test]
+    fn cast_enum_struct() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "cast_enum_struct", None)
+    }
 }

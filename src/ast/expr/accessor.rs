@@ -51,8 +51,6 @@ impl AccessorExpr {
         {
             match types.get(&ft.typ).unwrap() {
                 Type::Variant(VariantType { .. }) => {
-                    println!("{} {} {:?}", self.token, self.ident.lexeme, self.inner);
-
                     if self.inner.is_empty() {
                         let mut copied_frame = frame.clone();
                         copied_frame[i].1.typ = ft.typ.supertype(types);
@@ -64,16 +62,12 @@ impl AccessorExpr {
                         })
                     } else {
                         let concrete_base = ft.typ.supertype(types);
-                        println!("Concrete Base: {concrete_base}");
                         let final_tid = concrete_base.get_inner_accessors(
                             self.token,
                             &self.inner,
                             func,
                             types,
                         )?;
-
-                        println!("Final tid: {final_tid}");
-
                         let mut copied_frame = frame.clone();
                         copied_frame[i].1.typ = concrete_base;
                         stack.push(final_tid);
@@ -195,7 +189,7 @@ impl AccessorExpr {
         {
             if self.inner.len() != 1 {
                 return Err(HayError::new(
-                    "Cannot have multiple inner accessor for an enum type.",
+                    "Cannot have multiple inner accessor for an enum struct type.",
                     self.token.loc,
                 )
                 .with_hint(format!(
@@ -260,7 +254,9 @@ impl AccessorExpr {
         }) = types.get(&tid)
         {
             Err(HayError::new(
-                format!("Cannot create instance instance of generic type `{tid}`."),
+                format!(
+                    "Cannot create instance instance of generic type `{tid}` without annotations."
+                ),
                 self.token.loc,
             )
             .with_hint(format!("`{tid}` is generic over {generics:?}")))

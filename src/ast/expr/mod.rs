@@ -566,4 +566,13 @@ mod tests {
     fn match_empty() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/type_check", "match_empty", None)
     }
+
+    #[test]
+    fn enum_struct_generic_base_fn_sig() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "enum_struct_generic_base_fn_sig",
+            None,
+        )
+    }
 }

@@ -50,6 +50,40 @@ impl AccessorExpr {
             .find(|(_, (k, _))| k == &self.ident.lexeme)
         {
             match types.get(&ft.typ).unwrap() {
+                Type::Variant(VariantType { .. }) => {
+                    println!("{} {} {:?}", self.token, self.ident.lexeme, self.inner);
+
+                    if self.inner.is_empty() {
+                        let mut copied_frame = frame.clone();
+                        copied_frame[i].1.typ = ft.typ.supertype(types);
+                        stack.push(Type::U64.id());
+                        Ok(TypedExpr::Framed {
+                            frame: copied_frame,
+                            idx: i,
+                            inner: Some(vec![]),
+                        })
+                    } else {
+                        let concrete_base = ft.typ.supertype(types);
+                        println!("Concrete Base: {concrete_base}");
+                        let final_tid = concrete_base.get_inner_accessors(
+                            self.token,
+                            &self.inner,
+                            func,
+                            types,
+                        )?;
+
+                        println!("Final tid: {final_tid}");
+
+                        let mut copied_frame = frame.clone();
+                        copied_frame[i].1.typ = concrete_base;
+                        stack.push(final_tid);
+                        Ok(TypedExpr::Framed {
+                            frame: copied_frame,
+                            idx: i,
+                            inner: Some(self.inner.iter().map(|t| t.lexeme.clone()).collect()),
+                        })
+                    }
+                }
                 Type::Record {
                     kind: RecordKind::EnumStruct,
                     ..

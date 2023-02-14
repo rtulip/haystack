@@ -122,10 +122,9 @@ impl Instruction {
                             Type::Record {kind: RecordKind::EnumStruct, ..} => {
                                 offset += typ.size(types).unwrap() - 1;
                                 1
-                            }, 
+                            },
                             _ => unreachable!("Internal Error: framed inner should only be empty on Enum Struct types"),
                         }
-
                     } else {
                         for inner in inner {
                             typ = match types.get(typ).unwrap() {
@@ -155,9 +154,11 @@ impl Instruction {
                                         &members[idx].typ
                                     }
                                     RecordKind::EnumStruct => {
-                                        let idx = inner.parse::<usize>().expect("Internal error - this should be a formatted usize");
+                                        let idx = inner.parse::<usize>().expect(
+                                            "Internal error - this should be a formatted usize",
+                                        );
                                         &members[idx].typ
-                                    },
+                                    }
                                     RecordKind::Interface => unreachable!(),
                                 },
                                 Type::Tuple {

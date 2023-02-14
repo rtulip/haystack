@@ -8,7 +8,7 @@ use std::collections::{HashSet};
 use super::arg::{IdentArg, UntypedArg};
 use super::expr::{
     AccessorExpr, AnnotatedCallExpr, AsExpr, ExprCast, ExprElseIf, ExprIdent, ExprIf, ExprLiteral,
-    ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr, MatchExpr,
+    ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr, MatchExpr, MatchElseExpr,
 };
 use super::member::UntypedMember;
 use super::stmt::{RecordStmt, EnumStmt, FunctionStmt, FunctionStubStmt, InterfaceStmt, InterfaceImplStmt, VarStmt, PreDeclarationStmt};
@@ -1152,11 +1152,25 @@ impl<'a> Parser<'a> {
         } 
 
 
+        let finally = match self.matches(TokenKind::Keyword(Keyword::Else)) {
+            Ok(else_kw) => {
+                if !matches!(&self.peek().kind, TokenKind::Marker(Marker::LeftBrace)) {
+                    return Err(HayError::new(format!("Expected {} after {}, but found {} instead.", Marker::LeftBrace, Keyword::Else, &self.peek().kind), self.peek().loc.clone()))
+                }
+
+                Some(MatchElseExpr {
+                    token: else_kw,
+                    body: self.block()?
+                })
+            },
+            Err(_) => None
+        };
+
         if let Err(e) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
             return Err(HayError::new(format!("Expected {} after {} cases, but found {} instead", Marker::RightBrace, Keyword::Match, &e.kind), e.loc))
         }
 
-        return Ok(Box::new(Expr::Match(MatchExpr{ token, cases})))
+        return Ok(Box::new(Expr::Match(MatchExpr{ token, cases, else_case: finally})))
     }
 
     fn parse_tuple_expr(&mut self, token: Token) -> Result<Box<Expr>, HayError> {

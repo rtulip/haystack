@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     ast::{
@@ -18,12 +18,19 @@ use super::{Expr, TypedExpr};
 pub struct MatchExpr {
     pub token: Token,
     pub cases: Vec<MatchCaseExpr>,
+    pub else_case: Option<MatchElseExpr>,
 }
 
 #[derive(Debug, Clone)]
 pub struct MatchCaseExpr {
     pub variant: Token,
     pub ident: Option<IdentArg>,
+    pub body: Vec<Expr>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MatchElseExpr {
+    pub token: Token,
     pub body: Vec<Expr>,
 }
 
@@ -80,54 +87,104 @@ impl MatchExpr {
             ),
         };
 
-        let mut cases_handled = vec![];
+        if !self.cases.is_empty() {
+            let mut cases_handled = HashSet::new();
 
-        let (idx, mut before_exprs, then_exprs) =
-            self.exprs_from_case(&self.cases[0], &base_tid, &base_variants, types)?;
-        cases_handled.push(idx);
+            let (idx, mut before_exprs, then_exprs) =
+                self.exprs_from_case(&self.cases[0], &base_tid, &base_variants, types)?;
+            cases_handled.insert(idx);
 
-        let mut otherwise_exprs = vec![];
+            let mut otherwise_exprs = vec![];
 
-        for case in &self.cases[1..] {
-            let (idx, before, otherwise) =
-                self.exprs_from_case(case, &base_tid, &base_variants, types)?;
+            for case in &self.cases[1..] {
+                let (idx, before, otherwise) =
+                    self.exprs_from_case(case, &base_tid, &base_variants, types)?;
 
-            cases_handled.push(idx);
-            otherwise_exprs.push((before, otherwise));
-        }
+                cases_handled.insert(idx);
+                otherwise_exprs.push((before, otherwise));
+            }
 
-        let else_if_exprs = otherwise_exprs
-            .into_iter()
-            .map(|(condition, block)| ExprElseIf {
+            let else_if_exprs = otherwise_exprs
+                .into_iter()
+                .map(|(condition, block)| ExprElseIf {
+                    token: self.token.clone(),
+                    condition,
+                    block,
+                })
+                .collect();
+
+            if cases_handled.len() != base_variants.len() && self.else_case.is_none() {
+                let mut e = HayError::new(
+                    format!(
+                        "Match expression doesn't handle all cases for enum-struct `{base_tid}`"
+                    ),
+                    self.token.loc,
+                )
+                .with_hint("The following cases are not handled:");
+
+                for i in (0..base_variants.len())
+                    .into_iter()
+                    .filter(|idx| !cases_handled.contains(&idx))
+                {
+                    e = e.with_hint(format!(" - {base_tid}::{}", base_variants[i].ident.lexeme));
+                }
+
+                return Err(e);
+            }
+
+            let finally = self.else_case.map(|case| case.body);
+
+            let if_expr = Expr::If(ExprIf {
                 token: self.token.clone(),
-                condition,
-                block,
-            })
-            .collect();
+                then: then_exprs,
+                otherwise: else_if_exprs,
+                finally,
+            });
 
-        let if_expr = Expr::If(ExprIf {
-            token: self.token.clone(),
-            then: then_exprs,
-            otherwise: else_if_exprs,
-            finally: None,
-        });
+            before_exprs.push(if_expr);
 
-        before_exprs.push(if_expr);
+            let as_expr = Expr::As(AsExpr {
+                token: self.token.clone(),
+                idents: vec![IdentArg {
+                    token: Token {
+                        kind: TokenKind::Ident(String::from("0")),
+                        lexeme: String::from("0"),
+                        loc: self.token.loc.clone(),
+                    },
+                    mutable: None,
+                }],
+                block: Some(before_exprs),
+            });
+            as_expr.type_check(stack, frame, func, global_env, types, generic_map)
+        } else {
+            if let Some(else_case) = self.else_case {
+                let as_expr = Expr::As(AsExpr {
+                    token: self.token.clone(),
+                    idents: vec![IdentArg {
+                        token: Token {
+                            kind: TokenKind::Ident(String::from("0")),
+                            lexeme: String::from("0"),
+                            loc: self.token.loc.clone(),
+                        },
+                        mutable: None,
+                    }],
+                    block: Some(else_case.body),
+                });
+                as_expr.type_check(stack, frame, func, global_env, types, generic_map)
+            } else {
+                let mut e = HayError::new(
+                    format!("Empty match block handles no cases of enum-struct `{base_tid}`"),
+                    self.token.loc,
+                )
+                .with_hint("The following cases were not handled:");
 
-        let as_expr = Expr::As(AsExpr {
-            token: self.token.clone(),
-            idents: vec![IdentArg {
-                token: Token {
-                    kind: TokenKind::Ident(String::from("0")),
-                    lexeme: String::from("0"),
-                    loc: self.token.loc.clone(),
-                },
-                mutable: None,
-            }],
-            block: Some(before_exprs),
-        });
+                for variant in base_variants {
+                    e = e.with_hint(format!(" - {base_tid}::{}", variant.ident.lexeme))
+                }
 
-        as_expr.type_check(stack, frame, func, global_env, types, generic_map)
+                Err(e)
+            }
+        }
     }
 
     fn exprs_from_case(

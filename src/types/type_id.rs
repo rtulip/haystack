@@ -131,16 +131,23 @@ impl TypeId {
                             )?);
                         }
 
-                        let (at, map) = if let Some(base) = base_tid.get_interface_base(types) {
-                            (
-                                base.associated_type_id(token, &TypeId::new(typ))?, 
-                                base.annotations.clone().into_iter().zip(annotations.clone().into_iter()).collect()
-                            )
+                        if let Some(base) = base_tid.get_interface_base(types) {
+                            let at = base.associated_type_id(token, &TypeId::new(typ))?;
+                            let map = base.annotations.clone().into_iter().zip(annotations.clone().into_iter()).collect();
+                            at.assign(token, &map, types)
+                        } else if let Some(Type::GenericRecordBase { kind: RecordKind::EnumStruct, generics, .. }) = types.get(&base_tid) {
+                            
+                            let map = generics.clone().into_iter().zip(annotations.clone().into_iter()).collect();
+
+                            let enum_struct_base = base_tid.assign(token, &map, types)?;
+
+                            let t = Type::Variant(VariantType { base: enum_struct_base, variant: typ.clone() });
+                            let tid = t.id();
+                            types.insert(tid.clone(), t);
+                            Ok(tid)
                         } else {
                             return Err(HayError::new(format!("Unknown interface `{base_tid}`"), token.loc.clone()))
-                        };
-
-                        at.assign(token, &map, types)
+                        }                        
                     }
                     TypeToken::Base(base) => {
                         
@@ -179,9 +186,6 @@ impl TypeId {
                     },
                     other => panic!("Expected either a Parameterized or Base TypeToken, but found {other:?}"),
                 }
-
-                
-
             },
             TypeToken::Base(base) => {
                 if types.contains_key(&TypeId::new(base))

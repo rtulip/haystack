@@ -930,11 +930,8 @@ impl TypeId {
                 Some(Type::Variant(VariantType { base, variant })), 
                 Some(Type::Variant(VariantType { base: concrete_base, variant: concrete_variant }))
             ) => {
-                if base != concrete_base {
-                    return Err(HayError::new(format!("Cannot resolve variant `{self}` from `{concrete}`"), token.loc.clone())
-                .with_hint(format!("Bases do not align: `{base}` and `{concrete_base}` are not the same")));
-                }
 
+                base.resolve(token, &concrete_base, map, types)?;
                 if variant != concrete_variant {
                     return Err(HayError::new(format!("Cannot resolve variant `{self}` from `{concrete}`"), token.loc.clone()));
                 }
@@ -1003,6 +1000,7 @@ impl TypeId {
                 t.id()
             },
             Some(Type::Record { parent: Some(parent), .. }) => parent.clone(),
+            Some(Type::GenericRecordInstance { base, kind: RecordKind::EnumStruct, .. }) => base.clone(),
             Some(_) => self.clone(),
             None => todo!("Not sure what should happen here..."),
         }

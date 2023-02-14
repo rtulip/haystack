@@ -403,6 +403,24 @@ mod functional {
     fn enum_struct_generic() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/functional", "enum_struct_generic", None)
     }
+
+    #[test]
+    fn enum_struct_generic_else() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/functional",
+            "enum_struct_generic_else",
+            None,
+        )
+    }
+
+    #[test]
+    fn enum_struct_match_else_only() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/functional",
+            "enum_struct_match_else_only",
+            None,
+        )
+    }
 }
 
 mod examples {

@@ -204,7 +204,7 @@ impl AccessorExpr {
             let (idx, m) = match members
                 .iter()
                 .enumerate()
-                .find(|(_, m)| &m.ident.lexeme == &self.inner[0].lexeme)
+                .find(|(_, m)| m.ident.lexeme == self.inner[0].lexeme)
             {
                 Some((i, m)) => (i, m),
                 None => {
@@ -223,7 +223,7 @@ impl AccessorExpr {
                 }
             };
 
-            if &m.typ != &TypeId::new("[]") {
+            if m.typ != TypeId::new("[]") {
                 return Err(HayError::new(
                     format!(
                         "Enum struct `{}` variant `{}` requires a cast",

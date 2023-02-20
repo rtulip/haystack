@@ -13,9 +13,13 @@ requires: [Print<T>] {
     }
 }
 
+fn into_foo_bar<T>(T) -> [Foo<T>::Bar] {
+    cast(Foo<T>::Bar)
+}
+
 fn main() {
 
-    1 cast(Foo::Bar)     println
+    1 into_foo_bar       println
     [] cast(Foo<u64>::_) println
     "Hello World"        println 
     [] cast(Foo<Str>::_) println

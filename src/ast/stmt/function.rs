@@ -36,21 +36,18 @@ impl FunctionStmt {
         let outputs = UntypedArg::resolve(self.outputs, types, &generics)?;
 
         for arg in inputs.iter().chain(outputs.iter()) {
-            match types.get(&arg.typ) {
-                Some(Type::Variant(VariantType { base, variant })) => match types.get(&base) {
-                    Some(Type::GenericRecordBase {
-                        kind: RecordKind::EnumStruct,
-                        ..
-                    }) => {
-                        return Err(HayError::new(
-                            format!("Enum struct `{base}` is generic, and requires annotations."),
-                            arg.token.loc.clone(),
-                        )
-                        .with_hint(format!("Consider using `{base}<...>::{variant}`.")))
-                    }
-                    _ => (),
-                },
-                _ => (),
+            if let Some(Type::Variant(VariantType { base, variant })) = types.get(&arg.typ) {
+                if let Some(Type::GenericRecordBase {
+                    kind: RecordKind::EnumStruct,
+                    ..
+                }) = types.get(base)
+                {
+                    return Err(HayError::new(
+                        format!("Enum struct `{base}` is generic, and requires annotations."),
+                        arg.token.loc.clone(),
+                    )
+                    .with_hint(format!("Consider using `{base}<...>::{variant}`.")));
+                }
             }
         }
 

@@ -205,16 +205,20 @@ impl ExprCast {
             Type::Variant(VariantType { base, variant }) => {
                 match types
                     .get(base)
-                    .expect(format!("{base} should be a recognized type!").as_str())
+                    .unwrap_or_else(|| panic!("{base} should be a recognized type!"))
                 {
                     Type::Record {
                         kind: RecordKind::EnumStruct,
                         members,
                         ..
                     } => {
-                        let (idx, member) = members.iter().enumerate().find(|(_, m)| &m.ident.lexeme == variant).expect(
-                            format!("Enum struct `{base}` variant `{variant}` should be real at this point.").as_str(),
-                        );
+                        let (idx, member) = members
+                            .iter()
+                            .enumerate()
+                            .find(|(_, m)| &m.ident.lexeme == variant)
+                            .unwrap_or_else(
+                                || panic!("Enum struct `{base}` variant `{variant}` should be real at this point.")
+                            );
 
                         let padding = base.size(types)? - 1 - member.typ.size(types)?;
 
@@ -231,8 +235,8 @@ impl ExprCast {
                         generics,
                         ..
                     } => {
-                        let (idx, member) = members.iter().enumerate().find(|(_, m)| &m.ident.lexeme == variant).expect(
-                            format!("Enum struct `{base}` variant `{variant}` should be real at this point.").as_str(),
+                        let (idx, member) = members.iter().enumerate().find(|(_, m)| &m.ident.lexeme == variant).unwrap_or_else(
+                            || panic!("Enum struct `{base}` variant `{variant}` should be real at this point.")
                         );
 
                         let member = member.clone();
@@ -255,7 +259,7 @@ impl ExprCast {
                         Ok(TypedExpr::CastEnumStruct { padding, idx })
                     }
                     _ => Err(HayError::new_type_err(
-                        format!("Casting to non-enum-struct variant is unsupported"),
+                        "Casting to non-enum-struct variant is unsupported",
                         self.token.loc,
                     )),
                 }

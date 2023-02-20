@@ -130,13 +130,12 @@ impl TypeId {
                                 local_types,
                             )?);
                         }
-
+                        
                         if let Some(base) = base_tid.get_interface_base(types) {
                             let at = base.associated_type_id(token, &TypeId::new(typ))?;
                             let map = base.annotations.clone().into_iter().zip(annotations.clone().into_iter()).collect();
                             at.assign(token, &map, types)
                         } else if let Some(Type::GenericRecordBase { kind: RecordKind::EnumStruct, generics, .. }) = types.get(&base_tid) {
-                            
                             let map = generics.clone().into_iter().zip(annotations.clone().into_iter()).collect();
 
                             let enum_struct_base = base_tid.assign(token, &map, types)?;
@@ -319,7 +318,6 @@ impl TypeId {
         map: &HashMap<TypeId, TypeId>,
         types: &mut TypeMap,
     ) -> Result<TypeId, HayError> {
-        
         // If the TypeId is in the map return the concrete type.
         if let Some(new_t) = map.get(self) {
             return Ok(new_t.clone());
@@ -531,7 +529,6 @@ impl TypeId {
                     }
 
                     name = format!("{name}{}>", resolved_generics.last().unwrap());
-
                     let t = Type::Record {
                         token: token.clone(),
                         name: Token::new(
@@ -542,12 +539,19 @@ impl TypeId {
                             token.loc.span.start,
                             token.loc.span.end,
                         ),
-                        members: resolved_members,
+                        members: resolved_members.clone(),
                         kind,
-                        parent: Some(base.clone()),
+                        parent: Some(base),
                     };
 
                     let tid = t.id();
+
+                    if matches!(kind, RecordKind::EnumStruct) {
+                        for m in &resolved_members {
+                            let t = Type::Variant(VariantType { base: tid.clone(), variant: m.ident.lexeme.clone() });
+                            types.insert(t.id(), t);
+                        }
+                    }
 
                     types.insert(tid.clone(), t);
 
@@ -1001,7 +1005,7 @@ impl TypeId {
             Some(Type::Record { parent: Some(parent), .. }) => parent.clone(),
             Some(Type::GenericRecordInstance { base, kind: RecordKind::EnumStruct, .. }) => base.clone(),
             Some(_) => self.clone(),
-            None => todo!("Not sure what should happen here..."),
+            None => todo!("Not sure what should happen here... {self}"),
         }
     }
 
@@ -1069,7 +1073,7 @@ impl TypeId {
 
     /// Gets the size of a type in bytes.
     pub fn size(&self, types: &TypeMap) -> Result<usize, HayError> {
-        match types.get(self).expect(format!("{self} should be a known type in the type system").as_str()) {
+        match types.get(self).unwrap_or_else(|| panic!("{self} should be a known type in the type system")) {
             Type::Bool
             | Type::Char
             | Type::U64

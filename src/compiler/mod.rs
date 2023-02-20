@@ -405,6 +405,11 @@ mod functional {
     }
 
     #[test]
+    fn enum_struct_generic2() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/functional", "enum_struct_generic", None)
+    }
+
+    #[test]
     fn enum_struct_generic_else() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test(
             "src/tests/functional",

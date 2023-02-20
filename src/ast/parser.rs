@@ -1170,7 +1170,7 @@ impl<'a> Parser<'a> {
             return Err(HayError::new(format!("Expected {} after {} cases, but found {} instead", Marker::RightBrace, Keyword::Match, &e.kind), e.loc))
         }
 
-        return Ok(Box::new(Expr::Match(MatchExpr{ token, cases, else_case: finally})))
+        Ok(Box::new(Expr::Match(MatchExpr{ token, cases, else_case: finally})))
     }
 
     fn parse_tuple_expr(&mut self, token: Token) -> Result<Box<Expr>, HayError> {

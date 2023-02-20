@@ -63,7 +63,7 @@ impl MatchExpr {
                 kind: RecordKind::EnumStruct,
                 ..
             }) => (base_tid, members.clone()),
-            Some(Type::Variant(VariantType { base, .. })) => match types.get(&base) {
+            Some(Type::Variant(VariantType { base, .. })) => match types.get(base) {
                 Some(Type::Record {
                     members,
                     kind: RecordKind::EnumStruct,
@@ -133,10 +133,7 @@ impl MatchExpr {
                 )
                 .with_hint("The following cases are not handled:");
 
-                for i in (0..base_variants.len())
-                    .into_iter()
-                    .filter(|idx| !cases_handled.contains(&idx))
-                {
+                for i in (0..base_variants.len()).filter(|idx| !cases_handled.contains(idx)) {
                     e = e.with_hint(format!(" - {base_tid}::{}", base_variants[i].ident.lexeme));
                 }
 
@@ -168,34 +165,32 @@ impl MatchExpr {
                 block: Some(before_exprs),
             });
             as_expr.type_check(stack, frame, func, global_env, types, generic_map)
+        } else if let Some(else_case) = self.else_case {
+            let as_expr = Expr::As(AsExpr {
+                token: self.token.clone(),
+                idents: vec![IdentArg {
+                    token: Token {
+                        kind: TokenKind::Ident(String::from("0")),
+                        lexeme: String::from("0"),
+                        loc: self.token.loc.clone(),
+                    },
+                    mutable: None,
+                }],
+                block: Some(else_case.body),
+            });
+            as_expr.type_check(stack, frame, func, global_env, types, generic_map)
         } else {
-            if let Some(else_case) = self.else_case {
-                let as_expr = Expr::As(AsExpr {
-                    token: self.token.clone(),
-                    idents: vec![IdentArg {
-                        token: Token {
-                            kind: TokenKind::Ident(String::from("0")),
-                            lexeme: String::from("0"),
-                            loc: self.token.loc.clone(),
-                        },
-                        mutable: None,
-                    }],
-                    block: Some(else_case.body),
-                });
-                as_expr.type_check(stack, frame, func, global_env, types, generic_map)
-            } else {
-                let mut e = HayError::new(
-                    format!("Empty match block handles no cases of enum-struct `{base_tid}`"),
-                    self.token.loc,
-                )
-                .with_hint("The following cases were not handled:");
+            let mut e = HayError::new(
+                format!("Empty match block handles no cases of enum-struct `{base_tid}`"),
+                self.token.loc,
+            )
+            .with_hint("The following cases were not handled:");
 
-                for variant in base_variants {
-                    e = e.with_hint(format!(" - {base_tid}::{}", variant.ident.lexeme))
-                }
-
-                Err(e)
+            for variant in base_variants {
+                e = e.with_hint(format!(" - {base_tid}::{}", variant.ident.lexeme))
             }
+
+            Err(e)
         }
     }
 
@@ -204,27 +199,26 @@ impl MatchExpr {
         case: &MatchCaseExpr,
         ident_tok: &Token,
         base_tid: &TypeId,
-        base_variants: &Vec<TypedMember>,
+        base_variants: &[TypedMember],
         types: &mut TypeMap,
     ) -> Result<(usize, Vec<Expr>, Vec<Expr>), HayError> {
         let idx = self.find_variant_index(&case.variant, base_variants, base_tid, types)?;
 
-        let mut before_exprs = vec![];
-        before_exprs.push(Expr::Accessor(AccessorExpr {
-            token: case.variant.clone(),
-            ident: ident_tok.clone(),
-            inner: vec![],
-        }));
-
-        before_exprs.push(Expr::Literal(ExprLiteral {
-            literal: Literal::U64(idx as u64),
-            token: case.variant.clone(),
-        }));
-
-        before_exprs.push(Expr::Operator(ExprOperator {
-            op: Operator::Equal,
-            token: case.variant.clone(),
-        }));
+        let before_exprs = vec![
+            Expr::Accessor(AccessorExpr {
+                token: case.variant.clone(),
+                ident: ident_tok.clone(),
+                inner: vec![],
+            }),
+            Expr::Literal(ExprLiteral {
+                literal: Literal::U64(idx as u64),
+                token: case.variant.clone(),
+            }),
+            Expr::Operator(ExprOperator {
+                op: Operator::Equal,
+                token: case.variant.clone(),
+            }),
+        ];
 
         let mut then_exprs = vec![];
 
@@ -254,7 +248,7 @@ impl MatchExpr {
     fn find_variant_index(
         &self,
         variant: &Token,
-        base_variants: &Vec<TypedMember>,
+        base_variants: &[TypedMember],
         base_tid: &TypeId,
         types: &mut TypeMap,
     ) -> Result<usize, HayError> {
@@ -283,16 +277,14 @@ impl MatchExpr {
                     ),
                 }
             }
-            _ => {
-                return Err(HayError::new(
-                    format!(
-                        "{} case expected a variant of `{base_tid}`.",
-                        Keyword::Match
-                    ),
-                    variant.loc.clone(),
-                )
-                .with_hint(format!("Found type `{tid}` instead.")))
-            }
+            _ => Err(HayError::new(
+                format!(
+                    "{} case expected a variant of `{base_tid}`.",
+                    Keyword::Match
+                ),
+                variant.loc.clone(),
+            )
+            .with_hint(format!("Found type `{tid}` instead."))),
         }
     }
 }

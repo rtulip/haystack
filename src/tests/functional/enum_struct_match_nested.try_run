@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "Foo1 was number: 2\nFoo2 was number: 1\nFoo1 was string: Hello\nFoo2 was string: World\nFoo1 was string: Hello\nFoo2 was number: 1\nFoo1 was number: 2\nFoo2 was string: World\n12345\n0\nNot a str\nHello World\n",
+  "stderr": ""
+}

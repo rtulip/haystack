@@ -150,7 +150,6 @@ impl TypeId {
                         }                        
                     }
                     TypeToken::Base(base) => {
-                        
                         let base_tid = TypeId::new(base);
                         match types.get(&base_tid) {
                             Some(Type::Enum { variants, .. }) => {

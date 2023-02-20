@@ -421,6 +421,15 @@ mod functional {
             None,
         )
     }
+
+    #[test]
+    fn enum_struct_match_nested() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/functional",
+            "enum_struct_match_nested",
+            None,
+        )
+    }
 }
 
 mod examples {

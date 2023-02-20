@@ -87,18 +87,29 @@ impl MatchExpr {
             ),
         };
 
+        let mut ident_name = String::from("0");
+        for (framed_id, _) in frame.iter() {
+            ident_name += framed_id;
+        }
+
+        let ident = Token {
+            kind: TokenKind::Ident(ident_name.clone()),
+            lexeme: ident_name,
+            loc: self.token.loc.clone(),
+        };
+
         if !self.cases.is_empty() {
             let mut cases_handled = HashSet::new();
 
             let (idx, mut before_exprs, then_exprs) =
-                self.exprs_from_case(&self.cases[0], &base_tid, &base_variants, types)?;
+                self.exprs_from_case(&self.cases[0], &ident, &base_tid, &base_variants, types)?;
             cases_handled.insert(idx);
 
             let mut otherwise_exprs = vec![];
 
             for case in &self.cases[1..] {
                 let (idx, before, otherwise) =
-                    self.exprs_from_case(case, &base_tid, &base_variants, types)?;
+                    self.exprs_from_case(case, &ident, &base_tid, &base_variants, types)?;
 
                 cases_handled.insert(idx);
                 otherwise_exprs.push((before, otherwise));
@@ -132,13 +143,18 @@ impl MatchExpr {
                 return Err(e);
             }
 
-            let finally = self.else_case.map(|case| case.body);
+            let finally = self
+                .else_case
+                .map(|case| case.body)
+                .unwrap_or(vec![Expr::Never(super::NeverExpr {
+                    token: self.token.clone(),
+                })]);
 
             let if_expr = Expr::If(ExprIf {
                 token: self.token.clone(),
                 then: then_exprs,
                 otherwise: else_if_exprs,
-                finally,
+                finally: Some(finally),
             });
 
             before_exprs.push(if_expr);
@@ -146,11 +162,7 @@ impl MatchExpr {
             let as_expr = Expr::As(AsExpr {
                 token: self.token.clone(),
                 idents: vec![IdentArg {
-                    token: Token {
-                        kind: TokenKind::Ident(String::from("0")),
-                        lexeme: String::from("0"),
-                        loc: self.token.loc.clone(),
-                    },
+                    token: ident.clone(),
                     mutable: None,
                 }],
                 block: Some(before_exprs),
@@ -190,6 +202,7 @@ impl MatchExpr {
     fn exprs_from_case(
         &self,
         case: &MatchCaseExpr,
+        ident_tok: &Token,
         base_tid: &TypeId,
         base_variants: &Vec<TypedMember>,
         types: &mut TypeMap,
@@ -199,11 +212,7 @@ impl MatchExpr {
         let mut before_exprs = vec![];
         before_exprs.push(Expr::Accessor(AccessorExpr {
             token: case.variant.clone(),
-            ident: Token {
-                kind: TokenKind::Ident(String::from("0")),
-                lexeme: String::from("0"),
-                loc: case.variant.loc.clone(),
-            },
+            ident: ident_tok.clone(),
             inner: vec![],
         }));
 
@@ -222,11 +231,7 @@ impl MatchExpr {
         if let Some(ident) = &case.ident {
             then_exprs.push(Expr::Accessor(AccessorExpr {
                 token: case.variant.clone(),
-                ident: Token {
-                    kind: TokenKind::Ident(String::from("0")),
-                    lexeme: String::from("0"),
-                    loc: ident.token.loc.clone(),
-                },
+                ident: ident_tok.clone(),
                 inner: vec![Token {
                     kind: TokenKind::Literal(Literal::U64(idx as u64)),
                     lexeme: format!("{idx}"),

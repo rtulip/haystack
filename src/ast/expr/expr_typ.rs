@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use super::{
     AccessorExpr, AnnotatedCallExpr, AsExpr, ExprCast, ExprIdent, ExprIf, ExprLiteral,
     ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, MatchExpr,
-    TupleExpr,
+    NeverExpr, TupleExpr,
 };
 
 /// Haystack's Expression Representation
@@ -50,6 +50,7 @@ pub enum Expr {
     SizeOf(ExprSizeOf),
     Return(ExprReturn),
     Match(MatchExpr),
+    Never(NeverExpr),
 }
 
 impl Expr {
@@ -71,6 +72,7 @@ impl Expr {
             | Expr::SizeOf(ExprSizeOf { token, .. })
             | Expr::Return(ExprReturn { token })
             | Expr::Match(MatchExpr { token, .. })
+            | Expr::Never(NeverExpr { token })
             | Expr::Unary(ExprUnary {
                 op: ExprOperator { token, .. },
                 ..
@@ -115,6 +117,7 @@ impl Expr {
             Expr::While(e) => e.type_check(stack, frame, func, global_env, types, generic_map),
             Expr::Return(e) => e.type_check(stack, func),
             Expr::Match(e) => e.type_check(stack, frame, func, global_env, types, generic_map),
+            Expr::Never(e) => e.type_check(stack),
         }
     }
 }

@@ -1,0 +1,55 @@
+enum struct Option<T> {
+    []: None
+    T : Some
+}
+
+enum struct MyResult<T E> {
+    T: Ok
+    E: Err
+}
+
+impl<T E> Print<MyResult<T E>::Ok>
+requires: [Print<T>] {
+    fn print(MyResult<T E>::Ok) {
+        match {
+            MyResult::Ok as [t] { "Ok(" print t print ")" print}
+            else { "unreachable" print }
+        }
+    }
+}
+
+impl<T E> Print<MyResult<T E>::Err>
+requires: [Print<E>] {
+    fn print(MyResult<T E>::Err) {
+        match {
+            MyResult::Err as [e] { "Err(" print e print ")" print}
+            else { "unreachable" print }
+        }
+    }
+}
+
+impl<T> Print<Option<T>>
+requires: [Print<T>] {
+    fn print(Option<T>) {
+        match {
+            Option::Some as [t] { "Some(" print t print ")" print }
+            Option::None { "None" print }
+            else { "unreachable" print }
+        }
+    }
+}
+
+fn takes_result<T E>(MyResult<T E>) { println }
+
+struct Foo { []: _ }
+
+fn main() {
+    []            cast(Option < u64 > :: None) println
+    []            cast(Option<Str>::None) println
+    1             cast(Option::Some)      println
+    "Hello World" cast(Option::Some)      println
+
+    "this is an ok str"  cast(MyResult<Str Foo>::Ok) println
+    "This is an err str" cast(MyResult<Foo Str>::Err) println
+
+}

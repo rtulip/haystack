@@ -3,8 +3,8 @@ use crate::{
     error::HayError,
     lex::token::Token,
     types::{
-        validate_requirements, FnTag, GenericFunction, Signature, Type, TypeId, TypeMap,
-        UncheckedFunction,
+        validate_requirements, FnTag, GenericFunction, RecordKind, Signature, Type, TypeId,
+        TypeMap, UncheckedFunction, VariantType,
     },
 };
 
@@ -34,6 +34,22 @@ impl FunctionStmt {
         let generics = Stmt::bulid_local_generics(self.annotations, types, local_scope)?;
         let inputs = UntypedArg::resolve(self.inputs, types, &generics)?;
         let outputs = UntypedArg::resolve(self.outputs, types, &generics)?;
+
+        for arg in inputs.iter().chain(outputs.iter()) {
+            if let Some(Type::Variant(VariantType { base, variant })) = types.get(&arg.typ) {
+                if let Some(Type::GenericRecordBase {
+                    kind: RecordKind::EnumStruct,
+                    ..
+                }) = types.get(base)
+                {
+                    return Err(HayError::new(
+                        format!("Enum struct `{base}` is generic, and requires annotations."),
+                        arg.token.loc.clone(),
+                    )
+                    .with_hint(format!("Consider using `{base}<...>::{variant}`.")));
+                }
+            }
+        }
 
         if let Some(requirements) = &self.requires {
             validate_requirements(requirements, types)?;

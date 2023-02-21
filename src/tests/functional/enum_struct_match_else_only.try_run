@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "Printing a foo!\nPrinting a foo!\n",
+  "stderr": ""
+}

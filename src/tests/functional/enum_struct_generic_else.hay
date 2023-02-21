@@ -1,0 +1,24 @@
+enum struct MyOption<T> {
+    []: None
+    T: Some
+}
+
+impl<T> Print<MyOption<T>>
+requires: [Print<T>] {
+    fn print(MyOption<T>) {
+        match {
+            MyOption::Some as [t] { "Some(" print t print ")" print}
+            else { "None" print }
+        }
+    }
+}
+
+fn main() {
+
+    [] cast(MyOption<u64>::None) println
+    1  cast(MyOption::Some)      println
+
+    [] cast(MyOption<Str>::None) println
+    "h"  cast(MyOption::Some)      println
+
+}

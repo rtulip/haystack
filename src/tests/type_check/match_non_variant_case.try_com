@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/match_non_variant_case.hay:8:9] Error: `match` case expected a variant of `Foo`.\n    [Note]: Found type `u64` instead.\n"
+}

@@ -59,6 +59,7 @@ pub enum Type {
         members: Vec<TypedMember>,
         /// A flag to indicate if the record is a struct or union.
         kind: RecordKind,
+        parent: Option<TypeId>,
     },
     RecordPreDeclaration {
         token: Token,

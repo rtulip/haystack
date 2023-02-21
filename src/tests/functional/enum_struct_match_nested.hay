@@ -1,0 +1,59 @@
+enum struct Foo {
+    u64: Number
+    Str: String
+}
+
+fn two_foo(Foo Foo) {
+    match {
+        Foo::Number as [n1] {
+            "Foo1 was number: " print n1 println
+            match {
+                Foo::Number as [n2] {
+                    "Foo2 was number: " print n2 println
+                }
+                Foo::String as [s2] {
+                    "Foo2 was string: " print s2 println
+                }
+            }
+        }
+        Foo::String as [s1] {
+            "Foo1 was string: " print s1 println
+            match {
+                Foo::Number as [n2] {
+                    "Foo2 was number: " print n2 println
+                }
+                Foo::String as [s2] {
+                    "Foo2 was string: " print s2 println
+                }
+            }
+        }
+    }
+}
+
+fn Foo.unwrap_u64(Foo) -> [u64] {
+    match {
+        Foo::Number as [n] { n }
+        else { 0 }
+    }
+}   
+
+fn Foo.unwrap_str(Foo) -> [Str] {
+    match {
+        Foo::String as [s] { s }
+        else { "Not a str" }
+    }
+}
+
+fn main() {
+
+    1 cast(Foo::Number) 2 cast(Foo::Number) two_foo
+    "World" cast(Foo::String) "Hello" cast(Foo::String) two_foo
+    1 cast(Foo::Number) "Hello" cast(Foo::String)  two_foo
+    "World" cast(Foo::String) 2 cast(Foo::Number) two_foo
+
+    12345         cast(Foo::Number) Foo.unwrap_u64 println
+    "Hello World" cast(Foo::String) Foo.unwrap_u64 println
+    12345         cast(Foo::Number) Foo.unwrap_str println
+    "Hello World" cast(Foo::String) Foo.unwrap_str println
+
+}

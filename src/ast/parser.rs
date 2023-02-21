@@ -1,4 +1,4 @@
-use crate::ast::expr::Expr;
+use crate::ast::expr::{Expr, MatchCaseExpr};
 use crate::ast::stmt::Stmt;
 use crate::error::HayError;
 use crate::lex::token::{Keyword, Loc, Marker, Operator, Token, TokenKind, TypeToken, Literal};
@@ -8,7 +8,7 @@ use std::collections::{HashSet};
 use super::arg::{IdentArg, UntypedArg};
 use super::expr::{
     AccessorExpr, AnnotatedCallExpr, AsExpr, ExprCast, ExprElseIf, ExprIdent, ExprIf, ExprLiteral,
-    ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr,
+    ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr, MatchExpr, MatchElseExpr,
 };
 use super::member::UntypedMember;
 use super::stmt::{RecordStmt, EnumStmt, FunctionStmt, FunctionStubStmt, InterfaceStmt, InterfaceImplStmt, VarStmt, PreDeclarationStmt};
@@ -80,9 +80,8 @@ impl<'a> Parser<'a> {
         match &token.kind {
             TokenKind::Keyword(Keyword::Inline) => self.inline_function(token, None),
             TokenKind::Keyword(Keyword::Function) => self.function(token, vec![], None),
-            TokenKind::Keyword(Keyword::Struct) | TokenKind::Keyword(Keyword::Union) => {
-                self.record(token)
-            }
+            TokenKind::Keyword(Keyword::Struct) => self.record(token, RecordKind::Struct),
+            TokenKind::Keyword(Keyword::Union) => self.record(token, RecordKind::Union),
             TokenKind::Keyword(Keyword::Enum) => self.enumeration(token),
             TokenKind::Keyword(Keyword::Include) => self.include(token),
             TokenKind::Keyword(Keyword::Var) => {
@@ -1049,12 +1048,129 @@ impl<'a> Parser<'a> {
             TokenKind::Keyword(Keyword::While) => self.parse_while(token),
             TokenKind::Keyword(Keyword::SizeOf) => self.size_of(token),
             TokenKind::Keyword(Keyword::Return) => Ok(Box::new(Expr::Return(ExprReturn { token }))),
+            TokenKind::Keyword(Keyword::Match) => self.match_expr(token),
             TokenKind::Marker(Marker::LeftBracket) => self.parse_tuple_expr(token),
             kind => Err(HayError::new(
                 format!("Not sure how to parse expression from {kind} yet"),
                 token.loc,
             )),
         }
+    }
+
+    fn match_expr(&mut self, token: Token) -> Result<Box<Expr>, HayError> {
+
+        if let Err(e) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
+            return Err(HayError::new(format!("Expected {} after {}, but found {} instead", Marker::LeftBrace, Keyword::Match, &e.kind), e.loc))
+        }
+
+        let mut cases = vec![];
+
+        while let Some(variant) = self.parse_type()? {            
+            let ident = match self.matches(TokenKind::Keyword(Keyword::As)) {
+                Ok(as_kw) => {
+                    if let Err(e) = self.matches(TokenKind::Marker(Marker::LeftBracket)) {
+                        return Err(HayError::new(
+                            format!(
+                                "Expected {} after {}, but found {} instead", 
+                                Marker::LeftBracket, 
+                                Keyword::As, 
+                                e.kind
+                            ), 
+                            e.loc
+                        ))
+                    }
+                    
+                    let mut idents = self.maybe_mut_ident_list()?;
+                    if let Err(e) = self.matches(TokenKind::Marker(Marker::RightBracket)) {
+                        return Err(HayError::new(
+                            format!(
+                                "Expected {} after {} case assignments, but found {} instead", 
+                                Marker::RightBracket,
+                                Keyword::Match, 
+                                e.kind
+                            ), 
+                            e.loc
+                        ))
+                    }
+    
+                    if idents.len() != 1 {
+                        return Err(
+                            HayError::new(
+                                format!(
+                                    "{} case statement as block expects only one ident.", 
+                                    Keyword::Match
+                                ), 
+                                as_kw.loc
+                            ).with_hint(
+                                format!(
+                                    "Found: {:?}", 
+                                    idents.iter()
+                                        .map(|arg| &arg.token.lexeme)
+                                        .collect::<Vec<&String>>()
+                                )
+                            )
+                        )
+                    }
+                    Some(idents.pop().unwrap())
+                },
+                Err(_) => None,
+            };
+
+            if let Err(e) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
+                return Err(HayError::new(
+                    format!(
+                        "Expected {} to open match case expression, but found {} instead", 
+                        Marker::LeftBrace, 
+                        e.kind
+                    ), 
+                    e.loc
+                ))
+            }
+
+            let mut body = vec![];
+
+            while !matches!(self.peek().kind, TokenKind::Marker(Marker::RightBrace)) && !self.is_at_end() {
+                body.push(*self.expression()?);
+            }
+
+            if let Err(e) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
+                return Err(HayError::new(
+                    format!(
+                        "Expected {} after match case block, but found {} instead", 
+                        Marker::RightBrace, 
+                        e.kind
+                    ), 
+                    e.loc
+                ))
+            }
+
+            cases.push(MatchCaseExpr {
+                variant, 
+                ident,
+                body
+            })
+        } 
+
+
+        let finally = match self.matches(TokenKind::Keyword(Keyword::Else)) {
+            Ok(else_kw) => {
+                if !matches!(&self.peek().kind, TokenKind::Marker(Marker::LeftBrace)) {
+                    return Err(HayError::new(format!("Expected {} after {}, but found {} instead.", Marker::LeftBrace, Keyword::Else, &self.peek().kind), self.peek().loc.clone()))
+                }
+
+                Some(MatchElseExpr {
+                    token: else_kw,
+                    body: self.block()?
+                })
+            },
+            Err(_) => None
+        };
+
+        if let Err(e) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
+            return Err(HayError::new(format!("Expected {} after {} cases, but found {} instead", Marker::RightBrace, Keyword::Match, &e.kind), e.loc))
+        }
+
+        Ok(Box::new(Expr::Match(MatchExpr{ token, cases, else_case: finally})))
     }
 
     fn parse_tuple_expr(&mut self, token: Token) -> Result<Box<Expr>, HayError> {
@@ -1148,8 +1264,16 @@ impl<'a> Parser<'a> {
         Ok(Box::new(Expr::Cast(ExprCast { token, typ })))
     }
 
+    fn enum_struct(&mut self, struct_token: Token) -> Result<Vec<Stmt>, HayError> {
+        self.record(struct_token, RecordKind::EnumStruct)
+    }
+
     // enum -> "enum" IDENT "{" IDENT+ "}"
     fn enumeration(&mut self, start: Token) -> Result<Vec<Stmt>, HayError> {
+        if let Ok(struct_token) = self.matches(TokenKind::Keyword(Keyword::Struct)) {
+            return self.enum_struct(struct_token);
+        }
+
         let name = match self.matches(TokenKind::ident()) {
             Ok(t) => t,
             Err(t) => {
@@ -1208,14 +1332,8 @@ impl<'a> Parser<'a> {
 
     // structure -> "struct" IDENT "{" named_args_list (impls)? "}"
     // impls     -> "impl" ":" function+
-    fn record(&mut self, start: Token) -> Result<Vec<Stmt>, HayError> {
+    fn record(&mut self, start: Token, kind: RecordKind) -> Result<Vec<Stmt>, HayError> {
         let kw = start.keyword()?;
-        let kind = if kw == Keyword::Union {
-            RecordKind::Union
-        } else {
-            RecordKind::Struct
-        };
-
         let name = match self.matches(TokenKind::ident()) {
             Ok(t) => t,
             Err(t) => {
@@ -1379,6 +1497,7 @@ impl<'a> Parser<'a> {
             parent: typ.clone(),
             vis: match kind {
                 RecordKind::Union => Visitiliby::Public,
+                RecordKind::EnumStruct => Visitiliby::Public,
                 RecordKind::Struct => vis,
                 RecordKind::Interface => Visitiliby::Public,
             },
@@ -2059,9 +2178,47 @@ mod tests {
     fn parse_tuple_bad_close() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/parser", "parse_tuple_bad_close", None)
     }
+    
     #[test]
     fn parse_bad_tuple_expression_close() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_tuple_expression_close", None)
     }
+
+    #[test]
+    fn parse_match_as_too_many_args() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_as_too_many_args", None)
+    }
+
+    #[test]
+    fn parse_match_bad_as_open() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_as_open", None)
+    }
+
+    #[test]
+    fn parse_match_bad_as_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_as_close", None)
+    }
+
+    #[test]
+    fn parse_match_bad_case_open() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_case_open", None)
+    }
+
+    #[test]
+    fn parse_match_bad_case_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_case_close", None)
+    }
+
+    #[test]
+    fn parse_match_bad_open() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_open", None)
+    }
+
+    #[test]
+    fn parse_match_bad_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_close", None)
+    }
+
+
 
 }

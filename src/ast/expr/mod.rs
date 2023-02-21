@@ -6,6 +6,8 @@ mod expr_typ;
 mod ident;
 mod r#if;
 mod literal;
+mod r#match;
+mod never;
 mod operator;
 mod r#return;
 mod size_of;
@@ -21,9 +23,11 @@ pub use cast::*;
 pub use expr_typ::*;
 pub use ident::*;
 pub use literal::*;
+pub use never::*;
 pub use operator::*;
 pub use r#as::*;
 pub use r#if::*;
+pub use r#match::*;
 pub use r#return::*;
 pub use r#while::*;
 pub use size_of::*;
@@ -459,6 +463,117 @@ mod tests {
         crate::compiler::test_tools::run_test(
             "src/tests/type_check",
             "pointer_supertype_resolution",
+            None,
+        )
+    }
+
+    #[test]
+    fn match_bad_type() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "match_bad_type", None)
+    }
+
+    #[test]
+    fn match_empty_stack() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "match_empty_stack", None)
+    }
+
+    #[test]
+    fn match_mismatched_bases() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "match_mismatched_bases",
+            None,
+        )
+    }
+
+    #[test]
+    fn match_non_variant_case() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "match_non_variant_case",
+            None,
+        )
+    }
+
+    #[test]
+    fn match_unknown_type_case() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "match_unknown_type_case",
+            None,
+        )
+    }
+
+    #[test]
+    fn enum_struct_multiple_inner() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "enum_struct_multiple_inner",
+            None,
+        )
+    }
+
+    #[test]
+    fn enum_struct_unknown_variant() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "enum_struct_unknown_variant",
+            None,
+        )
+    }
+
+    #[test]
+    fn enum_struct_require_cast() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "enum_struct_require_cast",
+            None,
+        )
+    }
+
+    #[test]
+    fn enum_struct_require_generics() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "enum_struct_require_generics",
+            None,
+        )
+    }
+
+    #[test]
+    fn cast_enum_struct_generic() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "cast_enum_struct_generic",
+            None,
+        )
+    }
+
+    #[test]
+    fn cast_enum_struct() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "cast_enum_struct", None)
+    }
+
+    #[test]
+    fn match_non_exhaustive() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "match_non_exhaustive", None)
+    }
+
+    #[test]
+    fn match_else_case() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "match_else_case", None)
+    }
+
+    #[test]
+    fn match_empty() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "match_empty", None)
+    }
+
+    #[test]
+    fn enum_struct_generic_base_fn_sig() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "enum_struct_generic_base_fn_sig",
             None,
         )
     }

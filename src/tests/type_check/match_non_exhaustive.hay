@@ -1,0 +1,13 @@
+enum struct Foo {
+    u64: Bar
+    Str: Baz
+    []: Buzz
+}
+
+fn main() {
+
+    1 cast(Foo::Bar) match {
+        Foo::Bar as [bar] { b println }
+    }
+
+}

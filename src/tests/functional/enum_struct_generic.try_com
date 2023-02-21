@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "[CMD]: nasm -felf64 src/tests/functional/enum_struct_generic.asm\n[CMD]: ld -o enum_struct_generic src/tests/functional/enum_struct_generic.o\n",
+  "stderr": ""
+}

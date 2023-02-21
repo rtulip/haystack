@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parser/parse_match_bad_open.hay:3:11] Error: Expected `{` after `match`, but found `[` instead\n"
+}

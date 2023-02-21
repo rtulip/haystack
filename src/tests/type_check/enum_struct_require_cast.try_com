@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/enum_struct_require_cast.hay:4:5] Error: Enum struct `Foo` variant `Bar` requires a cast\n    [Note]: Variant `Bar` has a type u64.\n    [Note]: Try using `cast(Foo::Bar)` instead.\n"
+}

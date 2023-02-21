@@ -1,0 +1,18 @@
+enum struct Foo {
+    u64: Bar
+    Str: Baz
+}
+
+impl Print<Foo> {
+    fn print(Foo) {
+        match {
+            else { "Printing a foo!" print }
+        }
+    }
+}
+
+fn main() {
+
+    1       cast(Foo::Bar) println
+    "Hello" cast(Foo::Baz) println
+}

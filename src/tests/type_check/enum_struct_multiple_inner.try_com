@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/enum_struct_multiple_inner.hay:5:5] Error: Cannot have multiple inner accessor for an enum struct type.\n    [Note]: Found accessors: [\"Bar\", \"Baz\"]\n"
+}

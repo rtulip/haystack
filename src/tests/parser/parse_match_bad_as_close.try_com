@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parser/parse_match_bad_as_close.hay:4:25] Error: Expected `]` after `match` case assignments, but found `}` instead\n"
+}

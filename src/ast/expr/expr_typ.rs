@@ -6,7 +6,8 @@ use std::collections::HashMap;
 
 use super::{
     AccessorExpr, AnnotatedCallExpr, AsExpr, ExprCast, ExprIdent, ExprIf, ExprLiteral,
-    ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr,
+    ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, MatchExpr,
+    NeverExpr, TupleExpr,
 };
 
 /// Haystack's Expression Representation
@@ -48,6 +49,8 @@ pub enum Expr {
     AnnotatedCall(AnnotatedCallExpr),
     SizeOf(ExprSizeOf),
     Return(ExprReturn),
+    Match(MatchExpr),
+    Never(NeverExpr),
 }
 
 impl Expr {
@@ -68,6 +71,8 @@ impl Expr {
             | Expr::AnnotatedCall(AnnotatedCallExpr { token, .. })
             | Expr::SizeOf(ExprSizeOf { token, .. })
             | Expr::Return(ExprReturn { token })
+            | Expr::Match(MatchExpr { token, .. })
+            | Expr::Never(NeverExpr { token })
             | Expr::Unary(ExprUnary {
                 op: ExprOperator { token, .. },
                 ..
@@ -111,6 +116,8 @@ impl Expr {
             Expr::Var(e) => e.type_check(frame, types),
             Expr::While(e) => e.type_check(stack, frame, func, global_env, types, generic_map),
             Expr::Return(e) => e.type_check(stack, func),
+            Expr::Match(e) => e.type_check(stack, frame, func, global_env, types, generic_map),
+            Expr::Never(e) => e.type_check(stack),
         }
     }
 }
@@ -129,6 +136,10 @@ pub enum TypedExpr {
     },
     Cast {
         typ: TypeId,
+    },
+    CastEnumStruct {
+        padding: usize,
+        idx: usize,
     },
     If {
         then: Vec<TypedExpr>,

@@ -1,0 +1,6 @@
+enum struct Foo<T> {
+    T: Bar
+    []: Baz
+}
+
+fn fizz(Foo::Bar) -> [Foo::Bar] { }

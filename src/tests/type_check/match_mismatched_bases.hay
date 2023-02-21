@@ -1,0 +1,9 @@
+enum struct Foo { []: A }
+enum struct Bar { []: B }
+
+fn main() {
+    Foo::A match {
+        Foo::A {}
+        Bar::B {}
+    }
+}

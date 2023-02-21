@@ -1,0 +1,10 @@
+enum struct Foo {
+    []: Bar
+}
+
+fn main() {
+    Foo::Bar match {
+        Foo::Bar {}
+        u64 {}
+    }
+}

@@ -388,6 +388,53 @@ mod functional {
     fn enum_variants_loop() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/functional", "enum_variants_loop", None)
     }
+
+    #[test]
+    fn concrete_sum_type() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/functional", "concrete_sum_type", None)
+    }
+
+    #[test]
+    fn match_on_variant() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/functional", "match_on_variant", None)
+    }
+
+    #[test]
+    fn enum_struct_generic() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/functional", "enum_struct_generic", None)
+    }
+
+    #[test]
+    fn enum_struct_generic2() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/functional", "enum_struct_generic", None)
+    }
+
+    #[test]
+    fn enum_struct_generic_else() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/functional",
+            "enum_struct_generic_else",
+            None,
+        )
+    }
+
+    #[test]
+    fn enum_struct_match_else_only() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/functional",
+            "enum_struct_match_else_only",
+            None,
+        )
+    }
+
+    #[test]
+    fn enum_struct_match_nested() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/functional",
+            "enum_struct_match_nested",
+            None,
+        )
+    }
 }
 
 mod examples {

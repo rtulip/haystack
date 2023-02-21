@@ -828,6 +828,14 @@ impl<'a> Parser<'a> {
 
             Ok(Some(tok))
             
+        } else if let Ok(tok) = self.matches(TokenKind::Operator(Operator::Write)) {
+            
+            Ok(Some(Token {
+                lexeme: String::from("!"),
+                kind: TokenKind::Type(TypeToken::Base(String::from("!"))),
+                loc: tok.loc
+            }))
+
         } else if let Ok(tok) = self.matches(TokenKind::Operator(Operator::Ampersand)) {
             return Err(HayError::new(
                 format!(

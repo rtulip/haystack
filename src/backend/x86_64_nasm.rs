@@ -204,6 +204,10 @@ impl super::CodeGen for X86_64 {
                 size: Some((size, width)),
             } => match op {
                 Operator::Read => {
+                    if *size == 0 {
+                        return Ok(());
+                    }
+
                     let register = match width {
                         1 => "bl",
                         2 => "bx",
@@ -223,6 +227,10 @@ impl super::CodeGen for X86_64 {
                     }
                 }
                 Operator::Write => {
+                    if *size == 0 {
+                        return Ok(());
+                    }
+
                     let register = match width {
                         1 => "bl",
                         2 => "bx",

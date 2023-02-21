@@ -435,6 +435,15 @@ mod functional {
             None,
         )
     }
+
+    #[test]
+    fn zero_sized_type_pointer_ops() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/functional",
+            "zero_sized_type_pointer_ops",
+            None,
+        )
+    }
 }
 
 mod examples {

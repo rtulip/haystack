@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/never_type_input.hay:1:8] Error: The Never type `!` isn't a valid input to function `foo`\n"
+}

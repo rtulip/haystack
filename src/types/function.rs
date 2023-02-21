@@ -118,22 +118,32 @@ impl UncheckedFunction {
             .map(|arg| &arg.typ)
             .collect::<Vec<&TypeId>>();
 
-        if !stack_tids.contains(&&Type::Never.id())
-            && (stack_tids.len() != output_tids.len()
-                || stack_tids
-                    .iter()
-                    .zip(output_tids.iter())
-                    .any(|(s, o)| s != o && &&s.supertype(types) != o))
-        {
-            return Err(HayError::new_type_err(
-                format!(
-                    "Function `{}` doesn't produce the correct outputs",
-                    self.name.lexeme
-                ),
-                self.name.loc.clone(),
-            )
-            .with_hint(format!("Expected final stack: {output_tids:?}"))
-            .with_hint(format!("Function produced:    {stack_tids:?}")));
+        // Don't report mismatched outputs if the function will never reach the end
+        if !stack_tids.contains(&&Type::Never.id()) {
+            // If the function explicitly never returns, the following must be true:
+            // 1. The stack is empty
+            // 2. The output only contains the never type.
+            if !(stack.is_empty() && output_tids.len() == 1 && output_tids[0] == &Type::Never.id())
+            {
+                // If the stack lengths aren't the same, and the stack isn't
+                // covariant to the output, then report an error.
+                if stack_tids.len() != output_tids.len()
+                    || stack_tids
+                        .iter()
+                        .zip(output_tids.iter())
+                        .any(|(s, o)| s != o && &&s.supertype(types) != o)
+                {
+                    return Err(HayError::new_type_err(
+                        format!(
+                            "Function `{}` doesn't produce the correct outputs",
+                            self.name.lexeme
+                        ),
+                        self.name.loc.clone(),
+                    )
+                    .with_hint(format!("Expected final stack: {output_tids:?}"))
+                    .with_hint(format!("Function produced:    {stack_tids:?}")));
+                }
+            }
         }
 
         Ok(Function {

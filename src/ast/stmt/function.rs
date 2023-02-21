@@ -51,6 +51,18 @@ impl FunctionStmt {
             }
         }
 
+        for arg in inputs.iter() {
+            if let Some(Type::Never) = types.get(&arg.typ) {
+                return Err(HayError::new(
+                    format!(
+                        "The Never type `!` isn't a valid input to function `{}`",
+                        self.name.lexeme
+                    ),
+                    arg.token.loc.clone(),
+                ));
+            }
+        }
+
         if let Some(requirements) = &self.requires {
             validate_requirements(requirements, types)?;
         }

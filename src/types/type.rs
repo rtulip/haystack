@@ -199,6 +199,7 @@ impl Type {
         types.insert(Type::U8.id(), Type::U8);
         types.insert(Type::Bool.id(), Type::Bool);
         types.insert(Type::Char.id(), Type::Char);
+        types.insert(Type::Never.id(), Type::Never);
         types.insert(
             TypeId::new("&T"),
             Type::Pointer {

@@ -49,7 +49,6 @@ impl:
         } else {
             "Syscall `fstat` failed " println
             1 exit
-            0
         }
     }
 }

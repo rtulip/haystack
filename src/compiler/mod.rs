@@ -444,6 +444,11 @@ mod functional {
             None,
         )
     }
+
+    #[test]
+    fn tuple_destructure() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/functional", "tuple_destructure", None)
+    }
 }
 
 mod examples {

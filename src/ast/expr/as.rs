@@ -15,10 +15,13 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{arg::IdentArg, stmt::StmtKind},
+    ast::{
+        arg::{IdentArg, IdentArgKind},
+        stmt::StmtKind,
+    },
     error::HayError,
     lex::token::Token,
-    types::{Frame, FramedType, Signature, Stack, TypeId, TypeMap, UncheckedFunction},
+    types::{Frame, FramedType, Signature, Stack, Type, TypeId, TypeMap, UncheckedFunction},
 };
 
 use super::{Expr, TypedExpr};
@@ -45,7 +48,7 @@ impl AsExpr {
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<TypedExpr, HayError> {
         // Save the initial state of the frame -- needed to return the frame
-        // to its original state if there's a block.
+        // to its original state if "args: {args:?}, inner: {args:?}"there's a block.
         let initial_frame = frame.clone();
 
         // Make sure there's enough items on the stack. For example, this would
@@ -60,8 +63,8 @@ impl AsExpr {
                 self.idents.len(),
                 self.idents
                     .iter()
-                    .map(|arg| &arg.token.lexeme)
-                    .collect::<Vec<&String>>()
+                    .map(|arg| arg.kind.to_string())
+                    .collect::<Vec<_>>()
             ))
             .with_hint(format!("Found: {stack:?}"));
 
@@ -71,21 +74,16 @@ impl AsExpr {
         // Move the elements from the stack to the frame and track what types
         // are being moved.
         let mut typed_args = vec![];
-        self.idents.iter().rev().for_each(|arg| {
-            let t = stack.pop().unwrap();
-            frame.push((
-                arg.token.lexeme.clone(),
-                FramedType {
-                    origin: arg.token.clone(),
-                    typ: t.clone(),
-                    mutable: arg.mutable.is_some(),
-                },
-            ));
-            typed_args.push(t);
-        });
+        AsExpr::build_typed_args(
+            &self.idents.iter().rev().collect(),
+            &mut typed_args,
+            stack,
+            types,
+            frame,
+        )?;
 
         // Type check the block if there is one.
-        let mut typed_block = None;
+        let typed_block;
         if let Some(blk) = self.block {
             let mut tmp = vec![];
             for e in blk {
@@ -94,11 +92,72 @@ impl AsExpr {
 
             typed_block = Some(tmp);
             *frame = initial_frame;
+        } else {
+            typed_block = None;
         }
 
         Ok(TypedExpr::As {
             args: typed_args,
             block: typed_block,
         })
+    }
+
+    fn build_typed_args(
+        idents: &Vec<&IdentArg>,
+        typed_args: &mut Vec<TypeId>,
+        stack: &mut Stack,
+        types: &mut TypeMap,
+        frame: &mut Frame,
+    ) -> Result<(), HayError> {
+        for arg in idents {
+            let t = stack.pop().unwrap();
+
+            match &arg.kind {
+                IdentArgKind::Single { token } => {
+                    frame.push((
+                        token.lexeme.clone(),
+                        FramedType {
+                            origin: token.clone(),
+                            typ: t.clone(),
+                            mutable: arg.mutable.is_some(),
+                        },
+                    ));
+                    typed_args.push(t);
+                }
+                IdentArgKind::Tuple { args } => match types.get(&t) {
+                    Some(Type::Tuple { inner }) => {
+                        if args.len() != inner.len() {
+                            return Err(HayError::new_type_err(
+                                "Incorrect number of arguments to destructure tuple",
+                                arg.kind.token().loc.clone(),
+                            )
+                            .with_hint(format!(
+                                "Found idents: {:?}",
+                                args.iter()
+                                    .map(|arg| arg.kind.to_string())
+                                    .collect::<Vec<_>>()
+                            ))
+                            .with_hint(format!("For Tuple of type: {t}")));
+                        }
+
+                        AsExpr::build_typed_args(
+                            &args.iter().rev().collect(),
+                            typed_args,
+                            &mut inner.clone(),
+                            types,
+                            frame,
+                        )?;
+                    }
+                    _ => {
+                        return Err(HayError::new_type_err(
+                            format!("Non-tuple type `{t}` cannot be destructured"),
+                            arg.kind.token().loc.clone(),
+                        ))
+                    }
+                },
+            }
+        }
+
+        Ok(())
     }
 }

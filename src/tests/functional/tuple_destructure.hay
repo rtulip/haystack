@@ -1,0 +1,30 @@
+enum struct Foo {
+    [u64 u64]: Bar
+    Str: Baz
+}
+
+impl Print<Foo> {
+    fn print(Foo) {
+        match {
+            Foo::Bar as [[a b]] {
+                "Foo::Bar[" print
+                a           print 
+                " "         print 
+                b           print
+                "]"         print
+            }
+            Foo::Baz as [s] {
+                "Foo::Baz[" print
+                s           print
+                "]"         print
+            }   
+        }
+    }
+}
+
+fn main() {
+    
+    [12345 54321] cast(Foo::Bar) println
+    "Hello World" cast(Foo::Baz) println
+
+}

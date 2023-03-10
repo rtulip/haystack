@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/destructure_wrong_number_idents.hay:2:16] Error: Type Error: Incorrect number of arguments to destructure tuple\n    [Note]: Found idents: [\"one\", \"two\", \"three\"]\n    [Note]: For Tuple of type: [u64 u64]\n"
+}

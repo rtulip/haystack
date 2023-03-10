@@ -587,4 +587,18 @@ mod tests {
     fn never_type_input() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/type_check", "never_type_input", None)
     }
+
+    #[test]
+    fn destructure_wrong_number_idents() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "destructure_wrong_number_idents",
+            None,
+        )
+    }
+
+    #[test]
+    fn destructure_non_tuple() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "destructure_non_tuple", None)
+    }
 }

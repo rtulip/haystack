@@ -58,8 +58,14 @@ pub struct TypedArg {
 }
 
 #[derive(Debug, Clone)]
+pub enum IdentArgKind {
+    Single { token: Token },
+    Tuple { args: Vec<IdentArg> },
+}
+
+#[derive(Debug, Clone)]
 pub struct IdentArg {
-    pub token: Token,
+    pub kind: IdentArgKind,
     pub mutable: Option<Token>,
 }
 

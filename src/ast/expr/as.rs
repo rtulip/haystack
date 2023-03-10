@@ -15,7 +15,10 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{arg::IdentArg, stmt::StmtKind},
+    ast::{
+        arg::{IdentArg, IdentArgKind},
+        stmt::StmtKind,
+    },
     error::HayError,
     lex::token::Token,
     types::{Frame, FramedType, Signature, Stack, TypeId, TypeMap, UncheckedFunction},
@@ -60,7 +63,10 @@ impl AsExpr {
                 self.idents.len(),
                 self.idents
                     .iter()
-                    .map(|arg| &arg.token.lexeme)
+                    .map(|arg| match &arg.kind {
+                        IdentArgKind::Single { token } => &token.lexeme,
+                        _ => todo!(),
+                    })
                     .collect::<Vec<&String>>()
             ))
             .with_hint(format!("Found: {stack:?}"));
@@ -73,14 +79,21 @@ impl AsExpr {
         let mut typed_args = vec![];
         self.idents.iter().rev().for_each(|arg| {
             let t = stack.pop().unwrap();
-            frame.push((
-                arg.token.lexeme.clone(),
-                FramedType {
-                    origin: arg.token.clone(),
-                    typ: t.clone(),
-                    mutable: arg.mutable.is_some(),
-                },
-            ));
+
+            match &arg.kind {
+                IdentArgKind::Single { token } => {
+                    frame.push((
+                        token.lexeme.clone(),
+                        FramedType {
+                            origin: token.clone(),
+                            typ: t.clone(),
+                            mutable: arg.mutable.is_some(),
+                        },
+                    ));
+                }
+                _ => todo!(),
+            }
+
             typed_args.push(t);
         });
 

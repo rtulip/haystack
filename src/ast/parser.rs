@@ -5,7 +5,7 @@ use crate::lex::token::{Keyword, Loc, Marker, Operator, Token, TokenKind, TypeTo
 use crate::types::{FnTag, RecordKind, TypeId};
 use std::collections::{HashSet};
 
-use super::arg::{IdentArg, UntypedArg};
+use super::arg::{IdentArg, UntypedArg, IdentArgKind};
 use super::expr::{
     AccessorExpr, AnnotatedCallExpr, AsExpr, ExprCast, ExprElseIf, ExprIdent, ExprIf, ExprLiteral,
     ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr, MatchExpr, MatchElseExpr,
@@ -684,22 +684,42 @@ impl<'a> Parser<'a> {
             Err(_) => None,
         };
 
-        match self.matches(TokenKind::ident()) {
-            Ok(ident) => Ok(Some(IdentArg {
-                token: ident,
-                mutable,
-            })),
-            Err(t) => match mutable {
-                Some(mut_tok) => Err(HayError::new(
+        if self.matches(TokenKind::Marker(Marker::LeftBracket)).is_ok() {
+            let ident_list = self.maybe_mut_ident_list()?;
+            if ident_list.is_empty() {
+                todo!("Error: can't have empty tuple");
+            }
+
+            if let Err(e) = self.matches(TokenKind::Marker(Marker::RightBracket)) {
+                return Err(HayError::new(
                     format!(
-                        "Expected an identifier after keyword {}, but found {} instead.",
-                        mut_tok.kind, t.kind
-                    ),
-                    mut_tok.loc,
-                )),
-                None => Ok(None),
-            },
-        }
+                        "Expected {} after identifiers, but found {} instead.", 
+                        Marker::RightBracket, 
+                        e.lexeme
+                    ), 
+                    e.loc
+                ))
+            }
+
+            Ok(Some(IdentArg { kind: IdentArgKind::Tuple { args: ident_list }, mutable }))
+        } else {
+            match self.matches(TokenKind::ident()) {
+                Ok(ident) => Ok(Some(IdentArg {
+                    kind: IdentArgKind::Single { token: ident },
+                    mutable,
+                })),
+                Err(t) => match mutable {
+                    Some(mut_tok) => Err(HayError::new(
+                        format!(
+                            "Expected an identifier after keyword {}, but found {} instead.",
+                            mut_tok.kind, t.kind
+                        ),
+                        mut_tok.loc,
+                    )),
+                    None => Ok(None),
+                },
+            }
+        } 
     }
 
     fn parse_type(&mut self) -> Result<Option<Token>, HayError> {
@@ -1113,8 +1133,11 @@ impl<'a> Parser<'a> {
                                 format!(
                                     "Found: {:?}", 
                                     idents.iter()
-                                        .map(|arg| &arg.token.lexeme)
-                                        .collect::<Vec<&String>>()
+                                        .map(|arg| match &arg.kind {
+                                            IdentArgKind::Single { token } => &token.lexeme,
+                                            _ => todo!(),
+                                        })
+                                        .collect::<Vec<_>>()
                                 )
                             )
                         )

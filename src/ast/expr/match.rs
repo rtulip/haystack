@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     ast::{
-        arg::IdentArg,
+        arg::{IdentArg, IdentArgKind},
         expr::{AccessorExpr, AsExpr, ExprElseIf, ExprIf, ExprLiteral, ExprOperator},
         member::TypedMember,
         stmt::GlobalEnv,
@@ -159,7 +159,9 @@ impl MatchExpr {
             let as_expr = Expr::As(AsExpr {
                 token: self.token.clone(),
                 idents: vec![IdentArg {
-                    token: ident.clone(),
+                    kind: IdentArgKind::Single {
+                        token: ident.clone(),
+                    },
                     mutable: None,
                 }],
                 block: Some(before_exprs),
@@ -169,10 +171,12 @@ impl MatchExpr {
             let as_expr = Expr::As(AsExpr {
                 token: self.token.clone(),
                 idents: vec![IdentArg {
-                    token: Token {
-                        kind: TokenKind::Ident(String::from("0")),
-                        lexeme: String::from("0"),
-                        loc: self.token.loc.clone(),
+                    kind: IdentArgKind::Single {
+                        token: Token {
+                            kind: TokenKind::Ident(String::from("0")),
+                            lexeme: String::from("0"),
+                            loc: self.token.loc.clone(),
+                        },
                     },
                     mutable: None,
                 }],
@@ -229,12 +233,12 @@ impl MatchExpr {
                 inner: vec![Token {
                     kind: TokenKind::Literal(Literal::U64(idx as u64)),
                     lexeme: format!("{idx}"),
-                    loc: ident.token.loc.clone(),
+                    loc: self.token.loc.clone(),
                 }],
             }));
 
             then_exprs.push(Expr::As(AsExpr {
-                token: ident.token.clone(),
+                token: self.token.clone(),
                 idents: vec![ident.clone()],
                 block: None,
             }));

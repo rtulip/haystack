@@ -63,6 +63,36 @@ pub enum IdentArgKind {
     Tuple { args: Vec<IdentArg> },
 }
 
+impl IdentArgKind {
+    pub fn token(&self) -> &Token {
+        match self {
+            IdentArgKind::Single { token } => token,
+            IdentArgKind::Tuple { args } => args.first().unwrap().kind.token(),
+        }
+    }
+}
+
+impl ToString for IdentArgKind {
+    fn to_string(&self) -> String {
+        match self {
+            IdentArgKind::Single { token } => token.lexeme.clone(),
+            IdentArgKind::Tuple { args } => {
+                let strings = args
+                    .iter()
+                    .map(|arg| arg.kind.to_string())
+                    .collect::<Vec<_>>();
+                let mut out = String::from("[");
+                for s in &strings[0..strings.len() - 1] {
+                    out = format!("{out}{s} ");
+                }
+                out = format!("{out}{}]", strings.last().unwrap());
+
+                out
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct IdentArg {
     pub kind: IdentArgKind,

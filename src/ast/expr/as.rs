@@ -63,11 +63,8 @@ impl AsExpr {
                 self.idents.len(),
                 self.idents
                     .iter()
-                    .map(|arg| match &arg.kind {
-                        IdentArgKind::Single { token } => &token.lexeme,
-                        _ => todo!(),
-                    })
-                    .collect::<Vec<&String>>()
+                    .map(|arg| arg.kind.to_string())
+                    .collect::<Vec<_>>()
             ))
             .with_hint(format!("Found: {stack:?}"));
 
@@ -131,7 +128,17 @@ impl AsExpr {
                 IdentArgKind::Tuple { args } => match types.get(&t) {
                     Some(Type::Tuple { inner }) => {
                         if args.len() != inner.len() {
-                            todo!("err")
+                            return Err(HayError::new_type_err(
+                                "Incorrect number of arguments to destructure tuple",
+                                arg.kind.token().loc.clone(),
+                            )
+                            .with_hint(format!(
+                                "Found idents: {:?}",
+                                args.iter()
+                                    .map(|arg| arg.kind.to_string())
+                                    .collect::<Vec<_>>()
+                            ))
+                            .with_hint(format!("For Tuple of type: {t}")));
                         }
 
                         self.build_typed_args(
@@ -142,7 +149,12 @@ impl AsExpr {
                             frame,
                         )?;
                     }
-                    _ => todo!("Err"),
+                    _ => {
+                        return Err(HayError::new_type_err(
+                            format!("Non-tuple type `{t}` cannot be destructured"),
+                            arg.kind.token().loc.clone(),
+                        ))
+                    }
                 },
             }
         }

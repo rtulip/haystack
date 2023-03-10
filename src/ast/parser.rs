@@ -684,10 +684,13 @@ impl<'a> Parser<'a> {
             Err(_) => None,
         };
 
-        if self.matches(TokenKind::Marker(Marker::LeftBracket)).is_ok() {
+        if let Ok(open) = self.matches(TokenKind::Marker(Marker::LeftBracket)) {
             let ident_list = self.maybe_mut_ident_list()?;
             if ident_list.is_empty() {
-                todo!("Error: can't have empty tuple");
+                return Err(HayError::new(
+                    "Tuple destructuring assignment must have at least one identifier.",
+                    open.loc,
+                ))
             }
 
             if let Err(e) = self.matches(TokenKind::Marker(Marker::RightBracket)) {
@@ -1133,10 +1136,7 @@ impl<'a> Parser<'a> {
                                 format!(
                                     "Found: {:?}", 
                                     idents.iter()
-                                        .map(|arg| match &arg.kind {
-                                            IdentArgKind::Single { token } => &token.lexeme,
-                                            _ => todo!(),
-                                        })
+                                        .map(|arg| arg.kind.to_string())
                                         .collect::<Vec<_>>()
                                 )
                             )

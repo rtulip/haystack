@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "Foo::Bar[12345 54321]\nFoo::Baz[Hello World]\n",
+  "stderr": ""
+}

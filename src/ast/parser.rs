@@ -2250,6 +2250,15 @@ mod tests {
         crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_close", None)
     }
 
+    #[test]
+    fn parse_as_block_bad_destructure_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_as_block_bad_destructure_close", None)
+    }
+
+    #[test]
+    fn parse_as_block_empty_destructure() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_as_block_empty_destructure", None)
+    }
 
 
 }

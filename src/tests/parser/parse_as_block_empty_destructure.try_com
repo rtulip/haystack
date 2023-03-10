@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/parser/parse_as_block_empty_destructure.hay:2:9] Error: Tuple destructuring assignment must have at least one identifier.\n"
+}

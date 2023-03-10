@@ -1,0 +1,5 @@
+fn main() {
+
+    1 2 as [[one two] three]
+
+}

@@ -74,7 +74,7 @@ impl AsExpr {
         // Move the elements from the stack to the frame and track what types
         // are being moved.
         let mut typed_args = vec![];
-        self.build_typed_args(
+        AsExpr::build_typed_args(
             &self.idents.iter().rev().collect(),
             &mut typed_args,
             stack,
@@ -102,8 +102,7 @@ impl AsExpr {
         })
     }
 
-    fn build_typed_args<'a>(
-        &self,
+    fn build_typed_args(
         idents: &Vec<&IdentArg>,
         typed_args: &mut Vec<TypeId>,
         stack: &mut Stack,
@@ -141,7 +140,7 @@ impl AsExpr {
                             .with_hint(format!("For Tuple of type: {t}")));
                         }
 
-                        self.build_typed_args(
+                        AsExpr::build_typed_args(
                             &args.iter().rev().collect(),
                             typed_args,
                             &mut inner.clone(),

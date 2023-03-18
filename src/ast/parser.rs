@@ -8,7 +8,7 @@ use std::collections::{HashSet};
 use super::arg::{IdentArg, UntypedArg, IdentArgKind};
 use super::expr::{
     AccessorExpr, AnnotatedCallExpr, AsExpr, ExprCast, ExprElseIf, ExprIdent, ExprIf, ExprLiteral,
-    ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr, MatchExpr, MatchElseExpr,
+    ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr, MatchExpr, MatchElseExpr, UnpackExpr,
 };
 use super::member::UntypedMember;
 use super::stmt::{RecordStmt, EnumStmt, FunctionStmt, FunctionStubStmt, InterfaceStmt, InterfaceImplStmt, VarStmt, PreDeclarationStmt};
@@ -1080,7 +1080,9 @@ impl<'a> Parser<'a> {
             TokenKind::Keyword(Keyword::SizeOf) => self.size_of(token),
             TokenKind::Keyword(Keyword::Return) => Ok(Box::new(Expr::Return(ExprReturn { token }))),
             TokenKind::Keyword(Keyword::Match) => self.match_expr(token),
+            TokenKind::Keyword(Keyword::Unpack) => Ok(Box::new(Expr::Unpack(UnpackExpr { token}))),
             TokenKind::Marker(Marker::LeftBracket) => self.parse_tuple_expr(token),
+            
             kind => Err(HayError::new(
                 format!("Not sure how to parse expression from {kind} yet"),
                 token.loc,

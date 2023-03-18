@@ -478,7 +478,7 @@ impl Instruction {
                     });
                 }
             }
-            TypedExpr::Cast { .. } => (),
+            TypedExpr::Cast { .. } | TypedExpr::Unpack { .. } => (),
             TypedExpr::CastEnumStruct { idx, padding, .. } => {
                 for _ in 0..padding {
                     ops.push(Instruction::PushU64(0));

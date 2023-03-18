@@ -14,6 +14,7 @@ mod size_of;
 mod syscall;
 mod tuple;
 mod unary;
+mod unpack;
 mod var;
 mod r#while;
 
@@ -34,6 +35,7 @@ pub use size_of::*;
 pub use syscall::*;
 pub use tuple::*;
 pub use unary::*;
+pub use unpack::*;
 pub use var::*;
 
 mod tests {

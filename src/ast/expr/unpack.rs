@@ -22,7 +22,7 @@ impl UnpackExpr {
                 )),
             };
 
-        if let Some(Type::Tuple { inner }) = types.get(&typ) {
+        if let Some(Type::Tuple { inner, .. }) = types.get(&typ) {
             inner.iter().for_each(|t| stack.push(t.clone()));
         } else {
             return Err(HayError::new(

@@ -227,7 +227,7 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        let types = self.members( &interface, &RecordKind::Interface).unwrap_or(vec![]);
+        let types = self.members( Some(&interface), &RecordKind::Interface).unwrap_or(vec![]);
         let fns = self.function_list(None)?.into_iter().map(|s| match s {
             Stmt::Function(f) => f,
             _ => unreachable!(),
@@ -772,7 +772,8 @@ impl<'a> Parser<'a> {
                     lexeme = format!("{lexeme}]");
                     Token::new(TokenKind::Type(
                         TypeToken::Tuple { 
-                            inner 
+                            inner,
+                            idents: None,
                         }
                     ), 
                     lexeme, 
@@ -785,6 +786,51 @@ impl<'a> Parser<'a> {
                     format!(
                         "Expected a {} to close the tuple, but found {} instead", 
                         Marker::RightBracket,
+                         e.lexeme
+                    ), 
+                    e.loc,
+                )),
+            };
+
+            Ok(Some(new_tok))
+
+        } else if let Ok(left_bracket) =  self.matches(TokenKind::Marker(Marker::LeftBrace)) {
+            
+            let members = self.members(None, &RecordKind::Tuple)?;
+
+            let mut inner = vec![];
+            let mut idents = vec![];
+
+            members.into_iter().for_each(|m| {
+                inner.push(m.token);
+                idents.push(m.ident);
+            });
+
+            let new_tok = match self.matches(TokenKind::Marker(Marker::RightBrace)) {
+                Ok(x) => {
+                    let mut lexeme = left_bracket.lexeme;
+
+                    for (t, id) in inner.iter().zip(idents.iter()) {
+                        lexeme = format!("{lexeme} {}: {}", t.lexeme, id.lexeme);
+                    }
+                    
+                    lexeme = format!("{lexeme}]");
+                    Token::new(TokenKind::Type(
+                        TypeToken::Tuple { 
+                            inner,
+                            idents: Some(idents)
+                        }
+                    ), 
+                    lexeme, 
+                    left_bracket.loc.file, 
+                    left_bracket.loc.line, 
+                    left_bracket.loc.span.start, 
+                    x.loc.span.end)
+                },
+                Err(e) => return Err(HayError::new(
+                    format!(
+                        "Expected a {} to close the tuple, but found {} instead", 
+                        Marker::RightBrace,
                          e.lexeme
                     ), 
                     e.loc,
@@ -1424,7 +1470,7 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        let members = self.members(&name, &kind)?;
+        let members = self.members(Some(&name), &kind)?;
 
         if members.is_empty() {
             return Err(HayError::new(format!("{kind} members cannot be empty."), name.loc));
@@ -1461,7 +1507,7 @@ impl<'a> Parser<'a> {
 
     fn members(
         &mut self,
-        typ_tok: &Token,
+        typ_tok: Option<&Token>,
         kind: &RecordKind,
     ) -> Result<Vec<UntypedMember>, HayError> {
         let mut members = vec![];
@@ -1476,7 +1522,7 @@ impl<'a> Parser<'a> {
 
     fn member(
         &mut self,
-        typ: &Token,
+        typ: Option<&Token>,
         kind: &RecordKind,
     ) -> Result<Option<UntypedMember>, HayError> {
         let (vis, vis_tok) = match self.matches(TokenKind::Keyword(Keyword::Pub)) {
@@ -1527,12 +1573,13 @@ impl<'a> Parser<'a> {
         };
 
         Ok(Some(UntypedMember {
-            parent: typ.clone(),
+            parent: typ.cloned(),
             vis: match kind {
                 RecordKind::Union => Visitiliby::Public,
                 RecordKind::EnumStruct => Visitiliby::Public,
                 RecordKind::Struct => vis,
                 RecordKind::Interface => Visitiliby::Public,
+                RecordKind::Tuple => Visitiliby::Public,
             },
             token,
             ident,

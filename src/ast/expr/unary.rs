@@ -74,7 +74,7 @@ impl ExprUnary {
                                 {
                                     if !m.is_public() {
                                         match &func.impl_on {
-                                    Some(typ) => if &m.parent != typ {
+                                    Some(typ) => if m.parent.as_ref().unwrap() != typ {
                                         return Err(
                                             HayError::new_type_err(
                                                 format!("Cannot access {kind} `{}` member `{}` as it is declared as private.", name.lexeme, m.ident.lexeme),
@@ -101,6 +101,7 @@ impl ExprUnary {
                                                 RecordKind::Struct => "Struct",
                                                 RecordKind::EnumStruct => "Enum struct",
                                                 RecordKind::Interface => unreachable!(),
+                                                RecordKind::Tuple => unreachable!(),
                                             },
                                             name.lexeme,
                                             inner_member.lexeme,

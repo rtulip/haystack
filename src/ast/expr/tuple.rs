@@ -58,6 +58,7 @@ impl TupleExpr {
 
         let tuple = Type::Tuple {
             inner: inner_stack.clone(),
+            idents: None,
         };
 
         let tid = tuple.id();

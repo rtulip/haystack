@@ -273,6 +273,7 @@ pub enum TypeToken {
     },
     Tuple {
         inner: Vec<Token>,
+        idents: Option<Vec<Token>>,
     },
 }
 
@@ -311,18 +312,38 @@ impl std::fmt::Display for TypeToken {
                     write!(f, "&{p}")
                 }
             }
-            TypeToken::Tuple { inner } => {
+            TypeToken::Tuple {
+                inner,
+                idents: None,
+            } => {
                 write!(f, "[")?;
                 if !inner.is_empty() {
                     for inner_t in inner.iter().take(inner.len() - 1) {
-                        write!(f, "{inner_t} ")?;
+                        write!(f, "{} ", inner_t.lexeme)?;
                     }
                 }
 
                 if let Some(last) = inner.last() {
-                    write!(f, "{last}")?;
+                    write!(f, "{}", last.lexeme)?;
                 }
                 write!(f, "]")
+            }
+            TypeToken::Tuple {
+                inner,
+                idents: Some(idents),
+            } => {
+                assert_eq!(inner.len(), idents.len());
+                write!(f, "{{")?;
+                if !inner.is_empty() {
+                    for (inner_t, ident) in inner.iter().zip(idents.iter()).take(inner.len() - 1) {
+                        write!(f, "{}: {} ", inner_t.lexeme, ident.lexeme)?;
+                    }
+                }
+
+                if let (Some(last_t), Some(last_id)) = (inner.last(), idents.last()) {
+                    write!(f, "{}: {}", last_t.lexeme, last_id.lexeme)?;
+                }
+                write!(f, "}}")
             }
         }
     }

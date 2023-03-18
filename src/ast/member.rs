@@ -10,7 +10,7 @@ use super::visibility::Visitiliby;
 
 #[derive(Debug, Clone)]
 pub struct UntypedMember {
-    pub parent: Token,
+    pub parent: Option<Token>,
     pub vis: Visitiliby,
     pub token: Token,
     pub ident: Token,
@@ -25,7 +25,10 @@ impl UntypedMember {
         let mut out = vec![];
         for m in members {
             let typ = TypeId::from_token(&m.token, types, local_types)?;
-            let parent = TypeId::new(&m.parent.lexeme);
+            let parent = match &m.parent {
+                Some(parent) => Some(TypeId::new(&parent.lexeme)),
+                None => None,
+            };
             out.push(TypedMember {
                 parent,
                 vis: m.vis,
@@ -41,7 +44,7 @@ impl UntypedMember {
 
 #[derive(Debug, Clone)]
 pub struct TypedMember {
-    pub parent: TypeId,
+    pub parent: Option<TypeId>,
     pub vis: Visitiliby,
     pub token: Token,
     pub ident: Token,

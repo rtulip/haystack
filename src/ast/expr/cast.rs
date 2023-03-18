@@ -78,6 +78,7 @@ impl ExprCast {
 
                     Err(e)
                 }
+                RecordKind::Tuple => unreachable!(),
                 RecordKind::Interface => unreachable!(),
             },
             Type::U64 => {
@@ -131,7 +132,7 @@ impl ExprCast {
                 )?;
                 Ok(TypedExpr::Cast { typ: typ_id })
             }
-            Type::Tuple { inner } => {
+            Type::Tuple { inner, .. } => {
                 Signature::new(inner.clone(), vec![typ_id.clone()]).evaluate(
                     &self.token,
                     stack,
@@ -194,6 +195,7 @@ impl ExprCast {
                         return Err(e);
                     }
                     RecordKind::Interface => unreachable!(),
+                    RecordKind::Tuple => unreachable!(),
                 };
 
                 Ok(TypedExpr::Cast { typ: tid })

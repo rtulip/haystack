@@ -125,7 +125,10 @@ impl AsExpr {
                     typed_args.push(t);
                 }
                 IdentArgKind::Tuple { args } => match types.get(&t) {
-                    Some(Type::Tuple { inner }) => {
+                    Some(Type::Tuple {
+                        inner,
+                        idents: None,
+                    }) => {
                         if args.len() != inner.len() {
                             return Err(HayError::new_type_err(
                                 "Incorrect number of arguments to destructure tuple",
@@ -148,6 +151,10 @@ impl AsExpr {
                             frame,
                         )?;
                     }
+                    Some(Type::Tuple {
+                        inner: _,
+                        idents: Some(_),
+                    }) => todo!(),
                     _ => {
                         return Err(HayError::new_type_err(
                             format!("Non-tuple type `{t}` cannot be destructured"),

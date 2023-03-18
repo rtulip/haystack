@@ -603,4 +603,14 @@ mod tests {
     fn destructure_non_tuple() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/type_check", "destructure_non_tuple", None)
     }
+
+    #[test]
+    fn unpack_non_tuple() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "unpack_non_tuple", None)
+    }
+
+    #[test]
+    fn unpack_empty_stack() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "unpack_empty_stack", None)
+    }
 }

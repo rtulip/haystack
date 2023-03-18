@@ -177,6 +177,7 @@ pub enum Keyword {
     Interface,
     Requires,
     Match,
+    Unpack,
 }
 
 impl std::fmt::Display for Keyword {
@@ -203,6 +204,7 @@ impl std::fmt::Display for Keyword {
             Keyword::Interface => write!(f, "interface")?,
             Keyword::Requires => write!(f, "requires")?,
             Keyword::Match => write!(f, "match")?,
+            Keyword::Unpack => write!(f, "unpack")?,
         }
         write!(f, "`")
     }
@@ -231,6 +233,7 @@ impl Keyword {
         map.insert("interface", TokenKind::Keyword(Keyword::Interface));
         map.insert("requires", TokenKind::Keyword(Keyword::Requires));
         map.insert("match", TokenKind::Keyword(Keyword::Match));
+        map.insert("unpack", TokenKind::Keyword(Keyword::Unpack));
 
         map.insert("true", TokenKind::Literal(Literal::Bool(true)));
         map.insert("false", TokenKind::Literal(Literal::Bool(false)));

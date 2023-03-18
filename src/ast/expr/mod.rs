@@ -14,6 +14,7 @@ mod size_of;
 mod syscall;
 mod tuple;
 mod unary;
+mod unpack;
 mod var;
 mod r#while;
 
@@ -34,6 +35,7 @@ pub use size_of::*;
 pub use syscall::*;
 pub use tuple::*;
 pub use unary::*;
+pub use unpack::*;
 pub use var::*;
 
 mod tests {
@@ -600,5 +602,15 @@ mod tests {
     #[test]
     fn destructure_non_tuple() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/type_check", "destructure_non_tuple", None)
+    }
+
+    #[test]
+    fn unpack_non_tuple() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "unpack_non_tuple", None)
+    }
+
+    #[test]
+    fn unpack_empty_stack() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/type_check", "unpack_empty_stack", None)
     }
 }

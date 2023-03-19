@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "Foo::Value(12345)\nFoo::Tuple[12345 54321]\nFoo::Named { x: 12345 y: 54321 }\na\nb\na\nb\nb\na\n[a b]\n[9 4]\n",
+  "stderr": ""
+}

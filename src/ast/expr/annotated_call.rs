@@ -4,7 +4,7 @@ use crate::{
     ast::{arg::UntypedArg, stmt::StmtKind},
     error::HayError,
     lex::token::Token,
-    types::{Signature, Stack, TypeId, TypeMap},
+    types::{Signature, Stack, TypeId, TypeMap, Variance},
 };
 
 use super::TypedExpr;
@@ -139,7 +139,9 @@ impl AnnotatedCallExpr {
 
         // Check and update the stack and frame.
         sig.assign(&self.token, &annotations, types)?;
-        assert!(sig.evaluate(&self.token, stack, types)?.is_none());
+        assert!(sig
+            .evaluate(&self.token, stack, types, Variance::Covariant)?
+            .is_none());
 
         Ok(TypedExpr::Call { func: tid.0 })
     }

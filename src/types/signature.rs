@@ -2,7 +2,7 @@ use crate::error::HayError;
 use crate::lex::token::Token;
 use std::collections::HashMap;
 
-use super::{TypeId, TypeMap};
+use super::{stack_compare, TypeId, TypeMap, Variance};
 type Predicate = dyn Fn(&Vec<TypeId>, &TypeMap) -> bool;
 
 /// A Structure to describe changes to the stack.
@@ -175,6 +175,7 @@ impl<'pred> Signature<'pred> {
         token: &Token,
         stack: &mut Vec<TypeId>,
         types: &mut TypeMap,
+        variance: Variance,
     ) -> Result<Option<HashMap<TypeId, TypeId>>, HayError> {
         // Make sure the stack has at least as many elements as the inputs.
         // This ensures that the stack doesn't underflow.
@@ -203,23 +204,21 @@ impl<'pred> Signature<'pred> {
         };
 
         // Check that each input matches the element on the stack.
-        for (input, stk) in sig.inputs.iter().rev().zip(stack.iter().rev()) {
-            if input != stk && input != &stk.supertype(types) {
-                return Err(HayError::new_type_err(
-                    format!("Invalid inputs for `{}`", token.lexeme).as_str(),
-                    token.loc.clone(),
-                )
-                .with_hint(format!("Expected: {:?}", sig.inputs))
-                .with_hint(format!(
-                    "Found:    {:?}",
-                    stack
-                        .iter()
-                        .rev()
-                        .take(sig.inputs.len())
-                        .rev()
-                        .collect::<Vec<&TypeId>>()
-                )));
-            }
+        if !stack_compare(&sig.inputs, stack, types, variance) {
+            return Err(HayError::new_type_err(
+                format!("Invalid inputs for `{}`", token.lexeme).as_str(),
+                token.loc.clone(),
+            )
+            .with_hint(format!("Expected: {:?}", sig.inputs))
+            .with_hint(format!(
+                "Found:    {:?}",
+                stack
+                    .iter()
+                    .rev()
+                    .take(sig.inputs.len())
+                    .rev()
+                    .collect::<Vec<&TypeId>>()
+            )));
         }
 
         // If the signature has a predicate, evaulate it.
@@ -263,6 +262,7 @@ impl<'pred> Signature<'pred> {
         token: &Token,
         stack: &mut Vec<TypeId>,
         types: &mut TypeMap,
+        variance: Variance,
     ) -> Result<Option<HashMap<TypeId, TypeId>>, HayError> {
         // Make sure that each signature has the same "shape"
         // This might not be strctly nessisary.
@@ -285,7 +285,7 @@ impl<'pred> Signature<'pred> {
 
         // Evaluate each Signature & return early if successful.
         for sig in sigs {
-            if let Ok(x) = sig.evaluate(token, stack, types) {
+            if let Ok(x) = sig.evaluate(token, stack, types, variance) {
                 return Ok(x);
             }
         }

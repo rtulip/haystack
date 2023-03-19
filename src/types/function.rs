@@ -8,10 +8,10 @@ use crate::{
     },
     error::HayError,
     lex::token::Token,
-    types::TypeId,
+    types::{stack_compare_exact, TypeId},
 };
 
-use super::{FramedType, Type, TypeMap};
+use super::{FramedType, Type, TypeMap, Variance};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FnTag {
@@ -111,28 +111,22 @@ impl UncheckedFunction {
                 &self.generic_map,
             )?);
         }
-        let stack_tids = stack.iter().collect::<Vec<&TypeId>>();
+        // let stack_tids = stack.iter().collect::<Vec<&TypeId>>();
         let output_tids = self
             .outputs
             .iter()
-            .map(|arg| &arg.typ)
-            .collect::<Vec<&TypeId>>();
+            .map(|arg| arg.typ.clone())
+            .collect::<Vec<TypeId>>();
 
         // Don't report mismatched outputs if the function will never reach the end
-        if !stack_tids.contains(&&Type::Never.id()) {
+        if !stack.contains(&Type::Never.id()) {
             // If the function explicitly never returns, the following must be true:
             // 1. The stack is empty
             // 2. The output only contains the never type.
-            if !(stack.is_empty() && output_tids.len() == 1 && output_tids[0] == &Type::Never.id())
-            {
+            if !(stack.is_empty() && output_tids.len() == 1 && output_tids[0] == Type::Never.id()) {
                 // If the stack lengths aren't the same, and the stack isn't
                 // covariant to the output, then report an error.
-                if stack_tids.len() != output_tids.len()
-                    || stack_tids
-                        .iter()
-                        .zip(output_tids.iter())
-                        .any(|(s, o)| s != o && &&s.supertype(types) != o)
-                {
+                if !stack_compare_exact(&output_tids, &stack, types, Variance::Covariant) {
                     return Err(HayError::new_type_err(
                         format!(
                             "Function `{}` doesn't produce the correct outputs",
@@ -141,7 +135,7 @@ impl UncheckedFunction {
                         self.name.loc.clone(),
                     )
                     .with_hint(format!("Expected final stack: {output_tids:?}"))
-                    .with_hint(format!("Function produced:    {stack_tids:?}")));
+                    .with_hint(format!("Function produced:    {stack:?}")));
                 }
             }
         }

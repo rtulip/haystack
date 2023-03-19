@@ -8,8 +8,6 @@ use std::hash::Hash;
 
 use super::VariantType;
 
-
-
 /// Unique Identifier for types
 ///
 /// This is just a wrapper around a string, which is used as an identifier

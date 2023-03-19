@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     error::HayError,
     lex::token::Token,
-    types::{RecordKind, Signature, Stack, Type, TypeId, TypeMap, VariantType},
+    types::{RecordKind, Signature, Stack, Type, TypeId, TypeMap, Variance, VariantType},
 };
 
 use super::TypedExpr;
@@ -50,7 +50,12 @@ impl ExprCast {
                         members.iter().map(|m| m.typ.clone()).collect(),
                         vec![typ_id.clone()],
                     )
-                    .evaluate(&self.token, stack, types)?;
+                    .evaluate(
+                        &self.token,
+                        stack,
+                        types,
+                        Variance::Covariant,
+                    )?;
                     Ok(TypedExpr::Cast { typ: typ_id })
                 }
                 RecordKind::Union => {
@@ -61,7 +66,13 @@ impl ExprCast {
                     });
 
                     let padding = typ_id.size(types)? - stack.iter().last().unwrap().size(types)?;
-                    Signature::evaluate_many(&sigs, &self.token, stack, types)?;
+                    Signature::evaluate_many(
+                        &sigs,
+                        &self.token,
+                        stack,
+                        types,
+                        Variance::Covariant,
+                    )?;
 
                     Ok(TypedExpr::Pad { padding })
                 }
@@ -102,6 +113,7 @@ impl ExprCast {
                     &self.token,
                     stack,
                     types,
+                    Variance::Covariant,
                 )?;
                 Ok(TypedExpr::Cast { typ: typ_id })
             }
@@ -116,6 +128,7 @@ impl ExprCast {
                     &self.token,
                     stack,
                     types,
+                    Variance::Variant,
                 )?;
                 Ok(TypedExpr::Cast { typ: typ_id })
             }
@@ -129,6 +142,7 @@ impl ExprCast {
                     &self.token,
                     stack,
                     types,
+                    Variance::Variant,
                 )?;
                 Ok(TypedExpr::Cast { typ: typ_id })
             }
@@ -137,6 +151,7 @@ impl ExprCast {
                     &self.token,
                     stack,
                     types,
+                    Variance::Variant,
                 )?;
 
                 Ok(TypedExpr::Cast { typ: typ_id })
@@ -146,6 +161,7 @@ impl ExprCast {
                     &self.token,
                     stack,
                     types,
+                    Variance::Covariant,
                 )?;
                 Ok(TypedExpr::Cast { typ: typ_id })
             }
@@ -162,7 +178,12 @@ impl ExprCast {
                             vec![typ_id.clone()],
                             generics.clone(),
                         )
-                        .evaluate(&self.token, stack, types)?;
+                        .evaluate(
+                            &self.token,
+                            stack,
+                            types,
+                            Variance::Covariant,
+                        )?;
                         typ_id
                     }
                     RecordKind::Union => {
@@ -177,7 +198,13 @@ impl ExprCast {
                             })
                             .collect::<Vec<Signature>>();
 
-                        Signature::evaluate_many(&sigs, &self.token, stack, types)?;
+                        Signature::evaluate_many(
+                            &sigs,
+                            &self.token,
+                            stack,
+                            types,
+                            Variance::Variant,
+                        )?;
 
                         typ_id
                     }
@@ -227,7 +254,7 @@ impl ExprCast {
                         let signature =
                             Signature::new(vec![member.typ.clone()], vec![typ_id.clone()]);
 
-                        signature.evaluate(&self.token, stack, types)?;
+                        signature.evaluate(&self.token, stack, types, Variance::Covariant)?;
 
                         Ok(TypedExpr::CastEnumStruct { padding, idx })
                     }
@@ -249,14 +276,15 @@ impl ExprCast {
                             generics.clone(),
                         );
 
-                        let padding =
-                            if let Some(map) = signature.evaluate(&self.token, stack, types)? {
-                                stack.last().unwrap().size(types)?
-                                    - 1
-                                    - member.typ.assign(&self.token, &map, types)?.size(types)?
-                            } else {
-                                stack.last().unwrap().size(types)? - 1 - member.typ.size(types)?
-                            };
+                        let padding = if let Some(map) =
+                            signature.evaluate(&self.token, stack, types, Variance::Covariant)?
+                        {
+                            stack.last().unwrap().size(types)?
+                                - 1
+                                - member.typ.assign(&self.token, &map, types)?.size(types)?
+                        } else {
+                            stack.last().unwrap().size(types)? - 1 - member.typ.size(types)?
+                        };
 
                         Ok(TypedExpr::CastEnumStruct { padding, idx })
                     }

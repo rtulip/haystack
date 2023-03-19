@@ -25,10 +25,7 @@ impl UntypedMember {
         let mut out = vec![];
         for m in members {
             let typ = TypeId::from_token(&m.token, types, local_types)?;
-            let parent = match &m.parent {
-                Some(parent) => Some(TypeId::new(&parent.lexeme)),
-                None => None,
-            };
+            let parent = m.parent.as_ref().map(|parent| TypeId::new(&parent.lexeme));
             out.push(TypedMember {
                 parent,
                 vis: m.vis,

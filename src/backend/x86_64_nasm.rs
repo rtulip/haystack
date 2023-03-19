@@ -68,7 +68,10 @@ impl super::CodeGen for X86_64 {
                 width,
             } => {
                 writeln!(file, "  mov  rax, [frame_start_ptr]")?;
-                writeln!(file, "  sub  rax, {}", offset + 16 + ((size - 1) * width))?;
+                if *size > 0 {
+                    writeln!(file, "  sub  rax, {}", offset + 16 + ((size - 1) * width))?;
+                }
+
                 writeln!(file, "  sub  qword [frame_end_ptr], 8")?;
                 writeln!(file, "  mov  rbx, [frame_end_ptr]")?;
                 writeln!(file, "  mov  [rbx], rax")?;

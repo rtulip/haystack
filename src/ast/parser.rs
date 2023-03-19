@@ -2309,5 +2309,9 @@ mod tests {
         crate::compiler::test_tools::run_test("src/tests/parser", "parse_as_block_empty_destructure", None)
     }
 
+    #[test]
+    fn anon_struct_bad_close() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "anon_struct_bad_close", None)
+    }
 
 }

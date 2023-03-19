@@ -160,9 +160,11 @@ impl Instruction {
                                         &members[idx].typ
                                     }
                                     RecordKind::Interface => unreachable!(),
+                                    RecordKind::Tuple => unreachable!(),
                                 },
                                 Type::Tuple {
                                     inner: tuple_members,
+                                    idents: None,
                                 } => {
                                     let idx = inner
                                         .parse::<usize>()
@@ -170,6 +172,23 @@ impl Instruction {
                                     for m in &tuple_members[0..idx] {
                                         offset += m.size(types).unwrap()
                                     }
+                                    &tuple_members[idx]
+                                }
+                                Type::Tuple {
+                                    inner: tuple_members,
+                                    idents: Some(idents),
+                                } => {
+                                    let idx = idents
+                                        .iter()
+                                        .enumerate()
+                                        .find(|(_, id)| &id.lexeme == inner)
+                                        .unwrap()
+                                        .0;
+
+                                    for m in &tuple_members[0..idx] {
+                                        offset += m.size(types).unwrap()
+                                    }
+
                                     &tuple_members[idx]
                                 }
                                 _ => panic!("Didn't expect to find {typ} here!"),
@@ -224,6 +243,7 @@ impl Instruction {
                                 }
                                 RecordKind::EnumStruct => todo!(),
                                 RecordKind::Interface => unreachable!(),
+                                RecordKind::Tuple => unreachable!(),
                             }
                         } else {
                             panic!("{typ}");
@@ -280,6 +300,7 @@ impl Instruction {
                                 }
                                 RecordKind::EnumStruct => todo!(),
                                 RecordKind::Interface => unreachable!(),
+                                RecordKind::Tuple => unreachable!(),
                             }
                         } else {
                             panic!("{typ}");

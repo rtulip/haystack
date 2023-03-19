@@ -7,7 +7,7 @@ use crate::{
     },
     error::HayError,
     lex::token::{Token, TokenKind, TypeToken},
-    types::{Stack, Type, TypeId, TypeMap},
+    types::{Stack, Type, TypeId, TypeMap, Variance},
 };
 
 #[derive(Debug, Clone)]
@@ -123,13 +123,15 @@ impl InterfaceBaseType {
                 .unwrap_or_else(|| panic!("didn't find function: {mapped_fn}"))
             {
                 (StmtKind::Function, signature) => {
-                    if let Some(map) = match signature.evaluate(&expr.ident, stack, types) {
-                        Ok(map) => map,
-                        Err(_) => {
-                            *stack = stack_before.clone();
-                            continue;
+                    if let Some(map) =
+                        match signature.evaluate(&expr.ident, stack, types, Variance::Covariant) {
+                            Ok(map) => map,
+                            Err(_) => {
+                                *stack = stack_before.clone();
+                                continue;
+                            }
                         }
-                    } {
+                    {
                         let interface = match types.get(instance).unwrap() {
                             Type::InterfaceInstance(instance) => instance.clone(),
                             _ => unreachable!(),

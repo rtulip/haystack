@@ -125,7 +125,7 @@ impl AsExpr {
                     typed_args.push(t);
                 }
                 IdentArgKind::Tuple { args } => match types.get(&t) {
-                    Some(Type::Tuple { inner }) => {
+                    Some(Type::Tuple { inner, .. }) => {
                         if args.len() != inner.len() {
                             return Err(HayError::new_type_err(
                                 "Incorrect number of arguments to destructure tuple",

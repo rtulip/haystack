@@ -5,6 +5,7 @@ mod record_kind;
 mod signature;
 mod r#type;
 mod type_id;
+mod variance;
 mod variant;
 
 pub use framed_type::*;
@@ -14,6 +15,7 @@ pub use r#type::*;
 pub use record_kind::*;
 pub use signature::*;
 pub use type_id::*;
+pub use variance::*;
 pub use variant::*;
 
 use std::collections::BTreeMap;
@@ -21,6 +23,32 @@ pub type TypeMap = BTreeMap<TypeId, Type>;
 pub type Stack = Vec<TypeId>;
 pub type Frame = Vec<(String, FramedType)>;
 
+pub fn stack_compare(
+    input: &Stack,
+    stack: &Stack,
+    types: &mut TypeMap,
+    variance: Variance,
+) -> bool {
+    for (input, stk) in stack.iter().rev().zip(input.iter().rev()) {
+        let v = Variance::new(input, stk, types);
+        if v > variance {
+            return false;
+        }
+    }
+    true
+}
+
+pub fn stack_compare_exact(
+    input: &Stack,
+    stack: &Stack,
+    types: &mut TypeMap,
+    variance: Variance,
+) -> bool {
+    if stack.len() != input.len() {
+        return false;
+    }
+    stack_compare(input, stack, types, variance)
+}
 mod tests {
 
     #[test]

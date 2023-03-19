@@ -4,7 +4,9 @@ use crate::{
     ast::stmt::StmtKind,
     error::HayError,
     lex::token::Token,
-    types::{Frame, FramedType, Signature, Stack, Type, TypeId, TypeMap, UncheckedFunction},
+    types::{
+        Frame, FramedType, Signature, Stack, Type, TypeId, TypeMap, UncheckedFunction, Variance,
+    },
 };
 
 use super::{Expr, TypedExpr};
@@ -60,7 +62,12 @@ impl ExprWhile {
             });
         }
 
-        Signature::new(vec![Type::Bool.id()], vec![]).evaluate(&self.token, stack, types)?;
+        Signature::new(vec![Type::Bool.id()], vec![]).evaluate(
+            &self.token,
+            stack,
+            types,
+            Variance::Variant,
+        )?;
 
         let stack_after_check = stack.clone();
 

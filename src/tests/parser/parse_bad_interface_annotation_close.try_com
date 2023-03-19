@@ -1,5 +1,5 @@
 {
   "exit_code": 1,
   "stdout": "",
-  "stderr": "[src/tests/parser/parse_bad_interface_annotation_close.hay:1:21] Error: Expected `>` after function annotations, but found `{` instead.\n"
+  "stderr": "[src/tests/parser/parse_bad_interface_annotation_close.hay:1:19] Error: Expected `>` after function annotations, but found end of file instead.\n"
 }

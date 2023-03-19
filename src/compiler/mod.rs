@@ -454,6 +454,11 @@ mod functional {
     fn unpack_tuple() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/functional", "unpack_tuple", None)
     }
+
+    #[test]
+    fn anonymous_structures() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/functional", "anonymous_structures", None)
+    }
 }
 
 mod examples {

@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "[CMD]: nasm -felf64 src/tests/functional/anonymous_structures.asm\n[CMD]: ld -o anonymous_structures src/tests/functional/anonymous_structures.o\n",
+  "stderr": ""
+}

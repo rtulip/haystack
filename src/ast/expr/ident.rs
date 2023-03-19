@@ -4,7 +4,7 @@ use crate::{
     ast::stmt::StmtKind,
     error::HayError,
     lex::token::Token,
-    types::{Frame, Signature, Stack, Type, TypeId, TypeMap},
+    types::{Frame, Signature, Stack, Type, TypeId, TypeMap, Variance},
 };
 
 use super::TypedExpr;
@@ -24,7 +24,9 @@ impl ExprIdent {
     ) -> Result<TypedExpr, HayError> {
         match global_env.get(&self.ident.lexeme) {
             Some((StmtKind::Function, sig)) => {
-                let typed_expr = if let Some(map) = sig.evaluate(&self.ident, stack, types)? {
+                let typed_expr = if let Some(map) =
+                    sig.evaluate(&self.ident, stack, types, Variance::Covariant)?
+                {
                     let gen_fn_tid = TypeId::new(&self.ident.lexeme);
                     let monomorphised = gen_fn_tid.assign(&self.ident, &map, types)?;
                     Ok(TypedExpr::Call {
@@ -39,7 +41,7 @@ impl ExprIdent {
                 return typed_expr;
             }
             Some((StmtKind::Var, sig)) => {
-                sig.evaluate(&self.ident, stack, types)?;
+                sig.evaluate(&self.ident, stack, types, Variance::Variant)?;
                 return Ok(TypedExpr::Global {
                     ident: self.ident.lexeme,
                 });

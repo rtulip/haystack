@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     error::HayError,
     lex::token::{Literal, Token},
-    types::{Signature, Stack, Type, TypeId, TypeMap},
+    types::{Signature, Stack, Type, TypeId, TypeMap, Variance},
 };
 
 use super::TypedExpr;
@@ -47,7 +47,12 @@ impl ExprSizeOf {
             },
         };
 
-        Signature::new(vec![], vec![Type::U64.id()]).evaluate(&self.token, stack, types)?;
+        Signature::new(vec![], vec![Type::U64.id()]).evaluate(
+            &self.token,
+            stack,
+            types,
+            Variance::Variant,
+        )?;
         Ok(TypedExpr::Literal {
             value: Literal::U64((tid.size(types)? * tid.width()) as u64),
         })

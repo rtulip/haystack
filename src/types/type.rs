@@ -41,6 +41,7 @@ pub enum Type {
     Never,
     Tuple {
         inner: Vec<TypeId>,
+        idents: Option<Vec<Token>>,
     },
     /// Pointer type.
     Pointer {
@@ -161,7 +162,10 @@ impl Type {
 
                 TypeId::new(name)
             }
-            Type::Tuple { inner } => {
+            Type::Tuple {
+                inner,
+                idents: None,
+            } => {
                 let mut name = format!("[{}", inner.first().unwrap_or(&TypeId::new("")));
                 if !inner.is_empty() {
                     for t in &inner[1..] {
@@ -170,6 +174,31 @@ impl Type {
                 }
 
                 name = format!("{name}]",);
+
+                TypeId::new(name)
+            }
+            Type::Tuple {
+                inner,
+                idents: Some(idents),
+            } => {
+                let mut name = format!(
+                    "{{{}: {}",
+                    inner.first().unwrap_or(&TypeId::new("")),
+                    idents
+                        .first()
+                        .map(|tok| &tok.lexeme)
+                        .unwrap_or(&String::new())
+                );
+                if !inner.is_empty() {
+                    for (t, id) in inner[1..]
+                        .iter()
+                        .zip(idents[1..].iter().map(|tok| &tok.lexeme))
+                    {
+                        name = format!("{name} {t}: {id}");
+                    }
+                }
+
+                name = format!("{name}}}",);
 
                 TypeId::new(name)
             }

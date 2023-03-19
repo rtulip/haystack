@@ -2,7 +2,7 @@ use crate::{
     ast::stmt::{GlobalEnv, StmtKind},
     error::HayError,
     lex::token::{Operator, Token},
-    types::{Signature, Stack, Type, TypeId, TypeMap},
+    types::{Signature, Stack, Type, TypeId, TypeMap, Variance},
 };
 
 use super::{ExprIdent, TypedExpr};
@@ -19,9 +19,10 @@ impl ExprOperator {
         types: &mut TypeMap,
         global_env: &mut GlobalEnv,
         default_sig: Signature,
+        default_variance: Variance,
         interface_fn_name: String,
     ) -> Result<TypedExpr, HayError> {
-        match default_sig.evaluate(&self.token, stack, types) {
+        match default_sig.evaluate(&self.token, stack, types, default_variance) {
             Ok(_) => Ok(TypedExpr::Operator {
                 op: self.op,
                 typ: None,
@@ -67,6 +68,7 @@ impl ExprOperator {
                 types,
                 global_env,
                 Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                Variance::Variant,
                 String::from("Op.add"),
             ),
             Operator::Minus => self.type_check_interface_op(
@@ -74,6 +76,7 @@ impl ExprOperator {
                 types,
                 global_env,
                 Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                Variance::Variant,
                 String::from("Op.sub"),
             ),
             Operator::Star => self.type_check_interface_op(
@@ -81,6 +84,7 @@ impl ExprOperator {
                 types,
                 global_env,
                 Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                Variance::Variant,
                 String::from("Op.mul"),
             ),
             Operator::Slash => self.type_check_interface_op(
@@ -88,6 +92,7 @@ impl ExprOperator {
                 types,
                 global_env,
                 Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                Variance::Variant,
                 String::from("Op.div"),
             ),
             Operator::Ampersand => self.type_check_interface_op(
@@ -95,6 +100,7 @@ impl ExprOperator {
                 types,
                 global_env,
                 Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                Variance::Variant,
                 String::from("Op.and"),
             ),
             Operator::Pipe => self.type_check_interface_op(
@@ -102,6 +108,7 @@ impl ExprOperator {
                 types,
                 global_env,
                 Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                Variance::Variant,
                 String::from("Op.or"),
             ),
             Operator::Caret => self.type_check_interface_op(
@@ -109,6 +116,7 @@ impl ExprOperator {
                 types,
                 global_env,
                 Signature::new(vec![Type::U64.id(), Type::U64.id()], vec![Type::U64.id()]),
+                Variance::Variant,
                 String::from("Op.xor"),
             ),
             Operator::ShiftLeft => self.type_check_interface_op(
@@ -116,6 +124,7 @@ impl ExprOperator {
                 types,
                 global_env,
                 Signature::new(vec![Type::U64.id(), Type::U8.id()], vec![Type::U64.id()]),
+                Variance::Variant,
                 String::from("Op.shl"),
             ),
             Operator::ShiftRight => self.type_check_interface_op(
@@ -123,6 +132,7 @@ impl ExprOperator {
                 types,
                 global_env,
                 Signature::new(vec![Type::U64.id(), Type::U8.id()], vec![Type::U64.id()]),
+                Variance::Variant,
                 String::from("Op.shr"),
             ),
             Operator::LessThan
@@ -139,11 +149,7 @@ impl ExprOperator {
                         vec![Type::Bool.id()],
                     ),
                 ];
-
-                // TODO: Comparison between pointers
-
-                Signature::evaluate_many(&sigs, &self.token, stack, types)?;
-
+                Signature::evaluate_many(&sigs, &self.token, stack, types, Variance::Variant)?;
                 Ok(TypedExpr::Operator {
                     op: self.op,
                     typ: None,
@@ -201,6 +207,7 @@ impl ExprOperator {
                     &self.token,
                     stack,
                     types,
+                    Variance::Covariant,
                 )?;
 
                 Ok(TypedExpr::Operator {
@@ -246,6 +253,7 @@ impl ExprOperator {
                     &self.token,
                     stack,
                     types,
+                    Variance::Covariant,
                 )?;
 
                 Ok(TypedExpr::Operator {
@@ -262,6 +270,7 @@ impl ExprOperator {
                     &self.token,
                     stack,
                     types,
+                    Variance::Variant,
                 )?;
 
                 Ok(TypedExpr::Operator {
@@ -286,6 +295,7 @@ impl ExprOperator {
                     &self.token,
                     stack,
                     types,
+                    Variance::Covariant,
                 )?
                 .unwrap();
 
@@ -300,7 +310,7 @@ impl ExprOperator {
                     vec![],
                     vec![TypeId::new("T")],
                 )
-                .evaluate(&self.token, stack, types)?
+                .evaluate(&self.token, stack, types, Variance::Variant)?
                 .unwrap();
 
                 Ok(TypedExpr::Operator {

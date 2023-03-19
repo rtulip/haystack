@@ -1,7 +1,7 @@
 use crate::{
     error::HayError,
     lex::token::Token,
-    types::{Signature, Stack, Type, TypeMap},
+    types::{Signature, Stack, Type, TypeMap, Variance},
 };
 
 use super::TypedExpr;
@@ -26,7 +26,12 @@ impl ExprSyscall {
             ));
         }
 
-        Signature::new(vec![Type::U64.id()], vec![]).evaluate(&self.token, stack, types)?;
+        Signature::new(vec![Type::U64.id()], vec![]).evaluate(
+            &self.token,
+            stack,
+            types,
+            Variance::Variant,
+        )?;
 
         for _ in 0..self.n {
             let t = stack.pop().unwrap();

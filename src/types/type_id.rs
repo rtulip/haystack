@@ -8,8 +8,6 @@ use std::hash::Hash;
 
 use super::VariantType;
 
-
-
 /// Unique Identifier for types
 ///
 /// This is just a wrapper around a string, which is used as an identifier
@@ -50,7 +48,7 @@ impl TypeId {
                 | Type::Never
                 | Type::InterfaceInstance(_),
             ) => false,
-            Some(Type::Tuple { inner }) => {
+            Some(Type::Tuple { inner, .. }) => {
                 inner.iter().any(|t| t.is_generic(types))
             }
             Some(Type::Pointer { inner, .. }) => inner.is_generic(types),
@@ -276,13 +274,13 @@ impl TypeId {
                 let inner_typ_id = TypeId::from_type_token(token, inner, types, local_types)?;
                 Ok(inner_typ_id.ptr_of(*mutable, types))
             }
-            TypeToken::Tuple { inner } => {
+            TypeToken::Tuple { inner, idents } => {
                 
                 let mut typs = vec![];
                 for t in inner {
                     typs.push(TypeId::from_token(t, types, local_types)?);
                 }
-                let t = Type::Tuple { inner: typs };
+                let t = Type::Tuple { inner: typs, idents: idents.clone() };
 
                 let tid= t.id();
                 types.insert(t.id(), t);
@@ -673,7 +671,7 @@ impl TypeId {
 
                     Ok(tid)
                 }
-                Type::Tuple { inner } => {
+                Type::Tuple { inner, idents } => {
 
                     let mut assigned_inner = vec![];
 
@@ -681,7 +679,7 @@ impl TypeId {
                         assigned_inner.push(t.assign(token, map, types)?);
                     }
 
-                    let tuple = Type::Tuple { inner: assigned_inner };
+                    let tuple = Type::Tuple { inner: assigned_inner, idents };
                     let tid = tuple.id();
 
                     types.insert(tid.clone(), tuple);
@@ -914,7 +912,7 @@ impl TypeId {
 
                 Ok(concrete.clone())
             }
-            (Some(Type::Tuple { inner }), Some(Type::Tuple { inner: concrete_inner })) => {
+            (Some(Type::Tuple { inner, .. }), Some(Type::Tuple { inner: concrete_inner, .. })) => {
 
                 if inner.len() != concrete_inner.len() {
                     return Err(HayError::new(format!("Cannot resolve {self} from {concrete}"), token.loc.clone()));
@@ -1080,7 +1078,7 @@ impl TypeId {
             | Type::U8
             | Type::Enum { .. }
             | Type::Pointer { .. } => Ok(1),
-            Type::Tuple { inner } => {
+            Type::Tuple { inner, .. } => {
                 let mut sum = 0;
                 for t in inner {
                     sum += t.size(types)?;
@@ -1114,6 +1112,7 @@ impl TypeId {
                     Ok(sum)
                 },
                 RecordKind::Interface => unreachable!(),
+                RecordKind::Tuple => unreachable!(),
             },
             Type::Variant(VariantType {base, ..}) => base.size(types),
             Type::InterfaceBase(_) => Err(HayError::new(
@@ -1211,7 +1210,7 @@ impl TypeId {
                     {
                         if !m.is_public() {
                             match &func.impl_on {
-                                Some(typ) => if &m.parent != typ {
+                                Some(typ) => if m.parent.as_ref().unwrap() != typ {
                                     return Err(
                                         HayError::new_type_err(
                                             format!("Cannot access {kind} `{}` member `{}` as it is declared as private.", name.lexeme, m.ident.lexeme), 
@@ -1238,6 +1237,7 @@ impl TypeId {
                                     RecordKind::Struct => "Struct",
                                     RecordKind::EnumStruct => "Enum struct",
                                     RecordKind::Interface => unreachable!(),
+                                    RecordKind::Tuple => unreachable!(),
                                 },
                                 name.lexeme,
                                 inner_member.lexeme,
@@ -1254,7 +1254,7 @@ impl TypeId {
                         )));
                     }
                 }
-                Type::Tuple { inner: tuple_inner } => {
+                Type::Tuple { inner: tuple_inner, idents: None } => {
 
                     match &inner_member.kind {
                         TokenKind::Literal(Literal::U64(n)) => {
@@ -1273,6 +1273,40 @@ impl TypeId {
                         kind => return Err(
                             HayError::new(
                                 format!("Expected a number literal to access into `{typ}`, but found {kind} instead."), 
+                                token.loc
+                        ))
+                    }
+
+                },
+                Type::Tuple { inner: tuple_inner, idents: Some(idents)} => {
+
+                    match &inner_member.kind {
+                        TokenKind::Ident(ident) => {
+                            let mut found = false;
+                            for (idx, id) in idents.iter().enumerate() {
+                                if &id.lexeme == ident {
+                                    found = true;
+                                    typ = &tuple_inner[idx]; 
+                                    break;
+                                }
+                            }
+
+                            if !found {
+                                return Err(
+                                    HayError::new(
+                                        format!(
+                                            "Expected one of {:?} to access into `{typ}`, but found {} instead.", 
+                                            idents.iter().map(|tok| &tok.lexeme).collect::<Vec<_>>(),
+                                            inner_member.kind,
+                                        ), 
+                                        token.loc
+                                ))
+                            }
+                            
+                        },
+                        kind => return Err(
+                            HayError::new(
+                                format!("Expected one of {:?} to access into `{typ}`, but found {kind} instead.", idents.iter().map(|tok| &tok.lexeme).collect::<Vec<_>>()), 
                                 token.loc
                         ))
                     }

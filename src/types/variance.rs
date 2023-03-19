@@ -9,7 +9,8 @@ pub enum Variance {
 }
 
 impl Variance {
-    pub fn new(t1: &TypeId, t2: &TypeId, types: &TypeMap) -> Self {
+    pub fn new(t1: &TypeId, t2: &TypeId, types: &mut TypeMap) -> Self {
+        let mut insert = vec![];
         let t1 = match types.get(t1) {
             Some(Type::Tuple {
                 inner,
@@ -19,7 +20,9 @@ impl Variance {
                     inner: inner.clone(),
                     idents: None,
                 };
-                t.id()
+                let tid = t.id();
+                insert.push(t);
+                tid
             }
             _ => t1.clone(),
         };
@@ -33,10 +36,18 @@ impl Variance {
                     inner: inner.clone(),
                     idents: None,
                 };
-                t.id()
+
+                let tid = t.id();
+                insert.push(t);
+                tid
             }
             _ => t2.clone(),
         };
+
+        for t in insert {
+            let id = t.id();
+            types.insert(id, t);
+        }
 
         if t1 == t2 {
             Variance::Variant

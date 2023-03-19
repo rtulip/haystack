@@ -23,10 +23,14 @@ pub type TypeMap = BTreeMap<TypeId, Type>;
 pub type Stack = Vec<TypeId>;
 pub type Frame = Vec<(String, FramedType)>;
 
-pub fn stack_compare(input: &Stack, stack: &Stack, types: &TypeMap, variance: Variance) -> bool {
+pub fn stack_compare(
+    input: &Stack,
+    stack: &Stack,
+    types: &mut TypeMap,
+    variance: Variance,
+) -> bool {
     for (input, stk) in stack.iter().rev().zip(input.iter().rev()) {
         let v = Variance::new(input, stk, types);
-        // println!("{input} is {v:?} to {stk} ");
         if v > variance {
             return false;
         }
@@ -37,7 +41,7 @@ pub fn stack_compare(input: &Stack, stack: &Stack, types: &TypeMap, variance: Va
 pub fn stack_compare_exact(
     input: &Stack,
     stack: &Stack,
-    types: &TypeMap,
+    types: &mut TypeMap,
     variance: Variance,
 ) -> bool {
     if stack.len() != input.len() {

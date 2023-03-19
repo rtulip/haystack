@@ -922,8 +922,6 @@ impl TypeId {
                     (Some(idents), Some(concrete_idents)) if idents.iter().zip(concrete_idents.iter()).any(|(i, c)| {
                         i.lexeme != c.lexeme
                     }) => return Err(HayError::new(format!("Cannot resolve {self} from {concrete}"), token.loc.clone())),
-                    (Some(_) , None)
-                    | (None, Some(_)) => return Err(HayError::new(format!("Cannot resolve {self} from {concrete}"), token.loc.clone())),
                     _ => (),    
                 }
 

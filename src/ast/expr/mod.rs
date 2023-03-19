@@ -613,4 +613,22 @@ mod tests {
     fn unpack_empty_stack() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/type_check", "unpack_empty_stack", None)
     }
+
+    #[test]
+    fn anon_struct_bad_accessor1() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "anon_struct_bad_accessor1",
+            None,
+        )
+    }
+
+    #[test]
+    fn anon_struct_bad_accessor2() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "anon_struct_bad_accessor2",
+            None,
+        )
+    }
 }

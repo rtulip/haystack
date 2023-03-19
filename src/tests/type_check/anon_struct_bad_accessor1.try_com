@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[src/tests/type_check/anon_struct_bad_accessor1.hay:3:5] Error: Expected one of [\"n\"] to access into `{u64: n}`, but found `u64` instead.\n"
+}

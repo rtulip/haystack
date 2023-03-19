@@ -1,0 +1,4 @@
+fn main() {
+    1 cast({u64: n}) as [x]
+    x::0 println
+}

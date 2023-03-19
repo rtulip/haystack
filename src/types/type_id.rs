@@ -912,17 +912,10 @@ impl TypeId {
 
                 Ok(concrete.clone())
             }
-            (Some(Type::Tuple { inner, idents }), Some(Type::Tuple { inner: concrete_inner, idents: concrete_idents })) => {
+            (Some(Type::Tuple { inner, .. }), Some(Type::Tuple { inner: concrete_inner, .. })) => {
 
                 if inner.len() != concrete_inner.len() {
                     return Err(HayError::new(format!("Cannot resolve {self} from {concrete}"), token.loc.clone()));
-                }
-
-                match (idents, concrete_idents) {
-                    (Some(idents), Some(concrete_idents)) if idents.iter().zip(concrete_idents.iter()).any(|(i, c)| {
-                        i.lexeme != c.lexeme
-                    }) => return Err(HayError::new(format!("Cannot resolve {self} from {concrete}"), token.loc.clone())),
-                    _ => (),    
                 }
 
                 for (t, c) in inner.into_iter().zip(concrete_inner.iter()) {

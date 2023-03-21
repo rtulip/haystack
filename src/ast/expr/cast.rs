@@ -32,7 +32,7 @@ impl ExprCast {
                     if Variance::new(cast_typ, tid, types) >= Variance::Contravariant {
                         return Err(HayError::new(
                             format!(
-                                "Cannot cast to type {cast_typ} because it has private members."
+                                "Cannot cast to type `{cast_typ}` because it has private members."
                             ),
                             self.token.loc.clone(),
                         ));
@@ -40,7 +40,7 @@ impl ExprCast {
                 }
                 None => {
                     return Err(HayError::new(
-                        format!("Cannot cast to type {cast_typ} because it has private members."),
+                        format!("Cannot cast to type `{cast_typ}` because it has private members."),
                         self.token.loc.clone(),
                     ))
                 }

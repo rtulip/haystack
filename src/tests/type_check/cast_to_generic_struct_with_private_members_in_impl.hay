@@ -1,0 +1,11 @@
+struct Foo<T> {
+    T: bar
+}
+
+struct Bar {
+    u64: baz
+impl:
+    fn Bar.Quxx() {
+        1 cast(Foo)
+    }
+}

@@ -4,7 +4,7 @@ fn main() {
 
     while *vec Vec.pop as [n] {
         n
-        &n Opt.is_some
+        &n Option.is_some
     } {
         drop
     }

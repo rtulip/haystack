@@ -18,14 +18,14 @@ requires: [MyPrint<T>] {
 
 interface MyIterator<T> {
 	_: Item
-	fn my_next(T) -> [Opt<Item> bool]
+	fn my_next(T) -> [Option<Item> bool]
 }
 
 impl<T> MyIterator<*Vec<T>> {
 	T: Item
-	fn my_next(*Vec<T>: self) -> [Opt<T> bool]{
+	fn my_next(*Vec<T>: self) -> [Option<T> bool]{
 		self Vec.pop as [t]
-		t &t Opt.is_some
+		t &t Option.is_some
 	}
 }
 
@@ -47,7 +47,7 @@ fn main() {
 	} drop 
 
 	while *v my_next {
-		Opt.unwrap my_println
+		Option.unwrap my_println
 	} drop
 
 }

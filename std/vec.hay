@@ -44,40 +44,40 @@ impl:
         self::len @ 1 + self::len !
     }
 
-    fn Vec.pop<T>(*Vec<T>: self) -> [Opt<T>] {
+    fn Vec.pop<T>(*Vec<T>: self) -> [Option<T>] {
         self::len @ 0 == if {
-            Opt.None::<T>
+            Option.None::<T>
         } else {
             self::len @ 1 - self::len !
-            self::len @ self::slice @ Arr.get Opt.Some
+            self::len @ self::slice @ Arr.get Option.Some
         }
     }
 
-    fn Vec.get<T>(u64: idx &Vec<T>: self) -> [Opt<&T>] {
+    fn Vec.get<T>(u64: idx &Vec<T>: self) -> [Option<&T>] {
         idx self::len @ >= if {
-            Opt.None::<&T>
+            Option.None::<&T>
         } else {
-            idx self::slice @ Arr.get_ref Opt.Some
+            idx self::slice @ Arr.get_ref Option.Some
         }
     }
 
-    fn Vec.get_mut<T>(u64: idx *Vec<T>: self) -> [Opt<*T>] {
+    fn Vec.get_mut<T>(u64: idx *Vec<T>: self) -> [Option<*T>] {
         idx self::len @ >= if {
-            Opt.None::<*T>
+            Option.None::<*T>
         } else {
-            idx self::slice @ Arr.get_ref_mut Opt.Some
+            idx self::slice @ Arr.get_ref_mut Option.Some
         }
     }
 
-    fn Vec.at<T>(u64: idx &Vec<T>: self) -> [Opt<T>] {
+    fn Vec.at<T>(u64: idx &Vec<T>: self) -> [Option<T>] {
         idx self::len @ >= if {
-            Opt.None::<T>
+            Option.None::<T>
         } else {
-            idx self::slice @ Arr.get Opt.Some
+            idx self::slice @ Arr.get Option.Some
         }
     }
 
-    inline fn Vec.last<T>(&Vec<T>: self) -> [Opt<&T>] {
+    inline fn Vec.last<T>(&Vec<T>: self) -> [Option<&T>] {
         self::len @ 1- self Vec.get
     }
 
@@ -93,7 +93,7 @@ impl:
 
         0 while dup self Vec.len < {
             as [i]
-            i self Vec.at Opt.unwrap item == if {
+            i self Vec.at Option.unwrap item == if {
                 true return
             }
             i 1 +
@@ -107,11 +107,11 @@ impl:
         Vec.new::<T> as [mut temp]
 
         while other Vec.is_empty lnot {
-            other Vec.pop Opt.unwrap *temp Vec.push
+            other Vec.pop Option.unwrap *temp Vec.push
         }
 
         while &temp Vec.is_empty lnot {
-            *temp Vec.pop Opt.unwrap self Vec.push
+            *temp Vec.pop Option.unwrap self Vec.push
         }
 
         &temp Vec.delete
@@ -122,7 +122,7 @@ impl:
 
         Vec.new::<T> as [mut rev]
         while &self Vec.is_empty lnot {
-            *self Vec.pop Opt.unwrap *rev Vec.push
+            *self Vec.pop Option.unwrap *rev Vec.push
         }
 
         &self Vec.delete
@@ -141,12 +141,12 @@ requires: [Format<T>] {
         '[' fmt
         0 while dup self Vec.len 1 - < {
             as [i]
-            i self Vec.get Opt.unwrap @ fmt
+            i self Vec.get Option.unwrap @ fmt
             ' '              fmt
             i 1 +
         } drop
 
-        self Vec.last Opt.unwrap @ fmt 
+        self Vec.last Option.unwrap @ fmt 
         ']' fmt
     }
 

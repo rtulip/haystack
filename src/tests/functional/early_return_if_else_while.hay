@@ -1,21 +1,21 @@
-fn do_work(Opt<u64>: maybe) -> [Opt<bool>] {
+fn do_work(Option<u64>: maybe) -> [Option<bool>] {
 
-    &maybe Opt.is_none if {
-        Opt.None::<bool> return
+    &maybe Option.is_none if {
+        Option.None::<bool> return
     }
 
     while true {
-        maybe Opt.unwrap 10 < Opt.Some return 
+        maybe Option.unwrap 10 < Option.Some return 
     }
     
-    Opt.None::<bool>
+    Option.None::<bool>
 }
 
 fn main() {
 
-    9 Opt.Some do_work Opt.unwrap  println
-    12 Opt.Some do_work Opt.unwrap println
-    Opt.None::<u64> do_work as [opt] 
-    &opt Opt.is_none println
+    9 Option.Some do_work Option.unwrap  println
+    12 Option.Some do_work Option.unwrap println
+    Option.None::<u64> do_work as [opt] 
+    &opt Option.is_none println
 
 }

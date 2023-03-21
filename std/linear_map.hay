@@ -12,49 +12,49 @@ impl:
 
     inline fn Map.contains<T>(Str &Map<T>) -> [bool] {
         Map.get as [opt]
-        &opt Opt.is_some 
+        &opt Option.is_some 
     }
 
-    fn Map.insert<T>(Str: key T: value *Map<T>: self) -> [Opt<T>] {
+    fn Map.insert<T>(Str: key T: value *Map<T>: self) -> [Option<T>] {
 
         key self Map.get_mut as [maybe_val]
-        &maybe_val Opt.is_some if {
-            maybe_val Opt.unwrap as [val]
-            val @ Opt.Some
+        &maybe_val Option.is_some if {
+            maybe_val Option.unwrap as [val]
+            val @ Option.Some
             value val !
         } else {
 
             key   self::keys   Vec.push
             value self::values Vec.push
-            Opt.None::<T>
+            Option.None::<T>
         }
     }
 
-    fn Map.get_mut<T>(Str: key *Map<T>: self) -> [Opt<*T>] {
+    fn Map.get_mut<T>(Str: key *Map<T>: self) -> [Option<*T>] {
         0 while dup self::keys Vec.len < {
             as [i]
 
-            key i self::keys Vec.at Opt.unwrap Str.equals if {
+            key i self::keys Vec.at Option.unwrap Str.equals if {
                 i self::values Vec.get_mut return 
             }
 
             i 1 + 
         } drop
 
-        Opt.None::<*T>
+        Option.None::<*T>
     }
 
-    fn Map.get<T>(Str: key &Map<T>: self) -> [Opt<&T>] {
+    fn Map.get<T>(Str: key &Map<T>: self) -> [Option<&T>] {
         0 while dup self::keys Vec.len < {
             as [i]
-            key i self::keys Vec.at Opt.unwrap Str.equals if {
+            key i self::keys Vec.at Option.unwrap Str.equals if {
                 i self::values Vec.get return 
             }
 
             i 1 + 
         } drop
 
-        Opt.None::<&T>
+        Option.None::<&T>
     }
 
 }

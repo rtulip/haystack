@@ -60,11 +60,11 @@ impl:
         self::kind::err
     }
 
-    fn Result.ok<T E>(Result<T E>: self) -> [Opt<T>] {
+    fn Result.ok<T E>(Result<T E>: self) -> [Option<T>] {
         &self Result.is_ok if {
-            self Result.unwrap Opt.Some
+            self Result.unwrap Option.Some
         } else {
-            Opt.None::<T>
+            Option.None::<T>
         }
     }
 

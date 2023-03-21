@@ -22,7 +22,7 @@ impl ExprCast {
     fn deny_private_cast(
         &self,
         cast_typ: &TypeId,
-        members: &Vec<TypedMember>,
+        members: &[TypedMember],
         func: &UncheckedFunction,
         types: &mut TypeMap,
     ) -> Result<(), HayError> {

@@ -1,10 +1,12 @@
 struct Foo {
     u64: bar
+impl:
+    fn Foo.new(u64) -> [Foo] { cast(Foo) }
 }
 
 fn main() {
 
-    1234 cast(Foo) as [f]
+    1234 Foo.new as [f]
     f::bar drop
 
 }

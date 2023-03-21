@@ -1,9 +1,13 @@
 use std::collections::HashMap;
 
 use crate::{
+    ast::member::TypedMember,
     error::HayError,
     lex::token::Token,
-    types::{RecordKind, Signature, Stack, Type, TypeId, TypeMap, Variance, VariantType},
+    types::{
+        RecordKind, Signature, Stack, Type, TypeId, TypeMap, UncheckedFunction, Variance,
+        VariantType,
+    },
 };
 
 use super::TypedExpr;
@@ -15,10 +19,41 @@ pub struct ExprCast {
 }
 
 impl ExprCast {
+    fn deny_private_cast(
+        &self,
+        cast_typ: &TypeId,
+        members: &Vec<TypedMember>,
+        func: &UncheckedFunction,
+        types: &mut TypeMap,
+    ) -> Result<(), HayError> {
+        if members.iter().any(|m| !m.is_public()) {
+            match &func.impl_on {
+                Some(tid) => {
+                    if Variance::new(cast_typ, tid, types) >= Variance::Contravariant {
+                        return Err(HayError::new(
+                            format!(
+                                "Cannot cast to type {cast_typ} because it has private members."
+                            ),
+                            self.token.loc.clone(),
+                        ));
+                    }
+                }
+                None => {
+                    return Err(HayError::new(
+                        format!("Cannot cast to type {cast_typ} because it has private members."),
+                        self.token.loc.clone(),
+                    ))
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn type_check(
         self,
         stack: &mut Stack,
         types: &mut TypeMap,
+        func: &UncheckedFunction,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<TypedExpr, HayError> {
         let typ_id = TypeId::from_token(&self.typ, types, &vec![])?;
@@ -46,6 +81,7 @@ impl ExprCast {
         match &cast_type {
             Type::Record { members, kind, .. } => match kind {
                 RecordKind::Struct => {
+                    self.deny_private_cast(&typ_id, members, func, types)?;
                     Signature::new(
                         members.iter().map(|m| m.typ.clone()).collect(),
                         vec![typ_id.clone()],
@@ -173,6 +209,7 @@ impl ExprCast {
             } => {
                 let tid = match kind {
                     RecordKind::Struct => {
+                        self.deny_private_cast(&typ_id, members, func, types)?;
                         Signature::new_generic(
                             members.iter().map(|m| m.typ.clone()).collect(),
                             vec![typ_id.clone()],

@@ -36,7 +36,7 @@ impl:
         size buffer::data file::fd sys_read drop
         file File.close
     
-        buffer size cast(Vec<char>) cast(String)
+        buffer size Vec.from_parts String.from_vec
 
     }
 

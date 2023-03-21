@@ -4,8 +4,8 @@ impl Marker<u64> {}
 
 struct Marked<A B>
 requires: [Marker<A> Marker<B>] {
-    A: a
-    B: b
+    pub A: a
+    pub B: b
 }
 
 fn main() {

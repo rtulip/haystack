@@ -106,7 +106,7 @@ impl Expr {
             Expr::Accessor(e) => e.type_check(stack, frame, func, types),
             Expr::AnnotatedCall(e) => e.type_check(stack, global_env, types, generic_map),
             Expr::As(e) => e.type_check(stack, frame, func, global_env, types, generic_map),
-            Expr::Cast(e) => e.type_check(stack, types, generic_map),
+            Expr::Cast(e) => e.type_check(stack, types, func, generic_map),
             Expr::Ident(e) => e.type_check(stack, frame, types, global_env),
             Expr::If(e) => e.type_check(stack, frame, func, global_env, types, generic_map),
             Expr::Literal(e) => e.type_check(stack),

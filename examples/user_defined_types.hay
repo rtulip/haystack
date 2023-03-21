@@ -2,6 +2,7 @@ struct Pair {
     u64: first
     u64: second
 impl:
+    fn Pair.new(u64 u64) -> [Pair] { cast(Pair) }
     fn Pair.first(Pair: p) -> [u64] { p::first } 
     fn Pair.second(Pair: p) -> [u64] { p::second }
     fn Pair.split(Pair: p) -> [u64 u64] { p::first p::second }
@@ -15,7 +16,7 @@ union StrOrU64 {
 }
 
 fn main() {
-    1 2 cast(Pair) as [pair]
+    1 2 Pair.new as [pair]
     // Uncomment these lines to see the error
     //pair::first  println
     //pair::second println

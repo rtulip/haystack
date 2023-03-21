@@ -1,0 +1,7 @@
+struct Foo {
+    u64: bar
+}
+
+fn main() {
+    1 cast(Foo)
+}

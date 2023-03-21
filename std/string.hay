@@ -4,6 +4,10 @@ struct String {
     Vec<char>: chars
 
 impl:
+    inline fn String.from_vec(Vec<char>) -> [String] {
+        cast(String)
+    } 
+
     fn String.new(Str: s) -> [String] {
         s::size Vec.with_capacity::<char> as [mut chars]
         0 while dup s::size < {

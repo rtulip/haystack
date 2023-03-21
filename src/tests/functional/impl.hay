@@ -2,12 +2,13 @@ struct Foo<T> {
     T: bar
 
 impl:
+    fn Foo.new<T>(T) -> [Foo<T>] { cast(Foo) }
     fn get_bar<T>(Foo<T>: foo) -> [T] { foo::bar }    
 }
 
 fn main() {
 
-    "Private Field" cast(Foo) get_bar println
-    12345           cast(Foo) get_bar println
+    "Private Field" Foo.new get_bar println
+    12345           Foo.new get_bar println
 
 }

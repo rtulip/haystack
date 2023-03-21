@@ -631,4 +631,40 @@ mod tests {
             None,
         )
     }
+
+    #[test]
+    fn cast_to_generic_struct_with_private_members_in_impl() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "cast_to_generic_struct_with_private_members_in_impl",
+            None,
+        )
+    }
+
+    #[test]
+    fn cast_to_generic_struct_with_private_members() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "cast_to_generic_struct_with_private_members",
+            None,
+        )
+    }
+
+    #[test]
+    fn cast_to_struct_with_private_members_in_impl() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "cast_to_struct_with_private_members_in_impl",
+            None,
+        )
+    }
+
+    #[test]
+    fn cast_to_struct_with_private_members() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test(
+            "src/tests/type_check",
+            "cast_to_struct_with_private_members",
+            None,
+        )
+    }
 }

@@ -3,7 +3,11 @@ struct Vec<T> {
     Arr<T>: slice
     u64: len
 impl:
-    
+
+    inline fn Vec.from_parts<T>(Arr<T> u64) -> [Vec<T>] {
+        cast(Vec)
+    }
+
     inline fn Vec.new<T>() -> [Vec<T>] {
         8 malloc::<T> 0 cast(Vec) 
     }

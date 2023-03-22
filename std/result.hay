@@ -1,37 +1,26 @@
-enum ResultTag {
-    Ok
-    Err
-}
-
-union ResultKind<T E> {
-    T: ok
-    E: err
-}
-
-struct Result<T E> {
-    ResultKind<T E>: kind
-    ResultTag: tag
+enum struct Result<T E> {
+    T: Ok
+    E: Err
     
 impl:
 
     fn Result.Ok<T E>(T) -> [Result<T E>] {
-        cast(ResultKind<T E>)
-        ResultTag::Ok
-        cast(Result<T E>)
+        cast(Result<T E>::Ok)
     }
 
     fn Result.Err<T E>(E) -> [Result<T E>] {
-        cast(ResultKind<T E>)
-        ResultTag::Err
-        cast(Result<T E>)
+        cast(Result<T E>::Err)
     }
 
-    fn Result.is_ok<T E>(&Result<T E>: self) -> [bool] {
-        self::tag @ ResultTag::Ok ==
+    fn Result.is_ok<T E>(&Result<T E>) -> [bool] {
+        @ match {
+            Result::Ok  { true }
+            Result::Err { false }
+        }
     }
 
-    fn Result.is_err<T E>(&Result<T E>: self) -> [bool] {
-        self::tag @ ResultTag::Err ==
+    fn Result.is_err<T E>(&Result<T E>) -> [bool] {
+        Result.is_ok lnot 
     }
 
     fn Result.take_is_ok<T E>(Result<T E>: self) -> [bool] {
@@ -42,29 +31,30 @@ impl:
         &self Result.is_err
     }
 
-    fn Result.unwrap<T E>(Result<T E>: self) -> [T] {
-
-        &self Result.is_err if {
-            "Tried to `unwrap` an Error result" println
-            1 exit
+    fn Result.unwrap<T E>(Result<T E>) -> [T] {
+        match {
+            Result::Ok as [t] { t }
+            Result::Err { 
+                "Tried to `unwrap` an Error result" println
+                1 exit
+            }
         }
-        self::kind::ok
     }
 
-    fn Result.unwrap_err<T E>(Result<T E>: self) -> [E] {
-
-        &self Result.is_ok if {
-            "Tried to `unwrap_err` on an Ok result" println
-            1 exit
+    fn Result.unwrap_err<T E>(Result<T E>) -> [E] {
+        match {
+            Result::Err as [e] { e }
+            Result::Ok {
+                "Tried to `unwrap_err` an Ok result" println
+                1 exit
+            }
         }
-        self::kind::err
     }
 
-    fn Result.ok<T E>(Result<T E>: self) -> [Option<T>] {
-        &self Result.is_ok if {
-            self Result.unwrap Option.Some
-        } else {
-            Option.None::<T>
+    fn Result.ok<T E>(Result<T E>) -> [Option<T>] {
+        match {
+            Result::Ok as [t] { t Option.Some }
+            Result::Err { Option.None::<T> }
         }
     }
 

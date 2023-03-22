@@ -1,4 +1,4 @@
-enum struct Option<T> {
+enum struct MyOption<T> {
     []: None
     T : Some
 }
@@ -28,12 +28,12 @@ requires: [Print<E>] {
     }
 }
 
-impl<T> Print<Option<T>>
+impl<T> Print<MyOption<T>>
 requires: [Print<T>] {
-    fn print(Option<T>) {
+    fn print(MyOption<T>) {
         match {
-            Option::Some as [t] { "Some(" print t print ")" print }
-            Option::None { "None" print }
+            MyOption::Some as [t] { "Some(" print t print ")" print }
+            MyOption::None { "None" print }
             else { "unreachable" print }
         }
     }
@@ -44,10 +44,10 @@ fn takes_result<T E>(MyResult<T E>) { println }
 struct Foo { []: _ }
 
 fn main() {
-    []            cast(Option < u64 > :: None) println
-    []            cast(Option<Str>::None) println
-    1             cast(Option::Some)      println
-    "Hello World" cast(Option::Some)      println
+    []            cast(MyOption < u64 > :: None) println
+    []            cast(MyOption<Str>::None) println
+    1             cast(MyOption::Some)      println
+    "Hello World" cast(MyOption::Some)      println
 
     "this is an ok str"  cast(MyResult<Str Foo>::Ok) println
     "This is an err str" cast(MyResult<Foo Str>::Err) println

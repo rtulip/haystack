@@ -36,7 +36,7 @@ impl RecordStmt {
                     base: tid.clone(),
                     variant: m.ident.lexeme.clone(),
                 });
-                assert!(types.insert(t.id(), t).is_none())
+                types.insert(t.id(), t);
             }
         }
 

@@ -78,7 +78,8 @@ pub fn run_command(
         }
         Err(e) => Err(
             HayError::new("Command Failed", Loc::new(input_path, 1, 1, 1))
-                .with_hint(format!("{e:?}")),
+                .with_hint(format!("Command: {cmd}"))
+                .with_hint(format!("Error: {e:?}")),
         ),
     }
 }

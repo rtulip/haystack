@@ -38,8 +38,7 @@ jobs:
           override: true
     - uses: ilammy/setup-nasm@v1    
     - name: Run Tests
-      # run: cargo test --verbose --release
-      run: cargo test --verbose --release enum_struct
+      run: cargo test --verbose --release
   
   clippy:
 

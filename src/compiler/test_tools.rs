@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::{thread, time};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 
@@ -68,18 +67,6 @@ pub fn run_test(
     }
 
     if output.status.success() {
-        if !std::path::Path::new(&file_base).exists() {
-            let wait_for_file_time = time::Duration::from_millis(100);
-            thread::sleep(wait_for_file_time);
-
-            if !std::path::Path::new(&file_base).exists() {
-                panic!(
-                    "File {file_base} Should exist, but doesnt. Output: {:?}",
-                    output
-                );
-            }
-        }
-
         let output = summarize_output(
             &run_command(format!("./{file_base}",).as_str(), vec![], &file, false).unwrap(),
         );

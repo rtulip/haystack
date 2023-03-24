@@ -62,7 +62,7 @@ pub fn run_test(
             com_path,
             serde_json::to_string_pretty(&compilation_summary)?,
         )?;
-        assert!(false);
+        assert!(false, "file: {file}");
     }
 
     if output.status.success() {

@@ -29,7 +29,7 @@ fn Tree.print(u64: level &Tree: self) {
 
     0 while dup self::leaves Vec.len < {
         as [i]
-        level 1 + i self::leaves Vec.get Opt.unwrap Tree.print
+        level 1 + i self::leaves Vec.get Option.unwrap Tree.print
         i 1 +
     } drop
 }

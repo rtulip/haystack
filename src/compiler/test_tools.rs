@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
+
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
+
 struct OutputSummary {
     exit_code: i32,
     stdout: String,
@@ -45,6 +47,7 @@ pub fn run_test(
         false,
     )
     .unwrap();
+
     let compilation_summary = summarize_output(&output);
     let com_path = if let Some(dir) = results_dir {
         format!("{dir}/{file_base}.try_com")

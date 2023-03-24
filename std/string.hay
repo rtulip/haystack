@@ -61,13 +61,13 @@ impl:
         self 
         0 while dup &other String.size < {
             as [i]
-            i &other::chars Vec.at Opt.unwrap String.push
+            i &other::chars Vec.at Option.unwrap String.push
             i 1 +
         } drop
         &other String.delete
     } 
 
-    fn String.at(u64: idx &String: self) -> [Opt<char>] {
+    fn String.at(u64: idx &String: self) -> [Option<char>] {
         idx self::chars Vec.at
     }
 }

@@ -78,7 +78,8 @@ pub fn run_command(
         }
         Err(e) => Err(
             HayError::new("Command Failed", Loc::new(input_path, 1, 1, 1))
-                .with_hint(format!("{e:?}")),
+                .with_hint(format!("Command: {cmd}"))
+                .with_hint(format!("Error: {e:?}")),
         ),
     }
 }
@@ -400,13 +401,13 @@ mod functional {
     }
 
     #[test]
-    fn enum_struct_generic() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/functional", "enum_struct_generic", None)
+    fn enum_struct_generic1() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/functional", "enum_struct_generic1", None)
     }
 
     #[test]
     fn enum_struct_generic2() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/functional", "enum_struct_generic", None)
+        crate::compiler::test_tools::run_test("src/tests/functional", "enum_struct_generic2", None)
     }
 
     #[test]

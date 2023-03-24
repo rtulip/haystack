@@ -8,19 +8,19 @@ fn main() {
     "three" 3 *map Map.insert drop
 
     "one" 1 *map Map.insert as [duplicate] {
-        &duplicate Opt.is_some if {
-            "Replaced value at key `one`: " print duplicate Opt.unwrap println
+        &duplicate Option.is_some if {
+            "Replaced value at key `one`: " print duplicate Option.unwrap println
         } else {
             "Didn't replace when I should have" println
             1 exit 
         }
     }
 
-    "one"   &map Map.get Opt.unwrap @ println
-    "two"   &map Map.get Opt.unwrap @ println
-    "three" &map Map.get Opt.unwrap @ println
+    "one"   &map Map.get Option.unwrap @ println
+    "two"   &map Map.get Option.unwrap @ println
+    "three" &map Map.get Option.unwrap @ println
     "four"  &map Map.get as [option] 
-    &option Opt.is_none if {
+    &option Option.is_none if {
         "Didn't find key `four`" println 
     } else {
         "Found an unexpected value for key `four`" println

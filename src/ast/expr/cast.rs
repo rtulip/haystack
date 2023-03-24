@@ -56,7 +56,11 @@ impl ExprCast {
         func: &UncheckedFunction,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<TypedExpr, HayError> {
-        let typ_id = TypeId::from_token(&self.typ, types, &vec![])?;
+        let local_types = func.generic_map.as_ref().map_or(vec![], |map| {
+            map.iter().map(|(k, _)| k.clone()).collect::<Vec<_>>()
+        });
+
+        let typ_id = TypeId::from_token(&self.typ, types, &local_types)?;
         let typ_id = if let Some(map) = generic_map {
             if let Ok(tid) = typ_id.assign(&self.token, map, types) {
                 // try to assign for annotated casts

@@ -1,15 +1,15 @@
 fn main() {
 
-    "Hello World" Opt.Some as [someStr]
+    "Hello World" Option.Some as [someStr]
 
-    &someStr Opt.is_some println
-    &someStr Opt.is_none println
-    someStr Opt.unwrap println 
+    &someStr Option.is_some println
+    &someStr Option.is_none println
+    someStr Option.unwrap println 
 
-    Opt.None::<Str> as [noneStr] 
-    &noneStr Opt.is_some println
-    &noneStr Opt.is_some println
+    Option.None::<Str> as [noneStr] 
+    &noneStr Option.is_some println
+    &noneStr Option.is_some println
 
-    noneStr Opt.unwrap println
+    noneStr Option.unwrap println
 
 }

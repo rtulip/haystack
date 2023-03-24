@@ -51,12 +51,12 @@ fn align(u64: n) -> [u64] { n sizeOf(Block) + bytes_to_pages PAGE_SIZE * }
 
 // [(N ptr bool)[ .. data ..  ](N ptr bool)[ .. data .. ] ... ]
 //      |-------^                  |-------^
-fn Chunk.try_alloc(u64: n *Chunk: chunk_p) -> [Opt<Arr<u8>>] {    
+fn Chunk.try_alloc(u64: n *Chunk: chunk_p) -> [Option<Arr<u8>>] {    
     chunk_p @ as [chunk]
     
     chunk::start cast(u64) chunk::cap + cast(u64) cast(*Block) as [end]
-    Opt.None::<Arr<u8>> chunk::start while as [maybe_alloc ptr] { maybe_alloc ptr
-        &maybe_alloc Opt.is_none 
+    Option.None::<Arr<u8>> chunk::start while as [maybe_alloc ptr] { maybe_alloc ptr
+        &maybe_alloc Option.is_none 
         ptr cast(u64) end cast(u64) < land
     }
     {
@@ -66,12 +66,12 @@ fn Chunk.try_alloc(u64: n *Chunk: chunk_p) -> [Opt<Arr<u8>>] {
         block_p @ as [block] 
         
         block::allocated if {
-            Opt.None::<Arr<u8>>
+            Option.None::<Arr<u8>>
             block_p Chunk.next
         } else {
             n sizeOf(Block) + as [required_size]
             block::arr::size required_size < if {
-                Opt.None::<Arr<u8>>
+                Option.None::<Arr<u8>>
             } else {
                 
                 // check to see if there's space for another block:
@@ -88,11 +88,11 @@ fn Chunk.try_alloc(u64: n *Chunk: chunk_p) -> [Opt<Arr<u8>>] {
                     next_block_p !
 
                     // create the return result
-                    arr Opt.Some
+                    arr Option.Some
 
                 } else {
                     block::arr true cast(Block) block_p !
-                    block::arr Opt.Some
+                    block::arr Option.Some
                 }
 
             }
@@ -193,13 +193,13 @@ fn malloc<T>(u64: count) -> [Arr<T>] {
     count sizeOf(T) * as [n]
     n sizeOf(Block) + PAGE_SIZE >= if {
         n sizeOf(Block) + align mmap_new_chunk
-        n swap Chunk.try_alloc Opt.unwrap
+        n swap Chunk.try_alloc Option.unwrap
     } else {
         
         n_chunks_p @ chunks_p @ as [n_chunks chunks]
-        Opt.None::<Arr<u8>> 0 while as [maybe_chunk idx] { maybe_chunk idx
+        Option.None::<Arr<u8>> 0 while as [maybe_chunk idx] { maybe_chunk idx
             idx n_chunks <
-            &maybe_chunk Opt.is_none land
+            &maybe_chunk Option.is_none land
         }
         {
             // clear the previous option and capture the index
@@ -212,11 +212,11 @@ fn malloc<T>(u64: count) -> [Arr<T>] {
 
         as [maybe_alloc]
 
-        &maybe_alloc Opt.is_some if {
-            maybe_alloc Opt.unwrap
+        &maybe_alloc Option.is_some if {
+            maybe_alloc Option.unwrap
         } else {
             n sizeOf(Block) + align mmap_new_chunk as [new_chunk_p]
-            n new_chunk_p Chunk.try_alloc Opt.unwrap
+            n new_chunk_p Chunk.try_alloc Option.unwrap
         }
     }
     as [arr]
@@ -230,12 +230,12 @@ fn malloc_obj<T>() -> [*T] {
     bytes::data cast(u64) cast(*T)
 }
 
-fn find_chunk<T>(Arr<T>: arr) -> [Opt<*Chunk>] {   
+fn find_chunk<T>(Arr<T>: arr) -> [Option<*Chunk>] {   
     
 
     n_chunks_p @ chunks_p @ as [n_chunks chunks]
-    Opt.None::<*Chunk> 0 while as [maybe_blk n] { maybe_blk n 
-        &maybe_blk Opt.is_none
+    Option.None::<*Chunk> 0 while as [maybe_blk n] { maybe_blk n 
+        &maybe_blk Option.is_none
         n n_chunks < land
     }
     {
@@ -244,9 +244,9 @@ fn find_chunk<T>(Arr<T>: arr) -> [Opt<*Chunk>] {
         
         arr::data cast(u64) chunk::start cast(u64) >=
         arr::data cast(u64) chunk::start cast(u64) chunk::cap + <= land if {
-            n chunks Arr.get_ref_mut Opt.Some 
+            n chunks Arr.get_ref_mut Option.Some 
         } else {
-            Opt.None::<*Chunk>
+            Option.None::<*Chunk>
         }
 
         n 1 +
@@ -256,8 +256,8 @@ fn find_chunk<T>(Arr<T>: arr) -> [Opt<*Chunk>] {
 
 fn free<T>(Arr<T>: arr) {
     arr find_chunk as [maybe_chunk]
-    &maybe_chunk Opt.is_some if {
-        maybe_chunk Opt.unwrap as [chunk_p] 
+    &maybe_chunk Option.is_some if {
+        maybe_chunk Option.unwrap as [chunk_p] 
         chunk_p @ as [chunk]
         arr::data cast(u64) sizeOf(Block) - cast(*Block) as [blk_p]
         chunk::start while dup cast(u64) blk_p cast(u64) <= {

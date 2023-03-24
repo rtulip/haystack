@@ -45,6 +45,7 @@ pub fn run_test(
         false,
     )
     .unwrap();
+
     let compilation_summary = summarize_output(&output);
     let com_path = if let Some(dir) = results_dir {
         format!("{dir}/{file_base}.try_com")
@@ -61,6 +62,7 @@ pub fn run_test(
             com_path,
             serde_json::to_string_pretty(&compilation_summary)?,
         )?;
+        assert!(false);
     }
 
     if output.status.success() {

@@ -62,6 +62,17 @@ impl HayError {
         }
     }
 
+    pub fn optional_hint<S, T, F>(self, value: Option<T>, func: F) -> Self
+    where
+        S: Into<String>,
+        F: FnOnce(T) -> S,
+    {
+        match value {
+            Some(value) => self.with_hint(func(value)),
+            None => self,
+        }
+    }
+
     pub fn with_hint_and_custom_note<S1, S2>(self, hint: S1, note: S2) -> Self
     where
         S1: Into<String>,

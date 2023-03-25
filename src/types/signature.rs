@@ -209,6 +209,9 @@ impl<'pred> Signature<'pred> {
                 format!("Invalid inputs for `{}`", token.lexeme).as_str(),
                 token.loc.clone(),
             )
+            .optional_hint(token.fn_name(types, &vec![]), |name| {
+                format!("Function `{}` was defined here: {}", name.lexeme, name.loc)
+            })
             .with_hint(format!("Expected: {:?}", sig.inputs))
             .with_hint(format!(
                 "Found:    {:?}",
@@ -228,6 +231,9 @@ impl<'pred> Signature<'pred> {
                     format!("Invalid inputs for {:?}", token.lexeme).as_str(),
                     token.loc.clone(),
                 )
+                .optional_hint(token.fn_name(types, &vec![]), |name| {
+                    format!("Function `{}` was defined here: {}", name.lexeme, name.loc)
+                })
                 .with_hint(format!("Expected: {:?} where {msg}", sig.inputs))
                 .with_hint(format!(
                     "Found:    {:?}",

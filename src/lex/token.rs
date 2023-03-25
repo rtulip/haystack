@@ -1,4 +1,5 @@
 use crate::error::HayError;
+use crate::types::{Function, GenericFunction, Type, TypeId, TypeMap, UncheckedFunction};
 use std::collections::HashMap;
 use std::ops::Range;
 
@@ -559,6 +560,28 @@ impl Token {
                 "Can't get a dimension from a non-type token.",
                 self.loc.clone(),
             )),
+        }
+    }
+
+    pub fn fn_name<'a>(
+        &self,
+        types: &'a mut TypeMap,
+        local_types: &Vec<TypeId>,
+    ) -> Option<&'a Token> {
+        let tid = TypeId::from_token(self, types, local_types).ok()?;
+        match types.get(&tid) {
+            Some(
+                Type::Function {
+                    func: Function { name, .. },
+                }
+                | Type::GenericFunction {
+                    func: GenericFunction { name, .. },
+                }
+                | Type::UncheckedFunction {
+                    func: UncheckedFunction { name, .. },
+                },
+            ) => Some(name),
+            Some(_) | None => None,
         }
     }
 }

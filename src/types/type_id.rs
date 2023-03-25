@@ -87,7 +87,7 @@ impl TypeId {
         // Extract the TypeToken kind
         let typ = match &token.kind {
             TokenKind::Type(typ) => typ,
-            _ => panic!("Didn't expect this...: {:?}", token.kind),
+            _ => return Err(HayError::new(format!("Cannot extract type from {}, as it is not a type token!", token.lexeme), token.loc.clone())),
         };
 
         // Get the TypeId using the TypeToken.

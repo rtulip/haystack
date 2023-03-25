@@ -1,6 +1,4 @@
-inline fn bool.to_str(bool) -> [Str] {
-    if { "true" } else { "false" }
-}
+inline fn bool.to_str(bool) -> [Str] if { "true" } else { "false" }
 
 impl Write<bool> {
     inline fn write(bool: b u64: fd) {

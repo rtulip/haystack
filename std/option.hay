@@ -3,7 +3,7 @@ enum struct Option<T> {
     T : Some
 impl:
 
-    inline fn Option.Some<T>(T) -> [Option<T>] { cast(Option::Some) }
+    inline fn Option.Some<T>(T) -> [Option<T>] cast(Option::Some)
     inline fn Option.None<T>() -> [Option<T>] { [] cast(Option::None) }
     inline fn Option.is_some<T>(&Option<T>) -> [bool] {
         @ match {
@@ -19,21 +19,17 @@ impl:
         &option Option.is_some
     }
 
-    inline fn Option.unwrap<T>(Option<T>) -> [T] {
-        match {
-            Option::Some as [t] { t }
-            Option::None { 
-                "Unwrapped a None variant" println 
-                1 exit
-            }
+    inline fn Option.unwrap<T>(Option<T>) -> [T] match {
+        Option::Some as [t] { t }
+        Option::None { 
+            "Unwrapped a None variant" println 
+            1 exit
         }
     }
 
-    fn Option.unwrap_or<T>(T: default Option<T>: option) -> [T] {
-        option match {
-            Option::Some as [t] { t }
-            Option::None { default }
-        }
+    fn Option.unwrap_or<T>(T Option<T>) -> [T] match {
+        Option::Some as [t] { drop t }
+        Option::None {}
     }
 
 }

@@ -1701,15 +1701,9 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        let block = match self.matches(TokenKind::Marker(Marker::LeftBrace)) {
-            Ok(open) => Some(self.block(open)?),
-            Err(_) => None,
-        };
-
         Ok(Box::new(Expr::As(AsExpr {
             token,
             idents,
-            block,
         })))
     }
 

@@ -1,5 +1,0 @@
-{
-  "exit_code": 0,
-  "stdout": "[CMD]: nasm -felf64 src/tests/functional/scoped_as.asm\n[CMD]: ld -o scoped_as src/tests/functional/scoped_as.o\n",
-  "stderr": ""
-}

@@ -180,11 +180,6 @@ mod functional {
     }
 
     #[test]
-    fn scoped_as() -> Result<(), std::io::Error> {
-        super::test_tools::run_test("src/tests/functional", "scoped_as", None)
-    }
-
-    #[test]
     fn struct_accessors() -> Result<(), std::io::Error> {
         super::test_tools::run_test("src/tests/functional", "struct_accessors", None)
     }

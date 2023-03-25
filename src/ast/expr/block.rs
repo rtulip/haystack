@@ -26,11 +26,13 @@ impl BlockExpr {
         types: &mut TypeMap,
         generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<TypedExpr, HayError> {
+        let saved_frame = frame.clone();
         let mut typed_exprs = vec![];
         for e in self.exprs {
             typed_exprs.push(e.type_check(stack, frame, func, global_env, types, generic_map)?);
         }
 
+        *frame = saved_frame;
         Ok(TypedExpr::Block { exprs: typed_exprs })
     }
 }

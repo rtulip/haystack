@@ -99,11 +99,30 @@ impl MatchExpr {
         };
 
         if !self.cases.is_empty() {
+            // Track which cases have been matched for exhaustiveness checking.
             let mut cases_handled = HashSet::new();
 
-            let (idx, mut before_exprs, then_exprs) =
+            // Turn the match expression into a block.
+            // Start by binding the enum-struct to an identifier with an `as`
+            // expression.
+            let mut match_block = BlockExpr {
+                open: self.token.clone(),
+                close: self.token.clone(),
+                exprs: vec![Expr::As(AsExpr {
+                    token: self.token.clone(),
+                    idents: vec![IdentArg {
+                        kind: IdentArgKind::Single {
+                            token: ident.clone(),
+                        },
+                        mutable: None,
+                    }],
+                })],
+            };
+
+            let (idx, before_exprs, then_exprs) =
                 self.exprs_from_case(&self.cases[0], &ident, &base_tid, &base_variants, types)?;
             cases_handled.insert(idx);
+            match_block.exprs.push(Expr::Block(before_exprs));
 
             let mut otherwise_exprs = vec![];
 
@@ -158,35 +177,34 @@ impl MatchExpr {
                 finally: Some(finally),
             });
 
-            before_exprs.exprs.push(if_expr);
+            match_block.exprs.push(if_expr);
 
-            let as_expr = Expr::As(AsExpr {
-                token: self.token.clone(),
-                idents: vec![IdentArg {
-                    kind: IdentArgKind::Single {
-                        token: ident.clone(),
-                    },
-                    mutable: None,
-                }],
-                block: Some(Box::new(Expr::Block(before_exprs))),
-            });
-            as_expr.type_check(stack, frame, func, global_env, types, generic_map)
+            let match_expr = Expr::Block(match_block);
+
+            match_expr.type_check(stack, frame, func, global_env, types, generic_map)
         } else if let Some(else_case) = self.else_case {
-            let as_expr = Expr::As(AsExpr {
-                token: self.token.clone(),
-                idents: vec![IdentArg {
-                    kind: IdentArgKind::Single {
-                        token: Token {
-                            kind: TokenKind::Ident(String::from("0")),
-                            lexeme: String::from("0"),
-                            loc: self.token.loc.clone(),
-                        },
-                    },
-                    mutable: None,
-                }],
-                block: Some(else_case.body),
-            });
-            as_expr.type_check(stack, frame, func, global_env, types, generic_map)
+            let match_block = BlockExpr {
+                open: self.token.clone(),
+                close: self.token.clone(),
+                exprs: vec![
+                    Expr::As(AsExpr {
+                        token: self.token.clone(),
+                        idents: vec![IdentArg {
+                            kind: IdentArgKind::Single {
+                                token: Token {
+                                    kind: TokenKind::Ident(String::from("0")),
+                                    lexeme: String::from("0"),
+                                    loc: self.token.loc.clone(),
+                                },
+                            },
+                            mutable: None,
+                        }],
+                    }),
+                    *else_case.body,
+                ],
+            };
+
+            match_block.type_check(stack, frame, func, global_env, types, generic_map)
         } else {
             let mut e = HayError::new(
                 format!("Empty match block handles no cases of enum-struct `{base_tid}`"),
@@ -202,6 +220,55 @@ impl MatchExpr {
         }
     }
 
+    /// Expressions from case.
+    ///
+    /// I don't have a great way to do syntactic sugar at the moment, so it's
+    /// code manipulation is done manually for now.
+    ///
+    /// This function takes a `match` case, and converts it into if-else cases.
+    ///
+    /// For example:
+    /// ```
+    /// enum struct Foo {
+    ///     u64: Bar
+    ///     Str: Baz
+    /// }
+    ///
+    /// fn Quxx(Foo) {
+    ///     match {
+    ///         Foo::Bar { 1 println }
+    ///         Foo::Baz as [s] { s println }
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// Gets converted into:
+    /// ```
+    /// fn Quxx(Foo) {
+    ///     as [foo]
+    ///     foo::discriminant Foo::Bar::discriminant == if {
+    ///         1 println
+    ///     } else foo::discriminant Foo::Bar::discriminant == if {
+    ///         foo::1 as [s]
+    ///         s println
+    ///     } else {
+    ///         unreachable
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// This function takes a case `Foo::Bar { 1 println }` and converts it
+    /// into two code blocks: one which checks the discriminant and run before
+    /// the `if` statement, and the other is the body of the if statement. The
+    /// identifier is optionally added to the scope in the second block as well.
+    ///
+    /// So from our example, the case `Foo::Bar as [s] { s println }` gets
+    /// transformed into:
+    /// ```
+    /// idx = 1
+    /// before_exprs = { foo::discriminant Foo::Bar::discriminant == }
+    /// then_exprs = { foo::1 as [s] { s println } }
+    /// ```
     fn exprs_from_case(
         &self,
         case: &MatchCaseExpr,
@@ -212,6 +279,7 @@ impl MatchExpr {
     ) -> Result<(usize, BlockExpr, BlockExpr), HayError> {
         let idx = self.find_variant_index(&case.variant, base_variants, base_tid, types)?;
 
+        // Case Descriminant ==
         let before_exprs = vec![
             Expr::Accessor(AccessorExpr {
                 token: case.variant.clone(),
@@ -244,7 +312,6 @@ impl MatchExpr {
             then_exprs.push(Expr::As(AsExpr {
                 token: self.token.clone(),
                 idents: vec![ident.clone()],
-                block: None,
             }));
         }
 

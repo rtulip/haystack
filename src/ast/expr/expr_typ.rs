@@ -108,7 +108,7 @@ impl Expr {
             Expr::Block(e) => e.type_check(stack, frame, func, global_env, types, generic_map),
             Expr::Accessor(e) => e.type_check(stack, frame, func, types),
             Expr::AnnotatedCall(e) => e.type_check(stack, global_env, types, generic_map),
-            Expr::As(e) => e.type_check(stack, frame, func, global_env, types, generic_map),
+            Expr::As(e) => e.type_check(stack, frame, types),
             Expr::Cast(e) => e.type_check(stack, types, func, generic_map),
             Expr::Ident(e) => e.type_check(stack, frame, types, global_env),
             Expr::If(e) => e.type_check(stack, frame, func, global_env, types, generic_map),
@@ -161,7 +161,6 @@ pub enum TypedExpr {
     },
     As {
         args: Vec<TypeId>,
-        block: Option<Box<TypedExpr>>,
     },
     Var {
         size: usize,

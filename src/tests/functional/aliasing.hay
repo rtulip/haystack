@@ -1,10 +1,11 @@
 fn main() {
 
-    1 as [foo] {
-        2 as [foo] {
-            foo println
-        }
+    1 as [foo] 
+    {
+        2 as [foo] 
         foo println
     }
+    foo println
+    
 
 }

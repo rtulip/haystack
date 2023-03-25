@@ -55,16 +55,14 @@ fn Chunk.try_alloc(u64: n *Chunk: chunk_p) -> [Option<Arr<u8>>] {
     chunk_p @ as [chunk]
     
     chunk::start cast(u64) chunk::cap + cast(u64) cast(*Block) as [end]
-    Option.None::<Arr<u8>> chunk::start while as [maybe_alloc ptr] { maybe_alloc ptr
+    Option.None::<Arr<u8>> chunk::start as [mut maybe_alloc mut block_p]
+    while 
         &maybe_alloc Option.is_none 
-        ptr cast(u64) end cast(u64) < land
-    }
+        block_p cast(u64) end cast(u64) < land
     {
-
-        as [block_p] drop
         block_p cast(u64) cast(*u8) as [void_block_p]
         block_p @ as [block] 
-        
+    
         block::allocated if {
             Option.None::<Arr<u8>>
             block_p Chunk.next
@@ -100,7 +98,11 @@ fn Chunk.try_alloc(u64: n *Chunk: chunk_p) -> [Option<Arr<u8>>] {
             block_p Chunk.next
         }
 
-    } drop
+        *block_p !
+        *maybe_alloc !
+    }
+
+    maybe_alloc
 }
 
 fn Chunk.consolidate(*Chunk: chunk_p) {
@@ -197,20 +199,18 @@ fn malloc<T>(u64: count) -> [Arr<T>] {
     } else {
         
         n_chunks_p @ chunks_p @ as [n_chunks chunks]
-        Option.None::<Arr<u8>> 0 while as [maybe_chunk idx] { maybe_chunk idx
-            idx n_chunks <
-            &maybe_chunk Option.is_none land
-        }
+        Option.None::<Arr<u8>> as [mut maybe_alloc]
+        0 while
+            dup n_chunks <
+            &maybe_alloc Option.is_none land
         {
             // clear the previous option and capture the index
-            as [idx] drop
+            as [idx]
             idx chunks Arr.get_ref_mut as [chunk_p]
 
-            n chunk_p Chunk.try_alloc
+            n chunk_p Chunk.try_alloc *maybe_alloc !
             idx 1 +
         } drop
-
-        as [maybe_alloc]
 
         &maybe_alloc Option.is_some if {
             maybe_alloc Option.unwrap
@@ -234,12 +234,12 @@ fn find_chunk<T>(Arr<T>: arr) -> [Option<*Chunk>] {
     
 
     n_chunks_p @ chunks_p @ as [n_chunks chunks]
-    Option.None::<*Chunk> 0 while as [maybe_blk n] { maybe_blk n 
-        &maybe_blk Option.is_none
-        n n_chunks < land
-    }
+    Option.None::<*Chunk> as [mut maybe_blk]
+    0 while
+        dup n_chunks <
+        &maybe_blk Option.is_none land
     {
-        as [n] drop
+        as [n]
         n chunks Arr.get as [chunk]
         
         arr::data cast(u64) chunk::start cast(u64) >=
@@ -249,8 +249,12 @@ fn find_chunk<T>(Arr<T>: arr) -> [Option<*Chunk>] {
             Option.None::<*Chunk>
         }
 
+        *maybe_blk ! 
+
         n 1 +
     } drop
+
+    maybe_blk
 
 }
 

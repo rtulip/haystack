@@ -10,12 +10,14 @@ fn main() {
 
     swap 
 
-    as [p] {
+    { 
+        as [p] 
         p::first
         p::second
     } println println
     
-    as [p] {
+    { 
+        as [p] 
         p::first
         p::second
     } println println

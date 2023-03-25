@@ -27,10 +27,15 @@ fn main() {
 
     into_quad as [quad]
 
-    quad::b as [pair] {
+    quad::b
+    { 
+        as [pair] 
         pair::first pair::second
     } println println
-    quad::a as [pair] {
+    
+    quad::a 
+    {
+        as [pair] 
         pair::first pair::second
     } println println
 

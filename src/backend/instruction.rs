@@ -108,6 +108,8 @@ impl Instruction {
 
         match expr {
             TypedExpr::Block { exprs } => {
+                let start = ops.len();
+                ops.push(Instruction::StartBlock);
                 for e in exprs {
                     ops.append(&mut Instruction::from_expr(
                         e,
@@ -117,6 +119,10 @@ impl Instruction {
                         frame_reserved,
                     ))
                 }
+                let to_release = Instruction::count_framed_bytes(&ops[start..]);
+                ops.push(Instruction::EndBlock {
+                    bytes_to_free: to_release,
+                });
             }
             TypedExpr::Return => ops.push(Instruction::Return),
             TypedExpr::Framed { frame, idx, inner } => {
@@ -481,27 +487,10 @@ impl Instruction {
                     ))
                 }
             }
-            TypedExpr::As { args, block } => {
-                let start = ops.len();
+            TypedExpr::As { args } => {
                 for arg in &args {
                     ops.push(Instruction::PushToFrame {
                         quad_words: arg.size(types).unwrap(),
-                    });
-                }
-
-                if let Some(block) = block {
-                    ops.push(Instruction::StartBlock);
-                    ops.append(&mut Instruction::from_expr(
-                        *block,
-                        types,
-                        init_data,
-                        jump_count,
-                        frame_reserved,
-                    ));
-
-                    let to_release = Instruction::count_framed_bytes(&ops[start..]);
-                    ops.push(Instruction::EndBlock {
-                        bytes_to_free: to_release,
                     });
                 }
             }

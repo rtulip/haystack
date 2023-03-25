@@ -963,8 +963,13 @@ impl<'a> Parser<'a> {
     }
 
     fn block(&mut self, open: Token) -> Result<Box<Expr>, HayError> {
-        assert!(matches!(open.kind, TokenKind::Marker(Marker::LeftBrace)));
-
+        if !matches!(open.kind, TokenKind::Marker(Marker::LeftBrace)) {
+            return Err(HayError::new(
+                format!("Expected {} to open a block, but found {} instead", Marker::LeftBrace, open.kind), 
+                open.loc
+            ));
+        }
+        
         let mut exprs = vec![];
         while !self.is_at_end() && !self.check(TokenKind::Marker(Marker::RightBrace)) {
             exprs.push(*self.expression()?);
@@ -1614,31 +1619,21 @@ impl<'a> Parser<'a> {
     }
 
     fn if_block(&mut self, token: Token) -> Result<Box<Expr>, HayError> {
-        let open = match self.matches(TokenKind::Marker(Marker::LeftBrace)) {
-            Ok(open) => open,
-            Err(_) => todo!(),
-        };
+        let open = self.tokens.pop().unwrap();
         let then = self.block(open)?;
         let mut otherwise = vec![];
         let mut finally = None;
         while let Ok(else_tok) = self.matches(TokenKind::Keyword(Keyword::Else)) {
             match self.peek().kind {
                 TokenKind::Marker(Marker::LeftBrace) => {
-                    let open = match self.matches(TokenKind::Marker(Marker::LeftBrace)) {
-                        Ok(open) => open,
-                        Err(_) => todo!(),
-                    };
+                    let open = self.tokens.pop().unwrap();
                     finally = Some(self.block(open)?);
                     break;
                 }
                 _ => {
                     let cond = self.else_if_condition()?;
 
-                    let open = match self.matches(TokenKind::Marker(Marker::LeftBrace)) {
-                        Ok(open) => open,
-                        Err(_) => todo!(),
-                    };
-
+                    let open = self.tokens.pop().unwrap();
                     let body = self.block(open)?;
 
                     otherwise.push(ExprElseIf {
@@ -1802,12 +1797,7 @@ impl<'a> Parser<'a> {
         while !self.check(TokenKind::Marker(Marker::LeftBrace)) {
             cond.push(*self.expression()?);
         }
-
-        let open = match self.matches(TokenKind::Marker(Marker::LeftBrace)) {
-            Ok(open) => open,
-            Err(_) => todo!(),
-        };
-
+        let open = self.tokens.pop().unwrap();
         let body = self.block(open)?;
 
         Ok(Box::new(Expr::While(ExprWhile { token, cond, body })))

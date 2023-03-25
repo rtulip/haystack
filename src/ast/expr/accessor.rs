@@ -47,6 +47,7 @@ impl AccessorExpr {
         if let Some((i, (_, ft))) = frame
             .iter()
             .enumerate()
+            .rev()
             .find(|(_, (k, _))| k == &self.ident.lexeme)
         {
             match types.get(&ft.typ).unwrap() {

@@ -6,6 +6,13 @@ fn main() {
         foo println
     }
     foo println
-    
+
+    "Hello World" as [s]
+    s println
+    s::size println
+    "Goodbye" as [s]
+    s println
+    s::size println
+
 
 }

@@ -12,19 +12,14 @@
 //! }
 //! ```
 //!
-use std::collections::HashMap;
-
 use crate::{
-    ast::{
-        arg::{IdentArg, IdentArgKind},
-        stmt::StmtKind,
-    },
+    ast::arg::{IdentArg, IdentArgKind},
     error::HayError,
     lex::token::Token,
-    types::{Frame, FramedType, Signature, Stack, Type, TypeId, TypeMap, UncheckedFunction},
+    types::{Frame, FramedType, Stack, Type, TypeId, TypeMap},
 };
 
-use super::{Expr, TypedExpr};
+use super::TypedExpr;
 
 #[derive(Debug, Clone)]
 pub struct AsExpr {
@@ -32,8 +27,6 @@ pub struct AsExpr {
     pub token: Token,
     /// The non-empty list of identifiers.
     pub idents: Vec<IdentArg>,
-    /// The optional temporary scope.
-    pub block: Option<Vec<Expr>>,
 }
 
 impl AsExpr {
@@ -42,15 +35,8 @@ impl AsExpr {
         self,
         stack: &mut Stack,
         frame: &mut Frame,
-        func: &UncheckedFunction,
-        global_env: &mut HashMap<String, (StmtKind, Signature)>,
         types: &mut TypeMap,
-        generic_map: &Option<HashMap<TypeId, TypeId>>,
     ) -> Result<TypedExpr, HayError> {
-        // Save the initial state of the frame -- needed to return the frame
-        // to its original state if "args: {args:?}, inner: {args:?}"there's a block.
-        let initial_frame = frame.clone();
-
         // Make sure there's enough items on the stack. For example, this would
         // fail: `fn main() { 1 as [one two] }`
         if stack.len() < self.idents.len() {
@@ -82,24 +68,7 @@ impl AsExpr {
             frame,
         )?;
 
-        // Type check the block if there is one.
-        let typed_block;
-        if let Some(blk) = self.block {
-            let mut tmp = vec![];
-            for e in blk {
-                tmp.push(e.type_check(stack, frame, func, global_env, types, generic_map)?);
-            }
-
-            typed_block = Some(tmp);
-            *frame = initial_frame;
-        } else {
-            typed_block = None;
-        }
-
-        Ok(TypedExpr::As {
-            args: typed_args,
-            block: typed_block,
-        })
+        Ok(TypedExpr::As { args: typed_args })
     }
 
     fn build_typed_args(

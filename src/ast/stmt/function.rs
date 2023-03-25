@@ -17,7 +17,7 @@ pub struct FunctionStmt {
     pub inputs: Vec<UntypedArg>,
     pub outputs: Vec<UntypedArg>,
     pub annotations: Option<Vec<UntypedArg>>,
-    pub body: Vec<Expr>,
+    pub body: Expr,
     pub tags: Vec<FnTag>,
     pub impl_on: Option<Token>,
     pub requires: Option<Vec<Token>>,

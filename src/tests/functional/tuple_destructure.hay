@@ -4,21 +4,19 @@ enum struct Foo {
 }
 
 impl Print<Foo> {
-    fn print(Foo) {
-        match {
-            Foo::Bar as [[a b]] {
-                "Foo::Bar[" print
-                a           print 
-                " "         print 
-                b           print
-                "]"         print
-            }
-            Foo::Baz as [s] {
-                "Foo::Baz[" print
-                s           print
-                "]"         print
-            }   
+    fn print(Foo) match {
+        Foo::Bar as [[a b]] {
+            "Foo::Bar[" print
+            a           print 
+            " "         print 
+            b           print
+            "]"         print
         }
+        Foo::Baz as [s] {
+            "Foo::Baz[" print
+            s           print
+            "]"         print
+        }   
     }
 }
 

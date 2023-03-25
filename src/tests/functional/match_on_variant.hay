@@ -3,11 +3,9 @@ enum struct Foo {
     Str: Baz
 }
 
-fn take_foo_bar(Foo::Bar) {
-    match {
-        Foo::Bar as [u] { u println }
-        else { "unreachable" println } 
-    }
+fn take_foo_bar(Foo::Bar) match {
+    Foo::Bar as [u] { u println }
+    else { "unreachable" println } 
 }
 
 fn main() {

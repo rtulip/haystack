@@ -5,11 +5,9 @@ enum struct Foo<T> {
 
 impl<T> Print<Foo<T>>
 requires: [Print<T>] {
-    fn print(Foo<T>) {
-        match {
-            Foo::Bar as [t] { t print }
-            Foo::_ { "_" print }
-        }
+    fn print(Foo<T>) match {
+        Foo::Bar as [t] { t print }
+        Foo::_ { "_" print }
     }
 }
 

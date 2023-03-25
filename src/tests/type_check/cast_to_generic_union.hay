@@ -5,13 +5,16 @@ union Foo<T> {
 }
 
 fn main() {
-    "Hello World" cast(Foo) as [f] {
+    {
+        "Hello World" cast(Foo) as [f] 
         f::t println
     }
-    12345 cast(Foo<Str>) as [f] {
+    {
+        12345 cast(Foo<Str>) as [f] 
         f::n println
     }
-    true cast(Foo<Str>) as [f] {
+    {
+        true cast(Foo<Str>) as [f] 
         f::b println
     }
 }

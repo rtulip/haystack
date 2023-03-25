@@ -1,10 +1,18 @@
 fn main() {
 
-    1 as [foo] {
-        2 as [foo] {
-            foo println
-        }
+    1 as [foo] 
+    {
+        2 as [foo] 
         foo println
     }
+    foo println
+
+    "Hello World" as [s]
+    s println
+    s::size println
+    "Goodbye" as [s]
+    s println
+    s::size println
+
 
 }

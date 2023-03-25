@@ -1,1 +1,5 @@
-fn foo() -> [u64] 12345
+fn main() {
+    if true {
+
+    }
+}

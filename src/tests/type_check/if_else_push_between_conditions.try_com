@@ -1,5 +1,5 @@
 {
   "exit_code": 1,
   "stdout": "",
-  "stderr": "[src/tests/type_check/if_else_push_between_conditions.hay:3:11] Error: Type Error: If block creates stacks of diferent shapes\n    [Note]: Each branch of if block must evaluate to the same stack layout.\n    [Note]: src/tests/type_check/if_else_push_between_conditions.hay:3:11 Branch 1: [Str]\n    [Note]: src/tests/type_check/if_else_push_between_conditions.hay:5:7 Branch 2: [u64, u64, u64, u64, u64, Str]\n    [Note]: src/tests/type_check/if_else_push_between_conditions.hay:8:9 Branch 3: [u64, u64, u64, u64, u64, Str]\n"
+  "stderr": "[src/tests/type_check/if_else_push_between_conditions.hay:3:11] Error: Type Error: If block creates stacks of diferent shapes\n    [Note]: Each branch of if block must evaluate to the same stack layout.\n    [Note]: src/tests/type_check/if_else_push_between_conditions.hay:3:11 Branch 1: [Str]\n    [Note]: src/tests/type_check/if_else_push_between_conditions.hay:5:7 Branch 2: [u64, u64, u64, u64, u64, Str]\n    [Note]: src/tests/type_check/if_else_push_between_conditions.hay:7:12 Branch 3: [u64, u64, u64, u64, u64, Str]\n"
 }

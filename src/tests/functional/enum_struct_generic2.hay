@@ -10,32 +10,26 @@ enum struct MyResult<T E> {
 
 impl<T E> Print<MyResult<T E>::Ok>
 requires: [Print<T>] {
-    fn print(MyResult<T E>::Ok) {
-        match {
-            MyResult::Ok as [t] { "Ok(" print t print ")" print}
-            else { "unreachable" print }
-        }
+    fn print(MyResult<T E>::Ok) match {
+        MyResult::Ok as [t] { "Ok(" print t print ")" print}
+        else { "unreachable" print }
     }
 }
 
 impl<T E> Print<MyResult<T E>::Err>
 requires: [Print<E>] {
-    fn print(MyResult<T E>::Err) {
-        match {
-            MyResult::Err as [e] { "Err(" print e print ")" print}
-            else { "unreachable" print }
-        }
+    fn print(MyResult<T E>::Err) match {
+        MyResult::Err as [e] { "Err(" print e print ")" print}
+        else { "unreachable" print }
     }
 }
 
 impl<T> Print<MyOption<T>>
 requires: [Print<T>] {
-    fn print(MyOption<T>) {
-        match {
-            MyOption::Some as [t] { "Some(" print t print ")" print }
-            MyOption::None { "None" print }
-            else { "unreachable" print }
-        }
+    fn print(MyOption<T>) match {
+        MyOption::Some as [t] { "Some(" print t print ")" print }
+        MyOption::None { "None" print }
+        else { "unreachable" print }
     }
 }
 

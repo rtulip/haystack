@@ -18,21 +18,20 @@ fn main() {
     "" String.new c  fmt println
     "" String.new &c fmt println
 
-    12345 as [n] {
+    12345 { 
+        as [n] 
         n  to_string         println
         &n to_string         println
         "" String.new n  fmt println
         "" String.new &n fmt println
     }
 
-    123u8 as [n] {
+    123u8 { 
+        as [n] 
         n  to_string         println
         &n to_string         println
         "" String.new n  fmt println
         "" String.new &n fmt println
     }
-
-
-
 
 }

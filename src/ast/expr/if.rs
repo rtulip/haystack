@@ -66,8 +66,7 @@ impl ExprIf {
 
         let mut typed_finally = None;
         if let Some(finally) = self.finally {
-            // let mut tmp = vec![];
-            *stack = otherwise_stack.clone();
+            *stack = otherwise_stack;
             *frame = initial_frame.clone();
             let tok = finally.token().clone();
 

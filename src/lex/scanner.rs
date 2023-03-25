@@ -1,3 +1,4 @@
+use super::base::NumberBase;
 use super::token::Keyword;
 use crate::error::HayError;
 use crate::lex::token::{Literal, Loc, Marker, Operator, Token, TokenKind};
@@ -290,11 +291,21 @@ impl Scanner {
     }
 
     fn number(&mut self) -> Result<(), HayError> {
-        while self.peek(0).is_ascii_digit() {
+        let base = NumberBase::new(&self.source[self.start..]);
+        let num_start = if !matches!(base, NumberBase::Decimal) {
+            self.advance();
+            self.advance();
+            self.start + 2
+        } else {
+            self.start
+        };
+
+        let chars = base.digits();
+        while chars.contains(&self.peek(0)) {
             self.advance();
         }
 
-        if let Ok(n) = String::from(&self.source[self.start..self.current]).parse::<u64>() {
+        if let Ok(n) = u64::from_str_radix(&self.source[num_start..self.current], base.radix()) {
             if self.peek(0) == 'u' && self.peek(1) == '8' {
                 self.advance();
                 self.advance();
@@ -311,7 +322,10 @@ impl Scanner {
             }
         } else {
             return Err(HayError::new(
-                "Failed to parse number",
+                format!(
+                    "Failed to parse number from {}",
+                    &self.source[self.start..self.current]
+                ),
                 Loc::new(&self.file, self.line, self.token_start, self.token_end),
             ));
         }

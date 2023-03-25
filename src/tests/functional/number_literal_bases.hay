@@ -1,0 +1,12 @@
+
+fn main() {
+    12345    println
+    0xFF     println
+    0o1234   println
+    0b1111   println
+
+    123      println
+    0xFFu8   println
+    0o123u8  println
+    0b1111u8 println
+}

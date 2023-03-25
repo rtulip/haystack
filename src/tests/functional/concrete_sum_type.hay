@@ -5,18 +5,15 @@ enum struct Foo {
 }
 
 impl Print<Foo> {
-    fn print(Foo) {
-        match {
-            Foo::Unit { "Foo::Unit" print }
-            Foo::Value as [s] { "Foo::Value(" print s print ")" print }
-            Foo::Tuple as [t] { 
-                "Foo::Tuple[" print 
-                t::0 print " " print
-                t::1 print " " print
-                t::2 print "]" print
-            }
+    fn print(Foo) match {
+        Foo::Unit { "Foo::Unit" print }
+        Foo::Value as [s] { "Foo::Value(" print s print ")" print }
+        Foo::Tuple as [t] { 
+            "Foo::Tuple[" print 
+            t::0 print " " print
+            t::1 print " " print
+            t::2 print "]" print
         }
-
     }
 }
 

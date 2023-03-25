@@ -4,13 +4,9 @@ enum struct Result<T E> {
     
 impl:
 
-    fn Result.Ok<T E>(T) -> [Result<T E>] {
-        cast(Result<T E>::Ok)
-    }
+    fn Result.Ok<T E>(T) -> [Result<T E>] cast(Result<T E>::Ok)
 
-    fn Result.Err<T E>(E) -> [Result<T E>] {
-        cast(Result<T E>::Err)
-    }
+    fn Result.Err<T E>(E) -> [Result<T E>] cast(Result<T E>::Err)
 
     fn Result.is_ok<T E>(&Result<T E>) -> [bool] {
         @ match {
@@ -18,7 +14,7 @@ impl:
             Result::Err { false }
         }
     }
-
+    
     fn Result.is_err<T E>(&Result<T E>) -> [bool] {
         Result.is_ok lnot 
     }
@@ -31,31 +27,27 @@ impl:
         &self Result.is_err
     }
 
-    fn Result.unwrap<T E>(Result<T E>) -> [T] {
-        match {
-            Result::Ok as [t] { t }
-            Result::Err { 
-                "Tried to `unwrap` an Error result" println
-                1 exit
-            }
+    fn Result.unwrap<T E>(Result<T E>) -> [T] match {
+        Result::Ok as [t] { t }
+        Result::Err { 
+            "Tried to `unwrap` an Error result" println
+            1 exit
         }
     }
 
-    fn Result.unwrap_err<T E>(Result<T E>) -> [E] {
-        match {
-            Result::Err as [e] { e }
-            Result::Ok {
-                "Tried to `unwrap_err` an Ok result" println
-                1 exit
-            }
+    fn Result.unwrap_err<T E>(Result<T E>) -> [E] match {
+        Result::Err as [e] { e }
+        Result::Ok {
+            "Tried to `unwrap_err` an Ok result" println
+            1 exit
         }
     }
+    
 
-    fn Result.ok<T E>(Result<T E>) -> [Option<T>] {
-        match {
-            Result::Ok as [t] { t Option.Some }
-            Result::Err { Option.None::<T> }
-        }
+    fn Result.ok<T E>(Result<T E>) -> [Option<T>] match {
+        Result::Ok as [t] { t Option.Some }
+        Result::Err { Option.None::<T> }
     }
+    
 
 }

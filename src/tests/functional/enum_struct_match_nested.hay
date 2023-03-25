@@ -3,46 +3,41 @@ enum struct Foo {
     Str: String
 }
 
-fn two_foo(Foo Foo) {
-    match {
-        Foo::Number as [n1] {
-            "Foo1 was number: " print n1 println
-            match {
-                Foo::Number as [n2] {
-                    "Foo2 was number: " print n2 println
-                }
-                Foo::String as [s2] {
-                    "Foo2 was string: " print s2 println
-                }
+fn two_foo(Foo Foo) match {
+    Foo::Number as [n1] {
+        "Foo1 was number: " print n1 println
+        match {
+            Foo::Number as [n2] {
+                "Foo2 was number: " print n2 println
+            }
+            Foo::String as [s2] {
+                "Foo2 was string: " print s2 println
             }
         }
-        Foo::String as [s1] {
-            "Foo1 was string: " print s1 println
-            match {
-                Foo::Number as [n2] {
-                    "Foo2 was number: " print n2 println
-                }
-                Foo::String as [s2] {
-                    "Foo2 was string: " print s2 println
-                }
+    }
+    Foo::String as [s1] {
+        "Foo1 was string: " print s1 println
+        match {
+            Foo::Number as [n2] {
+                "Foo2 was number: " print n2 println
+            }
+            Foo::String as [s2] {
+                "Foo2 was string: " print s2 println
             }
         }
     }
 }
 
-fn Foo.unwrap_u64(Foo) -> [u64] {
-    match {
-        Foo::Number as [n] { n }
-        else { 0 }
-    }
-}   
-
-fn Foo.unwrap_str(Foo) -> [Str] {
-    match {
-        Foo::String as [s] { s }
-        else { "Not a str" }
-    }
+fn Foo.unwrap_u64(Foo) -> [u64] match {
+    Foo::Number as [n] { n }
+    else { 0 }
 }
+
+fn Foo.unwrap_str(Foo) -> [Str] match {
+    Foo::String as [s] { s }
+    else { "Not a str" }
+}
+
 
 fn main() {
 

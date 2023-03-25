@@ -5,23 +5,21 @@ enum struct Foo {
 }
 
 impl Print<Foo> {
-    fn print(Foo) {
-        match {
-            Foo::Value as [value] { 
-                "Foo::Value(" print value print ")" print
-            }
-            Foo::Tuple as [tuple] { 
-                "Foo::Tuple" print 
-                "[" print tuple::0 print
-                " " print tuple::1 print
-                "]" print
-            }
-            Foo::NamedTuple as [named] { 
-                "Foo::Named {" print 
-                " x: " print named::x print
-                " y: " print named::y print
-                " }"   print
-            }
+    fn print(Foo) match {
+        Foo::Value as [value] { 
+            "Foo::Value(" print value print ")" print
+        }
+        Foo::Tuple as [tuple] { 
+            "Foo::Tuple" print 
+            "[" print tuple::0 print
+            " " print tuple::1 print
+            "]" print
+        }
+        Foo::NamedTuple as [named] { 
+            "Foo::Named {" print 
+            " x: " print named::x print
+            " y: " print named::y print
+            " }"   print
         }
     }
 }

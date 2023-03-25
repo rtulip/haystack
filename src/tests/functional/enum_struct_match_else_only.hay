@@ -4,10 +4,8 @@ enum struct Foo {
 }
 
 impl Print<Foo> {
-    fn print(Foo) {
-        match {
-            else { "Printing a foo!" print }
-        }
+    fn print(Foo) match {
+        else { "Printing a foo!" print }
     }
 }
 

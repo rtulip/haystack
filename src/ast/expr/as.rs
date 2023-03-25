@@ -33,7 +33,7 @@ pub struct AsExpr {
     /// The non-empty list of identifiers.
     pub idents: Vec<IdentArg>,
     /// The optional temporary scope.
-    pub block: Option<Vec<Expr>>,
+    pub block: Option<Box<Expr>>,
 }
 
 impl AsExpr {
@@ -85,10 +85,8 @@ impl AsExpr {
         // Type check the block if there is one.
         let typed_block;
         if let Some(blk) = self.block {
-            let mut tmp = vec![];
-            for e in blk {
-                tmp.push(e.type_check(stack, frame, func, global_env, types, generic_map)?);
-            }
+            let tmp =
+                Box::new(blk.type_check(stack, frame, func, global_env, types, generic_map)?);
 
             typed_block = Some(tmp);
             *frame = initial_frame;

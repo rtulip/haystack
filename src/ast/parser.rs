@@ -1,4 +1,4 @@
-use crate::ast::expr::{Expr, MatchCaseExpr};
+use crate::ast::expr::{Expr, MatchCaseExpr, BlockExpr};
 use crate::ast::stmt::Stmt;
 use crate::error::HayError;
 use crate::lex::token::{Keyword, Loc, Marker, Operator, Token, TokenKind, TypeToken, Literal};
@@ -593,7 +593,7 @@ impl<'a> Parser<'a> {
             self.function_stub(start, tags, impl_on)?;
 
         if self.check(TokenKind::Marker(Marker::LeftBrace)) {
-            let body = self.block()?;
+            let body = *self.expression()?;
             Ok(vec![Stmt::Function(FunctionStmt {
                 token: stub.token,
                 name: stub.name,
@@ -624,7 +624,7 @@ impl<'a> Parser<'a> {
         impl_on: Option<&Token>,
     ) -> Result<Vec<Stmt>, HayError> {
         let stub = self.function_stub(start, tags, impl_on)?;
-        let body = self.block()?;
+        let body = *self.expression()?;
 
         Ok(vec![Stmt::Function(FunctionStmt {
             token: stub.token,
@@ -962,40 +962,33 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn block(&mut self) -> Result<Vec<Expr>, HayError> {
-        if let Err(t) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
-            return Err(HayError::new(
-                format!(
-                    "Expected {} at start of block, but found {} instead.",
-                    Marker::LeftBrace,
-                    t.kind
-                ),
-                t.loc,
-            ));
-        }
+    fn block(&mut self, open: Token) -> Result<Box<Expr>, HayError> {
+        assert!(matches!(open.kind, TokenKind::Marker(Marker::LeftBrace)));
 
         let mut exprs = vec![];
         while !self.is_at_end() && !self.check(TokenKind::Marker(Marker::RightBrace)) {
             exprs.push(*self.expression()?);
         }
 
-        if let Err(t) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
-            return Err(HayError::new(
+        let close = match self.matches(TokenKind::Marker(Marker::RightBrace)) {
+            Ok(close) => close,
+            Err(t) => return Err(HayError::new(
                 format!(
                     "Expected {} at end of block, but found {} instead.",
                     Marker::RightBrace,
                     t.kind
                 ),
                 t.loc,
-            ));
-        }
+            )),
+        };
 
-        Ok(exprs)
+        Ok(Box::new(Expr::Block(BlockExpr{ open, exprs, close })))
     }
 
     fn expression(&mut self) -> Result<Box<Expr>, HayError> {
         let token = self.tokens.pop().unwrap();
         match &token.kind {
+            TokenKind::Marker(Marker::LeftBrace) => self.block(token),
             TokenKind::Literal(l) => Ok(Box::new(Expr::Literal(ExprLiteral {
                 literal: l.clone(),
                 token,
@@ -1128,7 +1121,6 @@ impl<'a> Parser<'a> {
             TokenKind::Keyword(Keyword::Match) => self.match_expr(token),
             TokenKind::Keyword(Keyword::Unpack) => Ok(Box::new(Expr::Unpack(UnpackExpr { token}))),
             TokenKind::Marker(Marker::LeftBracket) => self.parse_tuple_expr(token),
-            
             kind => Err(HayError::new(
                 format!("Not sure how to parse expression from {kind} yet"),
                 token.loc,
@@ -1195,33 +1187,29 @@ impl<'a> Parser<'a> {
                 Err(_) => None,
             };
 
-            if let Err(e) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
-                return Err(HayError::new(
-                    format!(
-                        "Expected {} to open match case expression, but found {} instead", 
-                        Marker::LeftBrace, 
-                        e.kind
-                    ), 
-                    e.loc
-                ))
-            }
+            // if let Err(e) = self.matches(TokenKind::Marker(Marker::LeftBrace)) {
+            //     return Err(HayError::new(
+            //         format!(
+            //             "Expected {} to open match case expression, but found {} instead", 
+            //             Marker::LeftBrace, 
+            //             e.kind
+            //         ), 
+            //         e.loc
+            //     ))
+            // }
 
-            let mut body = vec![];
+            let body = *self.expression()?;
 
-            while !matches!(self.peek().kind, TokenKind::Marker(Marker::RightBrace)) && !self.is_at_end() {
-                body.push(*self.expression()?);
-            }
-
-            if let Err(e) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
-                return Err(HayError::new(
-                    format!(
-                        "Expected {} after match case block, but found {} instead", 
-                        Marker::RightBrace, 
-                        e.kind
-                    ), 
-                    e.loc
-                ))
-            }
+            // if let Err(e) = self.matches(TokenKind::Marker(Marker::RightBrace)) {
+            //     return Err(HayError::new(
+            //         format!(
+            //             "Expected {} after match case block, but found {} instead", 
+            //             Marker::RightBrace, 
+            //             e.kind
+            //         ), 
+            //         e.loc
+            //     ))
+            // }
 
             cases.push(MatchCaseExpr {
                 variant, 
@@ -1233,13 +1221,16 @@ impl<'a> Parser<'a> {
 
         let finally = match self.matches(TokenKind::Keyword(Keyword::Else)) {
             Ok(else_kw) => {
-                if !matches!(&self.peek().kind, TokenKind::Marker(Marker::LeftBrace)) {
-                    return Err(HayError::new(format!("Expected {} after {}, but found {} instead.", Marker::LeftBrace, Keyword::Else, &self.peek().kind), self.peek().loc.clone()))
-                }
+                let open = match self.matches(TokenKind::Marker(Marker::LeftBrace)) {
+                    Ok(open) => open,
+                    Err(t) => return Err(HayError::new(
+                        format!("Expected {} after {}, but found {} instead.", Marker::LeftBrace, Keyword::Else, t.kind),
+                        self.peek().loc.clone()))
+                };
 
                 Some(MatchElseExpr {
                     token: else_kw,
-                    body: self.block()?
+                    body: self.block(open)?
                 })
             },
             Err(_) => None
@@ -1623,23 +1614,37 @@ impl<'a> Parser<'a> {
     }
 
     fn if_block(&mut self, token: Token) -> Result<Box<Expr>, HayError> {
-        let then = self.block()?;
+        let open = match self.matches(TokenKind::Marker(Marker::LeftBrace)) {
+            Ok(open) => open,
+            Err(_) => todo!(),
+        };
+        let then = self.block(open)?;
         let mut otherwise = vec![];
         let mut finally = None;
         while let Ok(else_tok) = self.matches(TokenKind::Keyword(Keyword::Else)) {
             match self.peek().kind {
                 TokenKind::Marker(Marker::LeftBrace) => {
-                    finally = Some(self.block()?);
+                    let open = match self.matches(TokenKind::Marker(Marker::LeftBrace)) {
+                        Ok(open) => open,
+                        Err(_) => todo!(),
+                    };
+                    finally = Some(self.block(open)?);
                     break;
                 }
                 _ => {
                     let cond = self.else_if_condition()?;
-                    let body = self.block()?;
+
+                    let open = match self.matches(TokenKind::Marker(Marker::LeftBrace)) {
+                        Ok(open) => open,
+                        Err(_) => todo!(),
+                    };
+
+                    let body = self.block(open)?;
 
                     otherwise.push(ExprElseIf {
                         token: else_tok,
                         condition: cond,
-                        block: body,
+                        block: *body,
                     });
                 }
             }
@@ -1696,10 +1701,9 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        let block = if self.check(TokenKind::Marker(Marker::LeftBrace)) {
-            Some(self.block()?)
-        } else {
-            None
+        let block = match self.matches(TokenKind::Marker(Marker::LeftBrace)) {
+            Ok(open) => Some(self.block(open)?),
+            Err(_) => None,
         };
 
         Ok(Box::new(Expr::As(AsExpr {
@@ -1805,7 +1809,12 @@ impl<'a> Parser<'a> {
             cond.push(*self.expression()?);
         }
 
-        let body = self.block()?;
+        let open = match self.matches(TokenKind::Marker(Marker::LeftBrace)) {
+            Ok(open) => open,
+            Err(_) => todo!(),
+        };
+
+        let body = self.block(open)?;
 
         Ok(Box::new(Expr::While(ExprWhile { token, cond, body })))
     }
@@ -1904,11 +1913,6 @@ mod tests {
     #[test]
     fn parse_bad_array_var_size() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_array_var_size", None)
-    }
-
-    #[test]
-    fn parse_bad_block_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_block_close", None)
     }
 
     #[test]
@@ -2277,16 +2281,6 @@ mod tests {
     #[test]
     fn parse_match_bad_as_close() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_as_close", None)
-    }
-
-    #[test]
-    fn parse_match_bad_case_open() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_case_open", None)
-    }
-
-    #[test]
-    fn parse_match_bad_case_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_case_close", None)
     }
 
     #[test]

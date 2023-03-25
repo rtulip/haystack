@@ -107,6 +107,17 @@ impl Instruction {
         let mut ops = vec![];
 
         match expr {
+            TypedExpr::Block { exprs } => {
+                for e in exprs {
+                    ops.append(&mut Instruction::from_expr(
+                        e,
+                        types,
+                        init_data,
+                        jump_count,
+                        frame_reserved,
+                    ))
+                }
+            }
             TypedExpr::Return => ops.push(Instruction::Return),
             TypedExpr::Framed { frame, idx, inner } => {
                 assert!(idx < frame.len());
@@ -335,15 +346,14 @@ impl Instruction {
                 let mut n_jumps = 0;
                 let mut then_ops = vec![];
                 then_ops.push(Instruction::StartBlock);
-                for e in then {
-                    then_ops.append(&mut Instruction::from_expr(
-                        e,
-                        types,
-                        init_data,
-                        jump_count,
-                        frame_reserved,
-                    ));
-                }
+                then_ops.append(&mut Instruction::from_expr(
+                    *then,
+                    types,
+                    init_data,
+                    jump_count,
+                    frame_reserved,
+                ));
+
                 then_ops.push(Instruction::EndBlock {
                     bytes_to_free: Instruction::count_framed_bytes(&then_ops),
                 });
@@ -367,16 +377,14 @@ impl Instruction {
                             bytes_to_free: Instruction::count_framed_bytes(&cnd_ops),
                         });
 
-                        blk_ops.push(Instruction::StartBlock);
-                        for e in block {
-                            blk_ops.append(&mut Instruction::from_expr(
-                                e,
-                                types,
-                                init_data,
-                                jump_count,
-                                frame_reserved,
-                            ));
-                        }
+                        blk_ops.append(&mut Instruction::from_expr(
+                            *block,
+                            types,
+                            init_data,
+                            jump_count,
+                            frame_reserved,
+                        ));
+
                         blk_ops.push(Instruction::EndBlock {
                             bytes_to_free: Instruction::count_framed_bytes(&blk_ops),
                         });
@@ -391,15 +399,14 @@ impl Instruction {
                 let mut finally_ops = vec![];
                 if let Some(finally) = finally {
                     finally_ops.push(Instruction::StartBlock);
-                    for e in finally {
-                        finally_ops.append(&mut Instruction::from_expr(
-                            e,
-                            types,
-                            init_data,
-                            jump_count,
-                            frame_reserved,
-                        ));
-                    }
+                    finally_ops.append(&mut Instruction::from_expr(
+                        *finally,
+                        types,
+                        init_data,
+                        jump_count,
+                        frame_reserved,
+                    ));
+
                     finally_ops.push(Instruction::EndBlock {
                         bytes_to_free: Instruction::count_framed_bytes(&finally_ops),
                     });
@@ -484,15 +491,14 @@ impl Instruction {
 
                 if let Some(block) = block {
                     ops.push(Instruction::StartBlock);
-                    for e in block {
-                        ops.append(&mut Instruction::from_expr(
-                            e,
-                            types,
-                            init_data,
-                            jump_count,
-                            frame_reserved,
-                        ));
-                    }
+                    ops.append(&mut Instruction::from_expr(
+                        *block,
+                        types,
+                        init_data,
+                        jump_count,
+                        frame_reserved,
+                    ));
+
                     let to_release = Instruction::count_framed_bytes(&ops[start..]);
                     ops.push(Instruction::EndBlock {
                         bytes_to_free: to_release,
@@ -574,16 +580,8 @@ impl Instruction {
 
                 ops.push(Instruction::StartBlock);
 
-                let mut body_ops = vec![];
-                for e in body {
-                    body_ops.append(&mut Instruction::from_expr(
-                        e,
-                        types,
-                        init_data,
-                        jump_count,
-                        frame_reserved,
-                    ));
-                }
+                let mut body_ops =
+                    Instruction::from_expr(*body, types, init_data, jump_count, frame_reserved);
                 body_ops.push(Instruction::EndBlock {
                     bytes_to_free: Instruction::count_framed_bytes(&body_ops),
                 });
@@ -652,15 +650,13 @@ impl Instruction {
             }
         }
 
-        for expr in func.body {
-            ops.append(&mut Instruction::from_expr(
-                expr,
-                types,
-                init_data,
-                jump_count,
-                frame_reserved,
-            ));
-        }
+        ops.append(&mut Instruction::from_expr(
+            func.body,
+            types,
+            init_data,
+            jump_count,
+            frame_reserved,
+        ));
 
         ops.push(Instruction::EndBlock {
             bytes_to_free: Instruction::count_framed_bytes(&ops),
@@ -689,15 +685,13 @@ impl Instruction {
 
         let mut reserve = 0;
         let mut jump_count = 0;
-        for expr in func.body {
-            ops.append(&mut Instruction::from_expr(
-                expr,
-                types,
-                init_data,
-                &mut jump_count,
-                &mut reserve,
-            ));
-        }
+        ops.append(&mut Instruction::from_expr(
+            func.body,
+            types,
+            init_data,
+            &mut jump_count,
+            &mut reserve,
+        ));
 
         let bytes_framed = Instruction::count_framed_bytes(&ops);
 

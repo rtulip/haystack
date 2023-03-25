@@ -1,5 +1,5 @@
 {
   "exit_code": 1,
   "stdout": "",
-  "stderr": "[src/tests/parser/parse_bad_block_open.hay:1:19] Error: Expected `{` at start of block, but found `u64` instead.\n"
+  "stderr": "[src/tests/parser/parse_bad_block_open.hay:0:0] Error: Failed to read from file: src/tests/parser/parse_bad_block_open.hay\n"
 }

@@ -5,7 +5,7 @@ use crate::types::{Frame, FramedType, Signature, Stack, Type, TypeId, TypeMap, U
 use std::collections::HashMap;
 
 use super::{
-    AccessorExpr, AnnotatedCallExpr, AsExpr, ExprCast, ExprIdent, ExprIf, ExprLiteral,
+    AccessorExpr, AnnotatedCallExpr, AsExpr, BlockExpr, ExprCast, ExprIdent, ExprIf, ExprLiteral,
     ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, MatchExpr,
     NeverExpr, TupleExpr, UnpackExpr,
 };
@@ -52,6 +52,7 @@ pub enum Expr {
     Match(MatchExpr),
     Never(NeverExpr),
     Unpack(UnpackExpr),
+    Block(BlockExpr),
 }
 
 impl Expr {
@@ -75,6 +76,7 @@ impl Expr {
             | Expr::Match(MatchExpr { token, .. })
             | Expr::Never(NeverExpr { token })
             | Expr::Unpack(UnpackExpr { token })
+            | Expr::Block(BlockExpr { open: token, .. })
             | Expr::Unary(ExprUnary {
                 op: ExprOperator { token, .. },
                 ..
@@ -103,6 +105,7 @@ impl Expr {
 
         // Type checking is different for each kind of expression.
         match self {
+            Expr::Block(e) => e.type_check(stack, frame, func, global_env, types, generic_map),
             Expr::Accessor(e) => e.type_check(stack, frame, func, types),
             Expr::AnnotatedCall(e) => e.type_check(stack, global_env, types, generic_map),
             Expr::As(e) => e.type_check(stack, frame, func, global_env, types, generic_map),
@@ -148,17 +151,17 @@ pub enum TypedExpr {
         idx: usize,
     },
     If {
-        then: Vec<TypedExpr>,
+        then: Box<TypedExpr>,
         otherwise: Vec<TypedExpr>,
-        finally: Option<Vec<TypedExpr>>,
+        finally: Option<Box<TypedExpr>>,
     },
     ElseIf {
         condition: Vec<TypedExpr>,
-        block: Vec<TypedExpr>,
+        block: Box<TypedExpr>,
     },
     As {
         args: Vec<TypeId>,
-        block: Option<Vec<TypedExpr>>,
+        block: Option<Box<TypedExpr>>,
     },
     Var {
         size: usize,
@@ -167,7 +170,7 @@ pub enum TypedExpr {
     },
     While {
         cond: Vec<TypedExpr>,
-        body: Vec<TypedExpr>,
+        body: Box<TypedExpr>,
     },
     Call {
         func: String,
@@ -201,4 +204,7 @@ pub enum TypedExpr {
         padding: usize,
     },
     Return,
+    Block {
+        exprs: Vec<TypedExpr>,
+    },
 }

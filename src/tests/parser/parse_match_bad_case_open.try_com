@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_match_bad_case_open.hay:4:18] Error: Expected `{` to open match case expression, but found `[` instead\n"
-}

@@ -12,7 +12,7 @@ use crate::{
     types::{Frame, RecordKind, Stack, Type, TypeId, TypeMap, UncheckedFunction, VariantType},
 };
 
-use super::{Expr, TypedExpr};
+use super::{BlockExpr, Expr, TypedExpr};
 
 #[derive(Debug, Clone)]
 pub struct MatchExpr {
@@ -25,13 +25,13 @@ pub struct MatchExpr {
 pub struct MatchCaseExpr {
     pub variant: Token,
     pub ident: Option<IdentArg>,
-    pub body: Vec<Expr>,
+    pub body: Expr,
 }
 
 #[derive(Debug, Clone)]
 pub struct MatchElseExpr {
     pub token: Token,
-    pub body: Vec<Expr>,
+    pub body: Box<Expr>,
 }
 
 impl MatchExpr {
@@ -119,8 +119,8 @@ impl MatchExpr {
                 .into_iter()
                 .map(|(condition, block)| ExprElseIf {
                     token: self.token.clone(),
-                    condition,
-                    block,
+                    condition: condition.exprs,
+                    block: Expr::Block(block),
                 })
                 .collect();
 
@@ -143,18 +143,22 @@ impl MatchExpr {
             let finally = self
                 .else_case
                 .map(|case| case.body)
-                .unwrap_or(vec![Expr::Never(super::NeverExpr {
-                    token: self.token.clone(),
-                })]);
+                .unwrap_or(Box::new(Expr::Block(BlockExpr {
+                    open: self.token.clone(),
+                    close: self.token.clone(),
+                    exprs: vec![Expr::Never(super::NeverExpr {
+                        token: self.token.clone(),
+                    })],
+                })));
 
             let if_expr = Expr::If(ExprIf {
                 token: self.token.clone(),
-                then: then_exprs,
+                then: Box::new(Expr::Block(then_exprs)),
                 otherwise: else_if_exprs,
                 finally: Some(finally),
             });
 
-            before_exprs.push(if_expr);
+            before_exprs.exprs.push(if_expr);
 
             let as_expr = Expr::As(AsExpr {
                 token: self.token.clone(),
@@ -164,7 +168,7 @@ impl MatchExpr {
                     },
                     mutable: None,
                 }],
-                block: Some(before_exprs),
+                block: Some(Box::new(Expr::Block(before_exprs))),
             });
             as_expr.type_check(stack, frame, func, global_env, types, generic_map)
         } else if let Some(else_case) = self.else_case {
@@ -205,7 +209,7 @@ impl MatchExpr {
         base_tid: &TypeId,
         base_variants: &[TypedMember],
         types: &mut TypeMap,
-    ) -> Result<(usize, Vec<Expr>, Vec<Expr>), HayError> {
+    ) -> Result<(usize, BlockExpr, BlockExpr), HayError> {
         let idx = self.find_variant_index(&case.variant, base_variants, base_tid, types)?;
 
         let before_exprs = vec![
@@ -244,9 +248,21 @@ impl MatchExpr {
             }));
         }
 
-        then_exprs.append(&mut case.body.clone());
+        then_exprs.push(case.body.clone());
 
-        Ok((idx, before_exprs, then_exprs))
+        Ok((
+            idx,
+            BlockExpr {
+                open: self.token.clone(),
+                close: self.token.clone(),
+                exprs: before_exprs,
+            },
+            BlockExpr {
+                open: self.token.clone(),
+                close: self.token.clone(),
+                exprs: then_exprs,
+            },
+        ))
     }
 
     fn find_variant_index(

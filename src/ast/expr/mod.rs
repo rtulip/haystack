@@ -1,6 +1,7 @@
 mod accessor;
 mod annotated_call;
 mod r#as;
+mod block;
 mod cast;
 mod expr_typ;
 mod ident;
@@ -20,6 +21,7 @@ mod r#while;
 
 pub use accessor::*;
 pub use annotated_call::*;
+pub use block::*;
 pub use cast::*;
 pub use expr_typ::*;
 pub use ident::*;

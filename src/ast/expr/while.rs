@@ -18,7 +18,7 @@ pub struct ExprWhile {
     /// The condition expressions before the body
     pub cond: Vec<Expr>,
     /// The body of the `while` loop.
-    pub body: Vec<Expr>,
+    pub body: Box<Expr>,
 }
 
 impl ExprWhile {
@@ -58,7 +58,7 @@ impl ExprWhile {
             *frame = frame_before;
             return Ok(TypedExpr::While {
                 cond: typed_cond,
-                body: vec![],
+                body: Box::new(TypedExpr::Block { exprs: vec![] }),
             });
         }
 
@@ -71,10 +71,9 @@ impl ExprWhile {
 
         let stack_after_check = stack.clone();
 
-        let mut typed_body = vec![];
-        for expr in self.body {
-            typed_body.push(expr.type_check(stack, frame, func, global_env, types, generic_map)?);
-        }
+        let typed_body =
+            self.body
+                .type_check(stack, frame, func, global_env, types, generic_map)?;
 
         if !stack.contains(&Type::Never.id())
             && (stack.len() != stack_before.len()
@@ -107,7 +106,7 @@ impl ExprWhile {
 
         Ok(TypedExpr::While {
             cond: typed_cond,
-            body: typed_body,
+            body: Box::new(typed_body),
         })
     }
 }

@@ -27,7 +27,7 @@ pub struct UncheckedFunction {
     pub name: Token,
     pub inputs: Vec<TypedArg>,
     pub outputs: Vec<TypedArg>,
-    pub body: Vec<Expr>,
+    pub body: Expr,
     pub generic_map: Option<HashMap<TypeId, TypeId>>,
     pub tags: Vec<FnTag>,
     pub impl_on: Option<TypeId>,
@@ -40,7 +40,7 @@ pub struct GenericFunction {
     pub inputs: Vec<TypedArg>,
     pub outputs: Vec<TypedArg>,
     pub generics: Vec<TypeId>,
-    pub body: Vec<Expr>,
+    pub body: Expr,
     pub tags: Vec<FnTag>,
     pub impl_on: Option<TypeId>,
     pub requires: Option<Vec<Token>>,
@@ -52,7 +52,7 @@ pub struct Function {
     pub name: Token,
     pub inputs: Vec<TypedArg>,
     pub outputs: Vec<TypedArg>,
-    pub body: Vec<TypedExpr>,
+    pub body: TypedExpr,
     pub generic_map: Option<HashMap<TypeId, TypeId>>,
     pub tags: Vec<FnTag>,
 }
@@ -100,17 +100,15 @@ impl UncheckedFunction {
                 .for_each(|arg| stack.push(arg.typ.clone()));
         }
 
-        let mut typed_body = vec![];
-        for expr in self.body.clone() {
-            typed_body.push(expr.type_check(
-                &mut stack,
-                &mut frame,
-                self,
-                global_env,
-                types,
-                &self.generic_map,
-            )?);
-        }
+        let typed_body = self.body.clone().type_check(
+            &mut stack,
+            &mut frame,
+            self,
+            global_env,
+            types,
+            &self.generic_map,
+        )?;
+
         // let stack_tids = stack.iter().collect::<Vec<&TypeId>>();
         let output_tids = self
             .outputs

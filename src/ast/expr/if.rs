@@ -14,11 +14,11 @@ pub struct ExprIf {
     /// Token of the `If` keyword
     pub token: Token,
     /// A list of expressions to execute if true.
-    pub then: Vec<Expr>,
+    pub then: Box<Expr>,
     /// A list of expressions for each else-if case
     pub otherwise: Vec<ExprElseIf>,
     /// An optional final `else` case.
-    pub finally: Option<Vec<Expr>>,
+    pub finally: Option<Box<Expr>>,
 }
 
 impl ExprIf {
@@ -37,15 +37,10 @@ impl ExprIf {
         let mut otherwise_stack = stack.clone();
 
         let mut end_stacks = vec![];
-
-        let mut typed_then = vec![];
-        let then_end_tok = match self.then.iter().last() {
-            Some(e) => e.token().clone(),
-            None => self.token.clone(),
-        };
-        for e in self.then {
-            typed_then.push(e.type_check(stack, frame, func, global_env, types, generic_map)?);
-        }
+        let then_end_tok = self.then.token().clone();
+        let typed_then =
+            self.then
+                .type_check(stack, frame, func, global_env, types, generic_map)?;
 
         if !stack.contains(&Type::Never.id()) {
             end_stacks.push((self.token.clone(), stack.clone()));
@@ -71,23 +66,17 @@ impl ExprIf {
 
         let mut typed_finally = None;
         if let Some(finally) = self.finally {
-            let mut tmp = vec![];
+            // let mut tmp = vec![];
             *stack = otherwise_stack.clone();
             *frame = initial_frame.clone();
-            if !finally.is_empty() {
-                let first_tok = finally[0].token().clone();
+            let tok = finally.token().clone();
 
-                for e in finally {
-                    tmp.push(e.type_check(stack, frame, func, global_env, types, generic_map)?);
-                }
-                typed_finally = Some(tmp);
+            let tmp =
+                Box::new(finally.type_check(stack, frame, func, global_env, types, generic_map)?);
+            typed_finally = Some(tmp);
 
-                if !stack.contains(&Type::Never.id()) {
-                    end_stacks.push((first_tok, stack.clone()));
-                }
-            } else {
-                *stack = otherwise_stack.clone();
-                end_stacks.push((then_end_tok, otherwise_stack));
+            if !stack.contains(&Type::Never.id()) {
+                end_stacks.push((tok, stack.clone()));
             }
         } else {
             *stack = otherwise_stack.clone();
@@ -142,7 +131,7 @@ impl ExprIf {
             *stack = resulting_stack;
         }
         Ok(TypedExpr::If {
-            then: typed_then,
+            then: Box::new(typed_then),
             otherwise: typed_otherwise,
             finally: typed_finally,
         })
@@ -156,7 +145,7 @@ pub struct ExprElseIf {
     /// The expressions to evaluate before the next `if`.
     pub condition: Vec<Expr>,
     /// The body of the `else` expression
-    pub block: Vec<Expr>,
+    pub block: Expr,
 }
 
 impl ExprElseIf {
@@ -190,22 +179,14 @@ impl ExprElseIf {
 
         let stack_after_check = stack.clone();
 
-        let mut typed_block = vec![];
-        for expr in self.block {
-            typed_block.push(expr.type_check(
-                stack,
-                frame,
-                func,
-                global_env,
-                types,
-                generic_map,
-            )?);
-        }
+        let typed_block =
+            self.block
+                .type_check(stack, frame, func, global_env, types, generic_map)?;
 
         Ok((
             TypedExpr::ElseIf {
                 condition: typed_condition,
-                block: typed_block,
+                block: Box::new(typed_block),
             },
             stack_after_check,
         ))

@@ -455,6 +455,11 @@ mod functional {
     fn anonymous_structures() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/functional", "anonymous_structures", None)
     }
+
+    #[test]
+    fn number_literal_bases() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/functional", "number_literal_bases", None)
+    }
 }
 
 mod examples {

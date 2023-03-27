@@ -460,6 +460,11 @@ mod functional {
     fn number_literal_bases() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/functional", "number_literal_bases", None)
     }
+
+    #[test]
+    fn tuple_accessors_unary() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/functional", "tuple_accessors_unary", None)
+    }
 }
 
 mod examples {

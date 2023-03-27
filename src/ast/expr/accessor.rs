@@ -70,8 +70,8 @@ impl AccessorExpr {
                             types,
                         )?;
                         let mut copied_frame = frame.clone();
-                        copied_frame[i].1.typ = concrete_base;
-                        stack.push(final_tid);
+                        copied_frame[i].1.typ = concrete_base.clone();
+                        stack.push(final_tid.clone());
                         Ok(TypedExpr::Framed {
                             frame: copied_frame,
                             idx: i,
@@ -95,7 +95,7 @@ impl AccessorExpr {
                             ft.typ
                                 .get_inner_accessors(self.token, &self.inner, func, types)?;
 
-                        stack.push(final_tid);
+                        stack.push(final_tid.clone());
                         Ok(TypedExpr::Framed {
                             frame: frame.clone(),
                             idx: i,
@@ -109,7 +109,7 @@ impl AccessorExpr {
                         ft.typ
                             .get_inner_accessors(self.token, &self.inner, func, types)?;
 
-                    stack.push(final_tid);
+                    stack.push(final_tid.clone());
                     Ok(TypedExpr::Framed {
                         frame: frame.clone(),
                         idx: i,
@@ -127,7 +127,7 @@ impl AccessorExpr {
                         types,
                     )?;
 
-                    stack.push(inner_tid.ptr_of(*pointer_inner_mut, types));
+                    stack.push(inner_tid.clone().ptr_of(*pointer_inner_mut, types));
                     Ok(TypedExpr::FramedPointerOffset {
                         frame: frame.clone(),
                         idx: i,

@@ -1167,7 +1167,7 @@ impl TypeId {
         inner: &Vec<Token>,
         func: &UncheckedFunction,
         types: &'a TypeMap,
-    ) -> Result<Self, HayError> {
+    ) -> Result<&'a Self, HayError> {
         let mut typ = self;
 
         for inner_member in inner {
@@ -1318,7 +1318,7 @@ impl TypeId {
                 ));}
             }
         }
-        Ok(typ.clone())
+        Ok(typ)
     }
 
     pub fn validate_redeclaration(

@@ -1,0 +1,16 @@
+fn square_unnamed([u64 u64]: mut pair) -> [[u64 u64]] {
+    pair::0 dup * *pair::0 !
+    pair::1 dup * *pair::1 !
+    pair
+}
+
+fn square_named({u64: x u64: y}: mut pair) -> [[u64 u64]] {
+    pair::x dup * *pair::x !
+    pair::y dup * *pair::y !
+    pair
+}
+
+fn main() {
+    [3 4] square_unnamed println
+    [4 5] square_named   println
+}

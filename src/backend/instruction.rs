@@ -232,8 +232,8 @@ impl Instruction {
                 let mut typ = &frame[idx].1.typ;
                 if let Some(inner) = &inner {
                     for inner in inner {
-                        typ = if let Type::Record { members, kind, .. } = types.get(typ).unwrap() {
-                            match kind {
+                        typ = match types.get(typ).unwrap() {
+                            Type::Record { members, kind, .. } => match kind {
                                 RecordKind::Struct => {
                                     let idx = members
                                         .iter()
@@ -261,9 +261,36 @@ impl Instruction {
                                 RecordKind::EnumStruct => todo!(),
                                 RecordKind::Interface => unreachable!(),
                                 RecordKind::Tuple => unreachable!(),
+                            },
+                            Type::Tuple {
+                                inner: tuple_inner,
+                                idents: Some(idents),
+                            } => {
+                                let idx = idents
+                                    .iter()
+                                    .enumerate()
+                                    .find(|(_, m)| &m.lexeme == inner)
+                                    .unwrap()
+                                    .0;
+
+                                for m in &tuple_inner[0..idx] {
+                                    offset += m.size(types).unwrap()
+                                }
+
+                                &tuple_inner[idx]
                             }
-                        } else {
-                            panic!("{typ}");
+                            Type::Tuple {
+                                inner: tuple_inner,
+                                idents: None,
+                            } => {
+                                let idx = inner.parse::<usize>().unwrap();
+                                for m in &tuple_inner[0..idx] {
+                                    offset += m.size(types).unwrap()
+                                }
+
+                                &tuple_inner[idx]
+                            }
+                            _ => panic!("{typ}"),
                         }
                     }
                 };

@@ -526,4 +526,9 @@ mod examples {
     fn advanced_features() -> Result<(), std::io::Error> {
         super::test_tools::run_test("examples", "advanced_features", Some("src/tests/examples"))
     }
+
+    #[test]
+    fn fizzbuzz() -> Result<(), std::io::Error> {
+        super::test_tools::run_test("examples", "fizzbuzz", Some("src/tests/examples"))
+    }
 }

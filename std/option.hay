@@ -33,3 +33,15 @@ impl:
     }
 
 }
+
+impl<T> Print<Option<T>>
+requires: [Print<T>] {
+    fn print(Option<T>) match {
+        Option::Some as [t] { 
+            "Some(" print 
+            t       print 
+            ")"     print
+        }
+        Option::None { "None" print }
+    }
+}

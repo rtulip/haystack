@@ -1,0 +1,20 @@
+fn fizzbuzz(u64: n) {
+    n 15 % 0 == if {
+        "FizzBuzz" println
+    } else n 5 % 0 == if {
+        "Buzz" println
+    } else n 3 % 0 == if {
+        "Fizz" println
+    } else {
+        n println
+    }
+}
+
+fn main() {
+    0 while dup 100 < {
+        as [i]
+        "i: " print i print " -> " print
+        i fizzbuzz
+        i 1 + 
+    } drop
+}

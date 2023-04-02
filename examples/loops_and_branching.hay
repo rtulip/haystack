@@ -25,11 +25,11 @@ fn fib(u64: n) -> [u64] {
 fn main() {
 
     //Uncomment this loop to see the compiler error
-    //while true {
+    //while true do {
     //    1
     //}
 
-    0 while dup 20 < {
+    0 while dup 20 < do {
         as [i]
         i fib println
         i 1 + 

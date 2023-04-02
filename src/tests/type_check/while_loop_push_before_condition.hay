@@ -2,7 +2,7 @@ fn main() {
 
     Vec.new::<u64> as [mut vec]
 
-    while *vec Vec.pop dup Option.take_is_some {
+    while *vec Vec.pop dup Option.take_is_some do {
         drop
     }
 

@@ -164,6 +164,7 @@ pub enum Keyword {
     If,
     Else,
     While,
+    Do,
     Struct,
     Union,
     Enum,
@@ -191,6 +192,7 @@ impl std::fmt::Display for Keyword {
             Keyword::If => write!(f, "if")?,
             Keyword::Else => write!(f, "else")?,
             Keyword::While => write!(f, "while")?,
+            Keyword::Do => write!(f, "do")?,
             Keyword::Struct => write!(f, "struct")?,
             Keyword::Union => write!(f, "union")?,
             Keyword::Enum => write!(f, "enum")?,
@@ -220,6 +222,7 @@ impl Keyword {
         map.insert("if", TokenKind::Keyword(Keyword::If));
         map.insert("else", TokenKind::Keyword(Keyword::Else));
         map.insert("while", TokenKind::Keyword(Keyword::While));
+        map.insert("do", TokenKind::Keyword(Keyword::Do));
         map.insert("struct", TokenKind::Keyword(Keyword::Struct));
         map.insert("union", TokenKind::Keyword(Keyword::Union));
         map.insert("enum", TokenKind::Keyword(Keyword::Enum));

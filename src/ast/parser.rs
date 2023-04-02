@@ -1794,11 +1794,13 @@ impl<'a> Parser<'a> {
 
     fn parse_while(&mut self, token: Token) -> Result<Box<Expr>, HayError> {
         let mut cond = vec![];
-        while !self.check(TokenKind::Marker(Marker::LeftBrace)) {
-            cond.push(*self.expression()?);
+        while self.matches(TokenKind::Keyword(Keyword::Do)).is_err() {
+            cond.push(*self.expression().map_err(|_| HayError::new(
+                format!("Expected {} after {} to mark loop body.", Keyword::Do, Keyword::While), 
+                token.loc.clone()))?
+            );
         }
-        let open = self.tokens.pop().unwrap();
-        let body = self.block(open)?;
+        let body = self.expression()?;
 
         Ok(Box::new(Expr::While(ExprWhile { token, cond, body })))
     }
@@ -2290,6 +2292,11 @@ mod tests {
     #[test]
     fn anon_struct_bad_close() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test("src/tests/parser", "anon_struct_bad_close", None)
+    }
+
+    #[test]
+    fn parse_while_without_do() -> Result<(), std::io::Error> {
+        crate::compiler::test_tools::run_test("src/tests/parser", "parse_while_without_do", None)
     }
 
 }

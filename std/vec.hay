@@ -91,7 +91,7 @@ impl:
 
     fn Vec.contains<T>(T: item &Vec<T>: self) -> [bool] {
 
-        0 while dup self Vec.len < {
+        0 while dup self Vec.len < do {
             as [i]
             i self Vec.at Option.unwrap item == if {
                 true return
@@ -106,11 +106,11 @@ impl:
     fn Vec.append<T>(*Vec<T>: other *Vec<T>: self) {
         Vec.new::<T> as [mut temp]
 
-        while other Vec.is_empty lnot {
+        while other Vec.is_empty lnot do {
             other Vec.pop Option.unwrap *temp Vec.push
         }
 
-        while &temp Vec.is_empty lnot {
+        while &temp Vec.is_empty lnot do {
             *temp Vec.pop Option.unwrap self Vec.push
         }
 
@@ -121,7 +121,7 @@ impl:
     fn Vec.reverse<T>(Vec<T>: mut self) -> [Vec<T>] {
 
         Vec.new::<T> as [mut rev]
-        while &self Vec.is_empty lnot {
+        while &self Vec.is_empty lnot do {
             *self Vec.pop Option.unwrap *rev Vec.push
         }
 
@@ -139,7 +139,7 @@ requires: [Format<T>] {
         self Vec.len 0 == if { "[ ]" fmt return }
         
         '[' fmt
-        0 while dup self Vec.len 1 - < {
+        0 while dup self Vec.len 1 - < do {
             as [i]
             i self Vec.get Option.unwrap @ fmt
             ' '              fmt

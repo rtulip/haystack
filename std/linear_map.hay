@@ -31,7 +31,7 @@ impl:
     }
 
     fn Map.get_mut<T>(Str: key *Map<T>: self) -> [Option<*T>] {
-        0 while dup self::keys Vec.len < {
+        0 while dup self::keys Vec.len < do {
             as [i]
 
             key i self::keys Vec.at Option.unwrap Str.equals if {
@@ -45,7 +45,7 @@ impl:
     }
 
     fn Map.get<T>(Str: key &Map<T>: self) -> [Option<&T>] {
-        0 while dup self::keys Vec.len < {
+        0 while dup self::keys Vec.len < do {
             as [i]
             key i self::keys Vec.at Option.unwrap Str.equals if {
                 i self::values Vec.get return 

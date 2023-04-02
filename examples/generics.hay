@@ -71,7 +71,7 @@ fn main() {
         "Unwrapped err value: " print err MyResult.unwrap_err println 
     }
 
-    0 while dup 10 < {
+    0 while dup 10 < do {
         as [i]
         i might_fail as [r] {
             r MyResult.is_ok if {

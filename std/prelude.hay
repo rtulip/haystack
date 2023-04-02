@@ -35,14 +35,14 @@ fn ptr-diff<T>(*T: ptr1 *T:  ptr2) -> [u64] {
     - sizeOf(T) /
 }
 fn memset<T>(T: value Arr<T>: range) {
-    0 while dup range::size < {
+    0 while dup range::size < do {
         as [i]
         value range::data i ptr+_mut !
         i 1 +
     } drop
 }
 fn memcpy<T>(u64: n &T: src *T: dest) {
-    0 while dup n < {
+    0 while dup n < do {
         as [i]
         src i ptr+ @
         dest i ptr+_mut !

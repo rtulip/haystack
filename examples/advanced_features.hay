@@ -19,7 +19,7 @@ fn add_leaf(Tree: leaf Tree: mut self) -> [Tree] {
 
 fn Tree.print(u64: level &Tree: self) {
 
-    0 while dup level < {
+    0 while dup level < do {
         as [i]
         '\t' print
         i 1 + 
@@ -27,7 +27,7 @@ fn Tree.print(u64: level &Tree: self) {
 
     self::value @ println
 
-    0 while dup self::leaves Vec.len < {
+    0 while dup self::leaves Vec.len < do {
         as [i]
         level 1 + i self::leaves Vec.get Option.unwrap Tree.print
         i 1 +

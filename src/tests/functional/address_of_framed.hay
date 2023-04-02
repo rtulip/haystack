@@ -28,12 +28,12 @@ impl:
 fn main() {
 
     12345 MyVec.new::<u64> "Hello World" as [n mut list str]
-    0 while dup 10 < {
+    0 while dup 10 < do {
         dup *list MyVec.push
         1 +
     } drop
 
-    0 while dup 10 < {
+    0 while dup 10 < do {
         dup *list MyVec.get println
         1 +
     } drop

@@ -1,6 +1,6 @@
 fn main() {
 
-    while true {
+    while true do {
         1
     }
 

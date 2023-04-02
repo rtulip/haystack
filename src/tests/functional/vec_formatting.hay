@@ -1,7 +1,7 @@
 fn main() {
 
     Vec.new::<u64> as [mut v]
-    0 while dup 10 < {
+    0 while dup 10 < do {
         as [i]
         "" String.new &v fmt println
         i *v Vec.push

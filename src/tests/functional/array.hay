@@ -8,7 +8,7 @@ fn main() {
     "Hello World2\n" 1 x Arr.set
     "Hello World3\n" 2 x Arr.set
 
-    0 while dup 3 < {
+    0 while dup 3 < do {
         as [i]
         i x Arr.get print
         i 1 + 
@@ -17,7 +17,7 @@ fn main() {
     "aaaaabbbbbccccc" as [s] { s::size s::data } cast(ConstArr)
     as [str_arr]
 
-    0 while dup str_arr::size < {
+    0 while dup str_arr::size < do {
         as [i]
         i str_arr ConstArr.get cast(u64) println
         i 1 +

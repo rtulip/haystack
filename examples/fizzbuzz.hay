@@ -11,7 +11,7 @@ fn fizzbuzz(u64: n) {
 }
 
 fn main() {
-    0 while dup 100 < {
+    0 while dup 100 < do {
         as [i]
         "i: " print i print " -> " print
         i fizzbuzz

@@ -4,7 +4,7 @@ fn do_work(Option<u64>: maybe) -> [Option<bool>] {
         Option.None::<bool> return
     }
 
-    while true {
+    while true do {
         maybe Option.unwrap 10 < Option.Some return 
     }
     

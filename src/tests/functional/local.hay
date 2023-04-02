@@ -3,7 +3,7 @@ fn copy_local(Str: s) {
     
     nums @ as [arr]
     
-    0 while dup s::size < {
+    0 while dup s::size < do {
         as [i]
         s::data i ptr+ @
         i arr Arr.set

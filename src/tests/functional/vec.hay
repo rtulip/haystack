@@ -4,7 +4,7 @@ fn main() {
     Vec.new::<u64> as [mut vec]
     "Initial capacity: " print &vec Vec.capacity println
     
-    0 while dup 4069 < {
+    0 while dup 4069 < do {
         as [i]
         i *vec Vec.push
         i 1 +
@@ -20,7 +20,7 @@ fn main() {
     4069 *vec Vec.get_mut as [x] &x Option.is_none assert
     4069 &vec Vec.at      as [x] &x Option.is_none assert
 
-    0 while &vec Vec.len 0 > {
+    0 while &vec Vec.len 0 > do {
         *vec Vec.pop Option.unwrap drop
         1 +
     }

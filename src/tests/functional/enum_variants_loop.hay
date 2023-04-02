@@ -12,7 +12,7 @@ impl Print<Foo> {
 
 fn main() {
 
-    Foo::Bar 0 while dup 2 < {
+    Foo::Bar 0 while dup 2 < do {
         as [i]
         println
         Foo::Baz

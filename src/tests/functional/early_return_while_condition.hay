@@ -1,6 +1,6 @@
 fn foo() -> [u64] {
 
-    while 42 return {
+    while 42 return do {
         "unreachable" println
     }
 

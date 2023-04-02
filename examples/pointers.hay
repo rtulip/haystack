@@ -10,7 +10,7 @@ fn example() {
 
 fn main() {
     "Hello World" as [s]
-    0 while dup s::size < {
+    0 while dup s::size < do {
         as [i]
         s::data i
         ptr+ // ptr+ offsets a pointer by `i`
@@ -29,7 +29,7 @@ fn main() {
 
     numbers @ as [nums]
 
-    0 while dup nums::size < {
+    0 while dup nums::size < do {
         as [i]
         i nums Arr.get println
         i 1 +

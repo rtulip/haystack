@@ -1794,11 +1794,10 @@ impl<'a> Parser<'a> {
 
     fn parse_while(&mut self, token: Token) -> Result<Box<Expr>, HayError> {
         let mut cond = vec![];
-        while !self.check(TokenKind::Marker(Marker::LeftBrace)) {
+        while self.matches(TokenKind::Keyword(Keyword::Do)).is_err() {
             cond.push(*self.expression()?);
         }
-        let open = self.tokens.pop().unwrap();
-        let body = self.block(open)?;
+        let body = self.expression()?;
 
         Ok(Box::new(Expr::While(ExprWhile { token, cond, body })))
     }

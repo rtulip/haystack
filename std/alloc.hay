@@ -18,7 +18,7 @@ fn Chunk.next(*Block: blk_p) -> [*Block] {
 fn Chunk.print(Chunk: chunk) {
     "[" print 
     chunk::start cast(u64) chunk::cap + cast(u64) as [end]
-    0 chunk::start cast(u64) while dup end < {
+    0 chunk::start cast(u64) while dup end < do {
 
         cast(*Block) as [n blk_p]
         blk_p @ as [blk]
@@ -37,7 +37,7 @@ fn Heap.debug_summary() {
     
     chunks_p @ as [chunks]
     "Heap:" println
-    0 while dup n_chunks_p @ < {
+    0 while dup n_chunks_p @ < do {
         as [i]
         "  * " print i chunks Arr.get Chunk.print
         i 1 +
@@ -59,6 +59,7 @@ fn Chunk.try_alloc(u64: n *Chunk: chunk_p) -> [Option<Arr<u8>>] {
     while 
         &maybe_alloc Option.is_none 
         block_p cast(u64) end cast(u64) < land
+    do
     {
         block_p cast(u64) cast(*u8) as [void_block_p]
         block_p @ as [block] 
@@ -109,7 +110,7 @@ fn Chunk.consolidate(*Chunk: chunk_p) {
     
     chunk_p @ as [chunk]
     chunk::start cast(u64) chunk::cap + as [end]
-    chunk::start chunk::start Chunk.next while dup cast(u64) end < {
+    chunk::start chunk::start Chunk.next while dup cast(u64) end < do {
 
         as [first_p second_p]
         first_p @ second_p @ as [first second]
@@ -203,7 +204,7 @@ fn malloc<T>(u64: count) -> [Arr<T>] {
         0 while
             dup n_chunks <
             &maybe_alloc Option.is_none land
-        {
+        do {
             // clear the previous option and capture the index
             as [idx]
             idx chunks Arr.get_ref_mut as [chunk_p]
@@ -238,7 +239,7 @@ fn find_chunk<T>(Arr<T>: arr) -> [Option<*Chunk>] {
     0 while
         dup n_chunks <
         &maybe_blk Option.is_none land
-    {
+    do {
         as [n]
         n chunks Arr.get as [chunk]
         
@@ -264,7 +265,7 @@ fn free<T>(Arr<T>: arr) {
         maybe_chunk Option.unwrap as [chunk_p] 
         chunk_p @ as [chunk]
         arr::data cast(u64) sizeOf(Block) - cast(*Block) as [blk_p]
-        chunk::start while dup cast(u64) blk_p cast(u64) <= {
+        chunk::start while dup cast(u64) blk_p cast(u64) <= do {
             as [chunk_blk_p]
             chunk_blk_p cast(u64) blk_p cast(u64) == if {
                 blk_p @ as [blk]

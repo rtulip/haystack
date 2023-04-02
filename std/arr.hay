@@ -41,7 +41,7 @@ impl:
     fn Arr.rev<T>(Arr<T>: arr) {
 
         0 arr::size 1 - 
-        while over over < {
+        while over over < do {
 
             as [start_idx end_idx]
             start_idx arr Arr.get

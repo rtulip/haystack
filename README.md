@@ -33,14 +33,14 @@ Check out the [Tutorial](https://www.github.com/rtulip/haystack/wiki/Tutorial) t
 Here's a few simple programs to show off a little of what `Haystack` looks like:
 
 ## Hello World
-```
+```rust
 fn main() {
     "Hello World" println
 }
 ```
 
 ## N'th Fibonacci Number
-```
+```rust
 fn fib(u64: n) -> [u64] {
     n 2 < if {
         n
@@ -52,9 +52,9 @@ fn fib(u64: n) -> [u64] {
 ```
 
 ## Print Numbers 1 to 10
-```
+```rust
 fn main() {
-    1 while dup 10 <= {
+    1 while dup 10 <= do {
         as [i]
         i println
         i 1 +

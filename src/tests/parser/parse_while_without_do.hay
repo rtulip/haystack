@@ -1,0 +1,9 @@
+fn main() {
+
+    0 while dup 10 < {
+        as [i]
+        i println
+        i 1 +
+    } drop
+
+}

@@ -1853,450 +1853,450 @@ mod tests {
 
     #[test]
     fn parse_as_block_bad_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_as_block_bad_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_as_block_bad_close", None)
     }
 
     #[test]
     fn parse_as_block_bad_open() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_as_block_bad_open", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_as_block_bad_open", None)
     }
 
     #[test]
     fn parse_bad_accessor1() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_accessor1", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_accessor1", None)
     }
 
     #[test]
     fn parse_bad_accessor2() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_accessor2", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_accessor2", None)
     }
 
     #[test]
     fn parse_bad_accessor3() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_accessor3", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_accessor3", None)
     }
 
     #[test]
     fn parse_bad_annotated_call_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_annotated_call_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_annotated_call_close", None)
     }
 
     #[test]
     fn parse_bad_annotated_type() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_annotated_type", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_annotated_type", None)
     }
 
     #[test]
     fn parse_bad_arg_identifier() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_arg_identifier", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_arg_identifier", None)
     }
 
     #[test]
     fn parse_bad_array_var_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_array_var_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_array_var_close", None)
     }
 
     #[test]
     fn parse_bad_array_var_size() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_array_var_size", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_array_var_size", None)
     }
 
     #[test]
     fn parse_bad_block_open() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_block_open", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_block_open", None)
     }
 
     #[test]
     fn parse_bad_body_after_function_name() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_body_after_function_name", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_body_after_function_name", None)
     }
 
     #[test]
     fn parse_bad_cast_expr_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_cast_expr_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_cast_expr_close", None)
     }
 
     #[test]
     fn parse_bad_cast_expr_open() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_cast_expr_open", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_cast_expr_open", None)
     }
 
     #[test]
     fn parse_bad_cast_expr_param() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_cast_expr_param", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_cast_expr_param", None)
     }
 
     #[test]
     fn parse_bad_else_if_block() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_else_if_block", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_else_if_block", None)
     }
 
     #[test]
     fn parse_bad_expression() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_expression", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_expression", None)
     }
 
     #[test]
     fn parse_bad_file_to_include() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_file_to_include", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_file_to_include", None)
     }
 
     #[test]
     fn parse_bad_function_annotation_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_function_annotation_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_function_annotation_close", None)
     }
 
     #[test]
     fn parse_bad_function_parameter_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_function_parameter_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_function_parameter_close", None)
     }
 
     #[test]
     fn parse_bad_function_return_list_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_function_return_list_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_function_return_list_close", None)
     }
 
     #[test]
     fn parse_bad_function_return_list_open() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_function_return_list_open", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_function_return_list_open", None)
     }
 
     #[test]
     fn parse_bad_include_statement() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_include_statement", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_include_statement", None)
     }
 
     #[test]
     fn parse_bad_pointer_type() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_pointer_type", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_pointer_type", None)
     }
 
     #[test]
     fn parse_bad_top_level_token() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_top_level_token", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_top_level_token", None)
     }
 
     #[test]
     fn parse_enum_bad_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_enum_bad_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_enum_bad_close", None)
     }
 
     #[test]
     fn parse_enum_bad_open() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_enum_bad_open", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_enum_bad_open", None)
     }
 
     #[test]
     fn parse_enum_empty_variants() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_enum_empty_variants", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_enum_empty_variants", None)
     }
 
     #[test]
     fn parse_enum_without_identifier() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_enum_without_identifier", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_enum_without_identifier", None)
     }
 
     #[test]
     fn parse_function_empty_return_list() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_function_empty_return_list", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_function_empty_return_list", None)
     }
 
     #[test]
     fn parse_function_without_name() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_function_without_name", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_function_without_name", None)
     }
 
     #[test]
     fn parse_mixed_identifier_arg_list() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_mixed_identifier_arg_list", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_mixed_identifier_arg_list", None)
     }
 
     #[test]
     fn parse_no_args_in_annotated_call() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_no_args_in_annotated_call", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_no_args_in_annotated_call", None)
     }
 
     #[test]
     fn parse_struct_bad_annotations_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_struct_bad_annotations_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_struct_bad_annotations_close", None)
     }
 
     #[test]
     fn parse_struct_bad_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_struct_bad_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_struct_bad_close", None)
     }
 
     #[test]
     fn parse_struct_bad_impl_open() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_struct_bad_impl_open", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_struct_bad_impl_open", None)
     }
 
     #[test]
     fn parse_struct_bad_open() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_struct_bad_open", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_struct_bad_open", None)
     }
 
     #[test]
     fn parse_struct_empty_members() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_struct_empty_members", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_struct_empty_members", None)
     }
 
     #[test]
     fn parse_struct_member_without_identifier1() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_struct_member_without_identifier1", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_struct_member_without_identifier1", None)
     }
 
     #[test]
     fn parse_struct_member_without_identifier2() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_struct_member_without_identifier2", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_struct_member_without_identifier2", None)
     }
 
     #[test]
     fn parse_struct_pub_member_without_type() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_struct_pub_member_without_type", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_struct_pub_member_without_type", None)
     }
 
     #[test]
     fn parse_struct_without_identifier() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_struct_without_identifier", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_struct_without_identifier", None)
     }
 
     #[test]
     fn parse_var_expr_bad_ident() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_var_expr_bad_ident", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_var_expr_bad_ident", None)
     }
 
     #[test]
     fn parse_var_expr_bad_type() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_var_expr_bad_type", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_var_expr_bad_type", None)
     }
 
     #[test]
     fn parse_var_expr_missing_colon() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_var_expr_missing_colon", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_var_expr_missing_colon", None)
     }
 
     #[test]
     fn parse_bad_sizeof_open() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_sizeof_open", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_sizeof_open", None)
     }
 
     #[test]
     fn parse_bad_sizeof_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_sizeof_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_sizeof_close", None)
     }
 
     #[test]
     fn parse_bad_follow_up_to_inline() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_follow_up_to_inline", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_follow_up_to_inline", None)
     }
 
     #[test]
     fn parse_on_copy_outside_impl() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_on_copy_outside_impl", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_on_copy_outside_impl", None)
     }
 
     #[test]
     fn parse_on_drop_outside_impl() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_on_drop_outside_impl", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_on_drop_outside_impl", None)
     }
     #[test]
     fn parse_bad_on_copy_name() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_on_copy_name", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_on_copy_name", None)
     }
     #[test]
     fn parse_bad_on_drop_name() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_on_drop_name", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_on_drop_name", None)
     }
 
     #[test]
     fn parse_bad_inner_address_of() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_inner_address_of", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_inner_address_of", None)
     }
 
     #[test]
     fn parse_bad_const_ptr_type() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_const_ptr_type", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_const_ptr_type", None)
     }
 
     #[test]
     fn parse_missing_mutable_ident_in_as() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_missing_mutable_ident_in_as", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_missing_mutable_ident_in_as", None)
     }
 
     #[test]
     fn parse_mut_in_fn_output() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_mut_in_fn_output", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_mut_in_fn_output", None)
     }
 
     #[test]
     fn parse_pub_in_union() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_pub_in_union", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_pub_in_union", None)
     }
 
     #[test]
     fn parse_partially_named_args() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_partially_named_args", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_partially_named_args", None)
     }
 
     #[test]
     fn parse_bad_sizeof_operand() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_sizeof_operand", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_sizeof_operand", None)
     }
 
     #[test]
     fn parse_bad_interface_annotation_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_interface_annotation_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_interface_annotation_close", None)
     }
 
     #[test]
     fn parse_bad_interface_annotation_open() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_interface_annotation_open", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_interface_annotation_open", None)
     }
 
     #[test]
     fn parse_bad_interface_body_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_interface_body_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_interface_body_close", None)
     }
     
     #[test]
     fn parse_bad_interface_body_open() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_interface_body_open", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_interface_body_open", None)
     }
 
     #[test]
     fn parse_bad_interface_name() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_interface_name", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_interface_name", None)
     }
 
     #[test]
     fn parse_bad_interface_impl_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_interface_impl_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_interface_impl_close", None)
     }
 
     #[test]
     fn parse_bad_interface_impl_open() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_interface_impl_open", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_interface_impl_open", None)
     }
 
     #[test]
     fn parse_bad_interface_impl_type() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_interface_impl_type", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_interface_impl_type", None)
     }
 
     #[test]
     fn parse_bad_interface_associated_type_name() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_interface_associated_type_name", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_interface_associated_type_name", None)
     }
 
     #[test]
     fn parse_bad_interface_associated_type_placeholder() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_interface_associated_type_placeholder", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_interface_associated_type_placeholder", None)
     }
 
     #[test]
     fn parse_bad_interface_associated_type() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_interface_associated_type", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_interface_associated_type", None)
     }
     
     #[test]
     fn parse_bad_requirement_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_requirement_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_requirement_close", None)
     }
 
     #[test]
     fn parse_bad_requirement_list() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_requirement_list", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_requirement_list", None)
     }
 
     #[test]
     fn parse_bad_requirement_open() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_requirement_open", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_requirement_open", None)
     }
 
     #[test]
     fn parse_bad_requirement_start() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_requirement_start", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_requirement_start", None)
     }
 
     #[test]
     fn parse_bad_generic_impl_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_generic_impl_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_generic_impl_close", None)
     }
 
     #[test]
     fn parse_bad_generic_impl_requires() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_generic_impl_requires", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_generic_impl_requires", None)
     }
 
     #[test]
     fn parse_type_missing_associated_type_identifier() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_type_missing_associated_type_identifier", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_type_missing_associated_type_identifier", None)
     }
 
     #[test]
     fn parse_recursive_type() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_recursive_type", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_recursive_type", None)
     }
 
     #[test]
     fn parse_tuple_empty() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_tuple_empty", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_tuple_empty", None)
     }
 
     #[test]
     fn parse_tuple_bad_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_tuple_bad_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_tuple_bad_close", None)
     }
     
     #[test]
     fn parse_bad_tuple_expression_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_bad_tuple_expression_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_bad_tuple_expression_close", None)
     }
 
     #[test]
     fn parse_match_as_too_many_args() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_as_too_many_args", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_match_as_too_many_args", None)
     }
 
     #[test]
     fn parse_match_bad_as_open() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_as_open", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_match_bad_as_open", None)
     }
 
     #[test]
     fn parse_match_bad_as_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_as_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_match_bad_as_close", None)
     }
 
     #[test]
     fn parse_match_bad_open() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_open", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_match_bad_open", None)
     }
 
     #[test]
     fn parse_match_bad_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_match_bad_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_match_bad_close", None)
     }
 
     #[test]
     fn parse_as_block_bad_destructure_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_as_block_bad_destructure_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_as_block_bad_destructure_close", None)
     }
 
     #[test]
     fn parse_as_block_empty_destructure() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_as_block_empty_destructure", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_as_block_empty_destructure", None)
     }
 
     #[test]
     fn anon_struct_bad_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "anon_struct_bad_close", None)
+        crate::compiler::test_tools::run_test("tests/parser", "anon_struct_bad_close", None)
     }
 
     #[test]
     fn parse_while_without_do() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/parser", "parse_while_without_do", None)
+        crate::compiler::test_tools::run_test("tests/parser", "parse_while_without_do", None)
     }
 
 }

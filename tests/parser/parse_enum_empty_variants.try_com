@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/parser/parse_enum_empty_variants.hay:1:6] Error: Enumerations must have at least one variant.\n"
+}

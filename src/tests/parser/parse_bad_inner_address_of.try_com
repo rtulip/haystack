@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_bad_inner_address_of.hay:6:1] Error: Expected either an identifier or `<` after `::`, but found `}` instead.\n"
-}

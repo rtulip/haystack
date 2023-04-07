@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/private_member_access.hay:10:5] Error: Type Error: Cannot access struct `Foo` member `bar` as it is declared as private.\n    [tests/type_check/private_member_access.hay:1:8]: struct `Foo` declared here\n"
+}

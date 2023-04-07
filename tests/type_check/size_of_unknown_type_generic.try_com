@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/size_of_unknown_type_generic.hay:1:24] Error: Type Error: Cannot get size of unknown type: X\n"
+}

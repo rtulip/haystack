@@ -1,0 +1,9 @@
+fn cat(Str: path) {
+    path File.read_to_string as [file_str]
+    file_str println 
+    &file_str String.delete
+}
+
+fn main() {
+    "./tests/functional/cat.hay" cat
+}

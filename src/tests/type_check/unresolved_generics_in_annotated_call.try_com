@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/unresolved_generics_in_annotated_call.hay:5:5] Error: Type Error: Unresolved generic types in annotations\n    [Note]: Found annotations: [\"T1\"]\n    [Note]:          Of which: [\"T1\"] are generic\n"
-}

@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/parser/parse_struct_pub_member_without_type.hay:2:5] Error: Expected a type after `pub`, but found `:` instead.\n"
+}

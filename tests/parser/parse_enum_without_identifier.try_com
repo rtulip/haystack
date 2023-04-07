@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/parser/parse_enum_without_identifier.hay:1:6] Error: Expected an identifier after `enum`, but found `u64`\n"
+}

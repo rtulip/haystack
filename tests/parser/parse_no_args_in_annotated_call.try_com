@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/parser/parse_no_args_in_annotated_call.hay:3:10] Error: Expected a non-zero number of annotations\n"
+}

@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/stmt/bad_associated_type.hay:7:5] Error: Unrecognized associated type: `output`\n    [Note]: Interface `Foo` expects the following associated types:\n    [Note]: [Output]\n"
+}

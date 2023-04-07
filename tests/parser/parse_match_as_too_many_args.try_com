@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/parser/parse_match_as_too_many_args.hay:3:18] Error: `match` case statement as block expects only one ident.\n    [Note]: Found: [\"a\", \"b\"]\n"
+}

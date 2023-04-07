@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/unpack_non_tuple.hay:2:19] Error: `Unpack` expression requires a tuple on top of the stack, found `Str` instead.\n"
+}

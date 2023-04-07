@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/parser/parse_struct_bad_annotations_close.hay:1:18] Error: Expected `>` after `struct` generics, but found end of file instead.\n"
+}

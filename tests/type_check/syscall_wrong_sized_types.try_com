@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/syscall_wrong_sized_types.hay:3:21] Error: `syscall(1)` can only accept types of size 1.\n    [Note]: Found type `Str` which has size 2\n"
+}

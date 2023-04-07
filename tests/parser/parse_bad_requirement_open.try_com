@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/parser/parse_bad_requirement_open.hay:2:11] Error: Expected `[` after `:`. Found `{` instead.\n"
+}

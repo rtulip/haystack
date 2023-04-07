@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_bad_interface_name.hay:1:11] Error: Expected interface name after `interface`, but found `{`\n"
-}

@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/unknown_accessor_ident.hay:3:5] Error: Unknown identifier `Foo`\n"
+}

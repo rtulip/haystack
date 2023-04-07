@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/stmt/non_generic_function_requirements.hay:5:12] Error: Cannot have interface requirements on non-generic functions\n"
+}

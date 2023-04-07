@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/struct_requirements.hay:13:15] Error: Cannot assign [u64, u8] to struct `Marked`, as requirements would not be met.\n    [Note]: Struct `Marked` requires `Marker<B>` is implemented\n    [Note]: Interface `Marker<u8>` is not implemented\n"
+}

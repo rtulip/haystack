@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/generic_record_record_resolution.hay:4:19] Error: Cannot resolve struct `Arr` from `Str`\n"
+}

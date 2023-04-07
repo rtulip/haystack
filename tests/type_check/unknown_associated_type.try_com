@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/unknown_associated_type.hay:1:13] Error: Unrecognized associated type: `Bar`\n    [Note]: Interface `Add` has the following associated types:\n    [Note]:   [Output]\n"
+}

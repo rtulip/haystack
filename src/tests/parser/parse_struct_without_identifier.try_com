@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_struct_without_identifier.hay:1:8] Error: Expected an identifier after `struct`, but found `u64` instead.\n"
-}

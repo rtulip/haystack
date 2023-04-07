@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "fn cat(Str: path) {\n    path File.read_to_string as [file_str]\n    file_str println \n    &file_str String.delete\n}\n\nfn main() {\n    \"./tests/functional/cat.hay\" cat\n}\n",
+  "stderr": ""
+}

@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/scanner/scan_bad_equals_operator.hay:1:1] Error: Unrecognized token: `=@`\n"
+}

@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/cast_to_struct_with_private_members_in_impl.hay:9:11] Error: Cannot cast to type `Foo` because it has private members.\n"
+}

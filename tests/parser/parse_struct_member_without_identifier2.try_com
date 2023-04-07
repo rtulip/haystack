@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/parser/parse_struct_member_without_identifier2.hay:2:15] Error: Expected an identifier, but found `u64` instead.\n"
+}

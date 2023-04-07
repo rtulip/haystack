@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_while_without_do.hay:3:7] Error: Expected `do` after `while` to mark loop body.\n"
-}

@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/stmt/enum_name_conflict.hay:2:6] Error: Name conflict. `Foo` defined elsewhere\n"
+}

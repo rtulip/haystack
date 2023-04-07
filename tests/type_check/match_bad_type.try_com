@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/match_bad_type.hay:2:7] Error: `match` expects an `enum struct`, but found `u64` instead\n"
+}

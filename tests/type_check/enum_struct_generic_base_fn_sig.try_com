@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/enum_struct_generic_base_fn_sig.hay:6:9] Error: Enum struct `Foo` is generic, and requires annotations.\n    [Note]: Consider using `Foo<...>::Bar`.\n"
+}

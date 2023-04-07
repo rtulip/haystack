@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stdout": "[CMD]: nasm -felf64 tests/functional/struct.asm\n[CMD]: ld -o struct tests/functional/struct.o\n",
+  "stderr": ""
+}

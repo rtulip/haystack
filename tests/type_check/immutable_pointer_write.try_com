@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/immutable_pointer_write.hay:4:17] Error: Type Error: Invalid inputs for `!`\n    [Note]: Expected: [char, *char]\n    [Note]: Found:    [char, &char]\n"
+}

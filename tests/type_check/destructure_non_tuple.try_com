@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/destructure_non_tuple.hay:3:14] Error: Type Error: Non-tuple type `u64` cannot be destructured\n"
+}

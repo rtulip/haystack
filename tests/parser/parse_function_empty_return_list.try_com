@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/parser/parse_function_empty_return_list.hay:1:13] Error: Expected a non-empty return list.\n"
+}

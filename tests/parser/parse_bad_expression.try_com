@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/parser/parse_bad_expression.hay:2:5] Error: Not sure how to parse expression from `]` yet\n"
+}

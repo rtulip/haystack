@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/syscall_bad_number_of_args.hay:3:11] Error: Type Error: syscall(3) requires at least 4 elements on the stack. Found 3\n"
+}

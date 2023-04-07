@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/match_empty_stack.hay:2:5] Error: `match` expects one element on the stack. Found none.\n"
+}

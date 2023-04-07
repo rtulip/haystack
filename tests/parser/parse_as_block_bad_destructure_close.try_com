@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/parser/parse_as_block_bad_destructure_close.hay:2:20] Error: Expected `]` after identifiers, but found ) instead.\n"
+}

@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/stmt/impl_wrong_annotations.hay:5:6] Error: Incorrect number of annotations for interface `Foo`\n    [Note]: Expected annotations for: [A, B, C]\n    [Note]: Found annotations:        [u64]\n"
+}

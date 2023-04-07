@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/parser/parse_tuple_bad_close.hay:3:22] Error: Expected a `]` to close the tuple, but found ) instead\n"
+}

@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/associated_type_unknown_interface.hay:1:8] Error: Unknown interface `Foo`\n"
+}

@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/multiple_pointer_offsets.hay:11:5] Error: Cannot access into non-record type `*Foo`\n"
+}

@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/parser/parse_bad_annotated_call_close.hay:3:15] Error: Expected `>` after call annotations, but found `u64` instead.\n"
+}

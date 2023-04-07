@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_struct_bad_open.hay:1:12] Error: Expected `{` after struct name, but found `[` instead.\n"
-}

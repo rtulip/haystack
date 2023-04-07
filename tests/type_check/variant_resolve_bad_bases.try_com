@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/variant_resolve_bad_bases.hay:8:14] Error: Failed to resolve enum type `A_` from `B_`\n"
+}

@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/address_of_unknown_ident.hay:1:13] Error: Type Error: Can't take address of unknown identifier: `foo`\n"
+}

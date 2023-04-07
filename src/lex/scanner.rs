@@ -401,33 +401,33 @@ mod tests {
 
     #[test]
     fn scan_good_escape_chars() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_good_escape_chars", None)
+        crate::compiler::test_tools::run_test("tests/scanner", "scan_good_escape_chars", None)
     }
 
     #[test]
     fn scan_bad_equals_operator() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_bad_equals_operator", None)
+        crate::compiler::test_tools::run_test("tests/scanner", "scan_bad_equals_operator", None)
     }
 
     #[test]
     fn scan_multi_line_string() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_multi_line_string", None)
+        crate::compiler::test_tools::run_test("tests/scanner", "scan_multi_line_string", None)
     }
 
     #[test]
     fn scan_bad_syscall_open() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_bad_syscall_open", None)
+        crate::compiler::test_tools::run_test("tests/scanner", "scan_bad_syscall_open", None)
     }
 
     #[test]
     fn scan_bad_syscall_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_bad_syscall_close", None)
+        crate::compiler::test_tools::run_test("tests/scanner", "scan_bad_syscall_close", None)
     }
 
     #[test]
     fn scan_bad_syscall_number_too_large() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test(
-            "src/tests/scanner",
+            "tests/scanner",
             "scan_bad_syscall_number_too_large",
             None,
         )
@@ -436,7 +436,7 @@ mod tests {
     #[test]
     fn scan_bad_syscall_number_too_small() -> Result<(), std::io::Error> {
         crate::compiler::test_tools::run_test(
-            "src/tests/scanner",
+            "tests/scanner",
             "scan_bad_syscall_number_too_small",
             None,
         )
@@ -444,45 +444,41 @@ mod tests {
 
     #[test]
     fn scan_bad_syscall_parameter() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test(
-            "src/tests/scanner",
-            "scan_bad_syscall_parameter",
-            None,
-        )
+        crate::compiler::test_tools::run_test("tests/scanner", "scan_bad_syscall_parameter", None)
     }
 
     #[test]
     fn scan_unexpected_char() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_unexpected_char", None)
+        crate::compiler::test_tools::run_test("tests/scanner", "scan_unexpected_char", None)
     }
 
     #[test]
     fn scan_bad_number_literal() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_bad_number_literal", None)
+        crate::compiler::test_tools::run_test("tests/scanner", "scan_bad_number_literal", None)
     }
 
     #[test]
     fn scan_bad_u8() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_bad_u8", None)
+        crate::compiler::test_tools::run_test("tests/scanner", "scan_bad_u8", None)
     }
 
     #[test]
     fn scan_unterminated_char() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_unterminated_char", None)
+        crate::compiler::test_tools::run_test("tests/scanner", "scan_unterminated_char", None)
     }
 
     #[test]
     fn scan_unterminated_string() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_unterminated_string", None)
+        crate::compiler::test_tools::run_test("tests/scanner", "scan_unterminated_string", None)
     }
 
     #[test]
     fn scan_bad_escaped_char() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_bad_escaped_char", None)
+        crate::compiler::test_tools::run_test("tests/scanner", "scan_bad_escaped_char", None)
     }
 
     #[test]
     fn scan_constructor_and_destructor() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_special_functions", None)
+        crate::compiler::test_tools::run_test("tests/scanner", "scan_special_functions", None)
     }
 }

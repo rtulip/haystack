@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/parser/parse_struct_empty_members.hay:1:8] Error: struct members cannot be empty.\n"
+}

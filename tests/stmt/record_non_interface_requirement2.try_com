@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/stmt/record_non_interface_requirement2.hay:2:12] Error: Invalid requirement: `Arr<T>` is not an interface.\n"
+}

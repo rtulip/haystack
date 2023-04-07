@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/parser/parse_bad_follow_up_to_inline.hay:1:1] Error: Expected keyword `fn` after `include`, but found an identifier (foo)\n"
+}

@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/parser/parse_recursive_type.hay:2:8] Error: Type Foo is recursive.\n    [Note]: Consider adding some kind of indirection, such as a reference.\n"
+}

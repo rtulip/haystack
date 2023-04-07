@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/parser/parse_bad_interface_associated_type_placeholder.hay:2:5] Error: Expected `_` as placeholder for interface associated type, but found u64 instead.\n"
+}

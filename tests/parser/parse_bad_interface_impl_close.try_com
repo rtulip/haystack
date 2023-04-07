@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/parser/parse_bad_interface_impl_close.hay:3:1] Error: Expected `}` after interface implementation, but found `]` instead.\n"
+}

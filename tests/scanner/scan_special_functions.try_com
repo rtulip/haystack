@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/scanner/scan_special_functions.hay:1:1] Error: No entry point was found\n"
+}

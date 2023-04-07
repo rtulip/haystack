@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/type_check/struct_accessor_without_member.hay:11:5] Error: Type Error: Struct `Foo` doesn't have a member `bad`\n    [Note]: `Foo` has the following members: [\"bar\"]\n"
+}

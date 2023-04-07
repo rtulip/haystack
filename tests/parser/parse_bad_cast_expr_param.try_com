@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/parser/parse_bad_cast_expr_param.hay:2:9] Error: Expected type after `cast`, but found `u64` instead.\n"
+}

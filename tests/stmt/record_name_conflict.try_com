@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/stmt/record_name_conflict.hay:2:8] Error: Name conflict: `Foo` defined elsewhere.\n"
+}

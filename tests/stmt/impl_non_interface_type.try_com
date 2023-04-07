@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "[tests/stmt/impl_non_interface_type.hay:5:6] Error: Cannot implement `Foo`, as it is not an interface\n"
+}

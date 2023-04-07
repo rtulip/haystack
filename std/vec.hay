@@ -34,6 +34,14 @@ impl:
         cast(ConstArr)
     }
 
+    // Add an element to the end of the vector.
+    //
+    // Parameters:
+    // - `value`: the value to add to the vector
+    // - `self`: a mutable reference to the vector to add the value to
+    //
+    // Return value:
+    // - This function returns `()` and does not allocate a new vector.
     fn Vec.push<T>(T: value *Vec<T>: self) {
         self::len @ 0 == if {
             2 self::slice @ realloc self::slice ! 
@@ -44,6 +52,13 @@ impl:
         self::len @ 1 + self::len !
     }
 
+    // Pop the last element off the vector and return it inside of an `Option`, or return `Option.None` if the vector is empty.
+    //
+    // Parameters:
+    // - `self`: the vector to pop from
+    //
+    // Return value:
+    // - An `Option` containing the popped element, or `Option.None` if the vector is empty.
     fn Vec.pop<T>(*Vec<T>: self) -> [Option<T>] {
         self::len @ 0 == if {
             Option.None::<T>
@@ -53,6 +68,14 @@ impl:
         }
     }
 
+    // Get a reference to the element at the given index in the vector, or return `Option.None` if the index is out of bounds.
+    //
+    // Parameters:
+    // - `idx`: the index of the element to get
+    // - `self`: the vector to get the element from
+    //
+    // Return value:
+    // - An `Option` containing a reference to the requested element, or `Option.None` if the index is out of bounds.
     fn Vec.get<T>(u64: idx &Vec<T>: self) -> [Option<&T>] {
         idx self::len @ >= if {
             Option.None::<&T>
@@ -61,6 +84,14 @@ impl:
         }
     }
 
+    // Get a mutable reference to the element at the given index in the vector, or return `Option.None` if the index is out of bounds.
+    //
+    // Parameters:
+    // - `idx`: the index of the element to get
+    // - `self`: a mutable reference to the vector to get the element from
+    //
+    // Return value:
+    // - An `Option` containing a mutable pointer to the requested element, or `Option.None` if the index is out of bounds.
     fn Vec.get_mut<T>(u64: idx *Vec<T>: self) -> [Option<*T>] {
         idx self::len @ >= if {
             Option.None::<*T>
@@ -69,6 +100,14 @@ impl:
         }
     }
 
+    // Return an `Option` containing a reference to the element at the specified index in the vector, or `Option.None` if the index is out of bounds.
+    //
+    // Parameters:
+    // - `idx`: the index of the element to retrieve
+    // - `self`: a reference to the vector to retrieve the element from
+    //
+    // Return value:
+    // - An `Option` containing a reference to the requested element, or `Option.None` if the index is out of bounds.
     fn Vec.at<T>(u64: idx &Vec<T>: self) -> [Option<T>] {
         idx self::len @ >= if {
             Option.None::<T>
@@ -77,18 +116,47 @@ impl:
         }
     }
 
+    // Return an `Option` containing a reference to the last element in the vector, or `Option.None` if the vector is empty.
+    //
+    // Parameters:
+    // - `self`: a reference to the vector to retrieve the last element from
+    //
+    // Return value:
+    // - An `Option` containing a reference to the last element in the vector, or `Option.None` if the vector is empty.
     inline fn Vec.last<T>(&Vec<T>: self) -> [Option<&T>] {
         self::len @ 1- self Vec.get
     }
 
+    // Return the number of elements that the vector can hold without reallocating its underlying storage.
+    //
+    // Parameters:
+    // - `self`: a reference to the vector to retrieve the capacity of
+    //
+    // Return value:
+    // - The number of elements that the vector can hold without reallocating its underlying storage.
     fn Vec.capacity<T>(&Vec<T>: self) -> [u64] {
         self::slice::size @
     }
 
+    // Return the number of elements in the vector.
+    //
+    // Parameters:
+    // - `self`: a reference to the vector to retrieve the length of
+    //
+    // Return value:
+    // - The number of elements in the vector.
     fn Vec.len<T>(&Vec<T>: self) -> [u64] {
         self::len @
     }
 
+    // Check if the vector contains a given element.
+    //
+    // Parameters:
+    // - `item`: the element to search for
+    // - `self`: a reference to the vector to search in
+    //
+    // Return value:
+    // - `true` if the vector contains the given element, `false` otherwise.
     fn Vec.contains<T>(T: item &Vec<T>: self) -> [bool] {
 
         0 while dup self Vec.len < do {
@@ -103,6 +171,14 @@ impl:
 
     }
 
+    // Append the elements of another vector to this vector.
+    //
+    // Parameters:
+    // - `other`: a mutable reference to the vector whose elements to append to `self`.
+    // - `self`: a mutable reference to the vector to append the elements to.
+    //
+    // Return value:
+    // - This function returns `()` and does not allocate a new vector.
     fn Vec.append<T>(*Vec<T>: other *Vec<T>: self) {
         Vec.new::<T> as [mut temp]
 
@@ -117,7 +193,14 @@ impl:
         &temp Vec.delete
 
     }
-
+    
+    // Reverse the elements of the vector in place.
+    //
+    // Parameters:
+    // - `self`: a mutable reference to the vector to reverse.
+    //
+    // Return value:
+    // - This function returns a new vector with the reversed elements.
     fn Vec.reverse<T>(Vec<T>: mut self) -> [Vec<T>] {
 
         Vec.new::<T> as [mut rev]

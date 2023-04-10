@@ -103,8 +103,7 @@ impl:
     // 40 *v Vec.push
     // 0 &v Vec.get Option.unwrap @ 10 == assert
     // 3 &v Vec.get Option.unwrap @ 40 == assert
-    // 5 &v Vec.get Option.unwrap @ Option.None == assert
-    // 5 &v Vec.get Option.is_none assert
+    // 5 &v Vec.get Option.take_is_none assert
     // ```
     fn Vec.get<T>(u64: idx &Vec<T>: self) -> [Option<&T>] {
         idx self::len @ >= if {

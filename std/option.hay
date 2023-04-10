@@ -19,6 +19,10 @@ impl:
         &option Option.is_some
     }
 
+    inline fn Option.take_is_none<T>(Option<T>: option) -> [bool] {
+        &option Option.is_none
+    }
+
     inline fn Option.unwrap<T>(Option<T>) -> [T] match {
         Option::Some as [t] { t }
         Option::None { 

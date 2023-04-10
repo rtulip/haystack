@@ -104,6 +104,7 @@ impl:
     // 0 &v Vec.get Option.unwrap @ 10 == assert
     // 3 &v Vec.get Option.unwrap @ 40 == assert
     // 5 &v Vec.get Option.unwrap @ Option.None == assert
+    // 5 &v Vec.get Option.is_none assert
     // ```
     fn Vec.get<T>(u64: idx &Vec<T>: self) -> [Option<&T>] {
         idx self::len @ >= if {
@@ -127,7 +128,7 @@ impl:
     // Vec.new::<u64> as [mut v]
     // 12345 *v Vec.push
     // 0 *v Vec.get_mut Option.unwrap @ 12345 == assert
-    // 0 *v Vec.get_mut Option.unwrap 54321 !
+    // 0 *v Vec.get_mut Option.unwrap 54321 swap ! 
     // 0 &v Vec.at Option.unwrap 54321 == assert
     // ```
     fn Vec.get_mut<T>(u64: idx *Vec<T>: self) -> [Option<*T>] {

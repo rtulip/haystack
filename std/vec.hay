@@ -34,6 +34,21 @@ impl:
         cast(ConstArr)
     }
 
+    // Adds an element to the end of the vector.
+    //
+    // Inputs:
+    // - `T (value)`: the value to add to the vector
+    // - `*Vec<T> (self)`: a mutable reference to the vector to add the value to
+    //
+    // Output:
+    // - This function returns `()` and does not allocate a new vector.
+    //
+    // Example:
+    // ```
+    // Vec.new::<u64> as [mut v]
+    // 12345 *v Vec.push
+    // 0 &v Vec.at Option.unwrap 12345 == assert
+    // ```
     fn Vec.push<T>(T: value *Vec<T>: self) {
         self::len @ 0 == if {
             2 self::slice @ realloc self::slice ! 
@@ -44,6 +59,21 @@ impl:
         self::len @ 1 + self::len !
     }
 
+    // Pops the last element off the vector and return it inside of an `Option`, 
+    // or return `Option.None` if the vector is empty.
+    //
+    // Inputs:
+    // - `*Vec<T> (self)`: a mutable reference to the vector to pop from
+    //
+    // Output:
+    // - An `Option` containing the popped element, or `Option.None` if the vector is empty.
+    //
+    // Example:
+    // ```
+    // Vec.new::<u64> as [mut v]
+    // 12345 *v Vec.push
+    // *v Vec.pop Option.unwrap 12345 == assert
+    // ```
     fn Vec.pop<T>(*Vec<T>: self) -> [Option<T>] {
         self::len @ 0 == if {
             Option.None::<T>
@@ -53,6 +83,28 @@ impl:
         }
     }
 
+    // Get a reference to the element at the given index in the vector, 
+    // or return `Option.None` if the index is out of bounds.
+    //
+    // Inputs:
+    // - `u64 (idx)`: the index of the element to get
+    // - `&Vec<T> (self)`: a reference to the vector to get the element from
+    //
+    // Output:
+    // - An `Option` containing a reference to the requested element, 
+    //   or `Option.None` if the index is out of bounds.
+    //
+    // Example:
+    // ```
+    // Vec.new::<u64> as [mut v]
+    // 10 *v Vec.push
+    // 20 *v Vec.push
+    // 30 *v Vec.push
+    // 40 *v Vec.push
+    // 0 &v Vec.get Option.unwrap @ 10 == assert
+    // 3 &v Vec.get Option.unwrap @ 40 == assert
+    // 5 &v Vec.get Option.take_is_none assert
+    // ```
     fn Vec.get<T>(u64: idx &Vec<T>: self) -> [Option<&T>] {
         idx self::len @ >= if {
             Option.None::<&T>
@@ -61,6 +113,23 @@ impl:
         }
     }
 
+    // Get a mutable reference to the element at the given index in the vector, or return `Option.None` if the index is out of bounds.
+    //
+    // Inputs:
+    // - `u64 (idx)`: the index of the element to get
+    // - `*Vec<T> (self)`: a mutable reference to the vector to get the element from
+    //
+    // Output:
+    // - An `Option` containing a mutable pointer to the requested element, or `Option.None` if the index is out of bounds.
+    //
+    // Example:
+    // ```
+    // Vec.new::<u64> as [mut v]
+    // 12345 *v Vec.push
+    // 0 *v Vec.get_mut Option.unwrap @ 12345 == assert
+    // 0 *v Vec.get_mut Option.unwrap 54321 swap ! 
+    // 0 &v Vec.at Option.unwrap 54321 == assert
+    // ```
     fn Vec.get_mut<T>(u64: idx *Vec<T>: self) -> [Option<*T>] {
         idx self::len @ >= if {
             Option.None::<*T>
@@ -69,6 +138,22 @@ impl:
         }
     }
 
+    // Return an `Option` containing a reference to the element at the specified index in the vector, or `Option.None` if the index is out of bounds.
+    //
+    // Inputs:
+    // - `idx`: the index of the element to retrieve
+    // - `&Vec<T> (self)`: a reference to the vector to retrieve the element from
+    //
+    // Output:
+    // - An `Option` containing a reference to the requested element, or `Option.None` if the index is out of bounds.
+    //
+    // Example:
+    // ```
+    // Vec.new::<u64> as [mut v]
+    // 12345 *v Vec.push
+    // 0 &v Vec.at Option.unwrap 12345 == assert
+    // 1 &v Vec.at Option.None == assert
+    // ```
     fn Vec.at<T>(u64: idx &Vec<T>: self) -> [Option<T>] {
         idx self::len @ >= if {
             Option.None::<T>
@@ -77,18 +162,80 @@ impl:
         }
     }
 
+    // Return an `Option` containing a reference to the last element in the vector, 
+    // or `Option.None` if the vector is empty.
+    //
+    // Inputs:
+    // - `&Vec<T> (self)`: a reference to the vector to retrieve the last element from
+    //
+    // Output:
+    // - An `Option` containing a reference to the last element in the vector, 
+    // or `Option.None` if the vector is empty.
+    //
+    // Example:
+    // ```
+    // Vec.new::<u64> as [mut v]
+    // 123 *v Vec.push
+    // 456 *v Vec.push
+    // &v Vec.last Option.unwrap @ 456 == assert
+    // ```
     inline fn Vec.last<T>(&Vec<T>: self) -> [Option<&T>] {
         self::len @ 1- self Vec.get
     }
 
+    // Return the number of elements that the vector can hold without reallocating its underlying storage.
+    //
+    // Inputs:
+    // - `self`: a reference to the vector to retrieve the capacity of
+    //
+    // Output:
+    // - The number of elements that the vector can hold without reallocating its underlying storage.
+    //
+    // Example:
+    // ```
+    // Vec.new::<u64> as [v]
+    // &v Vec.capacity 8 == assert
+    // ```
     fn Vec.capacity<T>(&Vec<T>: self) -> [u64] {
         self::slice::size @
     }
 
+    // Return the number of elements in the vector.
+    //
+    // Inputs:
+    // - `self`: a reference to the vector to retrieve the length of
+    //
+    // Output:
+    // - The number of elements in the vector.
+    //
+    // Example:
+    // ```
+    // Vec.new::<u64> as [mut v]
+    // 123 *v Vec.push
+    // 456 *v Vec.push
+    // &v Vec.len 2 == assert
+    // ```
     fn Vec.len<T>(&Vec<T>: self) -> [u64] {
         self::len @
     }
 
+    // Check if the vector contains a given element.
+    //
+    // Inputs:
+    // - `item`: the element to search for
+    // - `self`: a reference to the vector to search in
+    //
+    // Output:
+    // - `true` if the vector contains the given element, `false` otherwise.
+    //
+    // Example:
+    // ```
+    // Vec.new::<u64> as [mut v]
+    // 123 *v Vec.push
+    //     
+    // 321 &v Vec.contains false == assert
+    // 123 &v Vec.contains true == assert
+    // ```
     fn Vec.contains<T>(T: item &Vec<T>: self) -> [bool] {
 
         0 while dup self Vec.len < do {
@@ -103,6 +250,23 @@ impl:
 
     }
 
+    // Append the elements of another vector to this vector.
+    //
+    // Inputs:
+    // - `other`: a mutable reference to the vector whose elements to append to `self`.
+    // - `self`: a mutable reference to the vector to append the elements to.
+    //
+    // Output:
+    // - This function returns `()` and does not allocate a new vector.
+    //
+    // Example:
+    // ```
+    // Vec.new::<u64> as [mut v]
+    // Vec.new::<u64> as [mut w]
+    // 123 *v Vec.push
+    // 456 *w Vec.push
+    // *w *v Vec.append &v Vec.last Option.unwrap @ 456 == assert
+    // ```
     fn Vec.append<T>(*Vec<T>: other *Vec<T>: self) {
         Vec.new::<T> as [mut temp]
 
@@ -117,7 +281,23 @@ impl:
         &temp Vec.delete
 
     }
-
+    
+    // Reverse the elements of the vector in place.
+    //
+    // Inputs:
+    // - `self`: a mutable reference to the vector to reverse.
+    //
+    // Output:
+    // - This function returns a new vector with the reversed elements.
+    //
+    // Example:
+    // ```
+    // Vec.new::<u64> as [mut v]
+    // 123 *v Vec.push
+    // 456 *v Vec.push
+    // v Vec.reverse as [w]
+    // &w Vec.last Option.unwrap @ 123 == assert
+    // ```
     fn Vec.reverse<T>(Vec<T>: mut self) -> [Vec<T>] {
 
         Vec.new::<T> as [mut rev]

@@ -12,7 +12,7 @@ pub use r#type::Type;
 pub use record::{RecordKind, RecordType};
 pub use type_var::TypeVar;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TypeId(String);
 
 impl TypeId {

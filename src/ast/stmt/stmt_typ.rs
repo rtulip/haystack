@@ -57,14 +57,17 @@ impl Stmt {
 
     pub fn build_types_and_data(stmts: Vec<Self>) -> Result<(), HayError> {
         let mut functions = BTreeMap::new();
-
+        let mut user_defined_types = BTreeMap::new();
+        let mut pre_declared_types = BTreeMap::new();
         for stmt in stmts {
             match stmt {
                 Stmt::Interface(_) => todo!("Interface"),
                 Stmt::InterfaceImpl(_) => todo!("InterfaceImpl"),
                 Stmt::FunctionStub(_) => todo!("FunctionStub"),
                 Stmt::Function(function) => function.add_to_global_env(&mut functions)?,
-                Stmt::PreDeclaration(pd) => todo!("{} PreDeclaration", pd.token),
+                Stmt::PreDeclaration(predecl) => {
+                    predecl.add_to_global_env(&mut user_defined_types, &mut pre_declared_types)?
+                }
                 Stmt::Record(_) => todo!("Record"),
                 Stmt::Enum(_) => todo!("Enum"),
                 Stmt::Var(_) => todo!("Var"),

@@ -22,6 +22,4 @@ pub use stmt_typ::*;
 pub use stub::*;
 pub use var::*;
 
-use crate::types::Signature;
-
-pub type GlobalEnv<'a> = HashMap<String, (StmtKind, Signature<'a>)>;
+// pub type GlobalEnv<'a> = HashMap<String, (StmtKind, Signature<'a>)>;

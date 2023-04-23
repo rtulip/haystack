@@ -16,28 +16,7 @@ pub struct UntypedMember {
     pub ident: Token,
 }
 
-impl UntypedMember {
-    pub fn resolve(
-        members: Vec<Self>,
-        types: &mut BTreeMap<TypeId, Type>,
-        local_types: &Vec<TypeId>,
-    ) -> Result<Vec<TypedMember>, HayError> {
-        let mut out = vec![];
-        for m in members {
-            let typ = TypeId::from_token(&m.token, types, local_types)?;
-            let parent = m.parent.as_ref().map(|parent| TypeId::new(&parent.lexeme));
-            out.push(TypedMember {
-                parent,
-                vis: m.vis,
-                token: m.token,
-                ident: m.ident,
-                typ,
-            })
-        }
-
-        Ok(out)
-    }
-}
+impl UntypedMember {}
 
 #[derive(Debug, Clone)]
 pub struct TypedMember {

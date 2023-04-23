@@ -1,14 +1,19 @@
+use std::collections::BTreeMap;
+
 use crate::{
     ast::{arg::UntypedArg, expr::Expr},
     error::HayError,
     lex::token::Token,
-    types::{
-        validate_requirements, FnTag, GenericFunction, RecordKind, Signature, Type, TypeId,
-        TypeMap, UncheckedFunction, VariantType,
-    },
+    types::FunctionType,
 };
 
-use super::{GlobalEnv, Stmt, StmtKind};
+use super::InterfaceId;
+
+#[derive(Debug, Clone)]
+pub enum FnTag {
+    Interface(InterfaceId),
+    Inline,
+}
 
 #[derive(Debug, Clone)]
 pub struct FunctionStmt {
@@ -23,120 +28,47 @@ pub struct FunctionStmt {
     pub requires: Option<Vec<Token>>,
 }
 
+pub struct FunctionDescription {
+    pub name: Token,
+    pub typ: FunctionType,
+    pub body: Expr,
+    pub tags: Vec<FnTag>,
+}
+
 impl FunctionStmt {
-    pub fn add_to_global_scope(
+    pub fn add_to_global_env(
         self,
-        types: &mut TypeMap,
-        global_env: &mut GlobalEnv,
-        local_scope: Option<&TypeId>,
-        kind: StmtKind,
+        functions: &mut BTreeMap<String, FunctionDescription>,
     ) -> Result<(), HayError> {
-        let generics = Stmt::bulid_local_generics(self.annotations, types, local_scope)?;
-        let inputs = UntypedArg::resolve(self.inputs, types, &generics)?;
-        let outputs = UntypedArg::resolve(self.outputs, types, &generics)?;
+        let inputs = UntypedArg::into_typed_args(self.inputs)?;
+        let outputs = UntypedArg::into_typed_args(self.outputs)?;
 
-        for arg in inputs.iter().chain(outputs.iter()) {
-            if let Some(Type::Variant(VariantType { base, variant })) = types.get(&arg.typ) {
-                if let Some(Type::GenericRecordBase {
-                    kind: RecordKind::EnumStruct,
-                    ..
-                }) = types.get(base)
-                {
-                    return Err(HayError::new(
-                        format!("Enum struct `{base}` is generic, and requires annotations."),
-                        arg.token.loc.clone(),
-                    )
-                    .with_hint(format!("Consider using `{base}<...>::{variant}`.")));
-                }
-            }
+        let function_type = FunctionType::from_typed_args(&inputs, &outputs);
+
+        if self.annotations.is_some() {
+            todo!()
+        }
+        if self.impl_on.is_some() {
+            todo!()
+        }
+        if self.requires.is_some() {
+            todo!()
         }
 
-        for arg in inputs.iter() {
-            if let Some(Type::Never) = types.get(&arg.typ) {
-                return Err(HayError::new(
-                    format!(
-                        "The Never type `!` isn't a valid input to function `{}`",
-                        self.name.lexeme
-                    ),
-                    arg.token.loc.clone(),
-                ));
-            }
+        if functions.contains_key(&self.name.lexeme) {
+            todo!()
         }
 
-        if let Some(requirements) = &self.requires {
-            validate_requirements(requirements, types)?;
-        }
-
-        let sig = Signature::new_maybe_generic(
-            inputs.iter().map(|arg| arg.typ.clone()).collect(),
-            outputs.iter().map(|arg| arg.typ.clone()).collect(),
-            if generics.is_empty() {
-                None
-            } else {
-                Some(generics.clone())
+        functions.insert(
+            self.name.lexeme.clone(),
+            FunctionDescription {
+                name: self.name,
+                typ: function_type,
+                body: self.body,
+                tags: self.tags,
             },
         );
 
-        let impl_on = match self.impl_on {
-            Some(tok) => {
-                if !types.contains_key(&TypeId::new(&tok.lexeme)) {
-                    panic!("Logic error. Unknown type: {tok}");
-                }
-
-                Some(TypeId::new(&tok.lexeme))
-            }
-            None => None,
-        };
-
-        let typ = if generics.is_empty() {
-            if self.requires.is_some() {
-                return Err(HayError::new(
-                    "Cannot have interface requirements on non-generic functions",
-                    self.requires.unwrap().first().unwrap().loc.clone(),
-                ));
-            }
-
-            Type::UncheckedFunction {
-                func: UncheckedFunction {
-                    token: self.token,
-                    name: self.name.clone(),
-                    inputs,
-                    outputs,
-                    body: self.body,
-                    generic_map: None,
-                    tags: self.tags,
-                    impl_on,
-                },
-            }
-        } else {
-            Type::GenericFunction {
-                func: GenericFunction {
-                    token: self.token,
-                    name: self.name.clone(),
-                    inputs,
-                    outputs,
-                    generics,
-                    body: self.body,
-                    tags: self.tags,
-                    impl_on,
-                    requires: self.requires,
-                },
-            }
-        };
-
-        match types.insert(TypeId::new(&self.name.lexeme), typ) {
-            None => {
-                global_env.insert(self.name.lexeme, (kind, sig));
-
-                Ok(())
-            }
-            Some(_) => Err(HayError::new(
-                format!(
-                    "Function name conflict. `{}` defined elsewhere",
-                    self.name.lexeme
-                ),
-                self.name.loc,
-            )),
-        }
+        Ok(())
     }
 }

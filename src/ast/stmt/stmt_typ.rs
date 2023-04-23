@@ -1,14 +1,14 @@
 use super::{
-    EnumStmt, FunctionStmt, FunctionStubStmt, GlobalEnv, InterfaceImplStmt, InterfaceStmt,
-    PreDeclarationStmt, RecordStmt, StmtKind, VarStmt,
+    EnumStmt, FunctionStmt, FunctionStubStmt, InterfaceImplStmt, InterfaceStmt, PreDeclarationStmt,
+    RecordStmt, StmtKind, VarStmt,
 };
 use crate::ast::arg::UntypedArg;
 use crate::ast::parser::Parser;
-use crate::backend::{InitDataMap, UninitDataMap};
+// use crate::backend::{InitDataMap, UninitDataMap};
 use crate::error::HayError;
 use crate::lex::scanner::Scanner;
 use crate::lex::token::Loc;
-use crate::types::{Type, TypeId, TypeMap};
+use crate::types::{Type, TypeId};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 #[derive(Clone)]
@@ -55,109 +55,22 @@ impl Stmt {
         Ok(stmts)
     }
 
-    pub fn bulid_local_generics(
-        annotations: Option<Vec<UntypedArg>>,
-        types: &BTreeMap<TypeId, Type>,
-        impl_on: Option<&TypeId>,
-    ) -> Result<Vec<TypeId>, HayError> {
-        let mut out = vec![];
-        match annotations {
-            None => (),
-            Some(annotations) => {
-                for a in annotations {
-                    let tid = TypeId::new(&a.token.lexeme);
-                    if types.contains_key(&tid) {
-                        return Err(HayError::new(format!("Generic type {} cannot be used as it has already been defined elsewhere.", a.token.lexeme), a.token.loc));
-                    }
-                    out.push(tid);
-                }
+    pub fn build_types_and_data(stmts: Vec<Self>) -> Result<(), HayError> {
+        let mut functions = BTreeMap::new();
+
+        for stmt in stmts {
+            match stmt {
+                Stmt::Interface(_) => todo!("Interface"),
+                Stmt::InterfaceImpl(_) => todo!("InterfaceImpl"),
+                Stmt::FunctionStub(_) => todo!("FunctionStub"),
+                Stmt::Function(function) => function.add_to_global_env(&mut functions)?,
+                Stmt::PreDeclaration(pd) => todo!("{} PreDeclaration", pd.token),
+                Stmt::Record(_) => todo!("Record"),
+                Stmt::Enum(_) => todo!("Enum"),
+                Stmt::Var(_) => todo!("Var"),
             }
         }
 
-        if let Some(tid) = impl_on {
-            match types.get(tid) {
-                Some(Type::InterfaceBase(interface)) => {
-                    for t in &interface.annotations {
-                        out.push(t.clone());
-                    }
-                    for (t, _) in &interface.types {
-                        out.push(t.clone());
-                    }
-                }
-                Some(_) => unimplemented!("tid: {tid}"),
-                None => unimplemented!("unrecognized type {tid}"),
-            }
-        }
-
-        Ok(out)
-    }
-
-    pub fn build_types_and_data<'a>(
-        stmts: Vec<Self>,
-    ) -> Result<(TypeMap, GlobalEnv<'a>, InitDataMap, UninitDataMap), HayError> {
-        let mut types = Type::new_map();
-        let mut global_env = HashMap::new();
-        let mut init_data = HashMap::new();
-        let mut uninit_data = HashMap::new();
-
-        for s in stmts {
-            s.add_to_global_scope(
-                &mut types,
-                &mut global_env,
-                &mut init_data,
-                &mut uninit_data,
-            )?;
-        }
-
-        let unimpl_decls = types
-            .iter()
-            .filter(|(_, t)| matches!(t, Type::RecordPreDeclaration { .. }))
-            .collect::<Vec<(&TypeId, &Type)>>();
-
-        if !unimpl_decls.is_empty() {
-            let token = match unimpl_decls.first().unwrap().1 {
-                Type::RecordPreDeclaration { token, .. } => token,
-                _ => unreachable!(),
-            };
-            let mut e = HayError::new(
-                "The following types were never declared:",
-                token.loc.clone(),
-            );
-            for (tid, t) in unimpl_decls {
-                match t {
-                    Type::RecordPreDeclaration { token, .. } => {
-                        e = e.with_hint_and_custom_note(format!("{tid}"), format!("{}", token.loc))
-                    }
-                    _ => unreachable!(),
-                }
-            }
-
-            return Err(e);
-        }
-
-        Ok((types, global_env, init_data, uninit_data))
-    }
-
-    pub fn add_to_global_scope(
-        self,
-        types: &mut TypeMap,
-        global_env: &mut GlobalEnv,
-        init_data: &mut InitDataMap,
-        uninit_data: &mut UninitDataMap,
-    ) -> Result<(), HayError> {
-        match self {
-            Stmt::Record(stmt) => stmt.add_to_global_scope(types),
-            Stmt::PreDeclaration(stmt) => stmt.add_to_global_scope(types),
-            Stmt::Enum(stmt) => stmt.add_to_global_scope(types),
-            Stmt::Function(stmt) => {
-                stmt.add_to_global_scope(types, global_env, None, StmtKind::Function)
-            }
-            Stmt::Var(stmt) => stmt.add_to_global_scope(types, global_env, init_data, uninit_data),
-            Stmt::FunctionStub(stmt) => {
-                stmt.add_to_global_scope(types, global_env, None, StmtKind::Function)
-            }
-            Stmt::Interface(stmt) => stmt.add_to_global_scope(types, global_env),
-            Stmt::InterfaceImpl(stmt) => stmt.add_to_global_scope(types, global_env),
-        }
+        todo!()
     }
 }

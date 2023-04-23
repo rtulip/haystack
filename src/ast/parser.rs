@@ -2,7 +2,7 @@ use crate::ast::expr::{Expr, MatchCaseExpr, BlockExpr};
 use crate::ast::stmt::Stmt;
 use crate::error::HayError;
 use crate::lex::token::{Keyword, Loc, Marker, Operator, Token, TokenKind, TypeToken, Literal};
-use crate::types::{FnTag, RecordKind, TypeId};
+use crate::types::{RecordKind, TypeId};
 use std::collections::{HashSet};
 
 use super::arg::{IdentArg, UntypedArg, IdentArgKind};
@@ -11,7 +11,7 @@ use super::expr::{
     ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr, MatchExpr, MatchElseExpr, UnpackExpr,
 };
 use super::member::UntypedMember;
-use super::stmt::{RecordStmt, EnumStmt, FunctionStmt, FunctionStubStmt, InterfaceStmt, InterfaceImplStmt, VarStmt, PreDeclarationStmt};
+use super::stmt::{RecordStmt, EnumStmt, FunctionStmt, FunctionStubStmt, InterfaceStmt, InterfaceImplStmt, VarStmt, PreDeclarationStmt, FnTag, InterfaceId};
 use super::visibility::Visitiliby;
 
 pub struct Parser<'a> {
@@ -227,7 +227,7 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        let types = self.members( Some(&interface), &RecordKind::Interface).unwrap_or(vec![]);
+        let types = self.members( Some(&interface), false).unwrap_or(vec![]);
         let fns = self.function_list(None)?.into_iter().map(|s| match s {
             Stmt::Function(f) => f,
             _ => unreachable!(),
@@ -350,7 +350,7 @@ impl<'a> Parser<'a> {
         while let Ok(t) = self.matches(TokenKind::Keyword(Keyword::Function)) {
             fns.append(&mut self.function_stub_or_def(
                 t,
-                vec![FnTag::Interface(TypeId::new(&name.lexeme))],
+                vec![FnTag::Interface(InterfaceId::new(&name.lexeme))],
                 None,
             )?);
         }
@@ -444,42 +444,6 @@ impl<'a> Parser<'a> {
                 ))
             }
         };
-
-        if name.lexeme.starts_with('+') {
-            if impl_on.is_none() {
-                return Err(HayError::new(
-                    "On Copy functions cannot be defined outside of an impl block.",
-                    name.loc,
-                ));
-            }
-
-            if name.lexeme != format!("+{}", impl_on.unwrap().lexeme) {
-                return Err(HayError::new("Unexpected On Copy function name.", name.loc)
-                    .with_hint(format!(
-                        "Expected On Copy function to be named `+{}`",
-                        impl_on.unwrap().lexeme
-                    )));
-            }
-
-            tags.push(FnTag::OnCopy)
-        } else if name.lexeme.starts_with('-') {
-            if impl_on.is_none() {
-                return Err(HayError::new(
-                    "On Drop functions cannot be defined outside of an impl block.",
-                    name.loc,
-                ));
-            }
-
-            if name.lexeme != format!("-{}", impl_on.unwrap().lexeme) {
-                return Err(HayError::new("Unexpected On Drop function name.", name.loc)
-                    .with_hint(format!(
-                        "Expected On Drop function to be named `-{}`",
-                        impl_on.unwrap().lexeme
-                    )));
-            }
-
-            tags.push(FnTag::OnDrop)
-        }
 
         let annotations = if let Ok(open) = self.matches(TokenKind::Operator(Operator::LessThan)) {
             let annotations = self.unnamed_args_list(&open)?;
@@ -796,7 +760,7 @@ impl<'a> Parser<'a> {
 
         } else if let Ok(left_bracket) =  self.matches(TokenKind::Marker(Marker::LeftBrace)) {
             
-            let members = self.members(None, &RecordKind::Tuple)?;
+            let members = self.members(None, false)?;
 
             let mut inner = vec![];
             let mut idents = vec![];
@@ -1466,7 +1430,10 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        let members = self.members(Some(&name), &kind)?;
+        let members = self.members(Some(&name), match kind {
+            RecordKind::Struct => true,
+            _ => false
+        })?;
 
         if members.is_empty() {
             return Err(HayError::new(format!("{kind} members cannot be empty."), name.loc));
@@ -1504,11 +1471,11 @@ impl<'a> Parser<'a> {
     fn members(
         &mut self,
         typ_tok: Option<&Token>,
-        kind: &RecordKind,
+        allow_pub: bool
     ) -> Result<Vec<UntypedMember>, HayError> {
         let mut members = vec![];
 
-        while let Some(mem) = self.member(typ_tok, kind)? {
+        while let Some(mem) = self.member(typ_tok, allow_pub)? {
             members.push(mem);
         }
 
@@ -1519,33 +1486,35 @@ impl<'a> Parser<'a> {
     fn member(
         &mut self,
         typ: Option<&Token>,
-        kind: &RecordKind,
+        allow_pub: bool,
     ) -> Result<Option<UntypedMember>, HayError> {
-        let (vis, vis_tok) = match self.matches(TokenKind::Keyword(Keyword::Pub)) {
-            Ok(t) => (Visitiliby::Public, Some(t)),
-            Err(_) => (Visitiliby::Private, None),
+        let (vis, token) = if allow_pub {
+            match self.matches(TokenKind::Keyword(Keyword::Pub)) {
+                Ok(t) => {
+                    match self.parse_type()? {
+                        Some(token) => (Visitiliby::Public, token),
+                        None => return Err(HayError::new(
+                            format!("Expected a type after {}, but found {} instead.",
+                                Keyword::Pub,
+                                self.peek().kind
+                            ),
+                            t.loc
+                        ))
+                    }
+                },
+                Err(_) => match self.parse_type()? {
+                    Some(token) => (Visitiliby::Private, token),
+                    None => return Ok(None)
+                },
+            }
+        } else {
+            match self.parse_type()? {
+                Some(token) => (Visitiliby::Public, token),
+                None => return Ok(None)
+            }
         };
+        
 
-        let token = match (&vis, self.parse_type()?, kind) {
-            (Visitiliby::Public, None, _) => {
-                return Err(HayError::new(
-                    format!(
-                        "Expected a type after {}, but found {} instead.",
-                        Keyword::Pub,
-                        self.peek().kind
-                    ),
-                    vis_tok.unwrap().loc,
-                ))
-            }
-            (Visitiliby::Public, _, RecordKind::Union) => {
-                return Err(HayError::new(
-                    "Unexpected Keyword `pub` in union definition.",
-                    vis_tok.unwrap().loc,
-                ))
-            }
-            (_, None, _) => return Ok(None),
-            (_, Some(t), _) => t,
-        };
 
         if let Err(t) = self.matches(TokenKind::Marker(Marker::Colon)) {
             return Err(HayError::new(
@@ -1570,13 +1539,7 @@ impl<'a> Parser<'a> {
 
         Ok(Some(UntypedMember {
             parent: typ.cloned(),
-            vis: match kind {
-                RecordKind::Union => Visitiliby::Public,
-                RecordKind::EnumStruct => Visitiliby::Public,
-                RecordKind::Struct => vis,
-                RecordKind::Interface => Visitiliby::Public,
-                RecordKind::Tuple => Visitiliby::Public,
-            },
+            vis,
             token,
             ident,
         }))

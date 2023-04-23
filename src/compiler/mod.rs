@@ -1,8 +1,8 @@
 use crate::ast::stmt::Stmt;
-use crate::backend::{compile, Instruction, X86_64};
+// use crate::backend::{compile, Instruction, X86_64};
 use crate::error::HayError;
 use crate::lex::token::Loc;
-use crate::types::{Type, TypeId, TypeMap};
+use crate::types::{Type, TypeId};
 use std::io::{self, Write};
 use std::path::Path;
 use std::process::{Command, Output};
@@ -11,52 +11,52 @@ pub mod test_tools;
 
 pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
     let stmts = Stmt::from_file_with_prelude(&input_path)?;
-    let (mut types, mut global_env, mut init_data, uninit_data) =
-        Stmt::build_types_and_data(stmts)?;
-    Type::type_check_functions(&mut types, &mut global_env)?;
-    let fn_instructions = Instruction::from_type_map(&types, &mut init_data);
-    check_for_entry_point(&types, &input_path)?;
 
-    let path = Path::new(&input_path);
-    compile::<X86_64>(
-        path.with_extension("asm").to_str().unwrap(),
-        &fn_instructions,
-        &init_data,
-        &uninit_data,
-    )
-    .unwrap();
+    Stmt::build_types_and_data(stmts)?;
+    // Type::type_check_functions(&mut types, &mut global_env)?;
+    // let fn_instructions = Instruction::from_type_map(&types, &mut init_data);
+    // check_for_entry_point(&types, &input_path)?;
 
-    // assembler
-    run_command(
-        "nasm",
-        vec!["-felf64", path.with_extension("asm").to_str().unwrap()],
-        &input_path,
-        false,
-    )?;
+    // let path = Path::new(&input_path);
+    // compile::<X86_64>(
+    //     path.with_extension("asm").to_str().unwrap(),
+    //     &fn_instructions,
+    //     &init_data,
+    //     &uninit_data,
+    // )
+    // .unwrap();
 
-    // linker
-    run_command(
-        "ld",
-        vec![
-            "-o",
-            path.file_stem().unwrap().to_str().unwrap(),
-            path.with_extension("o").to_str().unwrap(),
-        ],
-        &input_path,
-        false,
-    )?;
+    // // assembler
+    // run_command(
+    //     "nasm",
+    //     vec!["-felf64", path.with_extension("asm").to_str().unwrap()],
+    //     &input_path,
+    //     false,
+    // )?;
 
-    if run {
-        // run the exe
-        run_command(
-            format!("./{}", &path.file_stem().unwrap().to_str().unwrap()).as_str(),
-            vec![],
-            &input_path,
-            true,
-        )?;
-    }
+    // // linker
+    // run_command(
+    //     "ld",
+    //     vec![
+    //         "-o",
+    //         path.file_stem().unwrap().to_str().unwrap(),
+    //         path.with_extension("o").to_str().unwrap(),
+    //     ],
+    //     &input_path,
+    //     false,
+    // )?;
 
-    Ok(())
+    // if run {
+    //     // run the exe
+    //     run_command(
+    //         format!("./{}", &path.file_stem().unwrap().to_str().unwrap()).as_str(),
+    //         vec![],
+    //         &input_path,
+    //         true,
+    //     )?;
+    // }
+    todo!()
+    // Ok(())
 }
 
 pub fn run_command(
@@ -84,19 +84,19 @@ pub fn run_command(
     }
 }
 
-fn check_for_entry_point(types: &TypeMap, input_path: &String) -> Result<(), HayError> {
-    if !types
-        .iter()
-        .any(|(tid, t)| matches!(t, Type::Function { .. }) && tid == &TypeId::new("main"))
-    {
-        Err(HayError::new(
-            "No entry point was found",
-            Loc::new(input_path, 1, 1, 1),
-        ))
-    } else {
-        Ok(())
-    }
-}
+// fn check_for_entry_point(types: &TypeMap, input_path: &String) -> Result<(), HayError> {
+//     if !types
+//         .iter()
+//         .any(|(tid, t)| matches!(t, Type::Function { .. }) && tid == &TypeId::new("main"))
+//     {
+//         Err(HayError::new(
+//             "No entry point was found",
+//             Loc::new(input_path, 1, 1, 1),
+//         ))
+//     } else {
+//         Ok(())
+//     }
+// }
 
 mod functional {
     #[test]
@@ -252,20 +252,22 @@ mod functional {
 
     #[test]
     fn inline_impl_fn() -> Result<(), std::io::Error> {
-        use crate::backend::{CodeGen, X86_64};
-        super::test_tools::run_test("tests/functional", "inline_impl_fn", None)?;
+        todo!()
+        // use crate::backend::{CodeGen, X86_64};
+        // super::test_tools::run_test("src/tests/functional", "inline_impl_fn", None)?;
 
-        let asm = std::fs::read_to_string("tests/functional/inline_impl_fn.asm").unwrap();
-        let fn_name = X86_64::encode_name("Foo.add");
-        assert!(
-            asm.find(format!("call {fn_name}").as_str()).is_none(),
-            "Found a call to `{fn_name}` in the generated assembly!"
-        );
-        assert!(
-            asm.find(format!("{fn_name}:").as_str()).is_some(),
-            "Didn't find any definition of `{fn_name}` in generated assembly"
-        );
-        Ok(())
+        // let asm = std::fs::read_to_string("src/tests/functional/inline_impl_fn.asm").unwrap();
+        // let fn_name = X86_64::encode_name("Foo.add");
+        // assert!(
+        //     asm.find(format!("call {fn_name}").as_str()).is_none(),
+        //     "Found a call to `{fn_name}` in the generated assembly!"
+        // );
+        // assert!(
+        //     asm.find(format!("{fn_name}:").as_str()).is_some(),
+        //     "Didn't find any definition of `{fn_name}` in generated assembly"
+        // );
+
+        // Ok(())
     }
 
     #[test]

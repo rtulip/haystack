@@ -49,12 +49,34 @@ pub struct UntypedArg {
     pub ident: Option<Token>,
 }
 
+impl UntypedArg {
+    pub fn into_typed_arg(self) -> Result<TypedArg, HayError> {
+        let typ = Type::from_token(&self.token)?;
+
+        Ok(TypedArg {
+            token: self.token,
+            mutable: self.mutable,
+            ident: self.ident,
+            typ,
+        })
+    }
+
+    pub fn into_typed_args(args: Vec<Self>) -> Result<Vec<TypedArg>, HayError> {
+        let mut out = vec![];
+        for arg in args {
+            out.push(arg.into_typed_arg()?);
+        }
+
+        Ok(out)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TypedArg {
     pub token: Token,
     pub mutable: Option<Token>,
     pub ident: Option<Token>,
-    pub typ: TypeId,
+    pub typ: Type,
 }
 
 #[derive(Debug, Clone)]
@@ -97,26 +119,4 @@ impl ToString for IdentArgKind {
 pub struct IdentArg {
     pub kind: IdentArgKind,
     pub mutable: Option<Token>,
-}
-
-impl UntypedArg {
-    pub fn resolve(
-        args: Vec<UntypedArg>,
-        types: &mut BTreeMap<TypeId, Type>,
-        local_types: &Vec<TypeId>,
-    ) -> Result<Vec<TypedArg>, HayError> {
-        let mut out = vec![];
-
-        for arg in args {
-            let typ = TypeId::from_token(&arg.token, types, local_types)?;
-            out.push(TypedArg {
-                token: arg.token,
-                mutable: arg.mutable,
-                ident: arg.ident,
-                typ,
-            });
-        }
-
-        Ok(out)
-    }
 }

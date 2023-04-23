@@ -22,4 +22,8 @@ pub struct InterfaceStmt {
     pub requires: Option<Vec<Token>>,
 }
 
-impl InterfaceStmt {}
+impl InterfaceStmt {
+    pub fn add_to_global_env(self) -> Result<(), HayError> {
+        Ok(())
+    }
+}

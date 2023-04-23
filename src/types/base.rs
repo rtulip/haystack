@@ -11,7 +11,7 @@ pub enum BaseType {
 }
 
 impl TryFrom<&str> for BaseType {
-    type Error = HayError;
+    type Error = ();
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             "u64" => Ok(BaseType::U64),
@@ -19,7 +19,7 @@ impl TryFrom<&str> for BaseType {
             "char" => Ok(BaseType::Char),
             "bool" => Ok(BaseType::Bool),
             "!" => Ok(BaseType::Never),
-            _ => todo!("Err"),
+            _ => Err(()),
         }
     }
 }

@@ -1,13 +1,11 @@
-use std::collections::BTreeMap;
-
 use crate::{
     ast::{arg::UntypedArg, expr::Expr},
     error::HayError,
     lex::token::Token,
-    types::FunctionType,
+    types::{FunctionType, TypeId},
 };
 
-use super::InterfaceId;
+use super::{Functions, InterfaceId, UserDefinedTypes};
 
 #[derive(Debug, Clone)]
 pub enum FnTag {
@@ -33,22 +31,21 @@ pub struct FunctionDescription {
     pub typ: FunctionType,
     pub body: Expr,
     pub tags: Vec<FnTag>,
+    pub impl_on: Option<TypeId>,
 }
 
 impl FunctionStmt {
     pub fn add_to_global_env(
         self,
-        functions: &mut BTreeMap<String, FunctionDescription>,
+        user_defined_types: &UserDefinedTypes,
+        functions: &mut Functions,
     ) -> Result<(), HayError> {
-        let inputs = UntypedArg::into_typed_args(self.inputs)?;
-        let outputs = UntypedArg::into_typed_args(self.outputs)?;
+        let inputs = UntypedArg::into_typed_args(self.inputs, user_defined_types)?;
+        let outputs = UntypedArg::into_typed_args(self.outputs, user_defined_types)?;
 
         let function_type = FunctionType::from_typed_args(&inputs, &outputs);
 
         if self.annotations.is_some() {
-            todo!()
-        }
-        if self.impl_on.is_some() {
             todo!()
         }
         if self.requires.is_some() {
@@ -66,6 +63,7 @@ impl FunctionStmt {
                 typ: function_type,
                 body: self.body,
                 tags: self.tags,
+                impl_on: self.impl_on.map(|typ| TypeId::new(typ.lexeme)),
             },
         );
 

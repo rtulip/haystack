@@ -5,12 +5,12 @@ mod record;
 mod r#type;
 mod type_var;
 
-pub use base::BaseType;
-pub use function::FunctionType;
+pub use base::*;
+pub use function::*;
 pub use pointer::*;
-pub use r#type::Type;
-pub use record::{RecordKind, RecordType};
-pub use type_var::TypeVar;
+pub use r#type::*;
+pub use record::*;
+pub use type_var::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TypeId(String);

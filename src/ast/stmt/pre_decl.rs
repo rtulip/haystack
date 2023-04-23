@@ -7,7 +7,7 @@ use crate::{
     types::{RecordKind, Type, TypeId, TypeVar},
 };
 
-use super::Stmt;
+use super::{PreDeclaredTypes, Stmt, UserDefinedTypes};
 
 #[derive(Clone)]
 pub struct PreDeclarationStmt {
@@ -27,8 +27,8 @@ pub struct PreDeclaredType {
 impl PreDeclarationStmt {
     pub fn add_to_global_env(
         self,
-        user_defined_types: &mut BTreeMap<TypeId, Type>,
-        pre_declared_types: &mut BTreeMap<TypeId, PreDeclaredType>,
+        user_defined_types: &mut UserDefinedTypes,
+        pre_declared_types: &mut PreDeclaredTypes,
     ) -> Result<(), HayError> {
         let tid = TypeId::new(&self.name.lexeme);
         if user_defined_types.contains_key(&tid) {

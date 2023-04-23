@@ -6,6 +6,8 @@ use crate::{
     types::{Type, TypeId},
 };
 
+use super::stmt::UserDefinedTypes;
+
 /// A structure to represent an Argument.
 ///
 /// This is used by certain expressions, such as [`crate::ast::expr::Expr::As`]
@@ -50,8 +52,11 @@ pub struct UntypedArg {
 }
 
 impl UntypedArg {
-    pub fn into_typed_arg(self) -> Result<TypedArg, HayError> {
-        let typ = Type::from_token(&self.token)?;
+    pub fn into_typed_arg(
+        self,
+        user_defined_types: &UserDefinedTypes,
+    ) -> Result<TypedArg, HayError> {
+        let typ = Type::from_token(&self.token, user_defined_types)?;
 
         Ok(TypedArg {
             token: self.token,
@@ -61,10 +66,13 @@ impl UntypedArg {
         })
     }
 
-    pub fn into_typed_args(args: Vec<Self>) -> Result<Vec<TypedArg>, HayError> {
+    pub fn into_typed_args(
+        args: Vec<Self>,
+        user_defined_types: &UserDefinedTypes,
+    ) -> Result<Vec<TypedArg>, HayError> {
         let mut out = vec![];
         for arg in args {
-            out.push(arg.into_typed_arg()?);
+            out.push(arg.into_typed_arg(user_defined_types)?);
         }
 
         Ok(out)

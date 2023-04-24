@@ -2,6 +2,7 @@ mod base;
 mod function;
 mod pointer;
 mod record;
+mod substitution;
 mod r#type;
 mod type_var;
 
@@ -10,6 +11,7 @@ pub use function::*;
 pub use pointer::*;
 pub use r#type::*;
 pub use record::*;
+pub use substitution::*;
 pub use type_var::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

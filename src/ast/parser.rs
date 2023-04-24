@@ -12,7 +12,7 @@ use super::expr::{
 };
 use super::member::UntypedMember;
 use super::stmt::{RecordStmt, EnumStmt, FunctionStmt, FunctionStubStmt, InterfaceStmt, InterfaceImplStmt, VarStmt, PreDeclarationStmt, FnTag, InterfaceId};
-use super::visibility::Visitiliby;
+use super::visibility::Visibility;
 
 pub struct Parser<'a> {
     tokens: Vec<Token>,
@@ -1492,7 +1492,7 @@ impl<'a> Parser<'a> {
             match self.matches(TokenKind::Keyword(Keyword::Pub)) {
                 Ok(t) => {
                     match self.parse_type()? {
-                        Some(token) => (Visitiliby::Public, token),
+                        Some(token) => (Visibility::Public, token),
                         None => return Err(HayError::new(
                             format!("Expected a type after {}, but found {} instead.",
                                 Keyword::Pub,
@@ -1503,13 +1503,13 @@ impl<'a> Parser<'a> {
                     }
                 },
                 Err(_) => match self.parse_type()? {
-                    Some(token) => (Visitiliby::Private, token),
+                    Some(token) => (Visibility::Private, token),
                     None => return Ok(None)
                 },
             }
         } else {
             match self.parse_type()? {
-                Some(token) => (Visitiliby::Public, token),
+                Some(token) => (Visibility::Public, token),
                 None => return Ok(None)
             }
         };

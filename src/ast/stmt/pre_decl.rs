@@ -1,13 +1,13 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    ast::arg::UntypedArg,
+    ast::{arg::UntypedArg, stmt::TypeDescription},
     error::HayError,
     lex::token::Token,
     types::{RecordKind, Type, TypeId, TypeVar},
 };
 
-use super::{PreDeclaredTypes, Stmt, UserDefinedTypes};
+use super::{Stmt, UserDefinedTypes};
 
 #[derive(Clone)]
 pub struct PreDeclarationStmt {
@@ -28,13 +28,8 @@ impl PreDeclarationStmt {
     pub fn add_to_global_env(
         self,
         user_defined_types: &mut UserDefinedTypes,
-        pre_declared_types: &mut PreDeclaredTypes,
     ) -> Result<(), HayError> {
         let tid = TypeId::new(&self.name.lexeme);
-        if user_defined_types.contains_key(&tid) {
-            return Ok(());
-        }
-
         assert!(self.annotations.is_none());
         let annotations = None;
 
@@ -44,11 +39,12 @@ impl PreDeclarationStmt {
             annotations,
         };
 
-        match pre_declared_types.get(&tid) {
-            Some(pd) if pd == &predecl => (),
+        match user_defined_types.get(&tid) {
+            Some(TypeDescription::Record(_)) => (),
+            Some(TypeDescription::PreDeclaration(pd)) if pd == &predecl => (),
             Some(_) => todo!("Err"),
             None => {
-                pre_declared_types.insert(tid, predecl);
+                user_defined_types.insert(tid, TypeDescription::PreDeclaration(predecl));
             }
         }
 

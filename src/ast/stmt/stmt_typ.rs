@@ -9,12 +9,17 @@ use crate::ast::parser::Parser;
 use crate::error::HayError;
 use crate::lex::scanner::Scanner;
 use crate::lex::token::Loc;
-use crate::types::{Type, TypeId};
+use crate::types::{Type, TypeId, TypeVar};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 pub type Functions = BTreeMap<String, FunctionDescription>;
-pub type UserDefinedTypes = BTreeMap<TypeId, RecordDescription>;
-pub type PreDeclaredTypes = BTreeMap<TypeId, PreDeclaredType>;
+pub type UserDefinedTypes = BTreeMap<TypeId, TypeDescription>;
+
+#[derive(Debug, Clone)]
+pub enum TypeDescription {
+    PreDeclaration(PreDeclaredType),
+    Record(RecordDescription),
+}
 
 #[derive(Clone)]
 pub enum Stmt {
@@ -63,23 +68,20 @@ impl Stmt {
     pub fn build_types_and_data(stmts: Vec<Self>) -> Result<(), HayError> {
         let mut functions = Functions::new();
         let mut user_defined_types = UserDefinedTypes::new();
-        let mut pre_declared_types = PreDeclaredTypes::new();
         for stmt in stmts {
             match stmt {
-                Stmt::Interface(iface) => iface.add_to_global_env()?,
-                Stmt::InterfaceImpl(_) => todo!("InterfaceImpl"),
+                Stmt::Interface(iface) => (),
+                Stmt::InterfaceImpl(iface_impl) => (),
                 Stmt::FunctionStub(_) => todo!("FunctionStub"),
                 Stmt::Function(function) => {
                     function.add_to_global_env(&user_defined_types, &mut functions)?
                 }
                 Stmt::PreDeclaration(predecl) => {
-                    predecl.add_to_global_env(&mut user_defined_types, &mut pre_declared_types)?
+                    predecl.add_to_global_env(&mut user_defined_types)?
                 }
-                Stmt::Record(record) => {
-                    record.add_to_global_env(&mut user_defined_types, &mut functions)?
-                }
+                Stmt::Record(record) => record.add_to_global_env(&mut user_defined_types)?,
                 Stmt::Enum(_) => todo!("Enum"),
-                Stmt::Var(_) => todo!("Var"),
+                Stmt::Var(var) => todo!("{} Var", var.token),
             }
         }
 

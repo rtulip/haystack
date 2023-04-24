@@ -2,7 +2,7 @@ use crate::{
     ast::{arg::UntypedArg, expr::Expr},
     error::HayError,
     lex::token::Token,
-    types::{FunctionType, TypeId},
+    types::{FreeVars, FunctionType, TypeId},
 };
 
 use super::{Functions, InterfaceId, UserDefinedTypes};
@@ -32,6 +32,7 @@ pub struct FunctionDescription {
     pub body: Expr,
     pub tags: Vec<FnTag>,
     pub impl_on: Option<TypeId>,
+    pub free_vars: Option<FreeVars>,
 }
 
 impl FunctionStmt {
@@ -40,14 +41,12 @@ impl FunctionStmt {
         user_defined_types: &UserDefinedTypes,
         functions: &mut Functions,
     ) -> Result<(), HayError> {
-        let inputs = UntypedArg::into_typed_args(self.inputs, user_defined_types)?;
-        let outputs = UntypedArg::into_typed_args(self.outputs, user_defined_types)?;
+        let (free_vars, _) = UntypedArg::into_free_vars(self.annotations);
+        let inputs = UntypedArg::into_typed_args(self.inputs, user_defined_types, &free_vars)?;
+        let outputs = UntypedArg::into_typed_args(self.outputs, user_defined_types, &free_vars)?;
 
         let function_type = FunctionType::from_typed_args(&inputs, &outputs);
 
-        if self.annotations.is_some() {
-            todo!()
-        }
         if self.requires.is_some() {
             todo!()
         }
@@ -64,6 +63,7 @@ impl FunctionStmt {
                 body: self.body,
                 tags: self.tags,
                 impl_on: self.impl_on.map(|typ| TypeId::new(typ.lexeme)),
+                free_vars,
             },
         );
 

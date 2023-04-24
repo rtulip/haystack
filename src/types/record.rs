@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
-use crate::ast::visibility::Visitiliby;
+use crate::ast::visibility::Visibility;
 
-use super::{Type, TypeId};
+use super::{Type, TypeId, TypeVar};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RecordKind {
@@ -16,7 +16,7 @@ pub enum RecordKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RecordMember {
     pub ident: String,
-    pub vis: Visitiliby,
+    pub vis: Visibility,
     pub typ: Type,
 }
 

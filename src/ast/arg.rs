@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use crate::{
     error::HayError,
     lex::token::Token,
-    types::{Type, TypeId},
+    types::{FreeVars, Type, TypeId, TypeVar},
 };
 
 use super::stmt::UserDefinedTypes;
@@ -55,8 +55,9 @@ impl UntypedArg {
     pub fn into_typed_arg(
         self,
         user_defined_types: &UserDefinedTypes,
+        free_vars: &FreeVars,
     ) -> Result<TypedArg, HayError> {
-        let typ = Type::from_token(&self.token, user_defined_types)?;
+        let typ = Type::from_token(&self.token, user_defined_types, free_vars)?;
 
         Ok(TypedArg {
             token: self.token,
@@ -69,13 +70,34 @@ impl UntypedArg {
     pub fn into_typed_args(
         args: Vec<Self>,
         user_defined_types: &UserDefinedTypes,
+        free_vars: &Option<FreeVars>,
     ) -> Result<Vec<TypedArg>, HayError> {
         let mut out = vec![];
         for arg in args {
-            out.push(arg.into_typed_arg(user_defined_types)?);
+            out.push(arg.into_typed_arg(
+                user_defined_types,
+                free_vars.as_ref().unwrap_or(&FreeVars::new()),
+            )?);
         }
 
         Ok(out)
+    }
+
+    pub fn into_free_vars(args: Option<Vec<Self>>) -> (Option<FreeVars>, Option<Vec<TypeVar>>) {
+        if let Some(args) = args {
+            let mut free_vars = FreeVars::new();
+            let mut ordered_free_vars = vec![];
+            for arg in args {
+                if !free_vars.insert(TypeVar::new(&arg.token.lexeme)) {
+                    todo!("Err???")
+                }
+                ordered_free_vars.push(TypeVar::new(&arg.token.lexeme))
+            }
+
+            (Some(free_vars), Some(ordered_free_vars))
+        } else {
+            (None, None)
+        }
     }
 }
 

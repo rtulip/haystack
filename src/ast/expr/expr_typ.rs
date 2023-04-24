@@ -1,12 +1,13 @@
 use crate::ast::stmt::StmtKind;
 use crate::error::HayError;
 use crate::lex::token::{Literal, Operator, Token};
+use crate::types::{Frame, Stack, Substitutions};
 use std::collections::HashMap;
 
 use super::{
-    AccessorExpr, AnnotatedCallExpr, AsExpr, BlockExpr, ExprCast, ExprIdent, ExprIf, ExprLiteral,
-    ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, MatchExpr,
-    NeverExpr, TupleExpr, UnpackExpr,
+    AccessorExpr, AnnotatedCallExpr, AsExpr, BlockExpr, ExprCast, ExprIf, ExprLiteral, ExprReturn,
+    ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, IdentExpr, MatchExpr, NeverExpr,
+    OperatorExpr, TupleExpr, UnpackExpr,
 };
 
 /// Haystack's Expression Representation
@@ -35,11 +36,11 @@ use super::{
 pub enum Expr {
     Literal(ExprLiteral),
     Tuple(TupleExpr),
-    Operator(ExprOperator),
+    Operator(OperatorExpr),
     Unary(ExprUnary),
     Syscall(ExprSyscall),
     Cast(ExprCast),
-    Ident(ExprIdent),
+    Ident(IdentExpr),
     Accessor(AccessorExpr),
     If(ExprIf),
     As(AsExpr),
@@ -60,10 +61,10 @@ impl Expr {
         match self {
             Expr::Literal(ExprLiteral { token, .. })
             | Expr::Tuple(TupleExpr { token, .. })
-            | Expr::Operator(ExprOperator { token, .. })
+            | Expr::Operator(OperatorExpr { token, .. })
             | Expr::Syscall(ExprSyscall { token, .. })
             | Expr::Cast(ExprCast { token, .. })
-            | Expr::Ident(ExprIdent { ident: token, .. })
+            | Expr::Ident(IdentExpr { ident: token, .. })
             | Expr::Accessor(AccessorExpr { token, .. })
             | Expr::If(ExprIf { token, .. })
             | Expr::As(AsExpr { token, .. })
@@ -77,9 +78,24 @@ impl Expr {
             | Expr::Unpack(UnpackExpr { token })
             | Expr::Block(BlockExpr { open: token, .. })
             | Expr::Unary(ExprUnary {
-                op: ExprOperator { token, .. },
+                op: OperatorExpr { token, .. },
                 ..
             }) => token,
+        }
+    }
+
+    pub fn type_check(
+        &self,
+        stack: &mut Stack,
+        frame: &mut Frame,
+        subs: &mut Substitutions,
+    ) -> Result<(), HayError> {
+        match self {
+            Expr::Block(block) => block.type_check(stack, frame, subs),
+            Expr::Ident(ident) => ident.type_check(stack, frame, subs),
+            Expr::Accessor(accessor) => accessor.type_check(stack, frame, subs),
+            Expr::Operator(operator) => operator.type_check(stack, frame, subs),
+            x => todo!("{x:?}"),
         }
     }
 }

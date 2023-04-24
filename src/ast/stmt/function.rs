@@ -1,8 +1,11 @@
 use crate::{
-    ast::{arg::UntypedArg, expr::Expr},
+    ast::{
+        arg::{TypedArg, UntypedArg},
+        expr::Expr,
+    },
     error::HayError,
     lex::token::Token,
-    types::{FreeVars, FunctionType, TypeId},
+    types::{Frame, FreeVars, FunctionType, Stack, Substitutions, TypeId},
 };
 
 use super::{Functions, InterfaceId, UserDefinedTypes};
@@ -33,6 +36,7 @@ pub struct FunctionDescription {
     pub tags: Vec<FnTag>,
     pub impl_on: Option<TypeId>,
     pub free_vars: Option<FreeVars>,
+    pub start_state: (Stack, Frame),
 }
 
 impl FunctionStmt {
@@ -44,6 +48,8 @@ impl FunctionStmt {
         let (free_vars, _) = UntypedArg::into_free_vars(self.annotations);
         let inputs = UntypedArg::into_typed_args(self.inputs, user_defined_types, &free_vars)?;
         let outputs = UntypedArg::into_typed_args(self.outputs, user_defined_types, &free_vars)?;
+
+        let (stack, frame) = TypedArg::init_state(&inputs);
 
         let function_type = FunctionType::from_typed_args(&inputs, &outputs);
 
@@ -64,9 +70,25 @@ impl FunctionStmt {
                 tags: self.tags,
                 impl_on: self.impl_on.map(|typ| TypeId::new(typ.lexeme)),
                 free_vars,
+                start_state: (stack, frame),
             },
         );
 
+        Ok(())
+    }
+}
+
+impl FunctionDescription {
+    fn type_check(&self) -> Result<(), HayError> {
+        let (mut stack, mut frame) = self.start_state.clone();
+        self.body
+            .type_check(&mut stack, &mut frame, &mut Substitutions::empty())
+    }
+
+    pub fn type_check_all(functions: &Functions) -> Result<(), HayError> {
+        for (_, f) in functions {
+            f.type_check()?;
+        }
         Ok(())
     }
 }

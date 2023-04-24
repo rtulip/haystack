@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use crate::{
     error::HayError,
     lex::token::Token,
-    types::{FreeVars, Type, TypeId, TypeVar},
+    types::{Frame, FreeVars, Stack, Type, TypeId, TypeVar},
 };
 
 use super::stmt::UserDefinedTypes;
@@ -107,6 +107,25 @@ pub struct TypedArg {
     pub mutable: Option<Token>,
     pub ident: Option<Token>,
     pub typ: Type,
+}
+
+impl TypedArg {
+    pub fn init_state(args: &Vec<Self>) -> (Stack, Frame) {
+        if args.iter().all(|arg| arg.ident.is_some()) {
+            let stack = vec![];
+            let frame = args
+                .iter()
+                .map(|arg| (arg.ident.clone().unwrap().lexeme, arg.typ.clone()))
+                .collect();
+            (stack, frame)
+        } else if args.iter().all(|arg| arg.ident.is_none()) {
+            let stack = args.iter().map(|arg| arg.typ.clone()).collect();
+            let frame = vec![];
+            (stack, frame)
+        } else {
+            todo!()
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

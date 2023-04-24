@@ -26,6 +26,22 @@ pub enum Type {
 }
 
 impl Type {
+    pub fn u64() -> Self {
+        Type::Base(BaseType::U64)
+    }
+
+    pub fn u8() -> Self {
+        Type::Base(BaseType::U8)
+    }
+
+    pub fn bool() -> Self {
+        Type::Base(BaseType::Bool)
+    }
+
+    pub fn char() -> Self {
+        Type::Base(BaseType::Char)
+    }
+
     pub fn from_token(
         token: &Token,
         user_defined_types: &UserDefinedTypes,
@@ -194,6 +210,40 @@ impl Type {
                 }
             }
             Type::PreDeclaration(_) => todo!(),
+        }
+    }
+
+    pub fn get_inner_accessors(&self, token: &Token, inner: &[Token]) -> Result<Self, HayError> {
+        if inner.is_empty() {
+            return Ok(self.clone());
+        }
+
+        match self {
+            Type::Record(record) if record.kind == RecordKind::Struct => {
+                if let Some(m) = record
+                    .members
+                    .iter()
+                    .find(|m| &m.ident == &inner.first().unwrap().lexeme)
+                {
+                    return Ok(m.typ.get_inner_accessors(token, &inner[1..])?);
+                } else {
+                    return Err(HayError::new_type_err(
+                        format!(
+                            "{} `{}` doesn't have a member `{}`",
+                            record.kind,
+                            token.lexeme,
+                            &inner.first().unwrap().lexeme,
+                        ),
+                        token.loc.clone(),
+                    )
+                    .with_hint(format!(
+                        "`{}` has the following members: {:?}",
+                        token.lexeme,
+                        record.members.iter().map(|m| &m.ident).collect::<Vec<_>>()
+                    )));
+                }
+            }
+            _ => todo!("{self:?}"),
         }
     }
 }

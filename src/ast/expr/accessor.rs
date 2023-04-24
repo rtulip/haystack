@@ -1,4 +1,8 @@
-use crate::{error::HayError, lex::token::Token};
+use crate::{
+    error::HayError,
+    lex::token::Token,
+    types::{Frame, RecordKind, Stack, Substitutions, Type},
+};
 
 /// Accessor Expressions
 ///
@@ -20,4 +24,25 @@ pub struct AccessorExpr {
     /// The list of inner types
     /// __Note:__ This list should be non-empty.
     pub inner: Vec<Token>,
+}
+
+impl AccessorExpr {
+    pub fn type_check(
+        &self,
+        stack: &mut Stack,
+        frame: &Frame,
+        subs: &mut Substitutions,
+    ) -> Result<(), HayError> {
+        if let Some((i, (_, typ))) = frame
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, (k, _))| k == &self.ident.lexeme)
+        {
+            let typ = typ.get_inner_accessors(&self.token, &self.inner)?;
+            stack.push(typ);
+        }
+
+        Ok(())
+    }
 }

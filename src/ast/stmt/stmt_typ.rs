@@ -65,7 +65,9 @@ impl Stmt {
         Ok(stmts)
     }
 
-    pub fn build_types_and_data(stmts: Vec<Self>) -> Result<(), HayError> {
+    pub fn build_types_and_data(
+        stmts: Vec<Self>,
+    ) -> Result<(Functions, UserDefinedTypes), HayError> {
         let mut functions = Functions::new();
         let mut user_defined_types = UserDefinedTypes::new();
         for stmt in stmts {
@@ -81,10 +83,14 @@ impl Stmt {
                 }
                 Stmt::Record(record) => record.add_to_global_env(&mut user_defined_types)?,
                 Stmt::Enum(_) => todo!("Enum"),
-                Stmt::Var(var) => todo!("{} Var", var.token),
+                Stmt::Var(var) => (),
             }
         }
 
-        todo!()
+        assert!(user_defined_types
+            .iter()
+            .all(|(_, desc)| matches!(desc, TypeDescription::Record(_))));
+
+        Ok((functions, user_defined_types))
     }
 }

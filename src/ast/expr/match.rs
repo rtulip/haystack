@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::{
     ast::{
         arg::{IdentArg, IdentArgKind},
-        expr::{AccessorExpr, AsExpr, ExprElseIf, ExprIf, ExprLiteral, ExprOperator},
+        expr::{AccessorExpr, AsExpr, ExprElseIf, ExprIf, ExprLiteral, OperatorExpr},
         member::TypedMember,
     },
     error::HayError,

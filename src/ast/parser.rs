@@ -7,8 +7,8 @@ use std::collections::{HashSet};
 
 use super::arg::{IdentArg, UntypedArg, IdentArgKind};
 use super::expr::{
-    AccessorExpr, AnnotatedCallExpr, AsExpr, ExprCast, ExprElseIf, ExprIdent, ExprIf, ExprLiteral,
-    ExprOperator, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr, MatchExpr, MatchElseExpr, UnpackExpr,
+    AccessorExpr, AnnotatedCallExpr, AsExpr, ExprCast, ExprElseIf, IdentExpr, ExprIf, ExprLiteral,
+    OperatorExpr, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr, MatchExpr, MatchElseExpr, UnpackExpr,
 };
 use super::member::UntypedMember;
 use super::stmt::{RecordStmt, EnumStmt, FunctionStmt, FunctionStubStmt, InterfaceStmt, InterfaceImplStmt, VarStmt, PreDeclarationStmt, FnTag, InterfaceId};
@@ -67,7 +67,7 @@ impl<'a> Parser<'a> {
         let expr = self.expression()?;
 
         Ok(Box::new(Expr::Unary(ExprUnary {
-            op: ExprOperator {
+            op: OperatorExpr {
                 op: op.operator()?,
                 token: op,
             },
@@ -1066,7 +1066,7 @@ impl<'a> Parser<'a> {
                 }
 
                 if inners.is_empty() {
-                    Ok(Box::new(Expr::Ident(ExprIdent { ident: token })))
+                    Ok(Box::new(Expr::Ident(IdentExpr { ident: token })))
                 } else {
                     Ok(Box::new(Expr::Accessor(AccessorExpr {
                         token: new_token,
@@ -1076,7 +1076,7 @@ impl<'a> Parser<'a> {
                 }
             }
             TokenKind::Operator(Operator::Unary(op)) => self.unary(*op.clone()),
-            TokenKind::Operator(op) => Ok(Box::new(Expr::Operator(ExprOperator {
+            TokenKind::Operator(op) => Ok(Box::new(Expr::Operator(OperatorExpr {
                 op: op.clone(),
                 token,
             }))),

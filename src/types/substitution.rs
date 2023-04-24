@@ -8,6 +8,10 @@ use super::{Type, TypeVar};
 pub struct Substitutions(HashMap<TypeVar, Type>);
 
 impl Substitutions {
+    pub fn empty() -> Self {
+        Self(HashMap::new())
+    }
+
     pub fn new(token: &Token, free_vars: Vec<TypeVar>, subs: Vec<Type>) -> Result<Self, HayError> {
         if subs.len() != free_vars.len() {
             return Err(HayError::new("Can't make substitution", token.loc.clone()));

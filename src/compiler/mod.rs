@@ -1,4 +1,4 @@
-use crate::ast::stmt::Stmt;
+use crate::ast::stmt::{FunctionDescription, Stmt};
 // use crate::backend::{compile, Instruction, X86_64};
 use crate::error::HayError;
 use crate::lex::token::Loc;
@@ -12,8 +12,9 @@ pub mod test_tools;
 pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
     let stmts = Stmt::from_file_with_prelude(&input_path)?;
 
-    Stmt::build_types_and_data(stmts)?;
-    // Type::type_check_functions(&mut types, &mut global_env)?;
+    let (functions, types) = Stmt::build_types_and_data(stmts)?;
+    FunctionDescription::type_check_all(&functions)?;
+
     // let fn_instructions = Instruction::from_type_map(&types, &mut init_data);
     // check_for_entry_point(&types, &input_path)?;
 

@@ -14,6 +14,9 @@ pub use record::*;
 pub use substitution::*;
 pub use type_var::*;
 
+pub type Stack = Vec<Type>;
+pub type Frame = Vec<(String, Type)>;
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TypeId(String);
 

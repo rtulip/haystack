@@ -54,7 +54,7 @@ impl RecordStmt {
             .collect(),
         };
 
-        if let Some(prev) = user_defined_types.insert(
+        if let Some(TypeDescription::Record(prev)) = user_defined_types.insert(
             tid.clone(),
             TypeDescription::Record(RecordDescription {
                 token,

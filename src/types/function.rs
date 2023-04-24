@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
-use crate::ast::arg::TypedArg;
+use crate::{ast::arg::TypedArg, error::HayError, lex::token::Token};
 
-use super::Type;
+use super::{Frame, Stack, Substitutions, Type};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionType {
@@ -11,11 +11,76 @@ pub struct FunctionType {
 }
 
 impl FunctionType {
+    pub fn new(input: Vec<Type>, output: Vec<Type>) -> Self {
+        Self { input, output }
+    }
+
     pub fn from_typed_args(inputs: &Vec<TypedArg>, outputs: &Vec<TypedArg>) -> Self {
         Self {
             input: inputs.iter().map(|arg| arg.typ.clone()).collect(),
             output: outputs.iter().map(|arg| arg.typ.clone()).collect(),
         }
+    }
+
+    pub fn unify(
+        &self,
+        token: &Token,
+        stack: &mut Stack,
+        subs: &mut Substitutions,
+    ) -> Result<(), HayError> {
+        if stack.len() < self.input.len() {
+            todo!()
+        }
+
+        let s: Vec<_> = (0..self.input.len())
+            .into_iter()
+            .map(|_| stack.pop().unwrap())
+            .collect();
+
+        for (s, i) in s.iter().zip(self.input.iter()) {
+            if s != i {
+                todo!("{s:?}, {i:?}")
+            }
+        }
+
+        stack.extend(self.output.clone().into_iter());
+        Ok(())
+    }
+
+    pub fn unify_many(
+        fns: &[Self],
+        token: &Token,
+        stack: &mut Stack,
+        subs: &mut Substitutions,
+    ) -> Result<(), HayError> {
+        // Make sure that each signature has the same "shape"
+        // This might not be strctly nessisary.
+        let in_len = fns[0].input.len();
+        let out_len = fns[0].output.len();
+        if !fns
+            .iter()
+            .all(|sig| sig.input.len() == in_len && sig.output.len() == out_len)
+        {
+            let mut e = HayError::new(
+                "Logic Error - All signatures should have the same input and output lengths for evaluate many.",
+                token.loc.clone(),
+            ).with_hint("Found these signatures:");
+
+            for func in fns {
+                e = e.with_hint(format!("{func:?}",));
+            }
+            return Err(e);
+        }
+        let stack_before = stack.clone();
+        for func in fns {
+            if let Ok(_) = func.unify(token, stack, subs) {
+                return Ok(());
+            }
+
+            *stack = stack_before.clone();
+        }
+
+        todo!()
     }
 }
 

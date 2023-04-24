@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::ast::visibility::Visibility;
+use crate::{ast::visibility::Visibility, error::HayError, lex::token::Token};
 
 use super::{Type, TypeId, TypeVar};
 
@@ -25,6 +25,18 @@ pub struct RecordType {
     pub kind: RecordKind,
     pub ident: Option<TypeId>,
     pub members: Vec<RecordMember>,
+}
+
+impl RecordType {
+    pub fn get_inner_accessors(&self, accessors: &Vec<Token>) -> Result<Self, HayError> {
+        assert!(self.kind == RecordKind::Struct);
+
+        if accessors.is_empty() {
+            return Ok(self.clone());
+        }
+
+        todo!()
+    }
 }
 
 impl Display for RecordKind {

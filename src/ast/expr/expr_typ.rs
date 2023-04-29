@@ -1,13 +1,13 @@
-use crate::ast::stmt::StmtKind;
+use crate::ast::stmt::{InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes};
 use crate::error::HayError;
 use crate::lex::token::{Literal, Operator, Token};
 use crate::types::{Frame, Stack, Substitutions};
 use std::collections::HashMap;
 
 use super::{
-    AccessorExpr, AnnotatedCallExpr, AsExpr, BlockExpr, ExprCast, ExprIf, ExprLiteral, ExprReturn,
-    ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, IdentExpr, MatchExpr, NeverExpr,
-    OperatorExpr, TupleExpr, UnpackExpr,
+    AccessorExpr, AnnotatedCallExpr, AsExpr, BlockExpr, ExprCast, ExprReturn, ExprSizeOf,
+    ExprSyscall, ExprUnary, ExprVar, ExprWhile, IdentExpr, IfExpr, LiteralExpr, MatchExpr,
+    NeverExpr, OperatorExpr, TupleExpr, UnpackExpr,
 };
 
 /// Haystack's Expression Representation
@@ -34,7 +34,7 @@ use super::{
 /// * [`Expr::Return`] returns from a function.
 #[derive(Debug, Clone)]
 pub enum Expr {
-    Literal(ExprLiteral),
+    Literal(LiteralExpr),
     Tuple(TupleExpr),
     Operator(OperatorExpr),
     Unary(ExprUnary),
@@ -42,7 +42,7 @@ pub enum Expr {
     Cast(ExprCast),
     Ident(IdentExpr),
     Accessor(AccessorExpr),
-    If(ExprIf),
+    If(IfExpr),
     As(AsExpr),
     Var(ExprVar),
     While(ExprWhile),
@@ -59,14 +59,14 @@ impl Expr {
     /// Helper function to quickly get the most pertinent token from an [`Expr`]
     pub fn token(&self) -> &Token {
         match self {
-            Expr::Literal(ExprLiteral { token, .. })
+            Expr::Literal(LiteralExpr { token, .. })
             | Expr::Tuple(TupleExpr { token, .. })
             | Expr::Operator(OperatorExpr { token, .. })
             | Expr::Syscall(ExprSyscall { token, .. })
             | Expr::Cast(ExprCast { token, .. })
             | Expr::Ident(IdentExpr { ident: token, .. })
             | Expr::Accessor(AccessorExpr { token, .. })
-            | Expr::If(ExprIf { token, .. })
+            | Expr::If(IfExpr { token, .. })
             | Expr::As(AsExpr { token, .. })
             | Expr::Var(ExprVar { token, .. })
             | Expr::While(ExprWhile { token, .. })
@@ -86,15 +86,26 @@ impl Expr {
 
     pub fn type_check(
         &self,
+        types: &UserDefinedTypes,
         stack: &mut Stack,
         frame: &mut Frame,
+        interfaces: &Interfaces,
+        interface_fn_table: &InterfaceFunctionTable,
         subs: &mut Substitutions,
     ) -> Result<(), HayError> {
         match self {
-            Expr::Block(block) => block.type_check(stack, frame, subs),
-            Expr::Ident(ident) => ident.type_check(stack, frame, subs),
-            Expr::Accessor(accessor) => accessor.type_check(stack, frame, subs),
-            Expr::Operator(operator) => operator.type_check(stack, frame, subs),
+            Expr::Block(block) => {
+                block.type_check(types, stack, frame, interfaces, interface_fn_table, subs)
+            }
+            Expr::Ident(ident) => {
+                ident.type_check(types, stack, frame, interfaces, interface_fn_table, subs)
+            }
+            Expr::Accessor(accessor) => accessor.type_check(types, stack, frame, subs),
+            Expr::Operator(operator) => operator.type_check(types, stack, frame, subs),
+            Expr::If(if_expr) => {
+                if_expr.type_check(types, stack, frame, interfaces, interface_fn_table, subs)
+            }
+            Expr::Literal(literal) => literal.type_check(types, stack),
             x => todo!("{x:?}"),
         }
     }

@@ -1,4 +1,5 @@
 use crate::{
+    ast::stmt::UserDefinedTypes,
     error::HayError,
     lex::token::Token,
     types::{Frame, RecordKind, Stack, Substitutions, Type},
@@ -29,6 +30,7 @@ pub struct AccessorExpr {
 impl AccessorExpr {
     pub fn type_check(
         &self,
+        types: &UserDefinedTypes,
         stack: &mut Stack,
         frame: &Frame,
         subs: &mut Substitutions,

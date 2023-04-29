@@ -70,14 +70,13 @@ impl UntypedArg {
     pub fn into_typed_args(
         args: Vec<Self>,
         user_defined_types: &UserDefinedTypes,
-        free_vars: &Option<FreeVars>,
+        free_vars: Option<&FreeVars>,
     ) -> Result<Vec<TypedArg>, HayError> {
         let mut out = vec![];
         for arg in args {
-            out.push(arg.into_typed_arg(
-                user_defined_types,
-                free_vars.as_ref().unwrap_or(&FreeVars::new()),
-            )?);
+            out.push(
+                arg.into_typed_arg(user_defined_types, free_vars.unwrap_or(&FreeVars::new()))?,
+            );
         }
 
         Ok(out)

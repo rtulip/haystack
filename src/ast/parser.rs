@@ -7,7 +7,7 @@ use std::collections::{HashSet};
 
 use super::arg::{IdentArg, UntypedArg, IdentArgKind};
 use super::expr::{
-    AccessorExpr, AnnotatedCallExpr, AsExpr, ExprCast, ExprElseIf, IdentExpr, ExprIf, ExprLiteral,
+    AccessorExpr, AnnotatedCallExpr, AsExpr, ExprCast, ExprElseIf, IdentExpr, IfExpr, LiteralExpr,
     OperatorExpr, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr, MatchExpr, MatchElseExpr, UnpackExpr,
 };
 use super::member::UntypedMember;
@@ -958,7 +958,7 @@ impl<'a> Parser<'a> {
         let token = self.tokens.pop().unwrap();
         match &token.kind {
             TokenKind::Marker(Marker::LeftBrace) => self.block(token),
-            TokenKind::Literal(l) => Ok(Box::new(Expr::Literal(ExprLiteral {
+            TokenKind::Literal(l) => Ok(Box::new(Expr::Literal(LiteralExpr {
                 literal: l.clone(),
                 token,
             }))),
@@ -1608,7 +1608,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Ok(Box::new(Expr::If(ExprIf {
+        Ok(Box::new(Expr::If(IfExpr {
             token,
             then,
             otherwise,

@@ -1,5 +1,5 @@
 use crate::{
-    ast::stmt::StmtKind,
+    ast::stmt::{StmtKind, UserDefinedTypes},
     error::HayError,
     lex::token::{Operator, Token},
     types::{Frame, FunctionType, Stack, Substitutions, Type},
@@ -14,6 +14,7 @@ pub struct OperatorExpr {
 impl OperatorExpr {
     pub fn type_check(
         &self,
+        types: &UserDefinedTypes,
         stack: &mut Stack,
         frame: &mut Frame,
         subs: &mut Substitutions,

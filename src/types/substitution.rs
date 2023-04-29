@@ -4,7 +4,7 @@ use crate::{error::HayError, lex::token::Token};
 
 use super::{Type, TypeVar};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Substitutions(HashMap<TypeVar, Type>);
 
 impl Substitutions {

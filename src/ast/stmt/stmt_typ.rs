@@ -1,7 +1,7 @@
 use super::{
-    EnumStmt, FunctionDescription, FunctionStmt, FunctionStubStmt, InterfaceImplStmt,
-    InterfaceStmt, PreDeclarationStmt, PreDeclaredType, RecordDescription, RecordStmt, StmtKind,
-    VarStmt,
+    EnumStmt, FunctionDescription, FunctionStmt, FunctionStubStmt, InterfaceDescription,
+    InterfaceImplStmt, InterfaceStmt, PreDeclarationStmt, PreDeclaredType, RecordDescription,
+    RecordStmt, StmtKind, VarStmt,
 };
 use crate::ast::arg::UntypedArg;
 use crate::ast::parser::Parser;
@@ -13,6 +13,8 @@ use crate::types::{Type, TypeId, TypeVar};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 pub type Functions = BTreeMap<String, FunctionDescription>;
+pub type Interfaces = BTreeMap<String, InterfaceDescription>;
+pub type InterfaceFunctionTable = BTreeMap<String, String>;
 pub type UserDefinedTypes = BTreeMap<TypeId, TypeDescription>;
 
 #[derive(Debug, Clone)]
@@ -67,16 +69,32 @@ impl Stmt {
 
     pub fn build_types_and_data(
         stmts: Vec<Self>,
-    ) -> Result<(Functions, UserDefinedTypes), HayError> {
+    ) -> Result<
+        (
+            Functions,
+            UserDefinedTypes,
+            Interfaces,
+            InterfaceFunctionTable,
+        ),
+        HayError,
+    > {
         let mut functions = Functions::new();
         let mut user_defined_types = UserDefinedTypes::new();
+        let mut interfaces = Interfaces::new();
+        let mut interface_fn_table = InterfaceFunctionTable::new();
         for stmt in stmts {
             match stmt {
-                Stmt::Interface(iface) => (),
+                Stmt::Interface(iface) => iface.add_to_global_env(
+                    &user_defined_types,
+                    &mut interfaces,
+                    &mut interface_fn_table,
+                )?,
                 Stmt::InterfaceImpl(iface_impl) => (),
-                Stmt::FunctionStub(_) => todo!("FunctionStub"),
+                Stmt::FunctionStub(stub) => {
+                    stub.add_to_global_env(&user_defined_types, &mut functions, None)?
+                }
                 Stmt::Function(function) => {
-                    function.add_to_global_env(&user_defined_types, &mut functions)?
+                    function.add_to_global_env(&user_defined_types, &mut functions, None)?
                 }
                 Stmt::PreDeclaration(predecl) => {
                     predecl.add_to_global_env(&mut user_defined_types)?
@@ -91,6 +109,11 @@ impl Stmt {
             .iter()
             .all(|(_, desc)| matches!(desc, TypeDescription::Record(_))));
 
-        Ok((functions, user_defined_types))
+        Ok((
+            functions,
+            user_defined_types,
+            interfaces,
+            interface_fn_table,
+        ))
     }
 }

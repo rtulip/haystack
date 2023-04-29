@@ -5,10 +5,10 @@ use crate::{
     },
     error::HayError,
     lex::token::Token,
-    types::{Frame, FreeVars, FunctionType, Stack, Substitutions, TypeId},
+    types::{Frame, FreeVars, FunctionType, Stack, Substitutions, Type, TypeId},
 };
 
-use super::{Functions, InterfaceId, UserDefinedTypes};
+use super::{Functions, InterfaceFunctionTable, InterfaceId, Interfaces, UserDefinedTypes};
 
 #[derive(Debug, Clone)]
 pub enum FnTag {
@@ -32,7 +32,7 @@ pub struct FunctionStmt {
 pub struct FunctionDescription {
     pub name: Token,
     pub typ: FunctionType,
-    pub body: Expr,
+    pub body: Option<Expr>,
     pub tags: Vec<FnTag>,
     pub impl_on: Option<TypeId>,
     pub free_vars: Option<FreeVars>,
@@ -44,10 +44,19 @@ impl FunctionStmt {
         self,
         user_defined_types: &UserDefinedTypes,
         functions: &mut Functions,
+        free_vars_in_scope: Option<&FreeVars>,
     ) -> Result<(), HayError> {
         let (free_vars, _) = UntypedArg::into_free_vars(self.annotations);
-        let inputs = UntypedArg::into_typed_args(self.inputs, user_defined_types, &free_vars)?;
-        let outputs = UntypedArg::into_typed_args(self.outputs, user_defined_types, &free_vars)?;
+        let inputs = UntypedArg::into_typed_args(
+            self.inputs,
+            user_defined_types,
+            Type::merge_free_vars(free_vars.as_ref(), free_vars_in_scope).as_ref(),
+        )?;
+        let outputs = UntypedArg::into_typed_args(
+            self.outputs,
+            user_defined_types,
+            Type::merge_free_vars(free_vars.as_ref(), free_vars_in_scope).as_ref(),
+        )?;
 
         let (stack, frame) = TypedArg::init_state(&inputs);
 
@@ -66,7 +75,7 @@ impl FunctionStmt {
             FunctionDescription {
                 name: self.name,
                 typ: function_type,
-                body: self.body,
+                body: Some(self.body),
                 tags: self.tags,
                 impl_on: self.impl_on.map(|typ| TypeId::new(typ.lexeme)),
                 free_vars,
@@ -79,15 +88,37 @@ impl FunctionStmt {
 }
 
 impl FunctionDescription {
-    fn type_check(&self) -> Result<(), HayError> {
+    pub fn type_check(
+        &self,
+        types: &UserDefinedTypes,
+        interfaces: &Interfaces,
+        interface_fn_table: &InterfaceFunctionTable,
+    ) -> Result<(), HayError> {
         let (mut stack, mut frame) = self.start_state.clone();
         self.body
-            .type_check(&mut stack, &mut frame, &mut Substitutions::empty())
+            .as_ref()
+            .ok_or(HayError::new(
+                "Can't type check stub function...",
+                self.name.loc.clone(),
+            ))?
+            .type_check(
+                types,
+                &mut stack,
+                &mut frame,
+                interfaces,
+                interface_fn_table,
+                &mut Substitutions::empty(),
+            )
     }
 
-    pub fn type_check_all(functions: &Functions) -> Result<(), HayError> {
+    pub fn type_check_all(
+        functions: &Functions,
+        types: &UserDefinedTypes,
+        interfaces: &Interfaces,
+        interface_fn_table: &InterfaceFunctionTable,
+    ) -> Result<(), HayError> {
         for (_, f) in functions {
-            f.type_check()?;
+            f.type_check(types, interfaces, interface_fn_table)?;
         }
         Ok(())
     }

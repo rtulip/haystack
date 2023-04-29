@@ -1,11 +1,16 @@
 use std::collections::HashMap;
 
-use crate::{ast::stmt::StmtKind, error::HayError, lex::token::Token};
+use crate::{
+    ast::stmt::{InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes},
+    error::HayError,
+    lex::token::Token,
+    types::{Frame, FunctionType, Stack, Substitutions, Type},
+};
 
 use super::Expr;
 
 #[derive(Debug, Clone)]
-pub struct ExprIf {
+pub struct IfExpr {
     /// Token of the `If` keyword
     pub token: Token,
     /// A list of expressions to execute if true.
@@ -16,7 +21,119 @@ pub struct ExprIf {
     pub finally: Option<Box<Expr>>,
 }
 
-impl ExprIf {}
+impl IfExpr {
+    pub fn type_check(
+        &self,
+        types: &UserDefinedTypes,
+        stack: &mut Stack,
+        frame: &mut Frame,
+        interfaces: &Interfaces,
+        interface_fn_table: &InterfaceFunctionTable,
+        subs: &mut Substitutions,
+    ) -> Result<(), HayError> {
+        let func = FunctionType::new(vec![Type::bool()], vec![]);
+        func.unify(&self.token, stack, subs)?;
+
+        let initial_frame = frame.clone();
+        let mut otherwise_stack = stack.clone();
+
+        let mut end_stacks = vec![];
+        let then_end_tok = self.then.token().clone();
+        self.then
+            .type_check(types, stack, frame, interfaces, interface_fn_table, subs)?;
+
+        if !stack.contains(&Type::never()) {
+            end_stacks.push((self.token.clone(), stack.clone()));
+        }
+
+        for case in &self.otherwise {
+            let case_token = case.token.clone();
+            *stack = otherwise_stack.clone();
+            *frame = initial_frame.clone();
+
+            case.type_check(stack, frame, subs)?;
+
+            otherwise_stack = stack.clone();
+
+            if !stack.contains(&Type::never()) {
+                end_stacks.push((case_token, stack.clone()));
+            }
+        }
+
+        // let mut typed_finally = None;
+        // if let Some(finally) = self.finally {
+        //     *stack = otherwise_stack;
+        //     *frame = initial_frame.clone();
+        //     let tok = finally.token().clone();
+
+        //     let tmp =
+        //         Box::new(finally.type_check(stack, frame, func, global_env, types, generic_map)?);
+        //     typed_finally = Some(tmp);
+
+        //     if !stack.contains(&Type::Never.id()) {
+        //         end_stacks.push((tok, stack.clone()));
+        //     }
+        // } else {
+        //     *stack = otherwise_stack.clone();
+        //     end_stacks.push((then_end_tok, otherwise_stack));
+        // }
+
+        // let mut resulting_stack = vec![];
+
+        // if !end_stacks.is_empty() {
+        //     resulting_stack = end_stacks[0].1.clone();
+        //     if end_stacks
+        //         .iter()
+        //         .any(|(_, s)| s.len() != resulting_stack.len())
+        //         || (1..end_stacks.len()).any(|i| {
+        //             !end_stacks[i]
+        //                 .1
+        //                 .iter()
+        //                 .zip(resulting_stack.iter_mut())
+        //                 .all(|(t, r)| {
+        //                     match (
+        //                         t == r,
+        //                         &t.supertype(types) == r,
+        //                         t.supertype(types) == r.supertype(types),
+        //                     ) {
+        //                         (true, _, _) => true,
+        //                         (_, true, _) => true,
+        //                         (_, _, true) => {
+        //                             *r = r.supertype(types);
+        //                             true
+        //                         }
+        //                         _ => false,
+        //                     }
+        //                 })
+        //         })
+        //     {
+        //         let mut err = HayError::new_type_err(
+        //             "If block creates stacks of diferent shapes",
+        //             self.token.loc,
+        //         )
+        //         .with_hint("Each branch of if block must evaluate to the same stack layout.");
+
+        //         for (i, (tok, stk)) in end_stacks.iter().enumerate() {
+        //             err = err.with_hint(format!("{} Branch {}: {:?}", tok.loc, i + 1, stk));
+        //         }
+
+        //         return Err(err);
+        //     }
+        // }
+
+        // *frame = initial_frame;
+        // if !end_stacks.is_empty() {
+        //     *stack = resulting_stack;
+        // }
+        // Ok(TypedExpr::If {
+        //     then: Box::new(typed_then),
+        //     otherwise: typed_otherwise,
+        //     finally: typed_finally,
+        // })
+
+        todo!()
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct ExprElseIf {
@@ -28,4 +145,13 @@ pub struct ExprElseIf {
     pub block: Expr,
 }
 
-impl ExprElseIf {}
+impl ExprElseIf {
+    pub fn type_check(
+        &self,
+        stack: &mut Stack,
+        frame: &mut Frame,
+        subs: &mut Substitutions,
+    ) -> Result<(), HayError> {
+        todo!()
+    }
+}

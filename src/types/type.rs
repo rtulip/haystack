@@ -42,6 +42,23 @@ impl Type {
         Type::Base(BaseType::Char)
     }
 
+    pub fn never() -> Self {
+        Type::Base(BaseType::Never)
+    }
+
+    pub fn merge_free_vars(a: Option<&FreeVars>, b: Option<&FreeVars>) -> Option<FreeVars> {
+        match (a, b) {
+            (Some(a), None) => Some(a.clone()),
+            (None, Some(b)) => Some(b.clone()),
+            (Some(a), Some(b)) => {
+                let mut free_vars = FreeVars::from_iter(a.clone().into_iter());
+                free_vars.extend(b.clone());
+                Some(free_vars)
+            }
+            (None, None) => None,
+        }
+    }
+
     pub fn from_token(
         token: &Token,
         user_defined_types: &UserDefinedTypes,
@@ -93,7 +110,7 @@ impl Type {
                     return Ok(Type::PreDeclaration(TypeId::new(&predecl.name)));
                 }
 
-                todo!("{token}")
+                todo!("{token}: {free_vars:?}")
             }
             TypeToken::Parameterized { base, inner } => {
                 let (base_typ, ordered_free_vars);

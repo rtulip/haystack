@@ -18,7 +18,7 @@ pub type Stack = Vec<Type>;
 pub type Frame = Vec<(String, Type)>;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TypeId(String);
+pub struct TypeId(pub String);
 
 impl TypeId {
     pub fn new<S: Into<String>>(s: S) -> Self {

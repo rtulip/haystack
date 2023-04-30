@@ -136,6 +136,7 @@ impl Expr {
             Expr::As(as_expr) => as_expr.type_check(stack, frame),
             Expr::Cast(cast) => cast.type_check(types, stack),
             Expr::SizeOf(size_of) => size_of.type_check(stack),
+            Expr::AnnotatedCall(call) => call.type_check(stack, types, functions),
             x => todo!("{x:?}"),
         }
     }

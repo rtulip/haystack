@@ -26,7 +26,7 @@ impl FunctionStubStmt {
         functions: &mut Functions,
         free_vars_in_scope: Option<&FreeVars>,
     ) -> Result<(), HayError> {
-        let (free_vars, _) = UntypedArg::into_free_vars(self.annotations);
+        let (free_vars, ordered_free_vars) = UntypedArg::into_free_vars(self.annotations);
         let inputs = UntypedArg::into_typed_args(
             self.inputs,
             user_defined_types,
@@ -59,6 +59,7 @@ impl FunctionStubStmt {
                 tags: self.tags,
                 impl_on: self.impl_on.map(|typ| TypeId::new(typ.lexeme)),
                 free_vars,
+                ordered_free_vars,
                 start_state: (stack, frame),
             },
         );

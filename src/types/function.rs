@@ -77,6 +77,18 @@ impl FunctionType {
 
         todo!()
     }
+
+    pub fn substitute(&self, token: &Token, subs: &Substitutions) -> Result<Self, HayError> {
+        let mut input = vec![];
+        let mut output = vec![];
+        for t in &self.input {
+            input.push(t.clone().substitute(token, subs)?);
+        }
+        for t in &self.output {
+            output.push(t.clone().substitute(token, subs)?);
+        }
+        Ok(Self { input, output })
+    }
 }
 
 impl Display for FunctionType {

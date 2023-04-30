@@ -42,6 +42,13 @@ impl OperatorExpr {
                 "Op.sub",
                 FunctionType::new(vec![Type::u64(), Type::u64()], vec![Type::u64()]),
             )?,
+            Operator::Plus => self.type_check_interface_op(
+                stack,
+                interfaces,
+                "Add",
+                "Op.add",
+                FunctionType::new(vec![Type::u64(), Type::u64()], vec![Type::u64()]),
+            )?,
             Operator::GreaterEqual | Operator::LessThan => {
                 let fs = vec![
                     FunctionType::new(vec![Type::u64(), Type::u64()], vec![Type::bool()]),
@@ -59,6 +66,16 @@ impl OperatorExpr {
                 });
 
                 let func = FunctionType::new(vec![ptr], vec![t]);
+                func.unify(&self.token, stack)?;
+            }
+            Operator::Write => {
+                let t = Type::TypeVar(TypeVar::new("T"));
+                let ptr = Type::Pointer(PointerType {
+                    mutable: true,
+                    inner: Box::new(t.clone()),
+                });
+
+                let func = FunctionType::new(vec![t, ptr], vec![]);
                 func.unify(&self.token, stack)?;
             }
             op => todo!("{op:?}"),

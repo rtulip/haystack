@@ -72,7 +72,7 @@ impl ExprWhile {
         )?;
 
         if !stack.contains(&Type::never())
-            && stack
+            && !stack
                 .iter()
                 .zip(stack_before.iter())
                 .all(|(t1, t2)| t1 == t2)

@@ -286,7 +286,12 @@ impl Type {
                 }),
             ) => left.unify(token, right, subs)?,
             (a, b) if a == b => (),
-            (a, b) => todo!("{token}: {a}, {b}"),
+            (a, b) => {
+                return Err(HayError::new(
+                    format!("Cannot unify {a} and {b}"),
+                    token.loc.clone(),
+                ))
+            }
         }
 
         Ok(())

@@ -7,7 +7,7 @@ use std::collections::{HashSet};
 
 use super::arg::{IdentArg, UntypedArg, IdentArgKind};
 use super::expr::{
-    AccessorExpr, AnnotatedCallExpr, AsExpr, ExprCast, ExprElseIf, IdentExpr, IfExpr, LiteralExpr,
+    AccessorExpr, AnnotatedCallExpr, AsExpr, CastExpr, ExprElseIf, IdentExpr, IfExpr, LiteralExpr,
     OperatorExpr, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr, MatchExpr, MatchElseExpr, UnpackExpr,
 };
 use super::member::UntypedMember;
@@ -1300,7 +1300,7 @@ impl<'a> Parser<'a> {
             ),
         };
 
-        Ok(Box::new(Expr::Cast(ExprCast { token, typ })))
+        Ok(Box::new(Expr::Cast(CastExpr { token, typ })))
     }
 
     fn enum_struct(&mut self, struct_token: Token) -> Result<Vec<Stmt>, HayError> {

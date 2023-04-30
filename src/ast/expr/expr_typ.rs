@@ -5,7 +5,7 @@ use crate::types::{Frame, Stack, Substitutions};
 use std::collections::HashMap;
 
 use super::{
-    AccessorExpr, AnnotatedCallExpr, AsExpr, BlockExpr, ExprCast, ExprReturn, ExprSizeOf,
+    AccessorExpr, AnnotatedCallExpr, AsExpr, BlockExpr, CastExpr, ExprReturn, ExprSizeOf,
     ExprSyscall, ExprUnary, ExprVar, ExprWhile, IdentExpr, IfExpr, LiteralExpr, MatchExpr,
     NeverExpr, OperatorExpr, TupleExpr, UnpackExpr,
 };
@@ -39,7 +39,7 @@ pub enum Expr {
     Operator(OperatorExpr),
     Unary(ExprUnary),
     Syscall(ExprSyscall),
-    Cast(ExprCast),
+    Cast(CastExpr),
     Ident(IdentExpr),
     Accessor(AccessorExpr),
     If(IfExpr),
@@ -63,7 +63,7 @@ impl Expr {
             | Expr::Tuple(TupleExpr { token, .. })
             | Expr::Operator(OperatorExpr { token, .. })
             | Expr::Syscall(ExprSyscall { token, .. })
-            | Expr::Cast(ExprCast { token, .. })
+            | Expr::Cast(CastExpr { token, .. })
             | Expr::Ident(IdentExpr { ident: token, .. })
             | Expr::Accessor(AccessorExpr { token, .. })
             | Expr::If(IfExpr { token, .. })
@@ -133,7 +133,8 @@ impl Expr {
                 interface_fn_table,
                 subs,
             ),
-            Expr::As(as_expr) => todo!(),
+            Expr::As(as_expr) => as_expr.type_check(stack, frame),
+            Expr::Cast(cast) => cast.type_check(types, stack),
             x => todo!("{x:?}"),
         }
     }

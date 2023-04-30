@@ -1,5 +1,7 @@
-use crate::error::HayError;
+use crate::{error::HayError, lex::token::Token};
 use std::{convert::TryFrom, fmt::Display};
+
+use super::{FunctionType, PointerType, Stack, Type, TypeVar};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BaseType {
@@ -8,6 +10,33 @@ pub enum BaseType {
     Char,
     Bool,
     Never,
+}
+
+impl BaseType {
+    fn cast_u64(token: &Token, stack: &mut Stack) -> Result<(), HayError> {
+        let fns = [
+            FunctionType::new(vec![Type::u64()], vec![Type::u64()]),
+            FunctionType::new(vec![Type::u8()], vec![Type::u64()]),
+            FunctionType::new(vec![Type::char()], vec![Type::u64()]),
+            FunctionType::new(vec![Type::bool()], vec![Type::u64()]),
+            FunctionType::new(
+                vec![Type::Pointer(PointerType {
+                    mutable: false,
+                    inner: Box::new(Type::TypeVar(TypeVar::new("T"))),
+                })],
+                vec![Type::u64()],
+            ),
+        ];
+
+        FunctionType::unify_many(&fns, token, stack)
+    }
+
+    pub fn unify_cast(&self, token: &Token, stack: &mut Stack) -> Result<(), HayError> {
+        match self {
+            BaseType::U64 => BaseType::cast_u64(token, stack),
+            _ => todo!("{self}"),
+        }
+    }
 }
 
 impl TryFrom<&str> for BaseType {

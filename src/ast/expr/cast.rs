@@ -1,9 +1,29 @@
 use std::collections::HashMap;
 
-use crate::{ast::member::TypedMember, error::HayError, lex::token::Token};
+use crate::{
+    ast::{member::TypedMember, stmt::UserDefinedTypes},
+    error::HayError,
+    lex::token::Token,
+    types::{FreeVars, Stack, Type},
+};
 
 #[derive(Debug, Clone)]
-pub struct ExprCast {
+pub struct CastExpr {
     pub token: Token,
     pub typ: Token,
+}
+
+impl CastExpr {
+    pub fn type_check(
+        &self,
+        user_defined_types: &UserDefinedTypes,
+        stack: &mut Stack,
+    ) -> Result<(), HayError> {
+        let cast_type = Type::from_token(&self.typ, user_defined_types, &mut FreeVars::new())?;
+
+        match cast_type {
+            Type::Base(base_type) => base_type.unify_cast(&self.token, stack),
+            _ => todo!(),
+        }
+    }
 }

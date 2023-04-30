@@ -15,18 +15,14 @@ impl OperatorExpr {
     fn type_check_interface_op<S1: Into<String>, S2: Into<String>>(
         &self,
         stack: &mut Stack,
-        subs: &mut Substitutions,
         interfaces: &Interfaces,
         interface_id: S1,
         interface_fn_name: S2,
         default_func: FunctionType,
     ) -> Result<(), HayError> {
-        if default_func
-            .unify(&self.token, stack, &mut Substitutions::empty())
-            .is_err()
-        {
+        if default_func.unify(&self.token, stack).is_err() {
             let iface = interfaces.get(&interface_id.into()).unwrap();
-            iface.unify(&interface_fn_name.into(), &self.token, stack, subs)?;
+            iface.unify(&interface_fn_name.into(), &self.token, stack)?;
         }
         Ok(())
     }
@@ -37,25 +33,23 @@ impl OperatorExpr {
         stack: &mut Stack,
         frame: &mut Frame,
         interfaces: &Interfaces,
-        subs: &mut Substitutions,
     ) -> Result<(), HayError> {
         match &self.op {
             Operator::Minus => self.type_check_interface_op(
                 stack,
-                subs,
                 interfaces,
                 "Sub",
                 "Op.sub",
                 FunctionType::new(vec![Type::u64(), Type::u64()], vec![Type::u64()]),
             )?,
-            Operator::GreaterEqual => {
+            Operator::GreaterEqual | Operator::LessThan => {
                 let fs = vec![
                     FunctionType::new(vec![Type::u64(), Type::u64()], vec![Type::bool()]),
                     FunctionType::new(vec![Type::u8(), Type::u8()], vec![Type::bool()]),
                     FunctionType::new(vec![Type::char(), Type::char()], vec![Type::bool()]),
                 ];
 
-                FunctionType::unify_many(&fs, &self.token, stack, subs)?;
+                FunctionType::unify_many(&fs, &self.token, stack)?;
             }
             Operator::Read => {
                 let t = Type::TypeVar(TypeVar::new("T"));
@@ -65,7 +59,7 @@ impl OperatorExpr {
                 });
 
                 let func = FunctionType::new(vec![ptr], vec![t]);
-                func.unify(&self.token, stack, &mut Substitutions::empty())?;
+                func.unify(&self.token, stack)?;
             }
             op => todo!("{op:?}"),
         }

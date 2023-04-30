@@ -111,10 +111,9 @@ impl Expr {
                 functions,
                 interfaces,
                 interface_fn_table,
-                subs,
             ),
             Expr::Accessor(accessor) => accessor.type_check(types, stack, frame, subs),
-            Expr::Operator(operator) => operator.type_check(types, stack, frame, interfaces, subs),
+            Expr::Operator(operator) => operator.type_check(types, stack, frame, interfaces),
             Expr::If(if_expr) => if_expr.type_check(
                 types,
                 stack,
@@ -125,7 +124,16 @@ impl Expr {
                 subs,
             ),
             Expr::Literal(literal) => literal.type_check(types, stack),
-            Expr::While(while_expr) => todo!(),
+            Expr::While(while_expr) => while_expr.type_check(
+                types,
+                stack,
+                frame,
+                functions,
+                interfaces,
+                interface_fn_table,
+                subs,
+            ),
+            Expr::As(as_expr) => todo!(),
             x => todo!("{x:?}"),
         }
     }

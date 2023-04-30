@@ -109,23 +109,14 @@ impl InterfaceDescription {
         Substitutions::new(token, self.ordered_free_vars.clone(), types)
     }
 
-    pub fn unify(
-        &self,
-        func: &String,
-        token: &Token,
-        stack: &mut Stack,
-        subs: &mut Substitutions,
-    ) -> Result<(), HayError> {
+    pub fn unify(&self, func: &String, token: &Token, stack: &mut Stack) -> Result<(), HayError> {
         for iface_impl in &self.impls {
             let f = iface_impl.functions.get(func).unwrap();
             let stack_before = stack.clone();
-            let subs_before = subs.clone();
-            if f.typ.unify(token, stack, subs).is_err() {
+            if f.typ.unify(token, stack).is_err() {
                 *stack = stack_before;
-                *subs = subs_before;
                 continue;
             }
-            *subs = subs_before;
 
             return Ok(());
         }

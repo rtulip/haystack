@@ -21,7 +21,6 @@ impl IdentExpr {
         functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
-        subs: &mut Substitutions,
     ) -> Result<(), HayError> {
         if let Some((i, (_, typ))) = frame
             .iter()
@@ -40,12 +39,12 @@ impl IdentExpr {
 
         if let Some(iface_id) = interface_fn_table.get(&self.ident.lexeme) {
             let interface = interfaces.get(iface_id).expect("This sould be fine");
-            interface.unify(&self.ident.lexeme, &self.ident, stack, subs)?;
+            interface.unify(&self.ident.lexeme, &self.ident, stack)?;
             return Ok(());
         }
 
         if let Some(func) = functions.get(&self.ident.lexeme) {
-            func.typ.unify(&self.ident, stack, subs)?;
+            func.typ.unify(&self.ident, stack)?;
             return Ok(());
         }
 

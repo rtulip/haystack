@@ -1,6 +1,11 @@
 use std::collections::HashMap;
 
-use crate::{ast::stmt::StmtKind, error::HayError, lex::token::Token};
+use crate::{
+    ast::stmt::{Functions, InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes},
+    error::HayError,
+    lex::token::Token,
+    types::{Frame, FunctionType, Stack, Substitutions, Type},
+};
 
 use super::Expr;
 
@@ -14,4 +19,75 @@ pub struct ExprWhile {
     pub body: Box<Expr>,
 }
 
-impl ExprWhile {}
+impl ExprWhile {
+    pub fn type_check(
+        &self,
+        types: &UserDefinedTypes,
+        stack: &mut Stack,
+        frame: &mut Frame,
+        functions: &Functions,
+        interfaces: &Interfaces,
+        interface_fn_table: &InterfaceFunctionTable,
+        subs: &mut Substitutions,
+    ) -> Result<(), HayError> {
+        let stack_before = stack.clone();
+        let frame_before = frame.clone();
+        // Evaluate up to the body
+        let mut typed_cond = vec![];
+        for expr in &self.cond {
+            typed_cond.push(expr.type_check(
+                types,
+                stack,
+                frame,
+                functions,
+                interfaces,
+                interface_fn_table,
+                subs,
+            )?);
+        }
+
+        if *frame != frame_before {
+            return Err(HayError::new_type_err(
+                "Frame cannot change within the while loop condition.",
+                self.token.loc.clone(),
+            ));
+        }
+
+        if stack.contains(&Type::never()) {
+            *frame = frame_before;
+            return Ok(());
+        }
+
+        FunctionType::new(vec![Type::bool()], vec![]).unify(&self.token, stack)?;
+        let stack_after_check = stack.clone();
+
+        self.body.type_check(
+            types,
+            stack,
+            frame,
+            functions,
+            interfaces,
+            interface_fn_table,
+            subs,
+        )?;
+
+        if !stack.contains(&Type::never())
+            && stack
+                .iter()
+                .zip(stack_before.iter())
+                .all(|(t1, t2)| t1 == t2)
+        {
+            return Err(HayError::new(
+                "While loop must not change stack between iterations.",
+                self.token.loc.clone(),
+            )
+            .with_hint(format!("Stack before loop: {stack_before:?}"))
+            .with_hint(format!("Stack after loop:  {stack:?}")));
+        }
+
+        *frame = frame_before;
+        *stack = stack_after_check;
+
+        Ok(())
+    }
+}

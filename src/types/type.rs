@@ -273,7 +273,7 @@ impl Type {
         match (self, other) {
             (t, Type::TypeVar(var)) => match subs.get(&var) {
                 Some(sub) if sub == t => (),
-                Some(sub) => todo!("{token}: {t} {sub}, subs: {subs:?}"),
+                Some(sub) => todo!("{token}: var: {var:?} t: {t} sub: {sub}, subs: {subs:?}"),
                 None => {
                     subs.insert(var.clone(), t.clone());
                 }

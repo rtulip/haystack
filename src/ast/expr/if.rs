@@ -33,7 +33,7 @@ impl IfExpr {
         subs: &mut Substitutions,
     ) -> Result<(), HayError> {
         let func = FunctionType::new(vec![Type::bool()], vec![]);
-        func.unify(&self.token, stack, subs)?;
+        func.unify(&self.token, stack)?;
 
         let initial_frame = frame.clone();
         let mut otherwise_stack = stack.clone();

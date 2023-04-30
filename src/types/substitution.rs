@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{error::HayError, lex::token::Token};
 
-use super::{Type, TypeVar};
+use super::{Stack, Type, TypeVar};
 
 #[derive(Debug, Clone)]
 pub struct Substitutions(HashMap<TypeVar, Type>);
@@ -34,5 +34,15 @@ impl Substitutions {
 
     pub fn get(&self, k: &TypeVar) -> Option<&Type> {
         self.0.get(k)
+    }
+
+    pub fn apply(&self, stack: &mut Stack) {
+        for t in stack {
+            if let Type::TypeVar(var) = t {
+                if let Some(sub) = self.get(var) {
+                    *t = sub.clone();
+                }
+            }
+        }
     }
 }

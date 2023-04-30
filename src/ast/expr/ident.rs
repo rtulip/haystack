@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::stmt::{InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes},
+    ast::stmt::{Functions, InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes},
     error::HayError,
     lex::token::Token,
     types::{Frame, Stack, Substitutions},
@@ -18,6 +18,7 @@ impl IdentExpr {
         types: &UserDefinedTypes,
         stack: &mut Stack,
         frame: &Frame,
+        functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
         subs: &mut Substitutions,
@@ -40,6 +41,12 @@ impl IdentExpr {
         if let Some(iface_id) = interface_fn_table.get(&self.ident.lexeme) {
             let interface = interfaces.get(iface_id).expect("This sould be fine");
             interface.unify(&self.ident.lexeme, &self.ident, stack, subs)?;
+            return Ok(());
+        }
+
+        if let Some(func) = functions.get(&self.ident.lexeme) {
+            func.typ.unify(&self.ident, stack, subs)?;
+            return Ok(());
         }
 
         todo!("{}", self.ident);

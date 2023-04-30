@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TypeVar(String);
+pub struct TypeVar(pub String);
 
 impl TypeVar {
     pub fn new<S: Into<String>>(s: S) -> Self {

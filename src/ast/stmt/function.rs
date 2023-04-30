@@ -29,6 +29,7 @@ pub struct FunctionStmt {
     pub requires: Option<Vec<Token>>,
 }
 
+#[derive(Debug, Clone)]
 pub struct FunctionDescription {
     pub name: Token,
     pub typ: FunctionType,
@@ -91,9 +92,11 @@ impl FunctionDescription {
     pub fn type_check(
         &self,
         types: &UserDefinedTypes,
+        functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
     ) -> Result<(), HayError> {
+        println!("{}: Type Checking {}", self.name.loc, self.name.lexeme);
         let (mut stack, mut frame) = self.start_state.clone();
         self.body
             .as_ref()
@@ -105,6 +108,7 @@ impl FunctionDescription {
                 types,
                 &mut stack,
                 &mut frame,
+                functions,
                 interfaces,
                 interface_fn_table,
                 &mut Substitutions::empty(),
@@ -118,7 +122,7 @@ impl FunctionDescription {
         interface_fn_table: &InterfaceFunctionTable,
     ) -> Result<(), HayError> {
         for (_, f) in functions {
-            f.type_check(types, interfaces, interface_fn_table)?;
+            f.type_check(types, functions, interfaces, interface_fn_table)?;
         }
         Ok(())
     }

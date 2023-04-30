@@ -1,5 +1,5 @@
 use crate::error::HayError;
-use std::convert::TryFrom;
+use std::{convert::TryFrom, fmt::Display};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BaseType {
@@ -20,6 +20,18 @@ impl TryFrom<&str> for BaseType {
             "bool" => Ok(BaseType::Bool),
             "!" => Ok(BaseType::Never),
             _ => Err(()),
+        }
+    }
+}
+
+impl Display for BaseType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BaseType::U64 => write!(f, "u64"),
+            BaseType::U8 => write!(f, "u8"),
+            BaseType::Char => write!(f, "char"),
+            BaseType::Bool => write!(f, "bool"),
+            BaseType::Never => write!(f, "!"),
         }
     }
 }

@@ -89,7 +89,9 @@ impl Stmt {
                     &mut interfaces,
                     &mut interface_fn_table,
                 )?,
-                Stmt::InterfaceImpl(iface_impl) => (),
+                Stmt::InterfaceImpl(iface_impl) => {
+                    iface_impl.add_to_global_env(&user_defined_types, &mut interfaces)?
+                }
                 Stmt::FunctionStub(stub) => {
                     stub.add_to_global_env(&user_defined_types, &mut functions, None)?
                 }

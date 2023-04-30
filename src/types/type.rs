@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, fmt::Display};
 
 use crate::{
     ast::{
@@ -261,6 +261,57 @@ impl Type {
                 }
             }
             _ => todo!("{self:?}"),
+        }
+    }
+
+    pub fn unify(
+        &self,
+        token: &Token,
+        other: &Type,
+        subs: &mut Substitutions,
+    ) -> Result<(), HayError> {
+        match (self, other) {
+            (t, Type::TypeVar(var)) => match subs.get(&var) {
+                Some(sub) if sub == t => (),
+                Some(sub) => todo!("{token}: {t} {sub}, subs: {subs:?}"),
+                None => {
+                    subs.insert(var.clone(), t.clone());
+                }
+            },
+            (
+                Type::Pointer(PointerType { inner: left, .. }),
+                Type::Pointer(PointerType {
+                    mutable: false,
+                    inner: right,
+                }),
+            ) => left.unify(token, right, subs)?,
+            (a, b) if a == b => (),
+            (a, b) => todo!("{token}: {a}, {b}"),
+        }
+
+        Ok(())
+    }
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Base(base) => write!(f, "{base}"),
+            Type::Function(func) => write!(f, "{func}"),
+            Type::Pointer(ptr) => write!(f, "{}{}", if ptr.mutable { "*" } else { "&" }, ptr.inner),
+            Type::PreDeclaration(_) => todo!(),
+            Type::Record(RecordType {
+                ident: Some(TypeId(ident)),
+                ..
+            }) => write!(f, "{ident}"),
+            Type::Record(RecordType {
+                ident: None,
+                // members,
+                ..
+            }) => {
+                todo!()
+            }
+            Type::TypeVar(TypeVar(ident)) => write!(f, "{ident}"),
         }
     }
 }

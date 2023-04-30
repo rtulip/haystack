@@ -28,6 +28,10 @@ impl Substitutions {
         Ok(Self(sub_map))
     }
 
+    pub fn insert(&mut self, k: TypeVar, v: Type) -> Option<Type> {
+        self.0.insert(k, v)
+    }
+
     pub fn get(&self, k: &TypeVar) -> Option<&Type> {
         self.0.get(k)
     }

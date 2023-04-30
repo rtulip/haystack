@@ -1,5 +1,5 @@
 use crate::{
-    ast::stmt::UserDefinedTypes,
+    ast::stmt::{TypeDescription, UserDefinedTypes},
     error::HayError,
     lex::token::{Literal, Token},
     types::{Stack, Type, TypeId},
@@ -17,7 +17,11 @@ impl LiteralExpr {
             Literal::Bool(_) => stack.push(Type::bool()),
             Literal::Char(_) => stack.push(Type::char()),
             Literal::String(_) => {
-                types.get(&TypeId::new("Str")).unwrap().clone();
+                let typ = types.get(&TypeId::new("Str")).unwrap();
+                match typ {
+                    TypeDescription::Record(record) => stack.push(Type::Record(record.typ.clone())),
+                    &TypeDescription::PreDeclaration(_) => todo!(),
+                }
             }
             Literal::U64(_) => stack.push(Type::u64()),
             Literal::U8(_) => stack.push(Type::u8()),

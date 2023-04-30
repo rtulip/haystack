@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::stmt::{InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes},
+    ast::stmt::{Functions, InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes},
     error::HayError,
     lex::token::Token,
     types::{Frame, FunctionType, Stack, Substitutions, Type},
@@ -27,6 +27,7 @@ impl IfExpr {
         types: &UserDefinedTypes,
         stack: &mut Stack,
         frame: &mut Frame,
+        functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
         subs: &mut Substitutions,
@@ -39,8 +40,15 @@ impl IfExpr {
 
         let mut end_stacks = vec![];
         let then_end_tok = self.then.token().clone();
-        self.then
-            .type_check(types, stack, frame, interfaces, interface_fn_table, subs)?;
+        self.then.type_check(
+            types,
+            stack,
+            frame,
+            functions,
+            interfaces,
+            interface_fn_table,
+            subs,
+        )?;
 
         if !stack.contains(&Type::never()) {
             end_stacks.push((self.token.clone(), stack.clone()));
@@ -60,78 +68,83 @@ impl IfExpr {
             }
         }
 
-        // let mut typed_finally = None;
-        // if let Some(finally) = self.finally {
-        //     *stack = otherwise_stack;
-        //     *frame = initial_frame.clone();
-        //     let tok = finally.token().clone();
+        if let Some(finally) = &self.finally {
+            *stack = otherwise_stack;
+            *frame = initial_frame.clone();
+            let tok = finally.token().clone();
 
-        //     let tmp =
-        //         Box::new(finally.type_check(stack, frame, func, global_env, types, generic_map)?);
-        //     typed_finally = Some(tmp);
+            finally.type_check(
+                types,
+                stack,
+                frame,
+                functions,
+                interfaces,
+                interface_fn_table,
+                subs,
+            )?;
 
-        //     if !stack.contains(&Type::Never.id()) {
-        //         end_stacks.push((tok, stack.clone()));
-        //     }
-        // } else {
-        //     *stack = otherwise_stack.clone();
-        //     end_stacks.push((then_end_tok, otherwise_stack));
-        // }
+            if !stack.contains(&Type::never()) {
+                end_stacks.push((tok, stack.clone()));
+            }
+        } else {
+            *stack = otherwise_stack.clone();
+            end_stacks.push((then_end_tok, otherwise_stack));
+        }
 
-        // let mut resulting_stack = vec![];
+        let mut resulting_stack = vec![];
+        if !end_stacks.is_empty() {
+            resulting_stack = end_stacks[0].1.clone();
 
-        // if !end_stacks.is_empty() {
-        //     resulting_stack = end_stacks[0].1.clone();
-        //     if end_stacks
-        //         .iter()
-        //         .any(|(_, s)| s.len() != resulting_stack.len())
-        //         || (1..end_stacks.len()).any(|i| {
-        //             !end_stacks[i]
-        //                 .1
-        //                 .iter()
-        //                 .zip(resulting_stack.iter_mut())
-        //                 .all(|(t, r)| {
-        //                     match (
-        //                         t == r,
-        //                         &t.supertype(types) == r,
-        //                         t.supertype(types) == r.supertype(types),
-        //                     ) {
-        //                         (true, _, _) => true,
-        //                         (_, true, _) => true,
-        //                         (_, _, true) => {
-        //                             *r = r.supertype(types);
-        //                             true
-        //                         }
-        //                         _ => false,
-        //                     }
-        //                 })
-        //         })
-        //     {
-        //         let mut err = HayError::new_type_err(
-        //             "If block creates stacks of diferent shapes",
-        //             self.token.loc,
-        //         )
-        //         .with_hint("Each branch of if block must evaluate to the same stack layout.");
+            // if end_stacks
+            //     .iter()
+            //     .any(|(_, s)| s.len() != resulting_stack.len())
+            //     || (1..end_stacks.len()).any(|i| {
+            //         !end_stacks[i]
+            //             .1
+            //             .iter()
+            //             .zip(resulting_stack.iter_mut())
+            //             .all(|(t, r)| {
+            //                 match (
+            //                     t == r,
+            //                     &t.supertype(types) == r,
+            //                     t.supertype(types) == r.supertype(types),
+            //                 ) {
+            //                     (true, _, _) => true,
+            //                     (_, true, _) => true,
+            //                     (_, _, true) => {
+            //                         *r = r.supertype(types);
+            //                         true
+            //                     }
+            //                     _ => false,
+            //                 }
+            //             })
+            //     })
+            // {
+            //     let mut err = HayError::new_type_err(
+            //         "If block creates stacks of diferent shapes",
+            //         self.token.loc,
+            //     )
+            //     .with_hint("Each branch of if block must evaluate to the same stack layout.");
 
-        //         for (i, (tok, stk)) in end_stacks.iter().enumerate() {
-        //             err = err.with_hint(format!("{} Branch {}: {:?}", tok.loc, i + 1, stk));
-        //         }
+            //     for (i, (tok, stk)) in end_stacks.iter().enumerate() {
+            //         err = err.with_hint(format!("{} Branch {}: {:?}", tok.loc, i + 1, stk));
+            //     }
 
-        //         return Err(err);
-        //     }
-        // }
+            //     return Err(err);
+            // }
+        }
 
-        // *frame = initial_frame;
-        // if !end_stacks.is_empty() {
-        //     *stack = resulting_stack;
-        // }
+        *frame = initial_frame;
+        if !end_stacks.is_empty() {
+            *stack = resulting_stack;
+        }
         // Ok(TypedExpr::If {
         //     then: Box::new(typed_then),
         //     otherwise: typed_otherwise,
         //     finally: typed_finally,
         // })
 
-        todo!()
+        Ok(())
     }
 }
 

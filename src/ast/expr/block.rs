@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::stmt::{InterfaceFunctionTable, Interfaces, UserDefinedTypes},
+    ast::stmt::{Functions, InterfaceFunctionTable, Interfaces, UserDefinedTypes},
     error::HayError,
     lex::token::Token,
     types::{Frame, Stack, Substitutions},
@@ -22,12 +22,22 @@ impl BlockExpr {
         types: &UserDefinedTypes,
         stack: &mut Stack,
         frame: &mut Frame,
+        functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
         subs: &mut Substitutions,
     ) -> Result<(), HayError> {
         for e in &self.exprs {
-            e.type_check(types, stack, frame, interfaces, interface_fn_table, subs)?;
+            println!("  {stack:?}");
+            e.type_check(
+                types,
+                stack,
+                frame,
+                functions,
+                interfaces,
+                interface_fn_table,
+                subs,
+            )?;
         }
 
         Ok(())

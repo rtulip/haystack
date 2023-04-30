@@ -1,4 +1,4 @@
-use crate::ast::stmt::{InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes};
+use crate::ast::stmt::{Functions, InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes};
 use crate::error::HayError;
 use crate::lex::token::{Literal, Operator, Token};
 use crate::types::{Frame, Stack, Substitutions};
@@ -89,23 +89,43 @@ impl Expr {
         types: &UserDefinedTypes,
         stack: &mut Stack,
         frame: &mut Frame,
+        functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
         subs: &mut Substitutions,
     ) -> Result<(), HayError> {
         match self {
-            Expr::Block(block) => {
-                block.type_check(types, stack, frame, interfaces, interface_fn_table, subs)
-            }
-            Expr::Ident(ident) => {
-                ident.type_check(types, stack, frame, interfaces, interface_fn_table, subs)
-            }
+            Expr::Block(block) => block.type_check(
+                types,
+                stack,
+                frame,
+                functions,
+                interfaces,
+                interface_fn_table,
+                subs,
+            ),
+            Expr::Ident(ident) => ident.type_check(
+                types,
+                stack,
+                frame,
+                functions,
+                interfaces,
+                interface_fn_table,
+                subs,
+            ),
             Expr::Accessor(accessor) => accessor.type_check(types, stack, frame, subs),
-            Expr::Operator(operator) => operator.type_check(types, stack, frame, subs),
-            Expr::If(if_expr) => {
-                if_expr.type_check(types, stack, frame, interfaces, interface_fn_table, subs)
-            }
+            Expr::Operator(operator) => operator.type_check(types, stack, frame, interfaces, subs),
+            Expr::If(if_expr) => if_expr.type_check(
+                types,
+                stack,
+                frame,
+                functions,
+                interfaces,
+                interface_fn_table,
+                subs,
+            ),
             Expr::Literal(literal) => literal.type_check(types, stack),
+            Expr::While(while_expr) => todo!(),
             x => todo!("{x:?}"),
         }
     }

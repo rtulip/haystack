@@ -1,3 +1,5 @@
+use std::{collections::HashSet, ops::Sub};
+
 use crate::{
     ast::arg::UntypedArg,
     error::HayError,
@@ -31,14 +33,17 @@ pub struct InterfaceStmt {
 }
 
 pub struct InterfaceDescription {
-    token: Token,
-    ordered_free_vars: Vec<TypeVar>,
-    functions: Functions,
-    impls: Vec<InterfaceImpl>,
+    pub token: Token,
+    pub ordered_free_vars: Vec<TypeVar>,
+    pub associated_types: HashSet<TypeVar>,
+    pub functions: Functions,
+    pub impls: Vec<InterfaceImpl>,
+    pub requires: Option<Vec<Token>>,
 }
 
 pub struct InterfaceImpl {
-    functions: Functions,
+    pub subs: Substitutions,
+    pub functions: Functions,
 }
 
 impl InterfaceStmt {
@@ -51,7 +56,7 @@ impl InterfaceStmt {
         let interface_id = self.name.lexeme.clone();
 
         let (free_vars, ordered_free_vars) = UntypedArg::into_free_vars(Some(self.annotations));
-        let associated_typs =
+        let associated_types =
             FreeVars::from_iter(self.types.into_iter().map(|(t, _)| TypeVar::new(t.0)));
 
         let mut functions = Functions::new();
@@ -65,7 +70,7 @@ impl InterfaceStmt {
             func.add_to_global_env(
                 user_defined_types,
                 &mut functions,
-                Type::merge_free_vars(free_vars.as_ref(), Some(&associated_typs)).as_ref(),
+                Type::merge_free_vars(free_vars.as_ref(), Some(&associated_types)).as_ref(),
             )?;
         }
 
@@ -74,7 +79,7 @@ impl InterfaceStmt {
             stub.add_to_global_env(
                 user_defined_types,
                 &mut functions,
-                Type::merge_free_vars(free_vars.as_ref(), Some(&associated_typs)).as_ref(),
+                Type::merge_free_vars(free_vars.as_ref(), Some(&associated_types)).as_ref(),
             )?;
         }
 
@@ -82,7 +87,9 @@ impl InterfaceStmt {
             token: self.name,
             ordered_free_vars: ordered_free_vars.unwrap(),
             functions,
+            associated_types,
             impls: vec![],
+            requires: self.requires,
         };
 
         if let Some(prev) = interfaces.insert(interface_id, interface) {
@@ -94,6 +101,14 @@ impl InterfaceStmt {
 }
 
 impl InterfaceDescription {
+    pub fn new_substitutions(
+        &self,
+        token: &Token,
+        types: Vec<Type>,
+    ) -> Result<Substitutions, HayError> {
+        Substitutions::new(token, self.ordered_free_vars.clone(), types)
+    }
+
     pub fn unify(
         &self,
         func: &String,
@@ -110,6 +125,7 @@ impl InterfaceDescription {
                 *subs = subs_before;
                 continue;
             }
+            *subs = subs_before;
 
             return Ok(());
         }

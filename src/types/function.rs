@@ -29,18 +29,21 @@ impl FunctionType {
         subs: &mut Substitutions,
     ) -> Result<(), HayError> {
         if stack.len() < self.input.len() {
+            println!("{token}",);
+            println!("{stack:?}");
+            println!("{:?}", self.input);
             todo!()
         }
 
-        let s: Vec<_> = (0..self.input.len())
+        let mut s: Vec<_> = (0..self.input.len())
             .into_iter()
             .map(|_| stack.pop().unwrap())
             .collect();
 
+        s.reverse();
+
         for (s, i) in s.iter().zip(self.input.iter()) {
-            if s != i {
-                todo!("{s:?}, {i:?}")
-            }
+            s.unify(token, i, subs)?;
         }
 
         stack.extend(self.output.clone().into_iter());

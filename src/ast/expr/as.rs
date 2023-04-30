@@ -52,7 +52,7 @@ impl AsExpr {
         // Move the elements from the stack to the frame and track what types
         // are being moved.
 
-        for id in &self.idents {
+        for id in self.idents.iter().rev() {
             let t = stack.pop().unwrap();
             match &id.kind {
                 IdentArgKind::Single { token } => frame.push((token.lexeme.clone(), t)),

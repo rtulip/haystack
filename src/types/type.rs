@@ -271,7 +271,7 @@ impl Type {
         subs: &mut Substitutions,
     ) -> Result<(), HayError> {
         match (self, other) {
-            (t, Type::TypeVar(var)) => match subs.get(&var) {
+            (t, Type::TypeVar(var)) | (Type::TypeVar(var), t) => match subs.get(&var) {
                 Some(sub) if sub == t => (),
                 Some(sub) => todo!("{token}: var: {var:?} t: {t} sub: {sub}, subs: {subs:?}"),
                 None => {
@@ -279,16 +279,45 @@ impl Type {
                 }
             },
             (
+                Type::Pointer(PointerType {
+                    mutable: true,
+                    inner: left,
+                    ..
+                }),
+                Type::Pointer(PointerType {
+                    mutable: true,
+                    inner: right,
+                }),
+            ) => left.unify(token, right, subs)?,
+            (
                 Type::Pointer(PointerType { inner: left, .. }),
                 Type::Pointer(PointerType {
                     mutable: false,
                     inner: right,
                 }),
             ) => left.unify(token, right, subs)?,
+            (
+                Type::Record(RecordType {
+                    kind: RecordKind::Struct,
+                    ident: Some(ident),
+                    members,
+                    ..
+                }),
+                Type::Record(RecordType {
+                    kind: RecordKind::Struct,
+                    ident: Some(other_ident),
+                    members: other_members,
+                    ..
+                }),
+            ) if ident == other_ident => {
+                for (t, o) in members.iter().zip(other_members.iter()) {
+                    t.typ.unify(token, &o.typ, subs)?;
+                }
+            }
             (a, b) if a == b => (),
             (a, b) => {
                 return Err(HayError::new(
-                    format!("Cannot unify {a} and {b}"),
+                    format!("Cannot unify {a:?} and {b:?}"),
                     token.loc.clone(),
                 ))
             }

@@ -8,7 +8,7 @@ use std::collections::{HashSet};
 use super::arg::{IdentArg, UntypedArg, IdentArgKind};
 use super::expr::{
     AccessorExpr, AnnotatedCallExpr, AsExpr, CastExpr, ExprElseIf, IdentExpr, IfExpr, LiteralExpr,
-    OperatorExpr, ExprReturn, ExprSizeOf, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr, MatchExpr, MatchElseExpr, UnpackExpr,
+    OperatorExpr, ExprReturn, SizeOfExpr, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr, MatchExpr, MatchElseExpr, UnpackExpr,
 };
 use super::member::UntypedMember;
 use super::stmt::{RecordStmt, EnumStmt, FunctionStmt, FunctionStubStmt, InterfaceStmt, InterfaceImplStmt, VarStmt, PreDeclarationStmt, FnTag, InterfaceId};
@@ -1808,7 +1808,7 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        Ok(Box::new(Expr::SizeOf(ExprSizeOf { token, typ })))
+        Ok(Box::new(Expr::SizeOf(SizeOfExpr { token, typ })))
     }
 }
 

@@ -5,9 +5,9 @@ use crate::types::{Frame, Stack, Substitutions};
 use std::collections::HashMap;
 
 use super::{
-    AccessorExpr, AnnotatedCallExpr, AsExpr, BlockExpr, CastExpr, ExprReturn, ExprSizeOf,
-    ExprSyscall, ExprUnary, ExprVar, ExprWhile, IdentExpr, IfExpr, LiteralExpr, MatchExpr,
-    NeverExpr, OperatorExpr, TupleExpr, UnpackExpr,
+    AccessorExpr, AnnotatedCallExpr, AsExpr, BlockExpr, CastExpr, ExprReturn, ExprSyscall,
+    ExprUnary, ExprVar, ExprWhile, IdentExpr, IfExpr, LiteralExpr, MatchExpr, NeverExpr,
+    OperatorExpr, SizeOfExpr, TupleExpr, UnpackExpr,
 };
 
 /// Haystack's Expression Representation
@@ -47,7 +47,7 @@ pub enum Expr {
     Var(ExprVar),
     While(ExprWhile),
     AnnotatedCall(AnnotatedCallExpr),
-    SizeOf(ExprSizeOf),
+    SizeOf(SizeOfExpr),
     Return(ExprReturn),
     Match(MatchExpr),
     Never(NeverExpr),
@@ -71,7 +71,7 @@ impl Expr {
             | Expr::Var(ExprVar { token, .. })
             | Expr::While(ExprWhile { token, .. })
             | Expr::AnnotatedCall(AnnotatedCallExpr { token, .. })
-            | Expr::SizeOf(ExprSizeOf { token, .. })
+            | Expr::SizeOf(SizeOfExpr { token, .. })
             | Expr::Return(ExprReturn { token })
             | Expr::Match(MatchExpr { token, .. })
             | Expr::Never(NeverExpr { token })
@@ -135,6 +135,7 @@ impl Expr {
             ),
             Expr::As(as_expr) => as_expr.type_check(stack, frame),
             Expr::Cast(cast) => cast.type_check(types, stack),
+            Expr::SizeOf(size_of) => size_of.type_check(stack),
             x => todo!("{x:?}"),
         }
     }

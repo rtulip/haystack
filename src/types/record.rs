@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::{ast::visibility::Visibility, error::HayError, lex::token::Token};
 
-use super::{Type, TypeId, TypeVar};
+use super::{FunctionType, Stack, Type, TypeId, TypeVar};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RecordKind {
@@ -36,6 +36,22 @@ impl RecordType {
         }
 
         todo!()
+    }
+
+    pub fn unify_cast(&self, token: &Token, stack: &mut Stack) -> Result<(), HayError> {
+        match self.kind {
+            RecordKind::Struct => {
+                let inputs = self
+                    .members
+                    .iter()
+                    .map(|member| member.typ.clone())
+                    .collect();
+                let f = FunctionType::new(inputs, vec![Type::Record(self.clone())]);
+
+                f.unify(token, stack)
+            }
+            _ => todo!("{:?}", self.kind),
+        }
     }
 }
 

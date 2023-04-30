@@ -23,7 +23,9 @@ impl CastExpr {
 
         match cast_type {
             Type::Base(base_type) => base_type.unify_cast(&self.token, stack),
-            _ => todo!(),
+            Type::Record(record) => record.unify_cast(&self.token, stack),
+            Type::Pointer(pointer) => pointer.unify_cast(&self.token, stack),
+            _ => todo!("{cast_type}"),
         }
     }
 }

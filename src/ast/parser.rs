@@ -8,7 +8,7 @@ use std::collections::{HashSet};
 use super::arg::{IdentArg, UntypedArg, IdentArgKind};
 use super::expr::{
     AccessorExpr, AnnotatedCallExpr, AsExpr, CastExpr, ExprElseIf, IdentExpr, IfExpr, LiteralExpr,
-    OperatorExpr, ExprReturn, SizeOfExpr, ExprSyscall, ExprUnary, ExprVar, ExprWhile, TupleExpr, MatchExpr, MatchElseExpr, UnpackExpr,
+    OperatorExpr, ExprReturn, SizeOfExpr, ExprSyscall, UnaryExpr, VarExpr, ExprWhile, TupleExpr, MatchExpr, MatchElseExpr, UnpackExpr,
 };
 use super::member::UntypedMember;
 use super::stmt::{RecordStmt, EnumStmt, FunctionStmt, FunctionStubStmt, InterfaceStmt, InterfaceImplStmt, VarStmt, PreDeclarationStmt, FnTag, InterfaceId};
@@ -66,7 +66,7 @@ impl<'a> Parser<'a> {
     fn unary(&mut self, op: Token) -> Result<Box<Expr>, HayError> {
         let expr = self.expression()?;
 
-        Ok(Box::new(Expr::Unary(ExprUnary {
+        Ok(Box::new(Expr::Unary(UnaryExpr {
             op: OperatorExpr {
                 op: op.operator()?,
                 token: op,
@@ -1665,7 +1665,7 @@ impl<'a> Parser<'a> {
         })))
     }
 
-    fn var(&mut self, token: Token) -> Result<ExprVar, HayError> {
+    fn var(&mut self, token: Token) -> Result<VarExpr, HayError> {
         let mut typ = match self.parse_type()? {
             Some(t) => t,
             None => {
@@ -1752,7 +1752,7 @@ impl<'a> Parser<'a> {
             }
         };
 
-        Ok(ExprVar { token, typ, ident })
+        Ok(VarExpr { token, typ, ident })
     }
 
     fn parse_while(&mut self, token: Token) -> Result<Box<Expr>, HayError> {

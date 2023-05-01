@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::expr::ExprVar,
+    ast::expr::VarExpr,
     // backend::{InitData, UninitData},
     error::HayError,
     lex::token::Token,
@@ -13,7 +13,7 @@ use super::StmtKind;
 #[derive(Debug, Clone)]
 pub struct VarStmt {
     pub token: Token,
-    pub expr: ExprVar,
+    pub expr: VarExpr,
 }
 
 impl VarStmt {}

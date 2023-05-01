@@ -1,5 +1,6 @@
 #![feature(btree_drain_filter)]
 #![feature(drain_filter)]
+#![feature(box_patterns)]
 #![warn(missing_docs)]
 
 //! # Haystack

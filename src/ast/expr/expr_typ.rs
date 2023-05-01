@@ -6,8 +6,8 @@ use std::collections::HashMap;
 
 use super::{
     AccessorExpr, AnnotatedCallExpr, AsExpr, BlockExpr, CastExpr, ExprReturn, ExprSyscall,
-    ExprUnary, ExprVar, ExprWhile, IdentExpr, IfExpr, LiteralExpr, MatchExpr, NeverExpr,
-    OperatorExpr, SizeOfExpr, TupleExpr, UnpackExpr,
+    ExprWhile, IdentExpr, IfExpr, LiteralExpr, MatchExpr, NeverExpr, OperatorExpr, SizeOfExpr,
+    TupleExpr, UnaryExpr, UnpackExpr, VarExpr,
 };
 
 /// Haystack's Expression Representation
@@ -22,14 +22,14 @@ use super::{
 /// * [`Expr::Operator`] represents the different operators, such as `+`, `-`, `@` and `!
 /// * [`Expr::Unary`] represents unary operations, such as the address of operators `&` and `*`
 /// * [`Expr::Syscall`] represents syscall operations
-/// * [`Expr::Cast`] is for casting to different types
+/// * [`Expr::Cast`] is for casting to different user_defined_types
 /// * [`Expr::Ident`] represents words and identifiers, be it functions, vars, or framed values
-/// * [`Expr::Accessor`] is similar to ident, but is used to get at inner members of framed values or types
+/// * [`Expr::Accessor`] is similar to ident, but is used to get at inner members of framed values or user_defined_types
 /// * [`Expr::If`] is a recursively defined Expression for branching
 /// * [`Expr::As`] represents the action of binding values to be framed
 /// * [`Expr::Var`] represents creating vars at a function level
 /// * [`Expr::While`] represents a whlie loop including and the associated conditional.
-/// * [`Expr::AnnotatedCall`] Similar to [`Expr::Accessor`], but for specifying types to function calls.
+/// * [`Expr::AnnotatedCall`] Similar to [`Expr::Accessor`], but for specifying user_defined_types to function calls.
 /// * [`Expr::SizeOf`] is for taking the size of a type
 /// * [`Expr::Return`] returns from a function.
 #[derive(Debug, Clone)]
@@ -37,14 +37,14 @@ pub enum Expr {
     Literal(LiteralExpr),
     Tuple(TupleExpr),
     Operator(OperatorExpr),
-    Unary(ExprUnary),
+    Unary(UnaryExpr),
     Syscall(ExprSyscall),
     Cast(CastExpr),
     Ident(IdentExpr),
     Accessor(AccessorExpr),
     If(IfExpr),
     As(AsExpr),
-    Var(ExprVar),
+    Var(VarExpr),
     While(ExprWhile),
     AnnotatedCall(AnnotatedCallExpr),
     SizeOf(SizeOfExpr),
@@ -68,7 +68,7 @@ impl Expr {
             | Expr::Accessor(AccessorExpr { token, .. })
             | Expr::If(IfExpr { token, .. })
             | Expr::As(AsExpr { token, .. })
-            | Expr::Var(ExprVar { token, .. })
+            | Expr::Var(VarExpr { token, .. })
             | Expr::While(ExprWhile { token, .. })
             | Expr::AnnotatedCall(AnnotatedCallExpr { token, .. })
             | Expr::SizeOf(SizeOfExpr { token, .. })
@@ -77,7 +77,7 @@ impl Expr {
             | Expr::Never(NeverExpr { token })
             | Expr::Unpack(UnpackExpr { token })
             | Expr::Block(BlockExpr { open: token, .. })
-            | Expr::Unary(ExprUnary {
+            | Expr::Unary(UnaryExpr {
                 op: OperatorExpr { token, .. },
                 ..
             }) => token,
@@ -86,7 +86,7 @@ impl Expr {
 
     pub fn type_check(
         &self,
-        types: &UserDefinedTypes,
+        user_defined_types: &UserDefinedTypes,
         stack: &mut Stack,
         frame: &mut Frame,
         functions: &Functions,
@@ -96,7 +96,7 @@ impl Expr {
     ) -> Result<(), HayError> {
         match self {
             Expr::Block(block) => block.type_check(
-                types,
+                user_defined_types,
                 stack,
                 frame,
                 functions,
@@ -105,17 +105,19 @@ impl Expr {
                 subs,
             ),
             Expr::Ident(ident) => ident.type_check(
-                types,
+                user_defined_types,
                 stack,
                 frame,
                 functions,
                 interfaces,
                 interface_fn_table,
             ),
-            Expr::Accessor(accessor) => accessor.type_check(types, stack, frame, subs),
-            Expr::Operator(operator) => operator.type_check(types, stack, frame, interfaces),
+            Expr::Accessor(accessor) => accessor.type_check(user_defined_types, stack, frame, subs),
+            Expr::Operator(operator) => {
+                operator.type_check(user_defined_types, stack, frame, interfaces)
+            }
             Expr::If(if_expr) => if_expr.type_check(
-                types,
+                user_defined_types,
                 stack,
                 frame,
                 functions,
@@ -123,9 +125,9 @@ impl Expr {
                 interface_fn_table,
                 subs,
             ),
-            Expr::Literal(literal) => literal.type_check(types, stack),
+            Expr::Literal(literal) => literal.type_check(user_defined_types, stack),
             Expr::While(while_expr) => while_expr.type_check(
-                types,
+                user_defined_types,
                 stack,
                 frame,
                 functions,
@@ -134,9 +136,11 @@ impl Expr {
                 subs,
             ),
             Expr::As(as_expr) => as_expr.type_check(stack, frame),
-            Expr::Cast(cast) => cast.type_check(types, stack),
+            Expr::Cast(cast) => cast.type_check(user_defined_types, stack),
             Expr::SizeOf(size_of) => size_of.type_check(stack),
-            Expr::AnnotatedCall(call) => call.type_check(stack, types, functions),
+            Expr::AnnotatedCall(call) => call.type_check(stack, user_defined_types, functions),
+            Expr::Unary(unary) => unary.type_check(stack, frame),
+            Expr::Var(var) => var.type_check(frame, user_defined_types),
             x => todo!("{x:?}"),
         }
     }

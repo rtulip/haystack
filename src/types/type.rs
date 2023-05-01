@@ -87,7 +87,18 @@ impl Type {
         free_vars: &FreeVars,
     ) -> Result<Self, HayError> {
         match typ {
-            TypeToken::Array { base, size } => todo!(),
+            TypeToken::Array { base, size } => {
+                let t = Type::from_type_token(token, base, user_defined_types, free_vars)?;
+
+                let arr = match user_defined_types.get(&TypeId::new("Arr")) {
+                    Some(TypeDescription::Record(record)) => &record.typ,
+                    _ => todo!(),
+                };
+
+                let subs = Substitutions::new(token, vec![TypeVar::new("T")], vec![t])?;
+
+                Type::Record(arr.clone()).substitute(token, &subs)
+            }
             TypeToken::Associated { base, typ } => todo!(),
             TypeToken::Base(base) => {
                 if let Ok(base) = BaseType::try_from(base.as_ref()) {
@@ -298,13 +309,13 @@ impl Type {
             ) => left.unify(token, right, subs)?,
             (
                 Type::Record(RecordType {
-                    kind: RecordKind::Struct,
+                    kind: RecordKind::Struct | RecordKind::EnumStruct,
                     ident: Some(ident),
                     members,
                     ..
                 }),
                 Type::Record(RecordType {
-                    kind: RecordKind::Struct,
+                    kind: RecordKind::Struct | RecordKind::EnumStruct,
                     ident: Some(other_ident),
                     members: other_members,
                     ..
@@ -317,7 +328,7 @@ impl Type {
             (a, b) if a == b => (),
             (a, b) => {
                 return Err(HayError::new(
-                    format!("Cannot unify {a:?} and {b:?}"),
+                    format!("Cannot unify {a} and {b}"),
                     token.loc.clone(),
                 ))
             }

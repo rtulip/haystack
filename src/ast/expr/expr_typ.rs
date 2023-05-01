@@ -145,6 +145,16 @@ impl Expr {
             Expr::AnnotatedCall(call) => call.type_check(stack, user_defined_types, functions),
             Expr::Unary(unary) => unary.type_check(stack, frame),
             Expr::Var(var) => var.type_check(frame, user_defined_types),
+            Expr::Tuple(tuple) => tuple.type_check(
+                stack,
+                frame,
+                user_defined_types,
+                global_vars,
+                functions,
+                interfaces,
+                interface_fn_table,
+                subs,
+            ),
             x => todo!("{x:?}"),
         }
     }

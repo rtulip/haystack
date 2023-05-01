@@ -28,6 +28,23 @@ pub struct RecordType {
 }
 
 impl RecordType {
+    pub fn tuple(members: Vec<Type>) -> Self {
+        let kind = RecordKind::Tuple;
+        RecordType {
+            kind,
+            ident: None,
+            members: members
+                .into_iter()
+                .enumerate()
+                .map(|(i, t)| RecordMember {
+                    ident: format!("{i}"),
+                    vis: Visibility::Public,
+                    typ: t,
+                })
+                .collect(),
+        }
+    }
+
     pub fn get_inner_accessors(&self, accessors: &Vec<Token>) -> Result<Self, HayError> {
         assert!(self.kind == RecordKind::Struct);
 

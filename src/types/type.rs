@@ -99,7 +99,7 @@ impl Type {
 
                 Type::Record(arr.clone()).substitute(token, &subs)
             }
-            TypeToken::Associated { base, typ } => todo!(),
+            TypeToken::Associated { base, typ } => todo!("{token} {typ:?}"),
             TypeToken::Base(base) => {
                 if let Ok(base) = BaseType::try_from(base.as_ref()) {
                     return Ok(Type::Base(base));

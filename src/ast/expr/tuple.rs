@@ -14,7 +14,14 @@
 //!
 use std::collections::HashMap;
 
-use crate::{ast::stmt::StmtKind, error::HayError, lex::token::Token};
+use crate::{
+    ast::stmt::{
+        Functions, GlobalVars, InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes,
+    },
+    error::HayError,
+    lex::token::Token,
+    types::{Frame, RecordType, Stack, Substitutions, Type},
+};
 
 use super::Expr;
 
@@ -26,4 +33,34 @@ pub struct TupleExpr {
     pub exprs: Vec<Expr>,
 }
 
-impl TupleExpr {}
+impl TupleExpr {
+    pub fn type_check(
+        &self,
+        stack: &mut Stack,
+        frame: &mut Frame,
+        user_defined_types: &UserDefinedTypes,
+        global_vars: &GlobalVars,
+        functions: &Functions,
+        interfaces: &Interfaces,
+        interface_fn_table: &InterfaceFunctionTable,
+        subs: &mut Substitutions,
+    ) -> Result<(), HayError> {
+        let mut sub_stack = vec![];
+        for e in &self.exprs {
+            e.type_check(
+                &mut sub_stack,
+                frame,
+                user_defined_types,
+                global_vars,
+                functions,
+                interfaces,
+                interface_fn_table,
+                subs,
+            )?;
+        }
+
+        let tuple = RecordType::tuple(sub_stack);
+        stack.push(Type::Record(tuple));
+        Ok(())
+    }
+}

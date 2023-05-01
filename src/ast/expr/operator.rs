@@ -29,7 +29,6 @@ impl OperatorExpr {
 
     pub fn type_check(
         &self,
-        types: &UserDefinedTypes,
         stack: &mut Stack,
         frame: &mut Frame,
         interfaces: &Interfaces,

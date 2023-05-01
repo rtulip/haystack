@@ -16,8 +16,8 @@ pub struct CastExpr {
 impl CastExpr {
     pub fn type_check(
         &self,
-        user_defined_types: &UserDefinedTypes,
         stack: &mut Stack,
+        user_defined_types: &UserDefinedTypes,
     ) -> Result<(), HayError> {
         let cast_type = Type::from_token(&self.typ, user_defined_types, &mut FreeVars::new())?;
 

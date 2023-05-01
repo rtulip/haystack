@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::stmt::{Functions, InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes},
+    ast::stmt::{
+        Functions, GlobalVars, InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes,
+    },
     error::HayError,
     lex::token::Token,
     types::{Frame, FunctionType, Stack, Substitutions, Type},
@@ -24,9 +26,11 @@ pub struct IfExpr {
 impl IfExpr {
     pub fn type_check(
         &self,
-        types: &UserDefinedTypes,
+
         stack: &mut Stack,
         frame: &mut Frame,
+        user_defined_types: &UserDefinedTypes,
+        global_vars: &GlobalVars,
         functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
@@ -41,9 +45,10 @@ impl IfExpr {
         let mut end_stacks = vec![];
         let then_end_tok = self.then.token().clone();
         self.then.type_check(
-            types,
             stack,
             frame,
+            user_defined_types,
+            global_vars,
             functions,
             interfaces,
             interface_fn_table,
@@ -74,9 +79,10 @@ impl IfExpr {
             let tok = finally.token().clone();
 
             finally.type_check(
-                types,
                 stack,
                 frame,
+                user_defined_types,
+                global_vars,
                 functions,
                 interfaces,
                 interface_fn_table,

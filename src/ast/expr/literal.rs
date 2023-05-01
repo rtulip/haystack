@@ -12,7 +12,7 @@ pub struct LiteralExpr {
 }
 
 impl LiteralExpr {
-    pub fn type_check(&self, types: &UserDefinedTypes, stack: &mut Stack) -> Result<(), HayError> {
+    pub fn type_check(&self, stack: &mut Stack, types: &UserDefinedTypes) -> Result<(), HayError> {
         match self.literal {
             Literal::Bool(_) => stack.push(Type::bool()),
             Literal::Char(_) => stack.push(Type::char()),

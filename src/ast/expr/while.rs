@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::stmt::{Functions, InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes},
+    ast::stmt::{
+        Functions, GlobalVars, InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes,
+    },
     error::HayError,
     lex::token::Token,
     types::{Frame, FunctionType, Stack, Substitutions, Type},
@@ -22,9 +24,10 @@ pub struct ExprWhile {
 impl ExprWhile {
     pub fn type_check(
         &self,
-        types: &UserDefinedTypes,
         stack: &mut Stack,
         frame: &mut Frame,
+        user_defined_types: &UserDefinedTypes,
+        global_vars: &GlobalVars,
         functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
@@ -36,9 +39,10 @@ impl ExprWhile {
         let mut typed_cond = vec![];
         for expr in &self.cond {
             typed_cond.push(expr.type_check(
-                types,
                 stack,
                 frame,
+                user_defined_types,
+                global_vars,
                 functions,
                 interfaces,
                 interface_fn_table,
@@ -62,9 +66,10 @@ impl ExprWhile {
         let stack_after_check = stack.clone();
 
         self.body.type_check(
-            types,
             stack,
             frame,
+            user_defined_types,
+            global_vars,
             functions,
             interfaces,
             interface_fn_table,

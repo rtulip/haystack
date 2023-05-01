@@ -1,4 +1,6 @@
-use crate::ast::stmt::{Functions, InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes};
+use crate::ast::stmt::{
+    Functions, GlobalVars, InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes,
+};
 use crate::error::HayError;
 use crate::lex::token::{Literal, Operator, Token};
 use crate::types::{Frame, Stack, Substitutions};
@@ -86,9 +88,10 @@ impl Expr {
 
     pub fn type_check(
         &self,
-        user_defined_types: &UserDefinedTypes,
         stack: &mut Stack,
         frame: &mut Frame,
+        user_defined_types: &UserDefinedTypes,
+        global_vars: &GlobalVars,
         functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
@@ -96,47 +99,48 @@ impl Expr {
     ) -> Result<(), HayError> {
         match self {
             Expr::Block(block) => block.type_check(
-                user_defined_types,
                 stack,
                 frame,
+                user_defined_types,
+                global_vars,
                 functions,
                 interfaces,
                 interface_fn_table,
                 subs,
             ),
             Expr::Ident(ident) => ident.type_check(
-                user_defined_types,
                 stack,
                 frame,
+                global_vars,
                 functions,
                 interfaces,
                 interface_fn_table,
             ),
-            Expr::Accessor(accessor) => accessor.type_check(user_defined_types, stack, frame, subs),
-            Expr::Operator(operator) => {
-                operator.type_check(user_defined_types, stack, frame, interfaces)
-            }
+            Expr::Accessor(accessor) => accessor.type_check(stack, frame, subs),
+            Expr::Operator(operator) => operator.type_check(stack, frame, interfaces),
             Expr::If(if_expr) => if_expr.type_check(
-                user_defined_types,
                 stack,
                 frame,
+                user_defined_types,
+                global_vars,
                 functions,
                 interfaces,
                 interface_fn_table,
                 subs,
             ),
-            Expr::Literal(literal) => literal.type_check(user_defined_types, stack),
+            Expr::Literal(literal) => literal.type_check(stack, user_defined_types),
             Expr::While(while_expr) => while_expr.type_check(
-                user_defined_types,
                 stack,
                 frame,
+                user_defined_types,
+                global_vars,
                 functions,
                 interfaces,
                 interface_fn_table,
                 subs,
             ),
             Expr::As(as_expr) => as_expr.type_check(stack, frame),
-            Expr::Cast(cast) => cast.type_check(user_defined_types, stack),
+            Expr::Cast(cast) => cast.type_check(stack, user_defined_types),
             Expr::SizeOf(size_of) => size_of.type_check(stack),
             Expr::AnnotatedCall(call) => call.type_check(stack, user_defined_types, functions),
             Expr::Unary(unary) => unary.type_check(stack, frame),

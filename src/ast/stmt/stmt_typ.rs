@@ -12,6 +12,7 @@ use crate::lex::token::Loc;
 use crate::types::{Type, TypeId, TypeVar};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
+pub type GlobalVars = BTreeMap<String, Type>;
 pub type Functions = BTreeMap<String, FunctionDescription>;
 pub type Interfaces = BTreeMap<String, InterfaceDescription>;
 pub type InterfaceFunctionTable = BTreeMap<String, String>;
@@ -71,6 +72,7 @@ impl Stmt {
         stmts: Vec<Self>,
     ) -> Result<
         (
+            GlobalVars,
             Functions,
             UserDefinedTypes,
             Interfaces,
@@ -78,6 +80,7 @@ impl Stmt {
         ),
         HayError,
     > {
+        let mut global_vars = GlobalVars::new();
         let mut functions = Functions::new();
         let mut user_defined_types = UserDefinedTypes::new();
         let mut interfaces = Interfaces::new();
@@ -103,7 +106,9 @@ impl Stmt {
                 }
                 Stmt::Record(record) => record.add_to_global_env(&mut user_defined_types)?,
                 Stmt::Enum(_) => todo!("Enum"),
-                Stmt::Var(var) => (),
+                Stmt::Var(var) => {
+                    var.add_to_global_env(&mut user_defined_types, &mut global_vars)?
+                }
             }
         }
 
@@ -112,6 +117,7 @@ impl Stmt {
             .all(|(_, desc)| matches!(desc, TypeDescription::Record(_))));
 
         Ok((
+            global_vars,
             functions,
             user_defined_types,
             interfaces,

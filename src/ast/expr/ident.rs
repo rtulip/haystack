@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::stmt::{Functions, InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes},
+    ast::stmt::{
+        Functions, GlobalVars, InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes,
+    },
     error::HayError,
     lex::token::Token,
     types::{Frame, Stack, Substitutions},
@@ -15,9 +17,9 @@ pub struct IdentExpr {
 impl IdentExpr {
     pub fn type_check(
         &self,
-        types: &UserDefinedTypes,
         stack: &mut Stack,
         frame: &Frame,
+        global_vars: &GlobalVars,
         functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
@@ -45,6 +47,11 @@ impl IdentExpr {
 
         if let Some(func) = functions.get(&self.ident.lexeme) {
             func.typ.unify(&self.ident, stack)?;
+            return Ok(());
+        }
+
+        if let Some(t) = global_vars.get(&self.ident.lexeme) {
+            stack.push(t.clone());
             return Ok(());
         }
 

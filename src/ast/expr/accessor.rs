@@ -30,7 +30,6 @@ pub struct AccessorExpr {
 impl AccessorExpr {
     pub fn type_check(
         &self,
-        types: &UserDefinedTypes,
         stack: &mut Stack,
         frame: &Frame,
         subs: &mut Substitutions,

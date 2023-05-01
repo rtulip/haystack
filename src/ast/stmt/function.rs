@@ -8,7 +8,9 @@ use crate::{
     types::{Frame, FreeVars, FunctionType, Stack, Substitutions, Type, TypeId, TypeVar},
 };
 
-use super::{Functions, InterfaceFunctionTable, InterfaceId, Interfaces, UserDefinedTypes};
+use super::{
+    Functions, GlobalVars, InterfaceFunctionTable, InterfaceId, Interfaces, UserDefinedTypes,
+};
 
 #[derive(Debug, Clone)]
 pub enum FnTag {
@@ -93,7 +95,8 @@ impl FunctionStmt {
 impl FunctionDescription {
     pub fn type_check(
         &self,
-        types: &UserDefinedTypes,
+        global_vars: &GlobalVars,
+        user_defined_types: &UserDefinedTypes,
         functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
@@ -107,9 +110,10 @@ impl FunctionDescription {
                 self.name.loc.clone(),
             ))?
             .type_check(
-                types,
                 &mut stack,
                 &mut frame,
+                user_defined_types,
+                global_vars,
                 functions,
                 interfaces,
                 interface_fn_table,
@@ -118,13 +122,20 @@ impl FunctionDescription {
     }
 
     pub fn type_check_all(
+        global_vars: &GlobalVars,
         functions: &Functions,
         types: &UserDefinedTypes,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
     ) -> Result<(), HayError> {
         for (_, f) in functions {
-            f.type_check(types, functions, interfaces, interface_fn_table)?;
+            f.type_check(
+                global_vars,
+                types,
+                functions,
+                interfaces,
+                interface_fn_table,
+            )?;
         }
         Ok(())
     }

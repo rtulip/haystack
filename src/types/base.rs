@@ -31,7 +31,7 @@ impl BaseType {
         FunctionType::unify_many(&fns, token, stack)
     }
 
-    pub fn unify_cast(&self, token: &Token, stack: &mut Stack) -> Result<(), HayError> {
+    pub fn cast(&self, token: &Token, stack: &mut Stack) -> Result<(), HayError> {
         match self {
             BaseType::U64 => BaseType::cast_u64(token, stack),
             _ => todo!("{self}"),

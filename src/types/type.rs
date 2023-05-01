@@ -11,7 +11,8 @@ use crate::{
 };
 
 use super::{
-    BaseType, FunctionType, PointerType, RecordKind, RecordMember, RecordType, TypeId, TypeVar,
+    BaseType, FunctionType, PointerType, RecordKind, RecordMember, RecordType, Stack, TypeId,
+    TypeVar, VariantType,
 };
 pub type FreeVars = HashSet<TypeVar>;
 
@@ -23,6 +24,7 @@ pub enum Type {
     Record(RecordType),
     Function(FunctionType),
     PreDeclaration(TypeId),
+    Variant(VariantType),
 }
 
 impl Type {
@@ -99,7 +101,28 @@ impl Type {
 
                 Type::Record(arr.clone()).substitute(token, &subs)
             }
-            TypeToken::Associated { base, typ } => todo!("{token} {typ:?}"),
+            TypeToken::Associated { base, typ } => {
+                let t = Type::from_type_token(token, &base, user_defined_types, free_vars)?;
+
+                let variant = match &t {
+                    Type::Record(RecordType {
+                        kind: RecordKind::EnumStruct,
+                        members,
+                        ..
+                    }) => {
+                        if members.iter().find(|m| &m.ident == typ).is_none() {
+                            todo!()
+                        }
+                        Type::Variant(VariantType {
+                            variant: typ.clone(),
+                            typ: Box::new(t),
+                        })
+                    }
+                    _ => todo!(),
+                };
+
+                Ok(variant)
+            }
             TypeToken::Base(base) => {
                 if let Ok(base) = BaseType::try_from(base.as_ref()) {
                     return Ok(Type::Base(base));
@@ -238,6 +261,7 @@ impl Type {
                 }
             }
             Type::PreDeclaration(_) => todo!(),
+            Type::Variant(_) => todo!(),
         }
     }
 
@@ -336,6 +360,16 @@ impl Type {
 
         Ok(())
     }
+
+    pub fn cast(&self, token: &Token, stack: &mut Stack) -> Result<(), HayError> {
+        match self {
+            Type::Base(base_type) => base_type.cast(token, stack),
+            Type::Record(record) => record.cast(token, stack),
+            Type::Pointer(pointer) => pointer.cast(token, stack),
+            Type::Variant(variant) => variant.cast(token, stack),
+            _ => todo!("{self}"),
+        }
+    }
 }
 
 impl Display for Type {
@@ -357,6 +391,7 @@ impl Display for Type {
                 todo!()
             }
             Type::TypeVar(TypeVar(ident)) => write!(f, "{ident}"),
+            Type::Variant(variant) => write!(f, "{}::{}", variant.typ, variant.variant),
         }
     }
 }

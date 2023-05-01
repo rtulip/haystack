@@ -5,6 +5,7 @@ mod record;
 mod substitution;
 mod r#type;
 mod type_var;
+mod variant;
 
 pub use base::*;
 pub use function::*;
@@ -13,6 +14,7 @@ pub use r#type::*;
 pub use record::*;
 pub use substitution::*;
 pub use type_var::*;
+pub use variant::*;
 
 pub type Stack = Vec<Type>;
 pub type Frame = Vec<(String, Type)>;

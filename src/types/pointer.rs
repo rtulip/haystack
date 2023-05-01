@@ -9,7 +9,7 @@ pub struct PointerType {
 }
 
 impl PointerType {
-    pub fn unify_cast(&self, token: &Token, stack: &mut Stack) -> Result<(), HayError> {
+    pub fn cast(&self, token: &Token, stack: &mut Stack) -> Result<(), HayError> {
         FunctionType::new(vec![Type::u64()], vec![Type::Pointer(self.clone())]).unify(token, stack)
     }
 }

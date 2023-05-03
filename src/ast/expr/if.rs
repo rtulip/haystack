@@ -6,7 +6,7 @@ use crate::{
     },
     error::HayError,
     lex::token::Token,
-    types::{Frame, FunctionType, Stack, Substitutions, Type},
+    types::{Frame, FreeVars, FunctionType, Stack, Substitutions, Type},
 };
 
 use super::Expr;
@@ -26,10 +26,10 @@ pub struct IfExpr {
 impl IfExpr {
     pub fn type_check(
         &self,
-
         stack: &mut Stack,
         frame: &mut Frame,
         user_defined_types: &UserDefinedTypes,
+        free_vars: &FreeVars,
         global_vars: &GlobalVars,
         functions: &Functions,
         interfaces: &Interfaces,
@@ -48,6 +48,7 @@ impl IfExpr {
             stack,
             frame,
             user_defined_types,
+            free_vars,
             global_vars,
             functions,
             interfaces,
@@ -68,6 +69,7 @@ impl IfExpr {
                 stack,
                 frame,
                 user_defined_types,
+                free_vars,
                 global_vars,
                 functions,
                 interfaces,
@@ -91,6 +93,7 @@ impl IfExpr {
                 stack,
                 frame,
                 user_defined_types,
+                free_vars,
                 global_vars,
                 functions,
                 interfaces,
@@ -179,6 +182,7 @@ impl ExprElseIf {
         stack: &mut Stack,
         frame: &mut Frame,
         user_defined_types: &UserDefinedTypes,
+        free_vars: &FreeVars,
         global_vars: &GlobalVars,
         functions: &Functions,
         interfaces: &Interfaces,
@@ -191,6 +195,7 @@ impl ExprElseIf {
                 stack,
                 frame,
                 user_defined_types,
+                free_vars,
                 global_vars,
                 functions,
                 interfaces,
@@ -207,6 +212,7 @@ impl ExprElseIf {
             stack,
             frame,
             user_defined_types,
+            free_vars,
             global_vars,
             functions,
             interfaces,

@@ -18,8 +18,9 @@ impl CastExpr {
         &self,
         stack: &mut Stack,
         user_defined_types: &UserDefinedTypes,
+        free_vars: &FreeVars,
     ) -> Result<(), HayError> {
-        let cast_type = Type::from_token(&self.typ, user_defined_types, &mut FreeVars::new())?;
+        let cast_type = Type::from_token(&self.typ, user_defined_types, free_vars)?;
         cast_type.cast(&self.token, stack)
     }
 }

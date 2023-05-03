@@ -6,7 +6,7 @@ use crate::{
     },
     error::HayError,
     lex::token::Token,
-    types::{Frame, FunctionType, Stack, Substitutions, Type},
+    types::{Frame, FreeVars, FunctionType, Stack, Substitutions, Type},
 };
 
 use super::Expr;
@@ -27,6 +27,7 @@ impl ExprWhile {
         stack: &mut Stack,
         frame: &mut Frame,
         user_defined_types: &UserDefinedTypes,
+        free_vars: &FreeVars,
         global_vars: &GlobalVars,
         functions: &Functions,
         interfaces: &Interfaces,
@@ -42,6 +43,7 @@ impl ExprWhile {
                 stack,
                 frame,
                 user_defined_types,
+                free_vars,
                 global_vars,
                 functions,
                 interfaces,
@@ -69,6 +71,7 @@ impl ExprWhile {
             stack,
             frame,
             user_defined_types,
+            free_vars,
             global_vars,
             functions,
             interfaces,

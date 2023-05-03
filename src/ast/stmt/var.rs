@@ -5,7 +5,7 @@ use crate::{
     // backend::{InitData, UninitData},
     error::HayError,
     lex::token::Token,
-    types::TypeId,
+    types::{FreeVars, TypeId},
 };
 
 use super::{GlobalVars, StmtKind, UserDefinedTypes};
@@ -23,7 +23,8 @@ impl VarStmt {
         global_vars: &mut GlobalVars,
     ) -> Result<(), HayError> {
         let mut frame = vec![];
-        self.expr.type_check(&mut frame, user_defined_types)?;
+        self.expr
+            .type_check(&mut frame, user_defined_types, &FreeVars::new())?;
 
         if let Some((id, t)) = frame.pop() {
             if let Some(prev) = global_vars.insert(id, t) {

@@ -58,7 +58,7 @@ impl OperatorExpr {
                 FunctionType::unify_many(&fs, &self.token, stack)?;
             }
 
-            Operator::Equal => {
+            Operator::Equal | Operator::BangEqual => {
                 let fs = vec![
                     FunctionType::new(vec![Type::u64(), Type::u64()], vec![Type::bool()]),
                     FunctionType::new(vec![Type::u8(), Type::u8()], vec![Type::bool()]),

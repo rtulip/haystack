@@ -20,7 +20,7 @@ use crate::{
     },
     error::HayError,
     lex::token::Token,
-    types::{Frame, RecordType, Stack, Substitutions, Type},
+    types::{Frame, FreeVars, RecordType, Stack, Substitutions, Type},
 };
 
 use super::Expr;
@@ -39,6 +39,7 @@ impl TupleExpr {
         stack: &mut Stack,
         frame: &mut Frame,
         user_defined_types: &UserDefinedTypes,
+        free_vars: &FreeVars,
         global_vars: &GlobalVars,
         functions: &Functions,
         interfaces: &Interfaces,
@@ -51,6 +52,7 @@ impl TupleExpr {
                 &mut sub_stack,
                 frame,
                 user_defined_types,
+                free_vars,
                 global_vars,
                 functions,
                 interfaces,

@@ -40,12 +40,12 @@ impl MatchExpr {
         stack: &mut Stack,
         frame: &mut Frame,
         user_defined_types: &UserDefinedTypes,
+        free_vars: &FreeVars,
         global_vars: &GlobalVars,
         functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
         subs: &mut Substitutions,
-        free_vars: &FreeVars,
     ) -> Result<(), HayError> {
         let typ = match stack.last() {
             Some(t) => t.clone(),
@@ -182,6 +182,7 @@ impl MatchExpr {
                 stack,
                 frame,
                 user_defined_types,
+                free_vars,
                 global_vars,
                 functions,
                 interfaces,

@@ -113,6 +113,7 @@ impl FunctionDescription {
                 &mut stack,
                 &mut frame,
                 user_defined_types,
+                self.free_vars.as_ref().unwrap_or(&FreeVars::new()),
                 global_vars,
                 functions,
                 interfaces,

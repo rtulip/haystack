@@ -6,7 +6,7 @@ use crate::{
         visibility::Visibility,
     },
     error::HayError,
-    lex::token::{Token, TokenKind, TypeToken},
+    lex::token::{Token, TokenKind, TypeToken, Literal},
     types::Substitutions,
 };
 
@@ -144,7 +144,7 @@ impl Type {
                     return Ok(Type::PreDeclaration(TypeId::new(&predecl.name)));
                 }
 
-                todo!("{token}: {free_vars:?}")
+                todo!("{token}: {typ} {free_vars:?}")
             }
             TypeToken::Parameterized { base, inner } => {
                 let (base_typ, ordered_free_vars);
@@ -271,7 +271,13 @@ impl Type {
         }
 
         match self {
-            Type::Record(record) if record.kind == RecordKind::Struct => {
+            Type::Variant(VariantType {
+                typ: box Type::Record(record),
+                ..
+            })
+            | Type::Record(record)
+                if record.kind == RecordKind::Struct =>
+            {
                 if let Some(m) = record
                     .members
                     .iter()
@@ -293,6 +299,34 @@ impl Type {
                         token.lexeme,
                         record.members.iter().map(|m| &m.ident).collect::<Vec<_>>()
                     )));
+                }
+            }
+            Type::Variant(VariantType {
+                typ: box Type::Record(record),
+                ..
+            })
+            | Type::Record(record)
+                if record.kind == RecordKind::EnumStruct =>
+            {
+                match &inner[0].kind {
+                    TokenKind::Literal(Literal::U64(n)) => {
+                        if *n as usize >= record.members.len() {
+                            return Err(HayError::new(
+                                format!(
+                                    "{n} is out of range for `{self}`. Expected a value between 0 and {} inclusive.", 
+                                    record.members.len() -1
+                                ), 
+                                token.loc.clone()
+                            ));
+                        }
+
+                        return Ok(record.members[*n as usize].typ.get_inner_accessors(token, &inner[1..])?);
+                    },
+                    kind => return Err(
+                        HayError::new(
+                            format!("Internal Error: Expected a number literal to access into `{self}`, but found {kind} instead."), 
+                            token.loc.clone()
+                    ))
                 }
             }
             _ => todo!("{self:?}"),

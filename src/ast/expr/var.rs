@@ -20,8 +20,9 @@ impl VarExpr {
         &self,
         frame: &mut Frame,
         user_defined_types: &UserDefinedTypes,
+        free_vars: &FreeVars,
     ) -> Result<(), HayError> {
-        let typ = Type::from_token(&self.typ, user_defined_types, &FreeVars::new())?;
+        let typ = Type::from_token(&self.typ, user_defined_types, free_vars)?;
         frame.push((
             self.ident.lexeme.clone(),
             Type::Pointer(PointerType {

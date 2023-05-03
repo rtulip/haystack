@@ -4,7 +4,7 @@ use crate::{
     ast::stmt::{Functions, GlobalVars, InterfaceFunctionTable, Interfaces, UserDefinedTypes},
     error::HayError,
     lex::token::Token,
-    types::{Frame, Stack, Substitutions},
+    types::{Frame, FreeVars, Stack, Substitutions},
 };
 
 use super::Expr;
@@ -22,6 +22,7 @@ impl BlockExpr {
         stack: &mut Stack,
         frame: &mut Frame,
         user_defined_types: &UserDefinedTypes,
+        free_vars: &FreeVars,
         global_vars: &GlobalVars,
         functions: &Functions,
         interfaces: &Interfaces,
@@ -34,6 +35,7 @@ impl BlockExpr {
                 stack,
                 frame,
                 user_defined_types,
+                free_vars,
                 global_vars,
                 functions,
                 interfaces,

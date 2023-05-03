@@ -43,7 +43,7 @@ impl RecordStmt {
             members: UntypedMember::into_typed_members(
                 self.members,
                 &user_defined_types,
-                &free_vars,
+                free_vars.as_ref(),
             )?
             .into_iter()
             .map(|m| RecordMember {

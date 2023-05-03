@@ -55,7 +55,7 @@ impl UntypedArg {
     pub fn into_typed_arg(
         self,
         user_defined_types: &UserDefinedTypes,
-        free_vars: &FreeVars,
+        free_vars: Option<&FreeVars>,
     ) -> Result<TypedArg, HayError> {
         let typ = Type::from_token(&self.token, user_defined_types, free_vars)?;
 
@@ -74,9 +74,7 @@ impl UntypedArg {
     ) -> Result<Vec<TypedArg>, HayError> {
         let mut out = vec![];
         for arg in args {
-            out.push(
-                arg.into_typed_arg(user_defined_types, free_vars.unwrap_or(&FreeVars::new()))?,
-            );
+            out.push(arg.into_typed_arg(user_defined_types, free_vars)?);
         }
 
         Ok(out)

@@ -45,7 +45,7 @@ impl InterfaceImplStmt {
                         &self.interface,
                         t,
                         user_defined_types,
-                        free_vars.as_ref().unwrap_or(&FreeVars::new()),
+                        free_vars.as_ref(),
                     )?);
                 }
                 (base, inner_tids)
@@ -69,10 +69,7 @@ impl InterfaceImplStmt {
         let mut to_define = interface.associated_types.clone();
 
         for t in self.types {
-            let member = t.into_typed_member(
-                user_defined_types,
-                free_vars.as_ref().unwrap_or(&FreeVars::new()),
-            )?;
+            let member = t.into_typed_member(user_defined_types, free_vars.as_ref())?;
 
             let type_var = TypeVar::new(member.ident.lexeme);
             if to_define.remove(&type_var) {

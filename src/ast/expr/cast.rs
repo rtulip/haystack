@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{member::TypedMember, stmt::UserDefinedTypes},
+    ast::{
+        member::TypedMember,
+        stmt::{FunctionDescription, UserDefinedTypes},
+    },
     error::HayError,
     lex::token::Token,
     types::{FreeVars, Stack, Type},
@@ -18,9 +21,10 @@ impl CastExpr {
         &self,
         stack: &mut Stack,
         user_defined_types: &UserDefinedTypes,
-        free_vars: &FreeVars,
+        function: &FunctionDescription,
     ) -> Result<(), HayError> {
-        let cast_type = Type::from_token(&self.typ, user_defined_types, free_vars)?;
+        let cast_type =
+            Type::from_token(&self.typ, user_defined_types, function.free_vars.as_ref())?;
         cast_type.cast(&self.token, stack)
     }
 }

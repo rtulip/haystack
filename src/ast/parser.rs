@@ -8,7 +8,7 @@ use std::collections::{HashSet};
 use super::arg::{IdentArg, UntypedArg, IdentArgKind};
 use super::expr::{
     AccessorExpr, AnnotatedCallExpr, AsExpr, CastExpr, ExprElseIf, IdentExpr, IfExpr, LiteralExpr,
-    OperatorExpr, ExprReturn, SizeOfExpr, ExprSyscall, UnaryExpr, VarExpr, ExprWhile, TupleExpr, MatchExpr, MatchElseExpr, UnpackExpr,
+    OperatorExpr, ReturnExpr, SizeOfExpr, ExprSyscall, UnaryExpr, VarExpr, ExprWhile, TupleExpr, MatchExpr, MatchElseExpr, UnpackExpr,
 };
 use super::member::UntypedMember;
 use super::stmt::{RecordStmt, EnumStmt, FunctionStmt, FunctionStubStmt, InterfaceStmt, InterfaceImplStmt, VarStmt, PreDeclarationStmt, FnTag, InterfaceId};
@@ -1086,7 +1086,7 @@ impl<'a> Parser<'a> {
             TokenKind::Keyword(Keyword::Var) => Ok(Box::new(Expr::Var(self.var(token)?))),
             TokenKind::Keyword(Keyword::While) => self.parse_while(token),
             TokenKind::Keyword(Keyword::SizeOf) => self.size_of(token),
-            TokenKind::Keyword(Keyword::Return) => Ok(Box::new(Expr::Return(ExprReturn { token }))),
+            TokenKind::Keyword(Keyword::Return) => Ok(Box::new(Expr::Return(ReturnExpr { token }))),
             TokenKind::Keyword(Keyword::Match) => self.match_expr(token),
             TokenKind::Keyword(Keyword::Unpack) => Ok(Box::new(Expr::Unpack(UnpackExpr { token}))),
             TokenKind::Marker(Marker::LeftBracket) => self.parse_tuple_expr(token),

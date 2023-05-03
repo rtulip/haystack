@@ -64,7 +64,7 @@ impl Type {
     pub fn from_token(
         token: &Token,
         user_defined_types: &UserDefinedTypes,
-        free_vars: &FreeVars,
+        free_vars: Option<&FreeVars>,
     ) -> Result<Self, HayError> {
         let typ = match &token.kind {
             TokenKind::Type(typ) => typ,
@@ -86,7 +86,7 @@ impl Type {
         token: &Token,
         typ: &TypeToken,
         user_defined_types: &UserDefinedTypes,
-        free_vars: &FreeVars,
+        free_vars: Option<&FreeVars>,
     ) -> Result<Self, HayError> {
         match typ {
             TypeToken::Array { base, size } => {
@@ -134,10 +134,12 @@ impl Type {
                     return Ok(Type::Record(desc.typ.clone()));
                 }
 
-                if let Some(free_var) = free_vars.get(&TypeVar::new(base)) {
-                    return Ok(Type::TypeVar(free_var.clone()));
+                if let Some(free_vars) = free_vars {
+                    if let Some(free_var) = free_vars.get(&TypeVar::new(base)) {
+                        return Ok(Type::TypeVar(free_var.clone()));
+                    }
                 }
-
+                
                 if let Some(TypeDescription::PreDeclaration(predecl)) =
                     user_defined_types.get(&TypeId::new(base))
                 {

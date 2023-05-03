@@ -20,7 +20,7 @@ impl UntypedMember {
     pub fn into_typed_member(
         self,
         user_defined_types: &UserDefinedTypes,
-        free_vars: &FreeVars,
+        free_vars: Option<&FreeVars>,
     ) -> Result<TypedMember, HayError> {
         Ok(TypedMember {
             parent: self
@@ -37,15 +37,12 @@ impl UntypedMember {
     pub fn into_typed_members(
         members: Vec<Self>,
         user_defined_types: &UserDefinedTypes,
-        free_vars: &Option<FreeVars>,
+        free_vars: Option<&FreeVars>,
     ) -> Result<Vec<TypedMember>, HayError> {
         let mut out = vec![];
 
         for m in members {
-            out.push(m.into_typed_member(
-                user_defined_types,
-                free_vars.as_ref().unwrap_or(&FreeVars::new()),
-            )?);
+            out.push(m.into_typed_member(user_defined_types, free_vars)?);
         }
 
         Ok(out)

@@ -1,5 +1,6 @@
 use crate::ast::stmt::{
-    Functions, GlobalVars, InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes,
+    FunctionDescription, Functions, GlobalVars, InterfaceFunctionTable, Interfaces, StmtKind,
+    UserDefinedTypes,
 };
 use crate::error::HayError;
 use crate::lex::token::{Literal, Operator, Token};
@@ -7,8 +8,8 @@ use crate::types::{Frame, FreeVars, Stack, Substitutions};
 use std::collections::{HashMap, HashSet};
 
 use super::{
-    AccessorExpr, AnnotatedCallExpr, AsExpr, BlockExpr, CastExpr, ExprReturn, ExprSyscall,
-    ExprWhile, IdentExpr, IfExpr, LiteralExpr, MatchExpr, NeverExpr, OperatorExpr, SizeOfExpr,
+    AccessorExpr, AnnotatedCallExpr, AsExpr, BlockExpr, CastExpr, ExprSyscall, ExprWhile,
+    IdentExpr, IfExpr, LiteralExpr, MatchExpr, NeverExpr, OperatorExpr, ReturnExpr, SizeOfExpr,
     TupleExpr, UnaryExpr, UnpackExpr, VarExpr,
 };
 
@@ -50,7 +51,7 @@ pub enum Expr {
     While(ExprWhile),
     AnnotatedCall(AnnotatedCallExpr),
     SizeOf(SizeOfExpr),
-    Return(ExprReturn),
+    Return(ReturnExpr),
     Match(MatchExpr),
     Never(NeverExpr),
     Unpack(UnpackExpr),
@@ -74,7 +75,7 @@ impl Expr {
             | Expr::While(ExprWhile { token, .. })
             | Expr::AnnotatedCall(AnnotatedCallExpr { token, .. })
             | Expr::SizeOf(SizeOfExpr { token, .. })
-            | Expr::Return(ExprReturn { token })
+            | Expr::Return(ReturnExpr { token })
             | Expr::Match(MatchExpr { token, .. })
             | Expr::Never(NeverExpr { token })
             | Expr::Unpack(UnpackExpr { token })
@@ -90,8 +91,8 @@ impl Expr {
         &self,
         stack: &mut Stack,
         frame: &mut Frame,
+        function: &FunctionDescription,
         user_defined_types: &UserDefinedTypes,
-        free_vars: &FreeVars,
         global_vars: &GlobalVars,
         functions: &Functions,
         interfaces: &Interfaces,
@@ -102,8 +103,8 @@ impl Expr {
             Expr::Block(block) => block.type_check(
                 stack,
                 frame,
+                function,
                 user_defined_types,
-                free_vars,
                 global_vars,
                 functions,
                 interfaces,
@@ -123,8 +124,8 @@ impl Expr {
             Expr::If(if_expr) => if_expr.type_check(
                 stack,
                 frame,
+                function,
                 user_defined_types,
-                free_vars,
                 global_vars,
                 functions,
                 interfaces,
@@ -135,8 +136,8 @@ impl Expr {
             Expr::While(while_expr) => while_expr.type_check(
                 stack,
                 frame,
+                function,
                 user_defined_types,
-                free_vars,
                 global_vars,
                 functions,
                 interfaces,
@@ -144,16 +145,16 @@ impl Expr {
                 subs,
             ),
             Expr::As(as_expr) => as_expr.type_check(stack, frame),
-            Expr::Cast(cast) => cast.type_check(stack, user_defined_types, free_vars),
+            Expr::Cast(cast) => cast.type_check(stack, user_defined_types, function),
             Expr::SizeOf(size_of) => size_of.type_check(stack),
             Expr::AnnotatedCall(call) => call.type_check(stack, user_defined_types, functions),
             Expr::Unary(unary) => unary.type_check(stack, frame),
-            Expr::Var(var) => var.type_check(frame, user_defined_types, free_vars),
+            Expr::Var(var) => var.type_check(frame, user_defined_types, Some(function)),
             Expr::Tuple(tuple) => tuple.type_check(
                 stack,
                 frame,
+                function,
                 user_defined_types,
-                free_vars,
                 global_vars,
                 functions,
                 interfaces,
@@ -163,8 +164,8 @@ impl Expr {
             Expr::Match(match_expr) => match_expr.type_check(
                 stack,
                 frame,
+                function,
                 user_defined_types,
-                free_vars,
                 global_vars,
                 functions,
                 interfaces,
@@ -172,6 +173,7 @@ impl Expr {
                 subs,
             ),
             Expr::Never(never) => never.type_check(stack),
+            Expr::Return(return_expr) => return_expr.type_check(stack, function),
             x => todo!("{x:?}"),
         }
     }

@@ -23,8 +23,7 @@ impl VarStmt {
         global_vars: &mut GlobalVars,
     ) -> Result<(), HayError> {
         let mut frame = vec![];
-        self.expr
-            .type_check(&mut frame, user_defined_types, &FreeVars::new())?;
+        self.expr.type_check(&mut frame, user_defined_types, None)?;
 
         if let Some((id, t)) = frame.pop() {
             if let Some(prev) = global_vars.insert(id, t) {

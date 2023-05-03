@@ -16,7 +16,8 @@ use std::collections::HashMap;
 
 use crate::{
     ast::stmt::{
-        Functions, GlobalVars, InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes,
+        FunctionDescription, Functions, GlobalVars, InterfaceFunctionTable, Interfaces, StmtKind,
+        UserDefinedTypes,
     },
     error::HayError,
     lex::token::Token,
@@ -38,8 +39,8 @@ impl TupleExpr {
         &self,
         stack: &mut Stack,
         frame: &mut Frame,
+        function: &FunctionDescription,
         user_defined_types: &UserDefinedTypes,
-        free_vars: &FreeVars,
         global_vars: &GlobalVars,
         functions: &Functions,
         interfaces: &Interfaces,
@@ -51,8 +52,8 @@ impl TupleExpr {
             e.type_check(
                 &mut sub_stack,
                 frame,
+                function,
                 user_defined_types,
-                free_vars,
                 global_vars,
                 functions,
                 interfaces,

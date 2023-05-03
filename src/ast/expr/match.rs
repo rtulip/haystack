@@ -5,7 +5,10 @@ use crate::{
         arg::{IdentArg, IdentArgKind},
         expr::{AccessorExpr, AsExpr, ExprElseIf, IfExpr, LiteralExpr, OperatorExpr},
         member::TypedMember,
-        stmt::{Functions, GlobalVars, InterfaceFunctionTable, Interfaces, UserDefinedTypes},
+        stmt::{
+            FunctionDescription, Functions, GlobalVars, InterfaceFunctionTable, Interfaces,
+            UserDefinedTypes,
+        },
     },
     error::HayError,
     lex::token::{Keyword, Literal, Operator, Token, TokenKind},
@@ -39,8 +42,8 @@ impl MatchExpr {
         &self,
         stack: &mut Stack,
         frame: &mut Frame,
+        function: &FunctionDescription,
         user_defined_types: &UserDefinedTypes,
-        free_vars: &FreeVars,
         global_vars: &GlobalVars,
         functions: &Functions,
         interfaces: &Interfaces,
@@ -115,7 +118,7 @@ impl MatchExpr {
                 &ident_tok,
                 &record,
                 user_defined_types,
-                free_vars,
+                function.free_vars.as_ref(),
             )?;
             cases_handled.insert(idx);
             match_block.exprs.push(Expr::Block(before_exprs));
@@ -123,8 +126,13 @@ impl MatchExpr {
             let mut otherwise_exprs = vec![];
 
             for case in &self.cases[1..] {
-                let (idx, before, otherwise) =
-                    self.exprs_from_case(case, &ident_tok, &record, user_defined_types, free_vars)?;
+                let (idx, before, otherwise) = self.exprs_from_case(
+                    case,
+                    &ident_tok,
+                    &record,
+                    user_defined_types,
+                    function.free_vars.as_ref(),
+                )?;
 
                 cases_handled.insert(idx);
                 otherwise_exprs.push((before, otherwise));
@@ -181,8 +189,8 @@ impl MatchExpr {
             match_expr.type_check(
                 stack,
                 frame,
+                function,
                 user_defined_types,
-                free_vars,
                 global_vars,
                 functions,
                 interfaces,
@@ -283,7 +291,7 @@ impl MatchExpr {
         ident_tok: &Token,
         record: &RecordType,
         user_defined_types: &UserDefinedTypes,
-        free_vars: &FreeVars,
+        free_vars: Option<&FreeVars>,
     ) -> Result<(usize, BlockExpr, BlockExpr), HayError> {
         let idx = match Type::from_token(&case.variant, user_defined_types, free_vars)? {
             Type::Variant(VariantType {

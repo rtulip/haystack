@@ -48,7 +48,10 @@ impl OperatorExpr {
                 "Op.add",
                 FunctionType::new(vec![Type::u64(), Type::u64()], vec![Type::u64()]),
             )?,
-            Operator::GreaterEqual | Operator::LessThan => {
+            Operator::GreaterEqual
+            | Operator::LessThan
+            | Operator::GreaterThan
+            | Operator::LessEqual => {
                 let fs = vec![
                     FunctionType::new(vec![Type::u64(), Type::u64()], vec![Type::bool()]),
                     FunctionType::new(vec![Type::u8(), Type::u8()], vec![Type::bool()]),

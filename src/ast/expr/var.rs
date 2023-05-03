@@ -1,5 +1,5 @@
 use crate::{
-    ast::stmt::UserDefinedTypes,
+    ast::stmt::{FunctionDescription, UserDefinedTypes},
     error::HayError,
     lex::token::Token,
     types::{Frame, FreeVars, PointerType, Type},
@@ -20,9 +20,16 @@ impl VarExpr {
         &self,
         frame: &mut Frame,
         user_defined_types: &UserDefinedTypes,
-        free_vars: &FreeVars,
+        function: Option<&FunctionDescription>,
     ) -> Result<(), HayError> {
-        let typ = Type::from_token(&self.typ, user_defined_types, free_vars)?;
+        let typ = Type::from_token(
+            &self.typ,
+            user_defined_types,
+            match function {
+                Some(function) => function.free_vars.as_ref(),
+                None => None,
+            },
+        )?;
         frame.push((
             self.ident.lexeme.clone(),
             Type::Pointer(PointerType {

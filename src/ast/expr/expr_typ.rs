@@ -3,8 +3,8 @@ use crate::ast::stmt::{
 };
 use crate::error::HayError;
 use crate::lex::token::{Literal, Operator, Token};
-use crate::types::{Frame, Stack, Substitutions};
-use std::collections::HashMap;
+use crate::types::{Frame, FreeVars, Stack, Substitutions};
+use std::collections::{HashMap, HashSet};
 
 use super::{
     AccessorExpr, AnnotatedCallExpr, AsExpr, BlockExpr, CastExpr, ExprReturn, ExprSyscall,
@@ -154,6 +154,17 @@ impl Expr {
                 interfaces,
                 interface_fn_table,
                 subs,
+            ),
+            Expr::Match(match_expr) => match_expr.type_check(
+                stack,
+                frame,
+                user_defined_types,
+                global_vars,
+                functions,
+                interfaces,
+                interface_fn_table,
+                subs,
+                &FreeVars::new(),
             ),
             x => todo!("{x:?}"),
         }

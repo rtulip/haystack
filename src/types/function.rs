@@ -75,7 +75,7 @@ impl FunctionType {
             *stack = stack_before.clone();
         }
 
-        todo!()
+        todo!("{token}")
     }
 
     pub fn substitute(&self, token: &Token, subs: &Substitutions) -> Result<Self, HayError> {

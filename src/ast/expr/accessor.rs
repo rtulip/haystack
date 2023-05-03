@@ -2,7 +2,7 @@ use crate::{
     ast::stmt::UserDefinedTypes,
     error::HayError,
     lex::token::Token,
-    types::{Frame, RecordKind, Stack, Substitutions, Type},
+    types::{Frame, RecordKind, Stack, Substitutions, Type, VariantType},
 };
 
 /// Accessor Expressions
@@ -40,6 +40,20 @@ impl AccessorExpr {
             .rev()
             .find(|(_, (k, _))| k == &self.ident.lexeme)
         {
+            if self.inner.is_empty() {
+                match typ {
+                    Type::Record(record)
+                    | Type::Variant(VariantType {
+                        typ: box Type::Record(record),
+                        ..
+                    }) if record.kind == RecordKind::EnumStruct => {
+                        stack.push(Type::u64());
+                        return Ok(());
+                    }
+                    _ => todo!(),
+                }
+            }
+
             let typ = typ.get_inner_accessors(&self.token, &self.inner)?;
             stack.push(typ);
         }

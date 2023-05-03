@@ -64,7 +64,16 @@ impl IfExpr {
             *stack = otherwise_stack.clone();
             *frame = initial_frame.clone();
 
-            case.type_check(stack, frame, subs)?;
+            case.type_check(
+                stack,
+                frame,
+                user_defined_types,
+                global_vars,
+                functions,
+                interfaces,
+                interface_fn_table,
+                subs,
+            )?;
 
             otherwise_stack = stack.clone();
 
@@ -169,8 +178,42 @@ impl ExprElseIf {
         &self,
         stack: &mut Stack,
         frame: &mut Frame,
+        user_defined_types: &UserDefinedTypes,
+        global_vars: &GlobalVars,
+        functions: &Functions,
+        interfaces: &Interfaces,
+        interface_fn_table: &InterfaceFunctionTable,
         subs: &mut Substitutions,
     ) -> Result<(), HayError> {
-        todo!()
+        let mut typed_condition = vec![];
+        for expr in &self.condition {
+            typed_condition.push(expr.type_check(
+                stack,
+                frame,
+                user_defined_types,
+                global_vars,
+                functions,
+                interfaces,
+                interface_fn_table,
+                subs,
+            ));
+        }
+
+        FunctionType::new(vec![Type::bool()], vec![]).unify(&self.token, stack)?;
+
+        // let stack_after_check = stack.clone();
+
+        self.block.type_check(
+            stack,
+            frame,
+            user_defined_types,
+            global_vars,
+            functions,
+            interfaces,
+            interface_fn_table,
+            subs,
+        )?;
+
+        Ok(())
     }
 }

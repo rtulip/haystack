@@ -5,7 +5,7 @@ use crate::{
     },
     error::HayError,
     lex::token::Token,
-    types::{Frame, FreeVars, FunctionType, Stack, Substitutions, Type, TypeId, TypeVar},
+    types::{BaseType, Frame, FreeVars, FunctionType, Stack, Substitutions, Type, TypeId, TypeVar},
 };
 
 use super::{
@@ -121,10 +121,21 @@ impl FunctionDescription {
                 &mut Substitutions::empty(),
             )?;
 
-        FunctionType::new(stack.clone(), self.typ.output.clone()).unify(&self.name, &mut stack)?;
+        if self
+            .typ
+            .output
+            .iter()
+            .find(|t| t == &&Type::Base(BaseType::Never))
+            .is_none()
+            && stack.len() != self.typ.output.len()
+        {
+            dbg!(&stack);
+            dbg!(&self.typ.output);
 
-        println!("Expected: {}", self.typ);
-        dbg!(&stack);
+            todo!("{}", self.name)
+        }
+
+        FunctionType::new(stack.clone(), self.typ.output.clone()).unify(&self.name, &mut stack)?;
 
         Ok(())
     }

@@ -20,7 +20,10 @@ impl OperatorExpr {
         interface_fn_name: S2,
         default_func: FunctionType,
     ) -> Result<(), HayError> {
+        let stack_before = stack.clone();
         if default_func.unify(&self.token, stack).is_err() {
+            *stack = stack_before;
+
             let iface = interfaces.get(&interface_id.into()).unwrap();
             iface.unify(&interface_fn_name.into(), &self.token, stack)?;
         }
@@ -89,8 +92,11 @@ impl OperatorExpr {
                     FunctionType::new(vec![Type::char(), Type::char()], vec![Type::bool()]),
                 ];
 
+                dbg!(&stack);
+
                 println!("EQUALS.....");
                 FunctionType::unify_many(&fs, &self.token, stack)?;
+                dbg!(&stack);
                 // Signature::evaluate_many(
                 //     &vec![
                 //         // u64 == u64 -> bool

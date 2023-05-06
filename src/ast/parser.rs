@@ -8,7 +8,7 @@ use std::collections::{HashSet};
 use super::arg::{IdentArg, UntypedArg, IdentArgKind};
 use super::expr::{
     AccessorExpr, AnnotatedCallExpr, AsExpr, CastExpr, ExprElseIf, IdentExpr, IfExpr, LiteralExpr,
-    OperatorExpr, ReturnExpr, SizeOfExpr, ExprSyscall, UnaryExpr, VarExpr, ExprWhile, TupleExpr, MatchExpr, MatchElseExpr, UnpackExpr,
+    OperatorExpr, ReturnExpr, SizeOfExpr, SyscallExpr, UnaryExpr, VarExpr, ExprWhile, TupleExpr, MatchExpr, MatchElseExpr, UnpackExpr,
 };
 use super::member::UntypedMember;
 use super::stmt::{RecordStmt, EnumStmt, FunctionStmt, FunctionStubStmt, InterfaceStmt, InterfaceImplStmt, VarStmt, PreDeclarationStmt, FnTag, InterfaceId};
@@ -962,7 +962,7 @@ impl<'a> Parser<'a> {
                 literal: l.clone(),
                 token,
             }))),
-            TokenKind::Syscall(n) => Ok(Box::new(Expr::Syscall(ExprSyscall { n: *n, token }))),
+            TokenKind::Syscall(n) => Ok(Box::new(Expr::Syscall(SyscallExpr { n: *n, token }))),
             TokenKind::Ident(_) => {
                 let mut new_token = token.clone();
                 let mut inners = vec![];

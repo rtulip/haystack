@@ -31,9 +31,20 @@ impl BaseType {
         FunctionType::unify_many(&fns, token, stack)
     }
 
+    fn cast_char(token: &Token, stack: &mut Stack) -> Result<(), HayError> {
+        let fns = [
+            FunctionType::new(vec![Type::u64()], vec![Type::char()]),
+            FunctionType::new(vec![Type::u8()], vec![Type::char()]),
+            FunctionType::new(vec![Type::char()], vec![Type::char()]),
+        ];
+
+        FunctionType::unify_many(&fns, token, stack)
+    }
+
     pub fn cast(&self, token: &Token, stack: &mut Stack) -> Result<(), HayError> {
         match self {
             BaseType::U64 => BaseType::cast_u64(token, stack),
+            BaseType::Char => BaseType::cast_char(token, stack),
             _ => todo!("{self}"),
         }
     }

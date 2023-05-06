@@ -8,8 +8,8 @@ use crate::types::{Frame, FreeVars, Stack, Substitutions};
 use std::collections::{HashMap, HashSet};
 
 use super::{
-    AccessorExpr, AnnotatedCallExpr, AsExpr, BlockExpr, CastExpr, ExprSyscall, ExprWhile,
-    IdentExpr, IfExpr, LiteralExpr, MatchExpr, NeverExpr, OperatorExpr, ReturnExpr, SizeOfExpr,
+    AccessorExpr, AnnotatedCallExpr, AsExpr, BlockExpr, CastExpr, ExprWhile, IdentExpr, IfExpr,
+    LiteralExpr, MatchExpr, NeverExpr, OperatorExpr, ReturnExpr, SizeOfExpr, SyscallExpr,
     TupleExpr, UnaryExpr, UnpackExpr, VarExpr,
 };
 
@@ -41,7 +41,7 @@ pub enum Expr {
     Tuple(TupleExpr),
     Operator(OperatorExpr),
     Unary(UnaryExpr),
-    Syscall(ExprSyscall),
+    Syscall(SyscallExpr),
     Cast(CastExpr),
     Ident(IdentExpr),
     Accessor(AccessorExpr),
@@ -65,7 +65,7 @@ impl Expr {
             Expr::Literal(LiteralExpr { token, .. })
             | Expr::Tuple(TupleExpr { token, .. })
             | Expr::Operator(OperatorExpr { token, .. })
-            | Expr::Syscall(ExprSyscall { token, .. })
+            | Expr::Syscall(SyscallExpr { token, .. })
             | Expr::Cast(CastExpr { token, .. })
             | Expr::Ident(IdentExpr { ident: token, .. })
             | Expr::Accessor(AccessorExpr { token, .. })
@@ -174,6 +174,7 @@ impl Expr {
             ),
             Expr::Never(never) => never.type_check(stack),
             Expr::Return(return_expr) => return_expr.type_check(stack, function),
+            Expr::Syscall(syscall) => syscall.type_check(stack),
             x => todo!("{x:?}"),
         }
     }

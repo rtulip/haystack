@@ -48,6 +48,16 @@ impl Type {
         Type::Base(BaseType::Never)
     }
 
+    pub fn size(&self, token: &Token) -> Result<usize, HayError> {
+
+        match self {
+            Type::Base(base) if base != &BaseType::Never => Ok(1),
+            Type::Pointer(_) => Ok(1),
+            _ => todo!("{self}"),
+        }
+
+    }
+
     pub fn merge_free_vars(a: Option<&FreeVars>, b: Option<&FreeVars>) -> Option<FreeVars> {
         match (a, b) {
             (Some(a), None) => Some(a.clone()),

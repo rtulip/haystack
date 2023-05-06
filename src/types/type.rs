@@ -331,6 +331,9 @@ impl Type {
                     ))
                 }
             }
+            Type::Pointer(PointerType { mutable, inner: inner_typ }) => {
+                Ok(Type::Pointer(PointerType { mutable: *mutable, inner: Box::new(inner_typ.get_inner_accessors(token, inner)?)}))
+            }
             _ => todo!("{self:?}"),
         }
     }
@@ -344,7 +347,7 @@ impl Type {
         match (self, other) {
             (t, Type::TypeVar(var)) | (Type::TypeVar(var), t) => match subs.get(&var) {
                 Some(sub) if sub == t => (),
-                Some(sub) => todo!("{token}: var: {var:?} t: {t} sub: {sub}, subs: {subs:?}"),
+                Some(sub) => todo!("{token}: var: {var:?} t: {t:?} sub: {sub:?}, subs: {subs:?}"),
                 None => {
                     subs.insert(var.clone(), t.clone());
                 }

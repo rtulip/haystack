@@ -75,6 +75,8 @@ impl FunctionType {
             *stack = stack_before.clone();
         }
 
+        dbg!(stack);
+
         todo!("{token}")
     }
 

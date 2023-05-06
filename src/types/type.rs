@@ -349,7 +349,11 @@ impl Type {
             (t, Type::TypeVar(var)) | (Type::TypeVar(var), t) => match subs.get(&var) {
                 Some(sub) if sub == t => (),
                 Some(sub) if matches!(sub, Type::TypeVar(_)) => {self.unify(token, &sub.clone(), subs)?;},
-                Some(sub) => todo!(),
+                Some(sub) => {
+                    dbg!(self);
+                    dbg!(other);
+                    let x = t.clone().substitute(token, subs)?;
+                },
                 None => {
                     subs.insert(var.clone(), t.clone());
                 }

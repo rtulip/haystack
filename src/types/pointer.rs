@@ -1,4 +1,4 @@
-use crate::{error::HayError, lex::token::Token};
+use crate::{ast::expr::TypedExpr, error::HayError, lex::token::Token};
 
 use super::{FunctionType, Stack, Type};
 
@@ -9,7 +9,9 @@ pub struct PointerType {
 }
 
 impl PointerType {
-    pub fn cast(&self, token: &Token, stack: &mut Stack) -> Result<(), HayError> {
-        FunctionType::new(vec![Type::u64()], vec![Type::Pointer(self.clone())]).unify(token, stack)
+    pub fn cast(&self, token: &Token, stack: &mut Stack) -> Result<TypedExpr, HayError> {
+        FunctionType::new(vec![Type::u64()], vec![Type::Pointer(self.clone())])
+            .unify(token, stack)?;
+        todo!()
     }
 }

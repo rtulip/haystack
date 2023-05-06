@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::{
     ast::{
         arg::{IdentArg, IdentArgKind},
-        expr::{AccessorExpr, AsExpr, ExprElseIf, IfExpr, LiteralExpr, OperatorExpr},
+        expr::{AccessorExpr, AsExpr, ExprElseIf, IfExpr, LiteralExpr, OperatorExpr, TypedExpr},
         member::TypedMember,
         stmt::{
             FunctionDescription, Functions, GlobalVars, InterfaceFunctionTable, Interfaces,
@@ -49,7 +49,7 @@ impl MatchExpr {
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
         subs: &mut Substitutions,
-    ) -> Result<(), HayError> {
+    ) -> Result<TypedExpr, HayError> {
         let typ = match stack.last() {
             Some(t) => t.clone(),
             None => {

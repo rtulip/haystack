@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::{
     ast::{
         arg::UntypedArg,
+        expr::TypedExpr,
         stmt::{Functions, StmtKind, UserDefinedTypes},
     },
     error::HayError,
@@ -37,7 +38,7 @@ impl AnnotatedCallExpr {
         stack: &mut Stack,
         user_defined_types: &UserDefinedTypes,
         functions: &Functions,
-    ) -> Result<(), HayError> {
+    ) -> Result<TypedExpr, HayError> {
         if let Some(f) = functions.get(&self.base.lexeme) {
             let x = UntypedArg::into_typed_args(
                 self.annotations.clone(),
@@ -50,7 +51,8 @@ impl AnnotatedCallExpr {
 
             let subs = Substitutions::new(&self.token, f.ordered_free_vars.clone().unwrap(), x)?;
             let f = f.typ.substitute(&self.token, &subs)?;
-            f.unify(&self.token, stack)
+            f.unify(&self.token, stack)?;
+            todo!()
         } else {
             todo!()
         }

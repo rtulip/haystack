@@ -13,7 +13,10 @@
 //! ```
 //!
 use crate::{
-    ast::arg::{IdentArg, IdentArgKind},
+    ast::{
+        arg::{IdentArg, IdentArgKind},
+        expr::TypedExpr,
+    },
     error::HayError,
     lex::token::Token,
     types::{Frame, Stack},
@@ -28,7 +31,7 @@ pub struct AsExpr {
 }
 
 impl AsExpr {
-    pub fn type_check(&self, stack: &mut Stack, frame: &mut Frame) -> Result<(), HayError> {
+    pub fn type_check(&self, stack: &mut Stack, frame: &mut Frame) -> Result<TypedExpr, HayError> {
         // Make sure there's enough items on the stack. For example, this would
         // fail: `fn main() { 1 as [one two] }`
         if stack.len() < self.idents.len() {
@@ -60,6 +63,6 @@ impl AsExpr {
             }
         }
 
-        Ok(())
+        Ok(todo!())
     }
 }

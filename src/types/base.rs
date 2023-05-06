@@ -1,4 +1,4 @@
-use crate::{error::HayError, lex::token::Token};
+use crate::{ast::expr::TypedExpr, error::HayError, lex::token::Token};
 use std::{convert::TryFrom, fmt::Display};
 
 use super::{FunctionType, PointerType, Stack, Type, TypeVar};
@@ -13,7 +13,7 @@ pub enum BaseType {
 }
 
 impl BaseType {
-    fn cast_u64(token: &Token, stack: &mut Stack) -> Result<(), HayError> {
+    fn cast_u64(token: &Token, stack: &mut Stack) -> Result<TypedExpr, HayError> {
         let fns = [
             FunctionType::new(vec![Type::u64()], vec![Type::u64()]),
             FunctionType::new(vec![Type::u8()], vec![Type::u64()]),
@@ -28,20 +28,22 @@ impl BaseType {
             ),
         ];
 
-        FunctionType::unify_many(&fns, token, stack)
+        FunctionType::unify_many(&fns, token, stack)?;
+        todo!()
     }
 
-    fn cast_char(token: &Token, stack: &mut Stack) -> Result<(), HayError> {
+    fn cast_char(token: &Token, stack: &mut Stack) -> Result<TypedExpr, HayError> {
         let fns = [
             FunctionType::new(vec![Type::u64()], vec![Type::char()]),
             FunctionType::new(vec![Type::u8()], vec![Type::char()]),
             FunctionType::new(vec![Type::char()], vec![Type::char()]),
         ];
 
-        FunctionType::unify_many(&fns, token, stack)
+        FunctionType::unify_many(&fns, token, stack)?;
+        todo!()
     }
 
-    pub fn cast(&self, token: &Token, stack: &mut Stack) -> Result<(), HayError> {
+    pub fn cast(&self, token: &Token, stack: &mut Stack) -> Result<TypedExpr, HayError> {
         match self {
             BaseType::U64 => BaseType::cast_u64(token, stack),
             BaseType::Char => BaseType::cast_char(token, stack),

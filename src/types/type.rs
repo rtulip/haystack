@@ -3,7 +3,7 @@ use std::{collections::HashSet, fmt::Display};
 use crate::{
     ast::{
         stmt::{TypeDescription, UserDefinedTypes},
-        visibility::Visibility,
+        visibility::Visibility, expr::TypedExpr,
     },
     error::HayError,
     lex::token::{Token, TokenKind, TypeToken, Literal},
@@ -53,9 +53,29 @@ impl Type {
         match self {
             Type::Base(base) if base != &BaseType::Never => Ok(1),
             Type::Pointer(_) => Ok(1),
+            Type::Record(RecordType { kind: RecordKind::Union, members, .. }) => todo!(),
+            Type::Record(RecordType { kind: RecordKind::EnumStruct, members, .. }) => todo!(),
+            Type::Record(RecordType { kind: RecordKind::Enum, members, .. }) => todo!(),
+            Type::Record(RecordType { kind: RecordKind::Struct | RecordKind::Tuple, members, .. }) => {
+                let mut sum = 0;
+                for m in members {
+                    sum += m.typ.size(token)?;
+                }
+
+                Ok(sum)
+            },
+
             _ => todo!("{self}"),
         }
 
+    }
+
+    pub fn width(&self) -> usize {
+        if matches!(self, Type::Base(BaseType::Char | BaseType::U8)) {
+            1
+        } else {
+            8
+        }
     }
 
     pub fn merge_free_vars(a: Option<&FreeVars>, b: Option<&FreeVars>) -> Option<FreeVars> {
@@ -414,7 +434,7 @@ impl Type {
         Ok(())
     }
 
-    pub fn cast(&self, token: &Token, stack: &mut Stack) -> Result<(), HayError> {
+    pub fn cast(&self, token: &Token, stack: &mut Stack) -> Result<TypedExpr, HayError> {
         match self {
             Type::Base(base_type) => base_type.cast(token, stack),
             Type::Record(record) => record.cast(token, stack),

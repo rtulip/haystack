@@ -1,4 +1,5 @@
 use crate::{
+    ast::expr::TypedExpr,
     error::HayError,
     lex::token::{Keyword, Operator},
     types::{Frame, PointerType, Stack, Type},
@@ -13,7 +14,7 @@ pub struct UnaryExpr {
 }
 
 impl UnaryExpr {
-    pub fn type_check(&self, stack: &mut Stack, frame: &Frame) -> Result<(), HayError> {
+    pub fn type_check(&self, stack: &mut Stack, frame: &Frame) -> Result<TypedExpr, HayError> {
         match &self.op.op {
             Operator::Ampersand => match &self.expr {
                 box Expr::Ident(IdentExpr { ident }) => {
@@ -72,6 +73,6 @@ impl UnaryExpr {
             op => todo!("{op:?}"),
         }
 
-        Ok(())
+        Ok(todo!())
     }
 }

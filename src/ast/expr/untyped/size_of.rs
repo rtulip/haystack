@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
+    ast::expr::TypedExpr,
     error::HayError,
     lex::token::{Literal, Token},
     types::{Stack, Type},
@@ -15,9 +16,9 @@ pub struct SizeOfExpr {
 }
 
 impl SizeOfExpr {
-    pub fn type_check(&self, stack: &mut Stack) -> Result<(), HayError> {
+    pub fn type_check(&self, stack: &mut Stack) -> Result<TypedExpr, HayError> {
         stack.push(Type::u64());
 
-        Ok(())
+        Ok(todo!())
     }
 }

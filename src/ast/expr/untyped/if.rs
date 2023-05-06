@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::stmt::{
-        FunctionDescription, Functions, GlobalVars, InterfaceFunctionTable, Interfaces, StmtKind,
-        UserDefinedTypes,
+    ast::{
+        expr::TypedExpr,
+        stmt::{
+            FunctionDescription, Functions, GlobalVars, InterfaceFunctionTable, Interfaces,
+            StmtKind, UserDefinedTypes,
+        },
     },
     error::HayError,
     lex::token::Token,
@@ -36,7 +39,7 @@ impl IfExpr {
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
         subs: &mut Substitutions,
-    ) -> Result<(), HayError> {
+    ) -> Result<TypedExpr, HayError> {
         let func = FunctionType::new(vec![Type::bool()], vec![]);
         func.unify(&self.token, stack)?;
 
@@ -163,7 +166,7 @@ impl IfExpr {
         //     finally: typed_finally,
         // })
 
-        Ok(())
+        Ok(todo!())
     }
 }
 
@@ -189,7 +192,7 @@ impl ExprElseIf {
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
         subs: &mut Substitutions,
-    ) -> Result<(), HayError> {
+    ) -> Result<TypedExpr, HayError> {
         let mut typed_condition = vec![];
         for expr in &self.condition {
             typed_condition.push(expr.type_check(
@@ -221,6 +224,6 @@ impl ExprElseIf {
             subs,
         )?;
 
-        Ok(())
+        Ok(todo!())
     }
 }

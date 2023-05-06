@@ -1,4 +1,5 @@
 use crate::{
+    ast::expr::TypedExpr,
     error::HayError,
     lex::token::Token,
     types::{Stack, Type},
@@ -10,8 +11,8 @@ pub struct NeverExpr {
 }
 
 impl NeverExpr {
-    pub fn type_check(&self, stack: &mut Stack) -> Result<(), HayError> {
+    pub fn type_check(&self, stack: &mut Stack) -> Result<TypedExpr, HayError> {
         stack.push(Type::never());
-        Ok(())
+        Ok(todo!())
     }
 }

@@ -1,3 +1,4 @@
+use crate::ast::expr::TypedExpr;
 use crate::ast::stmt::{
     FunctionDescription, Functions, GlobalVars, InterfaceFunctionTable, Interfaces, StmtKind,
     UserDefinedTypes,
@@ -99,7 +100,7 @@ impl Expr {
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
         subs: &mut Substitutions,
-    ) -> Result<(), HayError> {
+    ) -> Result<TypedExpr, HayError> {
         match self {
             Expr::Block(block) => block.type_check(
                 stack,

@@ -1,4 +1,5 @@
 use crate::{
+    ast::expr::TypedExpr,
     error::HayError,
     lex::token::Token,
     types::{FunctionType, Stack, Type},
@@ -11,7 +12,7 @@ pub struct SyscallExpr {
 }
 
 impl SyscallExpr {
-    pub fn type_check(&self, stack: &mut Stack) -> Result<(), HayError> {
+    pub fn type_check(&self, stack: &mut Stack) -> Result<TypedExpr, HayError> {
         if stack.len() < self.n + 1 {
             return Err(HayError::new_type_err(
                 format!(
@@ -40,6 +41,6 @@ impl SyscallExpr {
 
         stack.push(Type::u64());
 
-        Ok(())
+        Ok(todo!())
     }
 }

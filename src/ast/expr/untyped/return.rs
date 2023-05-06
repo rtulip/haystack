@@ -1,5 +1,5 @@
 use crate::{
-    ast::stmt::FunctionDescription,
+    ast::{expr::TypedExpr, stmt::FunctionDescription},
     error::HayError,
     lex::token::Token,
     types::{Stack, Type},
@@ -15,7 +15,7 @@ impl ReturnExpr {
         &self,
         stack: &mut Stack,
         function: &FunctionDescription,
-    ) -> Result<(), HayError> {
+    ) -> Result<TypedExpr, HayError> {
         if stack != &function.typ.output {
             return Err(HayError::new_type_err(
                 "Early return type check failure.",
@@ -29,6 +29,6 @@ impl ReturnExpr {
         }
 
         stack.push(Type::never());
-        Ok(())
+        Ok(todo!())
     }
 }

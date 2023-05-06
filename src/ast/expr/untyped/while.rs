@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::stmt::{
-        FunctionDescription, Functions, GlobalVars, InterfaceFunctionTable, Interfaces, StmtKind,
-        UserDefinedTypes,
+    ast::{
+        expr::TypedExpr,
+        stmt::{
+            FunctionDescription, Functions, GlobalVars, InterfaceFunctionTable, Interfaces,
+            StmtKind, UserDefinedTypes,
+        },
     },
     error::HayError,
     lex::token::Token,
@@ -34,7 +37,7 @@ impl ExprWhile {
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
         subs: &mut Substitutions,
-    ) -> Result<(), HayError> {
+    ) -> Result<TypedExpr, HayError> {
         let stack_before = stack.clone();
         let frame_before = frame.clone();
         // Evaluate up to the body
@@ -62,7 +65,7 @@ impl ExprWhile {
 
         if stack.contains(&Type::never()) {
             *frame = frame_before;
-            return Ok(());
+            return Ok(todo!());
         }
 
         FunctionType::new(vec![Type::bool()], vec![]).unify(&self.token, stack)?;
@@ -97,6 +100,6 @@ impl ExprWhile {
         *frame = frame_before;
         *stack = stack_after_check;
 
-        Ok(())
+        Ok(todo!())
     }
 }

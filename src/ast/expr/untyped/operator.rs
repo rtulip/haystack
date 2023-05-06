@@ -1,5 +1,8 @@
 use crate::{
-    ast::stmt::{Interfaces, StmtKind, UserDefinedTypes},
+    ast::{
+        expr::TypedExpr,
+        stmt::{Interfaces, StmtKind, UserDefinedTypes},
+    },
     error::HayError,
     lex::token::{Operator, Token},
     types::{Frame, FunctionType, PointerType, Stack, Substitutions, Type, TypeVar},
@@ -19,7 +22,7 @@ impl OperatorExpr {
         interface_id: S1,
         interface_fn_name: S2,
         default_func: FunctionType,
-    ) -> Result<(), HayError> {
+    ) -> Result<TypedExpr, HayError> {
         let stack_before = stack.clone();
         if default_func.unify(&self.token, stack).is_err() {
             *stack = stack_before;
@@ -27,7 +30,7 @@ impl OperatorExpr {
             let iface = interfaces.get(&interface_id.into()).unwrap();
             iface.unify(&interface_fn_name.into(), &self.token, stack)?;
         }
-        Ok(())
+        Ok(todo!())
     }
 
     pub fn type_check(
@@ -35,7 +38,7 @@ impl OperatorExpr {
         stack: &mut Stack,
         frame: &mut Frame,
         interfaces: &Interfaces,
-    ) -> Result<(), HayError> {
+    ) -> Result<TypedExpr, HayError> {
         match &self.op {
             Operator::Minus => self.type_check_interface_op(
                 stack,
@@ -43,28 +46,28 @@ impl OperatorExpr {
                 "Sub",
                 "Op.sub",
                 FunctionType::new(vec![Type::u64(), Type::u64()], vec![Type::u64()]),
-            )?,
+            ),
             Operator::Plus => self.type_check_interface_op(
                 stack,
                 interfaces,
                 "Add",
                 "Op.add",
                 FunctionType::new(vec![Type::u64(), Type::u64()], vec![Type::u64()]),
-            )?,
+            ),
             Operator::Star => self.type_check_interface_op(
                 stack,
                 interfaces,
                 "Mul",
                 "Op.mul",
                 FunctionType::new(vec![Type::u64(), Type::u64()], vec![Type::u64()]),
-            )?,
+            ),
             Operator::Slash => self.type_check_interface_op(
                 stack,
                 interfaces,
                 "Div",
                 "Op.div",
                 FunctionType::new(vec![Type::u64(), Type::u64()], vec![Type::u64()]),
-            )?,
+            ),
             Operator::GreaterEqual
             | Operator::LessThan
             | Operator::GreaterThan
@@ -76,6 +79,7 @@ impl OperatorExpr {
                 ];
 
                 FunctionType::unify_many(&fs, &self.token, stack)?;
+                todo!()
             }
             Operator::Modulo => {
                 let fs = vec![
@@ -83,6 +87,7 @@ impl OperatorExpr {
                     FunctionType::new(vec![Type::u8(), Type::u8()], vec![Type::u8()]),
                 ];
                 FunctionType::unify_many(&fs, &self.token, stack)?;
+                todo!()
             }
             Operator::Equal | Operator::BangEqual => {
                 let fs = vec![
@@ -93,6 +98,7 @@ impl OperatorExpr {
                 ];
 
                 FunctionType::unify_many(&fs, &self.token, stack)?;
+                todo!()
                 // Signature::evaluate_many(
                 //     &vec![
                 //         // u64 == u64 -> bool
@@ -155,6 +161,7 @@ impl OperatorExpr {
 
                 let func = FunctionType::new(vec![ptr], vec![t]);
                 func.unify(&self.token, stack)?;
+                todo!()
             }
             Operator::Write => {
                 let t = Type::TypeVar(TypeVar::new("T"));
@@ -165,10 +172,9 @@ impl OperatorExpr {
 
                 let func = FunctionType::new(vec![t, ptr], vec![]);
                 func.unify(&self.token, stack)?;
+                todo!()
             }
             op => todo!("{op:?}"),
         }
-
-        Ok(())
     }
 }

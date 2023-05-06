@@ -1,5 +1,8 @@
 use crate::{
-    ast::stmt::UserDefinedTypes,
+    ast::{
+        expr::{TypedExpr, TypedGetFrameExpr},
+        stmt::UserDefinedTypes,
+    },
     error::HayError,
     lex::token::Token,
     types::{Frame, RecordKind, Stack, Substitutions, Type, VariantType},
@@ -33,7 +36,7 @@ impl AccessorExpr {
         stack: &mut Stack,
         frame: &Frame,
         subs: &mut Substitutions,
-    ) -> Result<(), HayError> {
+    ) -> Result<TypedExpr, HayError> {
         if let Some((i, (_, typ))) = frame
             .iter()
             .enumerate()
@@ -48,7 +51,7 @@ impl AccessorExpr {
                         ..
                     }) if record.kind == RecordKind::EnumStruct => {
                         stack.push(Type::u64());
-                        return Ok(());
+                        return Ok(todo!());
                     }
                     _ => todo!(),
                 }
@@ -56,8 +59,14 @@ impl AccessorExpr {
 
             let typ = typ.get_inner_accessors(&self.token, &self.inner)?;
             stack.push(typ);
+
+            return Ok(TypedExpr::Framed(TypedGetFrameExpr {
+                frame: frame.clone(),
+                idx: i,
+                inner: Some(self.inner.iter().map(|t| t.lexeme.clone()).collect()),
+            }));
         }
 
-        Ok(())
+        Ok(todo!())
     }
 }

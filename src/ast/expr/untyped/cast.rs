@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{
+        expr::TypedExpr,
         member::TypedMember,
         stmt::{FunctionDescription, UserDefinedTypes},
     },
@@ -22,7 +23,7 @@ impl CastExpr {
         stack: &mut Stack,
         user_defined_types: &UserDefinedTypes,
         function: &FunctionDescription,
-    ) -> Result<(), HayError> {
+    ) -> Result<TypedExpr, HayError> {
         let cast_type =
             Type::from_token(&self.typ, user_defined_types, function.free_vars.as_ref())?;
         cast_type.cast(&self.token, stack)

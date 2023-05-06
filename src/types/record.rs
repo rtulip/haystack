@@ -1,6 +1,10 @@
 use std::fmt::Display;
 
-use crate::{ast::visibility::Visibility, error::HayError, lex::token::Token};
+use crate::{
+    ast::{expr::TypedExpr, visibility::Visibility},
+    error::HayError,
+    lex::token::Token,
+};
 
 use super::{FunctionType, Stack, Type, TypeId, TypeVar, VariantType};
 
@@ -55,7 +59,7 @@ impl RecordType {
         todo!()
     }
 
-    pub fn cast(&self, token: &Token, stack: &mut Stack) -> Result<(), HayError> {
+    pub fn cast(&self, token: &Token, stack: &mut Stack) -> Result<TypedExpr, HayError> {
         match self.kind {
             RecordKind::Struct => {
                 let inputs = self
@@ -65,7 +69,8 @@ impl RecordType {
                     .collect();
                 let f = FunctionType::new(inputs, vec![Type::Record(self.clone())]);
 
-                f.unify(token, stack)
+                f.unify(token, stack)?;
+                todo!()
             }
             _ => todo!("{:?}", self.kind),
         }
@@ -76,7 +81,7 @@ impl RecordType {
         variant: &String,
         token: &Token,
         stack: &mut Stack,
-    ) -> Result<(), HayError> {
+    ) -> Result<TypedExpr, HayError> {
         assert!(self.kind == RecordKind::EnumStruct);
 
         if let Some(member) = self.members.iter().find(|member| &member.ident == variant) {
@@ -90,7 +95,7 @@ impl RecordType {
 
             f.unify(token, stack)?;
 
-            Ok(())
+            Ok(todo!())
         } else {
             todo!()
         }

@@ -345,9 +345,11 @@ impl Type {
         subs: &mut Substitutions,
     ) -> Result<(), HayError> {
         match (self, other) {
+            (Type::TypeVar(this), Type::TypeVar(var)) if this == var => (),
             (t, Type::TypeVar(var)) | (Type::TypeVar(var), t) => match subs.get(&var) {
                 Some(sub) if sub == t => (),
-                Some(sub) => todo!("{token}: var: {var:?} t: {t:?} sub: {sub:?}, subs: {subs:?}"),
+                Some(sub) if matches!(sub, Type::TypeVar(_)) => {self.unify(token, &sub.clone(), subs)?;},
+                Some(sub) => todo!(),
                 None => {
                     subs.insert(var.clone(), t.clone());
                 }
@@ -417,7 +419,7 @@ impl Display for Type {
             Type::Base(base) => write!(f, "{base}"),
             Type::Function(func) => write!(f, "{func}"),
             Type::Pointer(ptr) => write!(f, "{}{}", if ptr.mutable { "*" } else { "&" }, ptr.inner),
-            Type::PreDeclaration(_) => todo!(),
+            Type::PreDeclaration(predecl) => write!(f, "{}", predecl.0),
             Type::Record(RecordType {
                 ident: Some(TypeId(ident)),
                 ..

@@ -119,7 +119,14 @@ impl FunctionDescription {
                 interfaces,
                 interface_fn_table,
                 &mut Substitutions::empty(),
-            )
+            )?;
+
+        FunctionType::new(stack.clone(), self.typ.output.clone()).unify(&self.name, &mut stack)?;
+
+        println!("Expected: {}", self.typ);
+        dbg!(&stack);
+
+        Ok(())
     }
 
     pub fn type_check_all(

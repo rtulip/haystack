@@ -48,6 +48,20 @@ impl OperatorExpr {
                 "Op.add",
                 FunctionType::new(vec![Type::u64(), Type::u64()], vec![Type::u64()]),
             )?,
+            Operator::Star => self.type_check_interface_op(
+                stack,
+                interfaces,
+                "Mul",
+                "Op.mul",
+                FunctionType::new(vec![Type::u64(), Type::u64()], vec![Type::u64()]),
+            )?,
+            Operator::Slash => self.type_check_interface_op(
+                stack,
+                interfaces,
+                "Div",
+                "Op.div",
+                FunctionType::new(vec![Type::u64(), Type::u64()], vec![Type::u64()]),
+            )?,
             Operator::GreaterEqual
             | Operator::LessThan
             | Operator::GreaterThan

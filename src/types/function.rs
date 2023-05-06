@@ -96,11 +96,11 @@ impl Display for FunctionType {
         write!(f, "(")?;
         if self.input.len() > 0 {
             for i in &self.input[0..self.input.len() - 1] {
-                write!(f, "{i:?} ")?;
+                write!(f, "{i} ")?;
             }
         }
         if let Some(i) = self.input.last() {
-            write!(f, "{i:?}")?;
+            write!(f, "{i}")?;
         }
 
         write!(f, ")")?;
@@ -109,10 +109,10 @@ impl Display for FunctionType {
             write!(f, " -> [")?;
 
             for o in &self.output[0..self.output.len() - 1] {
-                write!(f, "{o:?} ")?;
+                write!(f, "{o} ")?;
             }
             if let Some(o) = self.output.last() {
-                write!(f, "{o:?}")?;
+                write!(f, "{o}")?;
             }
 
             write!(f, "]")?;

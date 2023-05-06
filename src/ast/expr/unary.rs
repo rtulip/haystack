@@ -53,7 +53,21 @@ impl UnaryExpr {
                         todo!()
                     }
                 }
-                _ => todo!(),
+                box Expr::Accessor(AccessorExpr {
+                    ident,
+                    inner,
+                    token,
+                }) => {
+                    if let Some((_, t)) = frame.iter().find(|(s, _)| s == &ident.lexeme) {
+                        stack.push(Type::Pointer(PointerType {
+                            mutable: true,
+                            inner: Box::new(t.get_inner_accessors(&token, &inner)?),
+                        }));
+                    } else {
+                        todo!()
+                    }
+                }
+                e => todo!("{e:?}"),
             },
             op => todo!("{op:?}"),
         }

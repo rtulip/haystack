@@ -4,6 +4,7 @@ use crate::{
     ast::stmt::{
         Functions, GlobalVars, InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes,
     },
+    backend::Instruction,
     error::HayError,
     lex::token::Token,
     types::{Frame, Stack, Substitutions},

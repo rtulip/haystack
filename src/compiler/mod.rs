@@ -1,4 +1,5 @@
 use crate::ast::stmt::{FunctionDescription, Stmt};
+use crate::backend::{InitData, InitDataMap};
 // use crate::backend::{compile, Instruction, X86_64};
 use crate::error::HayError;
 use crate::lex::token::Loc;
@@ -21,6 +22,13 @@ pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
         &interfaces,
         &interface_fn_table,
     )?;
+
+    if let Some(func) = functions.get("main") {
+        let mut todo = vec![func];
+        let mut init_data = InitDataMap::new();
+
+        todo!();
+    }
 
     // let fn_instructions = Instruction::from_type_map(&types, &mut init_data);
     // check_for_entry_point(&types, &input_path)?;

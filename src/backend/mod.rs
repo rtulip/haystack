@@ -1,6 +1,6 @@
-// mod instruction;
+mod instruction;
 // mod x86_64_nasm;
-// pub use instruction::*;
+pub use instruction::*;
 // use std::collections::HashMap;
 // pub use x86_64_nasm::*;
 

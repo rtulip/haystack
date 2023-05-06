@@ -184,8 +184,6 @@ impl MatchExpr {
 
             let match_expr = Expr::Block(match_block);
 
-            println!("Type Checking match expr");
-
             match_expr.type_check(
                 stack,
                 frame,
@@ -311,8 +309,6 @@ impl MatchExpr {
             }
             _ => todo!(),
         };
-
-        println!("IDX: {idx}");
 
         // Case Descriminant ==
         let before_exprs = vec![

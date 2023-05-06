@@ -24,9 +24,6 @@ impl FunctionType {
 
     pub fn unify(&self, token: &Token, stack: &mut Stack) -> Result<(), HayError> {
         if stack.len() < self.input.len() {
-            println!("{token}",);
-            println!("{stack:?}");
-            println!("{:?}", self.input);
             todo!()
         }
 
@@ -74,8 +71,6 @@ impl FunctionType {
 
             *stack = stack_before.clone();
         }
-
-        dbg!(stack);
 
         todo!("{token}")
     }

@@ -3,6 +3,7 @@ use crate::{
         arg::{TypedArg, UntypedArg},
         expr::Expr,
     },
+    backend::{InitDataMap, Instruction},
     error::HayError,
     lex::token::Token,
     types::{BaseType, Frame, FreeVars, FunctionType, Stack, Substitutions, Type, TypeId, TypeVar},
@@ -101,7 +102,6 @@ impl FunctionDescription {
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
     ) -> Result<(), HayError> {
-        println!("{}: Type Checking {}", self.name.loc, self.name.lexeme);
         let (mut stack, mut frame) = self.start_state.clone();
         self.body
             .as_ref()
@@ -129,9 +129,6 @@ impl FunctionDescription {
             .is_none()
             && stack.len() != self.typ.output.len()
         {
-            dbg!(&stack);
-            dbg!(&self.typ.output);
-
             todo!("{}", self.name)
         }
 

@@ -2,6 +2,7 @@ use crate::ast::stmt::{
     FunctionDescription, Functions, GlobalVars, InterfaceFunctionTable, Interfaces, StmtKind,
     UserDefinedTypes,
 };
+use crate::backend::{InitDataMap, Instruction};
 use crate::error::HayError;
 use crate::lex::token::{Literal, Operator, Token};
 use crate::types::{Frame, FreeVars, Stack, Substitutions};

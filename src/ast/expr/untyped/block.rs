@@ -33,7 +33,6 @@ impl BlockExpr {
         subs: &mut Substitutions,
     ) -> Result<(), HayError> {
         for e in &self.exprs {
-            println!("  {stack:?}");
             e.type_check(
                 stack,
                 frame,

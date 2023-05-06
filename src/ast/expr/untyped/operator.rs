@@ -92,11 +92,7 @@ impl OperatorExpr {
                     FunctionType::new(vec![Type::char(), Type::char()], vec![Type::bool()]),
                 ];
 
-                dbg!(&stack);
-
-                println!("EQUALS.....");
                 FunctionType::unify_many(&fs, &self.token, stack)?;
-                dbg!(&stack);
                 // Signature::evaluate_many(
                 //     &vec![
                 //         // u64 == u64 -> bool

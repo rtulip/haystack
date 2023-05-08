@@ -7,7 +7,7 @@ use crate::{
     types::{FreeVars, RecordKind, RecordMember, RecordType, Type, TypeId, TypeVar},
 };
 
-use super::{FunctionDescription, Functions, Stmt, UserDefinedTypes};
+use super::{FunctionDescription, Functions, Interfaces, Stmt, UserDefinedTypes};
 
 #[derive(Debug, Clone)]
 pub struct RecordStmt {
@@ -31,6 +31,7 @@ impl RecordStmt {
     pub fn add_to_global_env(
         self,
         user_defined_types: &mut UserDefinedTypes,
+        interfaces: &Interfaces,
     ) -> Result<(), HayError> {
         assert!(self.kind != RecordKind::Tuple);
 
@@ -43,6 +44,7 @@ impl RecordStmt {
             members: UntypedMember::into_typed_members(
                 self.members,
                 &user_defined_types,
+                interfaces,
                 free_vars.as_ref(),
             )?
             .into_iter()

@@ -4,7 +4,7 @@ use crate::{
     ast::{
         expr::TypedExpr,
         member::TypedMember,
-        stmt::{FunctionDescription, UserDefinedTypes},
+        stmt::{FunctionDescription, Interfaces, UserDefinedTypes},
     },
     error::HayError,
     lex::token::Token,
@@ -22,10 +22,15 @@ impl CastExpr {
         &self,
         stack: &mut Stack,
         user_defined_types: &UserDefinedTypes,
+        interfaces: &Interfaces,
         function: &FunctionDescription,
     ) -> Result<TypedExpr, HayError> {
-        let cast_type =
-            Type::from_token(&self.typ, user_defined_types, function.free_vars.as_ref())?;
+        let cast_type = Type::from_token(
+            &self.typ,
+            user_defined_types,
+            interfaces,
+            function.free_vars.as_ref(),
+        )?;
         cast_type.cast(&self.token, stack)
     }
 }

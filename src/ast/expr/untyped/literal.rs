@@ -1,6 +1,6 @@
 use crate::{
     ast::{
-        expr::TypedExpr,
+        expr::{TypedExpr, TypedLiteralExpr},
         stmt::{TypeDescription, UserDefinedTypes},
     },
     backend::{InitData, InitDataMap, Instruction},
@@ -35,6 +35,8 @@ impl LiteralExpr {
             Literal::U8(_) => stack.push(Type::u8()),
         }
 
-        Ok(todo!())
+        Ok(TypedExpr::Literal(TypedLiteralExpr {
+            value: self.literal.clone(),
+        }))
     }
 }

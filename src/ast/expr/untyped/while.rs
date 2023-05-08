@@ -36,6 +36,7 @@ impl ExprWhile {
         functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
+        free_vars: Option<&FreeVars>,
         subs: &mut Substitutions,
     ) -> Result<TypedExpr, HayError> {
         let stack_before = stack.clone();
@@ -52,6 +53,7 @@ impl ExprWhile {
                 functions,
                 interfaces,
                 interface_fn_table,
+                free_vars,
                 subs,
             )?);
         }
@@ -80,6 +82,7 @@ impl ExprWhile {
             functions,
             interfaces,
             interface_fn_table,
+            free_vars,
             subs,
         )?;
 

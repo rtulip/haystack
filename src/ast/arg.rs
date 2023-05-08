@@ -6,7 +6,7 @@ use crate::{
     types::{Frame, FreeVars, Stack, Type, TypeId, TypeVar},
 };
 
-use super::stmt::UserDefinedTypes;
+use super::stmt::{Interfaces, UserDefinedTypes};
 
 /// A structure to represent an Argument.
 ///
@@ -55,9 +55,10 @@ impl UntypedArg {
     pub fn into_typed_arg(
         self,
         user_defined_types: &UserDefinedTypes,
+        interfaces: &Interfaces,
         free_vars: Option<&FreeVars>,
     ) -> Result<TypedArg, HayError> {
-        let typ = Type::from_token(&self.token, user_defined_types, free_vars)?;
+        let typ = Type::from_token(&self.token, user_defined_types, interfaces, free_vars)?;
 
         Ok(TypedArg {
             token: self.token,
@@ -70,11 +71,12 @@ impl UntypedArg {
     pub fn into_typed_args(
         args: Vec<Self>,
         user_defined_types: &UserDefinedTypes,
+        interfaces: &Interfaces,
         free_vars: Option<&FreeVars>,
     ) -> Result<Vec<TypedArg>, HayError> {
         let mut out = vec![];
         for arg in args {
-            out.push(arg.into_typed_arg(user_defined_types, free_vars)?);
+            out.push(arg.into_typed_arg(user_defined_types, interfaces, free_vars)?);
         }
 
         Ok(out)

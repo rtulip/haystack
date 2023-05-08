@@ -48,6 +48,7 @@ impl MatchExpr {
         functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
+        free_vars: Option<&FreeVars>,
         subs: &mut Substitutions,
     ) -> Result<TypedExpr, HayError> {
         let typ = match stack.last() {
@@ -118,6 +119,7 @@ impl MatchExpr {
                 &ident_tok,
                 &record,
                 user_defined_types,
+                interfaces,
                 function.free_vars.as_ref(),
             )?;
             cases_handled.insert(idx);
@@ -131,6 +133,7 @@ impl MatchExpr {
                     &ident_tok,
                     &record,
                     user_defined_types,
+                    interfaces,
                     function.free_vars.as_ref(),
                 )?;
 
@@ -193,6 +196,7 @@ impl MatchExpr {
                 functions,
                 interfaces,
                 interface_fn_table,
+                free_vars,
                 subs,
             )
         } else if let Some(else_case) = &self.else_case {
@@ -289,9 +293,11 @@ impl MatchExpr {
         ident_tok: &Token,
         record: &RecordType,
         user_defined_types: &UserDefinedTypes,
+        interfaces: &Interfaces,
         free_vars: Option<&FreeVars>,
     ) -> Result<(usize, BlockExpr, BlockExpr), HayError> {
-        let idx = match Type::from_token(&case.variant, user_defined_types, free_vars)? {
+        let idx = match Type::from_token(&case.variant, user_defined_types, interfaces, free_vars)?
+        {
             Type::Variant(VariantType {
                 variant,
                 typ: box Type::Record(ref record_variant),

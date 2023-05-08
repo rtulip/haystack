@@ -48,6 +48,7 @@ impl FunctionStmt {
     pub fn add_to_global_env(
         self,
         user_defined_types: &UserDefinedTypes,
+        interfaces: &Interfaces,
         functions: &mut Functions,
         free_vars_in_scope: Option<&FreeVars>,
     ) -> Result<(), HayError> {
@@ -55,13 +56,17 @@ impl FunctionStmt {
         let inputs = UntypedArg::into_typed_args(
             self.inputs,
             user_defined_types,
+            interfaces,
             Type::merge_free_vars(free_vars.as_ref(), free_vars_in_scope).as_ref(),
         )?;
         let outputs = UntypedArg::into_typed_args(
             self.outputs,
             user_defined_types,
+            interfaces,
             Type::merge_free_vars(free_vars.as_ref(), free_vars_in_scope).as_ref(),
         )?;
+
+        println!("{} {free_vars_in_scope:?}", self.name);
 
         let (stack, frame) = TypedArg::init_state(&inputs);
 
@@ -118,6 +123,7 @@ impl FunctionDescription {
                 functions,
                 interfaces,
                 interface_fn_table,
+                self.free_vars.as_ref(),
                 &mut Substitutions::empty(),
             )?;
 

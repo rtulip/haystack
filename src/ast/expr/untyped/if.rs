@@ -38,6 +38,7 @@ impl IfExpr {
         functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
+        free_vars: Option<&FreeVars>,
         subs: &mut Substitutions,
     ) -> Result<TypedExpr, HayError> {
         let func = FunctionType::new(vec![Type::bool()], vec![]);
@@ -57,6 +58,7 @@ impl IfExpr {
             functions,
             interfaces,
             interface_fn_table,
+            free_vars,
             subs,
         )?;
 
@@ -78,6 +80,7 @@ impl IfExpr {
                 functions,
                 interfaces,
                 interface_fn_table,
+                free_vars,
                 subs,
             )?;
 
@@ -102,6 +105,7 @@ impl IfExpr {
                 functions,
                 interfaces,
                 interface_fn_table,
+                free_vars,
                 subs,
             )?;
 
@@ -191,6 +195,7 @@ impl ExprElseIf {
         functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
+        free_vars: Option<&FreeVars>,
         subs: &mut Substitutions,
     ) -> Result<TypedExpr, HayError> {
         let mut typed_condition = vec![];
@@ -204,6 +209,7 @@ impl ExprElseIf {
                 functions,
                 interfaces,
                 interface_fn_table,
+                free_vars,
                 subs,
             ));
         }
@@ -221,6 +227,7 @@ impl ExprElseIf {
             functions,
             interfaces,
             interface_fn_table,
+            free_vars,
             subs,
         )?;
 

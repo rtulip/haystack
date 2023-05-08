@@ -6,7 +6,10 @@ use crate::{
     types::{FreeVars, Type, TypeId},
 };
 
-use super::{stmt::UserDefinedTypes, visibility::Visibility};
+use super::{
+    stmt::{Interfaces, UserDefinedTypes},
+    visibility::Visibility,
+};
 
 #[derive(Debug, Clone)]
 pub struct UntypedMember {
@@ -20,6 +23,7 @@ impl UntypedMember {
     pub fn into_typed_member(
         self,
         user_defined_types: &UserDefinedTypes,
+        interfaces: &Interfaces,
         free_vars: Option<&FreeVars>,
     ) -> Result<TypedMember, HayError> {
         Ok(TypedMember {
@@ -28,7 +32,7 @@ impl UntypedMember {
                 .as_ref()
                 .map(|parent| TypeId::new(&parent.lexeme)),
             vis: self.vis,
-            typ: Type::from_token(&self.token, user_defined_types, free_vars)?,
+            typ: Type::from_token(&self.token, user_defined_types, interfaces, free_vars)?,
             token: self.token,
             ident: self.ident,
         })
@@ -37,12 +41,13 @@ impl UntypedMember {
     pub fn into_typed_members(
         members: Vec<Self>,
         user_defined_types: &UserDefinedTypes,
+        interfaces: &Interfaces,
         free_vars: Option<&FreeVars>,
     ) -> Result<Vec<TypedMember>, HayError> {
         let mut out = vec![];
 
         for m in members {
-            out.push(m.into_typed_member(user_defined_types, free_vars)?);
+            out.push(m.into_typed_member(user_defined_types, interfaces, free_vars)?);
         }
 
         Ok(out)

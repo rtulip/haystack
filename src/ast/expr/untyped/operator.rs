@@ -1,11 +1,11 @@
 use crate::{
     ast::{
-        expr::TypedExpr,
+        expr::{TypedExpr, TypedOperatorExpr},
         stmt::{Interfaces, StmtKind, UserDefinedTypes},
     },
     error::HayError,
     lex::token::{Operator, Token},
-    types::{Frame, FunctionType, PointerType, Stack, Substitutions, Type, TypeVar},
+    types::{Frame, FreeVars, FunctionType, PointerType, Stack, Substitutions, Type, TypeVar},
 };
 
 #[derive(Debug, Clone)]
@@ -18,6 +18,8 @@ impl OperatorExpr {
     fn type_check_interface_op<S1: Into<String>, S2: Into<String>>(
         &self,
         stack: &mut Stack,
+        user_defined_types: &UserDefinedTypes,
+        free_vars: Option<&FreeVars>,
         interfaces: &Interfaces,
         interface_id: S1,
         interface_fn_name: S2,
@@ -28,7 +30,14 @@ impl OperatorExpr {
             *stack = stack_before;
 
             let iface = interfaces.get(&interface_id.into()).unwrap();
-            iface.unify(&interface_fn_name.into(), &self.token, stack)?;
+            iface.unify(
+                &self.token,
+                stack,
+                user_defined_types,
+                free_vars,
+                interfaces,
+                &interface_fn_name.into(),
+            )?;
         }
         Ok(todo!())
     }
@@ -37,11 +46,14 @@ impl OperatorExpr {
         &self,
         stack: &mut Stack,
         frame: &mut Frame,
+        user_defined_types: &UserDefinedTypes,
         interfaces: &Interfaces,
     ) -> Result<TypedExpr, HayError> {
         match &self.op {
             Operator::Minus => self.type_check_interface_op(
                 stack,
+                user_defined_types,
+                None,
                 interfaces,
                 "Sub",
                 "Op.sub",
@@ -49,6 +61,8 @@ impl OperatorExpr {
             ),
             Operator::Plus => self.type_check_interface_op(
                 stack,
+                user_defined_types,
+                None,
                 interfaces,
                 "Add",
                 "Op.add",
@@ -56,6 +70,8 @@ impl OperatorExpr {
             ),
             Operator::Star => self.type_check_interface_op(
                 stack,
+                user_defined_types,
+                None,
                 interfaces,
                 "Mul",
                 "Op.mul",
@@ -63,6 +79,8 @@ impl OperatorExpr {
             ),
             Operator::Slash => self.type_check_interface_op(
                 stack,
+                user_defined_types,
+                None,
                 interfaces,
                 "Div",
                 "Op.div",
@@ -79,7 +97,10 @@ impl OperatorExpr {
                 ];
 
                 FunctionType::unify_many(&fs, &self.token, stack)?;
-                todo!()
+                Ok(TypedExpr::Operator(TypedOperatorExpr {
+                    op: self.op.clone(),
+                    typ: None,
+                }))
             }
             Operator::Modulo => {
                 let fs = vec![

@@ -48,6 +48,7 @@ impl TupleExpr {
         functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
+        free_vars: Option<&FreeVars>,
         subs: &mut Substitutions,
     ) -> Result<TypedExpr, HayError> {
         let mut sub_stack = vec![];
@@ -61,6 +62,7 @@ impl TupleExpr {
                 functions,
                 interfaces,
                 interface_fn_table,
+                free_vars,
                 subs,
             )?;
         }

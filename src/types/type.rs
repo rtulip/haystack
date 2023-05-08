@@ -2,7 +2,7 @@ use std::{collections::HashSet, fmt::Display};
 
 use crate::{
     ast::{
-        stmt::{TypeDescription, UserDefinedTypes},
+        stmt::{TypeDescription, UserDefinedTypes, Interfaces},
         visibility::Visibility, expr::TypedExpr,
     },
     error::HayError,
@@ -12,7 +12,7 @@ use crate::{
 
 use super::{
     BaseType, FunctionType, PointerType, RecordKind, RecordMember, RecordType, Stack, TypeId,
-    TypeVar, VariantType,
+    TypeVar, VariantType, InterfaceType,
 };
 pub type FreeVars = HashSet<TypeVar>;
 
@@ -24,6 +24,7 @@ pub enum Type {
     Record(RecordType),
     Function(FunctionType),
     PreDeclaration(TypeId),
+    Interface(InterfaceType),
     Variant(VariantType),
 }
 
@@ -94,6 +95,7 @@ impl Type {
     pub fn from_token(
         token: &Token,
         user_defined_types: &UserDefinedTypes,
+        interfaces: &Interfaces,
         free_vars: Option<&FreeVars>,
     ) -> Result<Self, HayError> {
         let typ = match &token.kind {
@@ -109,18 +111,19 @@ impl Type {
             }
         };
 
-        Self::from_type_token(token, typ, user_defined_types, free_vars)
+        Self::from_type_token(token, typ, user_defined_types, interfaces, free_vars)
     }
 
     pub fn from_type_token(
         token: &Token,
         typ: &TypeToken,
         user_defined_types: &UserDefinedTypes,
+        interfaces: &Interfaces,
         free_vars: Option<&FreeVars>,
     ) -> Result<Self, HayError> {
         match typ {
             TypeToken::Array { base, size } => {
-                let t = Type::from_type_token(token, base, user_defined_types, free_vars)?;
+                let t = Type::from_type_token(token, base, user_defined_types, interfaces, free_vars)?;
 
                 let arr = match user_defined_types.get(&TypeId::new("Arr")) {
                     Some(TypeDescription::Record(record)) => &record.typ,
@@ -132,7 +135,7 @@ impl Type {
                 Type::Record(arr.clone()).substitute(token, &subs)
             }
             TypeToken::Associated { base, typ } => {
-                let t = Type::from_type_token(token, &base, user_defined_types, free_vars)?;
+                let t = Type::from_type_token(token, &base, user_defined_types, interfaces, free_vars)?;
 
                 let variant = match &t {
                     Type::Record(RecordType {
@@ -189,6 +192,14 @@ impl Type {
                     } else {
                         todo!()
                     }
+                } else if let Some(iface) = interfaces.get(base) {
+                    let mut types = vec![];
+                    for inner in inner {
+                        types.push(Type::from_type_token(&token, inner, user_defined_types, interfaces, free_vars)?)
+                    }
+                    
+                    base_typ = Type::Interface(InterfaceType { iface: base.clone(), types  });
+                    ordered_free_vars = iface.ordered_free_vars.clone();
                 } else {
                     todo!();
                 };
@@ -199,6 +210,7 @@ impl Type {
                         &token,
                         inner,
                         user_defined_types,
+                        interfaces, 
                         free_vars,
                     )?);
                 }
@@ -214,13 +226,14 @@ impl Type {
                     token,
                     inner,
                     user_defined_types,
+                    interfaces, 
                     free_vars,
                 )?),
             })),
             TypeToken::Tuple { inner, idents } => {
                 let mut inner_types = vec![];
                 for inner in inner {
-                    inner_types.push(Type::from_token(inner, user_defined_types, free_vars)?);
+                    inner_types.push(Type::from_token(inner, user_defined_types, interfaces, free_vars)?);
                 }
 
                 let idents: Vec<_> = match idents {
@@ -255,6 +268,14 @@ impl Type {
         match self {
             Type::Base(_) => Ok(self),
             Type::Function(_) => todo!(),
+            Type::Interface(InterfaceType { iface, types }) => {
+                let mut typs = vec![];
+                for t in types {
+                    typs.push(t.substitute(token, subs)?);
+                }
+
+                Ok(Type::Interface(InterfaceType { iface, types: typs }))
+            },
             Type::Record(record)
                 if matches!(
                     record.kind,
@@ -465,6 +486,7 @@ impl Display for Type {
             }
             Type::TypeVar(TypeVar(ident)) => write!(f, "{ident}"),
             Type::Variant(variant) => write!(f, "{}::{}", variant.typ, variant.variant),
+            Type::Interface(_) => todo!(),
         }
     }
 }

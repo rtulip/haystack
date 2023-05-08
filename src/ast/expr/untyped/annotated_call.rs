@@ -4,7 +4,7 @@ use crate::{
     ast::{
         arg::UntypedArg,
         expr::TypedExpr,
-        stmt::{Functions, StmtKind, UserDefinedTypes},
+        stmt::{Functions, Interfaces, StmtKind, UserDefinedTypes},
     },
     error::HayError,
     lex::token::Token,
@@ -37,12 +37,14 @@ impl AnnotatedCallExpr {
         &self,
         stack: &mut Stack,
         user_defined_types: &UserDefinedTypes,
+        interfaces: &Interfaces,
         functions: &Functions,
     ) -> Result<TypedExpr, HayError> {
         if let Some(f) = functions.get(&self.base.lexeme) {
             let x = UntypedArg::into_typed_args(
                 self.annotations.clone(),
                 user_defined_types,
+                interfaces,
                 f.free_vars.as_ref(),
             )?
             .into_iter()

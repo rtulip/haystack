@@ -8,7 +8,7 @@ use crate::{
     types::{FreeVars, TypeId},
 };
 
-use super::{GlobalVars, StmtKind, UserDefinedTypes};
+use super::{GlobalVars, Interfaces, StmtKind, UserDefinedTypes};
 
 #[derive(Debug, Clone)]
 pub struct VarStmt {
@@ -20,10 +20,12 @@ impl VarStmt {
     pub fn add_to_global_env(
         self,
         user_defined_types: &UserDefinedTypes,
+        interfaces: &Interfaces,
         global_vars: &mut GlobalVars,
     ) -> Result<(), HayError> {
         let mut frame = vec![];
-        self.expr.type_check(&mut frame, user_defined_types, None)?;
+        self.expr
+            .type_check(&mut frame, user_defined_types, interfaces, None)?;
 
         if let Some((id, t)) = frame.pop() {
             if let Some(prev) = global_vars.insert(id, t) {

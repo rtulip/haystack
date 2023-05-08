@@ -22,7 +22,7 @@ impl FunctionType {
         }
     }
 
-    pub fn unify(&self, token: &Token, stack: &mut Stack) -> Result<(), HayError> {
+    pub fn unify(&self, token: &Token, stack: &mut Stack) -> Result<Substitutions, HayError> {
         if stack.len() < self.input.len() {
             todo!()
         }
@@ -41,7 +41,7 @@ impl FunctionType {
         stack.extend(self.output.clone().into_iter());
         subs.apply(stack);
 
-        Ok(())
+        Ok(subs)
     }
 
     pub fn unify_many(fns: &[Self], token: &Token, stack: &mut Stack) -> Result<(), HayError> {

@@ -4,7 +4,7 @@ use crate::{
     ast::arg::UntypedArg,
     error::HayError,
     lex::token::Token,
-    types::{FreeVars, Stack, Substitutions, Type, TypeId, TypeVar},
+    types::{FreeVars, InterfaceType, Stack, Substitutions, Type, TypeId, TypeVar},
 };
 
 use super::{
@@ -32,6 +32,7 @@ pub struct InterfaceStmt {
     pub requires: Option<Vec<Token>>,
 }
 
+#[derive(Debug)]
 pub struct InterfaceDescription {
     pub token: Token,
     pub ordered_free_vars: Vec<TypeVar>,
@@ -41,9 +42,11 @@ pub struct InterfaceDescription {
     pub requires: Option<Vec<Token>>,
 }
 
+#[derive(Debug)]
 pub struct InterfaceImpl {
     pub subs: Substitutions,
     pub functions: Functions,
+    pub requires: Option<Vec<Token>>,
 }
 
 impl InterfaceStmt {
@@ -69,6 +72,7 @@ impl InterfaceStmt {
             interface_fn_table.insert(func.name.lexeme.clone(), interface_id.clone());
             func.add_to_global_env(
                 user_defined_types,
+                interfaces,
                 &mut functions,
                 Type::merge_free_vars(free_vars.as_ref(), Some(&associated_types)).as_ref(),
             )?;
@@ -78,6 +82,7 @@ impl InterfaceStmt {
             interface_fn_table.insert(stub.name.lexeme.clone(), interface_id.clone());
             stub.add_to_global_env(
                 user_defined_types,
+                interfaces,
                 &mut functions,
                 Type::merge_free_vars(free_vars.as_ref(), Some(&associated_types)).as_ref(),
             )?;
@@ -109,18 +114,84 @@ impl InterfaceDescription {
         Substitutions::new(token, self.ordered_free_vars.clone(), types)
     }
 
-    pub fn unify(&self, func: &String, token: &Token, stack: &mut Stack) -> Result<(), HayError> {
+    pub fn unify(
+        &self,
+        token: &Token,
+        stack: &mut Stack,
+        user_defined_types: &UserDefinedTypes,
+        free_vars: Option<&FreeVars>,
+        interfaces: &Interfaces,
+        func: &String,
+    ) -> Result<Substitutions, HayError> {
         for iface_impl in &self.impls {
             let f = iface_impl.functions.get(func).unwrap();
             let stack_before = stack.clone();
-            if f.typ.unify(token, stack).is_err() {
-                *stack = stack_before;
-                continue;
-            }
 
-            return Ok(());
+            match f.typ.unify(token, stack) {
+                Ok(subs) => {
+                    iface_impl.check_requirements(
+                        user_defined_types,
+                        free_vars,
+                        interfaces,
+                        &subs,
+                    )?;
+
+                    println!("subs: {:?}", iface_impl.subs);
+                    println!("{:?}", stack_before);
+                    println!("{:?}", iface_impl.requires);
+                    return Ok(subs);
+                }
+                Err(_) => {
+                    *stack = stack_before;
+                    continue;
+                }
+            }
         }
 
         todo!()
+    }
+}
+
+impl InterfaceImpl {
+    pub fn check_requirements(
+        &self,
+        user_defined_types: &UserDefinedTypes,
+        free_vars: Option<&FreeVars>,
+        interfaces: &Interfaces,
+        subs: &Substitutions,
+    ) -> Result<(), HayError> {
+        match &self.requires {
+            Some(requires) => {
+                let mut interface_types = vec![];
+                for token in requires {
+                    if let Type::Interface(iface_typ) =
+                        Type::from_token(&token, user_defined_types, interfaces, free_vars)?
+                    {
+                        interface_types.push(iface_typ);
+                    } else {
+                        todo!()
+                    }
+                }
+
+                for iface_typ in &interface_types {
+                    if let Some(iface) = interfaces.get(&iface_typ.iface) {
+                        for iface_impl in &iface.impls {
+                            if &iface_impl.subs == subs {
+                                return Ok(());
+                            }
+                        }
+
+                        todo!()
+                    } else {
+                        todo!();
+                    }
+                }
+
+                println!("{interface_types:?}");
+                println!("{subs:?}");
+                todo!()
+            }
+            None => Ok(()),
+        }
     }
 }

@@ -45,6 +45,7 @@ impl InterfaceImplStmt {
                         &self.interface,
                         t,
                         user_defined_types,
+                        interfaces,
                         free_vars.as_ref(),
                     )?);
                 }
@@ -53,7 +54,7 @@ impl InterfaceImplStmt {
             _ => unreachable!(),
         };
 
-        let interface = match interfaces.get_mut(base) {
+        let interface = match interfaces.get(base) {
             Some(interface) => interface,
             None => {
                 return Err(HayError::new(
@@ -69,7 +70,7 @@ impl InterfaceImplStmt {
         let mut to_define = interface.associated_types.clone();
 
         for t in self.types {
-            let member = t.into_typed_member(user_defined_types, free_vars.as_ref())?;
+            let member = t.into_typed_member(user_defined_types, interfaces, free_vars.as_ref())?;
 
             let type_var = TypeVar::new(member.ident.lexeme);
             if to_define.remove(&type_var) {
@@ -167,7 +168,12 @@ impl InterfaceImplStmt {
                     // f.annotations = self.generics.clone();
 
                     // Insert the concrete functions renamed
-                    f.add_to_global_env(user_defined_types, &mut functions, free_vars.as_ref())?;
+                    f.add_to_global_env(
+                        user_defined_types,
+                        interfaces,
+                        &mut functions,
+                        free_vars.as_ref(),
+                    )?;
                 }
                 None => {
                     let mut err = HayError::new(
@@ -208,9 +214,13 @@ impl InterfaceImplStmt {
         //     return Err(err);
         // }
 
-        let instance = InterfaceImpl { subs, functions };
+        let instance = InterfaceImpl {
+            subs,
+            functions,
+            requires: self.requires.clone(),
+        };
 
-        interface.impls.push(instance);
+        interfaces.get_mut(base).unwrap().impls.push(instance);
 
         Ok(())
     }

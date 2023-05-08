@@ -1,5 +1,6 @@
 mod base;
 mod function;
+mod interface;
 mod pointer;
 mod record;
 mod substitution;
@@ -9,6 +10,7 @@ mod variant;
 
 pub use base::*;
 pub use function::*;
+pub use interface::*;
 pub use pointer::*;
 pub use r#type::*;
 pub use record::*;

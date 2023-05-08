@@ -1,7 +1,7 @@
 use crate::{
     ast::{
         expr::{TypedExpr, TypedVarExpr},
-        stmt::{FunctionDescription, UserDefinedTypes},
+        stmt::{FunctionDescription, Interfaces, UserDefinedTypes},
     },
     error::HayError,
     lex::token::Token,
@@ -23,11 +23,13 @@ impl VarExpr {
         &self,
         frame: &mut Frame,
         user_defined_types: &UserDefinedTypes,
+        interfaces: &Interfaces,
         function: Option<&FunctionDescription>,
     ) -> Result<TypedExpr, HayError> {
         let typ = Type::from_token(
             &self.typ,
             user_defined_types,
+            interfaces,
             match function {
                 Some(function) => function.free_vars.as_ref(),
                 None => None,
@@ -49,6 +51,7 @@ impl VarExpr {
                 &self.token,
                 &typ,
                 user_defined_types,
+                interfaces,
                 match function {
                     Some(function) => function.free_vars.as_ref(),
                     None => None,

@@ -10,7 +10,7 @@ use crate::{
     backend::Instruction,
     error::HayError,
     lex::token::Token,
-    types::{Frame, Stack, Substitutions},
+    types::{Frame, FreeVars, Stack, Substitutions},
 };
 
 #[derive(Debug, Clone)]
@@ -23,6 +23,8 @@ impl IdentExpr {
         &self,
         stack: &mut Stack,
         frame: &Frame,
+        user_defined_types: &UserDefinedTypes,
+        free_vars: Option<&FreeVars>,
         global_vars: &GlobalVars,
         functions: &Functions,
         interfaces: &Interfaces,
@@ -44,7 +46,16 @@ impl IdentExpr {
 
         if let Some(iface_id) = interface_fn_table.get(&self.ident.lexeme) {
             let interface = interfaces.get(iface_id).expect("This sould be fine");
-            interface.unify(&self.ident.lexeme, &self.ident, stack)?;
+            let subs = interface.unify(
+                &self.ident,
+                stack,
+                user_defined_types,
+                free_vars,
+                interfaces,
+                &self.ident.lexeme,
+            )?;
+
+            dbg!(subs);
             return Ok(todo!());
         }
 

@@ -99,6 +99,7 @@ impl Expr {
         functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
+        free_vars: Option<&FreeVars>,
         subs: &mut Substitutions,
     ) -> Result<TypedExpr, HayError> {
         match self {
@@ -111,18 +112,23 @@ impl Expr {
                 functions,
                 interfaces,
                 interface_fn_table,
+                free_vars,
                 subs,
             ),
             Expr::Ident(ident) => ident.type_check(
                 stack,
                 frame,
+                user_defined_types,
+                free_vars,
                 global_vars,
                 functions,
                 interfaces,
                 interface_fn_table,
             ),
             Expr::Accessor(accessor) => accessor.type_check(stack, frame, subs),
-            Expr::Operator(operator) => operator.type_check(stack, frame, interfaces),
+            Expr::Operator(operator) => {
+                operator.type_check(stack, frame, user_defined_types, interfaces)
+            }
             Expr::If(if_expr) => if_expr.type_check(
                 stack,
                 frame,
@@ -132,6 +138,7 @@ impl Expr {
                 functions,
                 interfaces,
                 interface_fn_table,
+                free_vars,
                 subs,
             ),
             Expr::Literal(literal) => literal.type_check(stack, user_defined_types),
@@ -144,14 +151,17 @@ impl Expr {
                 functions,
                 interfaces,
                 interface_fn_table,
+                free_vars,
                 subs,
             ),
             Expr::As(as_expr) => as_expr.type_check(stack, frame),
-            Expr::Cast(cast) => cast.type_check(stack, user_defined_types, function),
+            Expr::Cast(cast) => cast.type_check(stack, user_defined_types, interfaces, function),
             Expr::SizeOf(size_of) => size_of.type_check(stack),
-            Expr::AnnotatedCall(call) => call.type_check(stack, user_defined_types, functions),
+            Expr::AnnotatedCall(call) => {
+                call.type_check(stack, user_defined_types, interfaces, functions)
+            }
             Expr::Unary(unary) => unary.type_check(stack, frame),
-            Expr::Var(var) => var.type_check(frame, user_defined_types, Some(function)),
+            Expr::Var(var) => var.type_check(frame, user_defined_types, interfaces, Some(function)),
             Expr::Tuple(tuple) => tuple.type_check(
                 stack,
                 frame,
@@ -161,6 +171,7 @@ impl Expr {
                 functions,
                 interfaces,
                 interface_fn_table,
+                free_vars,
                 subs,
             ),
             Expr::Match(match_expr) => match_expr.type_check(
@@ -172,6 +183,7 @@ impl Expr {
                 functions,
                 interfaces,
                 interface_fn_table,
+                free_vars,
                 subs,
             ),
             Expr::Never(never) => never.type_check(stack),

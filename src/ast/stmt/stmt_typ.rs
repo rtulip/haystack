@@ -96,18 +96,23 @@ impl Stmt {
                     iface_impl.add_to_global_env(&user_defined_types, &mut interfaces)?
                 }
                 Stmt::FunctionStub(stub) => {
-                    stub.add_to_global_env(&user_defined_types, &mut functions, None)?
+                    stub.add_to_global_env(&user_defined_types, &interfaces, &mut functions, None)?
                 }
-                Stmt::Function(function) => {
-                    function.add_to_global_env(&user_defined_types, &mut functions, None)?
-                }
+                Stmt::Function(function) => function.add_to_global_env(
+                    &user_defined_types,
+                    &interfaces,
+                    &mut functions,
+                    None,
+                )?,
                 Stmt::PreDeclaration(predecl) => {
                     predecl.add_to_global_env(&mut user_defined_types)?
                 }
-                Stmt::Record(record) => record.add_to_global_env(&mut user_defined_types)?,
+                Stmt::Record(record) => {
+                    record.add_to_global_env(&mut user_defined_types, &interfaces)?
+                }
                 Stmt::Enum(_) => todo!("Enum"),
                 Stmt::Var(var) => {
-                    var.add_to_global_env(&mut user_defined_types, &mut global_vars)?
+                    var.add_to_global_env(&mut user_defined_types, &interfaces, &mut global_vars)?
                 }
             }
         }

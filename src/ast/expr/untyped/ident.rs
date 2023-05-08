@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{
-        expr::{TypedExpr, TypedGetFrameExpr},
+        expr::{TypedCallExpr, TypedExpr, TypedGetFrameExpr},
         stmt::{
             Functions, GlobalVars, InterfaceFunctionTable, Interfaces, StmtKind, UserDefinedTypes,
         },
@@ -55,13 +55,18 @@ impl IdentExpr {
                 &self.ident.lexeme,
             )?;
 
-            dbg!(subs);
-            return Ok(todo!());
+            return Ok(TypedExpr::Call(TypedCallExpr {
+                func: self.ident.lexeme.clone(),
+                subs,
+            }));
         }
 
         if let Some(func) = functions.get(&self.ident.lexeme) {
-            func.typ.unify(&self.ident, stack)?;
-            return Ok(todo!());
+            let subs = func.typ.unify(&self.ident, stack)?;
+            return Ok(TypedExpr::Call(TypedCallExpr {
+                func: self.ident.lexeme.clone(),
+                subs,
+            }));
         }
 
         if let Some(t) = global_vars.get(&self.ident.lexeme) {

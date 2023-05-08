@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{
-        expr::TypedExpr,
+        expr::{TypedBlockExpr, TypedExpr},
         stmt::{
             FunctionDescription, Functions, GlobalVars, InterfaceFunctionTable, Interfaces,
             UserDefinedTypes,
@@ -36,8 +36,9 @@ impl BlockExpr {
         free_vars: Option<&FreeVars>,
         subs: &mut Substitutions,
     ) -> Result<TypedExpr, HayError> {
+        let mut exprs = vec![];
         for e in &self.exprs {
-            e.type_check(
+            exprs.push(e.type_check(
                 stack,
                 frame,
                 function,
@@ -48,9 +49,9 @@ impl BlockExpr {
                 interface_fn_table,
                 free_vars,
                 subs,
-            )?;
+            )?);
         }
 
-        Ok(todo!())
+        Ok(TypedExpr::Block(TypedBlockExpr { exprs }))
     }
 }

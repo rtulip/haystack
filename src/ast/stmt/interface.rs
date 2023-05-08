@@ -136,9 +136,6 @@ impl InterfaceDescription {
                         &subs,
                     )?;
 
-                    println!("subs: {:?}", iface_impl.subs);
-                    println!("{:?}", stack_before);
-                    println!("{:?}", iface_impl.requires);
                     return Ok(subs);
                 }
                 Err(_) => {
@@ -153,13 +150,13 @@ impl InterfaceDescription {
 }
 
 impl InterfaceImpl {
-    pub fn check_requirements(
+    pub fn check_requirements<'a>(
         &self,
         user_defined_types: &UserDefinedTypes,
         free_vars: Option<&FreeVars>,
-        interfaces: &Interfaces,
+        interfaces: &'a Interfaces,
         subs: &Substitutions,
-    ) -> Result<(), HayError> {
+    ) -> Result<Option<&'a InterfaceImpl>, HayError> {
         match &self.requires {
             Some(requires) => {
                 let mut interface_types = vec![];
@@ -177,7 +174,7 @@ impl InterfaceImpl {
                     if let Some(iface) = interfaces.get(&iface_typ.iface) {
                         for iface_impl in &iface.impls {
                             if &iface_impl.subs == subs {
-                                return Ok(());
+                                return Ok(Some(iface_impl));
                             }
                         }
 
@@ -191,7 +188,7 @@ impl InterfaceImpl {
                 println!("{subs:?}");
                 todo!()
             }
-            None => Ok(()),
+            None => Ok(None),
         }
     }
 }

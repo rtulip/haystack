@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{
-        expr::TypedExpr,
+        expr::{TypedExpr, TypedIfExpr},
         stmt::{
             FunctionDescription, Functions, GlobalVars, InterfaceFunctionTable, Interfaces,
             StmtKind, UserDefinedTypes,
@@ -49,7 +49,7 @@ impl IfExpr {
 
         let mut end_stacks = vec![];
         let then_end_tok = self.then.token().clone();
-        self.then.type_check(
+        let typed_then = self.then.type_check(
             stack,
             frame,
             function,
@@ -66,12 +66,13 @@ impl IfExpr {
             end_stacks.push((self.token.clone(), stack.clone()));
         }
 
+        let mut typed_cases = vec![];
         for case in &self.otherwise {
             let case_token = case.token.clone();
             *stack = otherwise_stack.clone();
             *frame = initial_frame.clone();
 
-            case.type_check(
+            typed_cases.push(case.type_check(
                 stack,
                 frame,
                 function,
@@ -82,7 +83,7 @@ impl IfExpr {
                 interface_fn_table,
                 free_vars,
                 subs,
-            )?;
+            )?);
 
             otherwise_stack = stack.clone();
 
@@ -91,12 +92,13 @@ impl IfExpr {
             }
         }
 
+        let typed_finally;
         if let Some(finally) = &self.finally {
             *stack = otherwise_stack;
             *frame = initial_frame.clone();
             let tok = finally.token().clone();
 
-            finally.type_check(
+            typed_finally = Some(Box::new(finally.type_check(
                 stack,
                 frame,
                 function,
@@ -107,7 +109,7 @@ impl IfExpr {
                 interface_fn_table,
                 free_vars,
                 subs,
-            )?;
+            )?));
 
             if !stack.contains(&Type::never()) {
                 end_stacks.push((tok, stack.clone()));
@@ -115,6 +117,7 @@ impl IfExpr {
         } else {
             *stack = otherwise_stack.clone();
             end_stacks.push((then_end_tok, otherwise_stack));
+            typed_finally = None;
         }
 
         let mut resulting_stack = vec![];
@@ -170,7 +173,11 @@ impl IfExpr {
         //     finally: typed_finally,
         // })
 
-        Ok(todo!())
+        Ok(TypedExpr::If(TypedIfExpr {
+            then: Box::new(typed_then),
+            otherwise: typed_cases,
+            finally: typed_finally,
+        }))
     }
 }
 

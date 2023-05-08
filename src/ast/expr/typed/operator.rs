@@ -1,4 +1,4 @@
-use crate::{lex::token::Operator, types::Type};
+use crate::lex::token::Operator;
 
 pub struct TypedOperatorExpr {
     pub op: Operator,

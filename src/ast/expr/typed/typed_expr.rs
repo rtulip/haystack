@@ -1,5 +1,5 @@
 use super::{
-    TypedBlockExpr, TypedCallExpr, TypedGetFrameExpr, TypedIfExpr, TypedLiteralExpr,
+    TypedAsExpr, TypedBlockExpr, TypedCallExpr, TypedGetFrameExpr, TypedIfExpr, TypedLiteralExpr,
     TypedOperatorExpr, TypedReadExpr, TypedVarExpr,
 };
 
@@ -12,4 +12,5 @@ pub enum TypedExpr {
     Call(TypedCallExpr),
     If(TypedIfExpr),
     Read(TypedReadExpr),
+    As(TypedAsExpr),
 }

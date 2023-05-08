@@ -1,3 +1,4 @@
+mod r#as;
 mod block;
 mod call;
 mod framed;
@@ -13,6 +14,7 @@ pub use call::*;
 pub use framed::*;
 pub use literal::*;
 pub use operator::*;
+pub use r#as::*;
 pub use r#if::*;
 pub use read::*;
 pub use typed_expr::*;

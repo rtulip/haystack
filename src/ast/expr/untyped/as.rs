@@ -15,7 +15,7 @@
 use crate::{
     ast::{
         arg::{IdentArg, IdentArgKind},
-        expr::TypedExpr,
+        expr::{TypedAsExpr, TypedExpr},
     },
     error::HayError,
     lex::token::Token,
@@ -54,15 +54,17 @@ impl AsExpr {
 
         // Move the elements from the stack to the frame and track what types
         // are being moved.
-
+        let mut typs = vec![];
         for id in self.idents.iter().rev() {
             let t = stack.pop().unwrap();
             match &id.kind {
-                IdentArgKind::Single { token } => frame.push((token.lexeme.clone(), t)),
+                IdentArgKind::Single { token } => frame.push((token.lexeme.clone(), t.clone())),
                 IdentArgKind::Tuple { .. } => todo!(),
             }
+
+            typs.push(t);
         }
 
-        Ok(todo!())
+        Ok(TypedExpr::As(TypedAsExpr { typs }))
     }
 }

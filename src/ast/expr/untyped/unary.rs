@@ -1,5 +1,5 @@
 use crate::{
-    ast::expr::TypedExpr,
+    ast::expr::{TypedExpr, TypedGetAddressOfFramedExpr},
     error::HayError,
     lex::token::{Keyword, Operator},
     types::{Frame, PointerType, Stack, Type},
@@ -18,11 +18,21 @@ impl UnaryExpr {
         match &self.op.op {
             Operator::Ampersand => match &self.expr {
                 box Expr::Ident(IdentExpr { ident }) => {
-                    if let Some((_, t)) = frame.iter().find(|(s, _)| s == &ident.lexeme) {
+                    if let Some((idx, (_, t))) = frame
+                        .iter()
+                        .enumerate()
+                        .find(|(_, (s, _))| s == &ident.lexeme)
+                    {
                         stack.push(Type::Pointer(PointerType {
                             mutable: false,
                             inner: Box::new(t.clone()),
                         }));
+
+                        Ok(TypedExpr::AddrFramed(TypedGetAddressOfFramedExpr {
+                            frame: frame.clone(),
+                            idx,
+                            inner: None,
+                        }))
                     } else {
                         todo!()
                     }
@@ -37,6 +47,7 @@ impl UnaryExpr {
                             mutable: false,
                             inner: Box::new(t.get_inner_accessors(&token, &inner)?),
                         }));
+                        todo!()
                     } else {
                         todo!()
                     }
@@ -45,11 +56,21 @@ impl UnaryExpr {
             },
             Operator::Star => match &self.expr {
                 box Expr::Ident(ident) => {
-                    if let Some((_, t)) = frame.iter().find(|(s, _)| s == &ident.ident.lexeme) {
+                    if let Some((idx, (_, t))) = frame
+                        .iter()
+                        .enumerate()
+                        .find(|(_, (s, _))| s == &ident.ident.lexeme)
+                    {
                         stack.push(Type::Pointer(PointerType {
                             mutable: true,
                             inner: Box::new(t.clone()),
                         }));
+
+                        Ok(TypedExpr::AddrFramed(TypedGetAddressOfFramedExpr {
+                            frame: frame.clone(),
+                            idx,
+                            inner: None,
+                        }))
                     } else {
                         todo!()
                     }
@@ -64,6 +85,7 @@ impl UnaryExpr {
                             mutable: true,
                             inner: Box::new(t.get_inner_accessors(&token, &inner)?),
                         }));
+                        todo!()
                     } else {
                         todo!()
                     }
@@ -72,7 +94,5 @@ impl UnaryExpr {
             },
             op => todo!("{op:?}"),
         }
-
-        Ok(todo!())
     }
 }

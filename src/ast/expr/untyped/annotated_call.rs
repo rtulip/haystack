@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     ast::{
         arg::UntypedArg,
-        expr::TypedExpr,
+        expr::{TypedCallExpr, TypedExpr},
         stmt::{Functions, Interfaces, StmtKind, UserDefinedTypes},
     },
     error::HayError,
@@ -52,9 +52,13 @@ impl AnnotatedCallExpr {
             .collect();
 
             let subs = Substitutions::new(&self.token, f.ordered_free_vars.clone().unwrap(), x)?;
-            let f = f.typ.substitute(&self.token, &subs)?;
-            f.unify(&self.token, stack)?;
-            todo!()
+            let function_typ = f.typ.substitute(&self.token, &subs)?;
+            function_typ.unify(&self.token, stack)?;
+
+            Ok(TypedExpr::Call(TypedCallExpr {
+                func: f.name.lexeme.clone(),
+                subs,
+            }))
         } else {
             todo!()
         }

@@ -1,3 +1,4 @@
+mod address_of_framed;
 mod r#as;
 mod block;
 mod call;
@@ -11,6 +12,7 @@ mod var;
 mod r#while;
 mod write;
 
+pub use address_of_framed::*;
 pub use block::*;
 pub use call::*;
 pub use framed::*;

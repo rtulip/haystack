@@ -8,6 +8,7 @@ mod operator;
 mod read;
 mod typed_expr;
 mod var;
+mod r#while;
 
 pub use block::*;
 pub use call::*;
@@ -16,6 +17,7 @@ pub use literal::*;
 pub use operator::*;
 pub use r#as::*;
 pub use r#if::*;
+pub use r#while::*;
 pub use read::*;
 pub use typed_expr::*;
 pub use var::*;

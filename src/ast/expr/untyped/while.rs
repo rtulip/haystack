@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{
-        expr::TypedExpr,
+        expr::{TypedExpr, TypedWhileExpr},
         stmt::{
             FunctionDescription, Functions, GlobalVars, InterfaceFunctionTable, Interfaces,
             StmtKind, UserDefinedTypes,
@@ -73,7 +73,7 @@ impl ExprWhile {
         FunctionType::new(vec![Type::bool()], vec![]).unify(&self.token, stack)?;
         let stack_after_check = stack.clone();
 
-        self.body.type_check(
+        let typed_body = Box::new(self.body.type_check(
             stack,
             frame,
             function,
@@ -84,7 +84,7 @@ impl ExprWhile {
             interface_fn_table,
             free_vars,
             subs,
-        )?;
+        )?);
 
         if !stack.contains(&Type::never())
             && !stack
@@ -103,6 +103,9 @@ impl ExprWhile {
         *frame = frame_before;
         *stack = stack_after_check;
 
-        Ok(todo!())
+        Ok(TypedExpr::While(TypedWhileExpr {
+            cond: typed_cond,
+            body: typed_body,
+        }))
     }
 }

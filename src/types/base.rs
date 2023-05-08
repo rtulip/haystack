@@ -40,7 +40,7 @@ impl BaseType {
         ];
 
         FunctionType::unify_many(&fns, token, stack)?;
-        todo!()
+        Ok(TypedExpr::Cast)
     }
 
     pub fn cast(&self, token: &Token, stack: &mut Stack) -> Result<TypedExpr, HayError> {

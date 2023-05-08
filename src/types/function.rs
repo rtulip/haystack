@@ -1,6 +1,10 @@
 use std::{fmt::Display, ops::Sub};
 
-use crate::{ast::arg::TypedArg, error::HayError, lex::token::Token};
+use crate::{
+    ast::{arg::TypedArg, expr::TypedExpr},
+    error::HayError,
+    lex::token::Token,
+};
 
 use super::{Frame, Stack, Substitutions, Type};
 
@@ -23,7 +27,13 @@ impl FunctionType {
     }
 
     pub fn unify(&self, token: &Token, stack: &mut Stack) -> Result<Substitutions, HayError> {
+        if self.input.contains(&Type::never()) {
+            return Ok(Substitutions::empty());
+        }
+
         if stack.len() < self.input.len() {
+            println!("{token}: {stack:?}");
+            println!("{token}: {:?}", self.input);
             todo!()
         }
 
@@ -44,7 +54,11 @@ impl FunctionType {
         Ok(subs)
     }
 
-    pub fn unify_many(fns: &[Self], token: &Token, stack: &mut Stack) -> Result<(), HayError> {
+    pub fn unify_many(
+        fns: &[Self],
+        token: &Token,
+        stack: &mut Stack,
+    ) -> Result<Substitutions, HayError> {
         // Make sure that each signature has the same "shape"
         // This might not be strctly nessisary.
         let in_len = fns[0].input.len();
@@ -65,8 +79,8 @@ impl FunctionType {
         }
         let stack_before = stack.clone();
         for func in fns {
-            if let Ok(_) = func.unify(token, stack) {
-                return Ok(());
+            if let Ok(subs) = func.unify(token, stack) {
+                return Ok(subs);
             }
 
             *stack = stack_before.clone();

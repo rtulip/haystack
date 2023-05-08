@@ -424,6 +424,7 @@ impl Type {
         other: &Type,
         subs: &mut Substitutions,
     ) -> Result<(), HayError> {
+        println!("    {token}: {self} {other}");
         match (self, other) {
             (Type::TypeVar(this), Type::TypeVar(var)) if this == var => (),
             (t, Type::TypeVar(var)) | (Type::TypeVar(var), t) => match subs.get(&var) {
@@ -460,6 +461,14 @@ impl Type {
                     ident: Some(ident),
                     members,
                     ..
+                })
+                | Type::Variant(VariantType { typ: box Type::Record(RecordType {
+                    kind: RecordKind::Struct | RecordKind::EnumStruct,
+                    ident: Some(ident),
+                    members,
+                    ..
+                    }), 
+                    .. 
                 }),
                 Type::Record(RecordType {
                     kind: RecordKind::Struct | RecordKind::EnumStruct,
@@ -473,6 +482,8 @@ impl Type {
                 }
             }
             (a, b) if a == b => (),
+            (Type::Record(RecordType { ident: Some(ident),.. }), Type::PreDeclaration(predecl)) 
+                | (Type::PreDeclaration(predecl), Type::Record(RecordType { ident: Some(ident),.. })) if ident == predecl => (),
             (a, b) => {
                 return Err(HayError::new(
                     format!("Cannot unify {a} and {b}"),
@@ -508,10 +519,10 @@ impl Display for Type {
             }) => write!(f, "{ident}"),
             Type::Record(RecordType {
                 ident: None,
-                // members,
+                members,
                 ..
             }) => {
-                todo!()
+                write!(f, "[{}]", members.iter().map(|member| format!("{}", member.typ)).collect::<Vec<_>>().join(" "))
             }
             Type::TypeVar(TypeVar(ident)) => write!(f, "{ident}"),
             Type::Variant(variant) => write!(f, "{}::{}", variant.typ, variant.variant),

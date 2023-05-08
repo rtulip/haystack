@@ -1,5 +1,5 @@
 use crate::{
-    ast::expr::TypedExpr,
+    ast::expr::{TypedExpr, TypedSyscallExpr},
     error::HayError,
     lex::token::Token,
     types::{FunctionType, Stack, Type},
@@ -41,6 +41,6 @@ impl SyscallExpr {
 
         stack.push(Type::u64());
 
-        Ok(todo!())
+        Ok(TypedExpr::Syscall(TypedSyscallExpr { n: self.n }))
     }
 }

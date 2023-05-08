@@ -1,7 +1,7 @@
 use crate::{
     ast::{
         arg::{TypedArg, UntypedArg},
-        expr::Expr,
+        expr::{Expr, TypedExpr},
     },
     backend::{InitDataMap, Instruction},
     error::HayError,
@@ -66,8 +66,6 @@ impl FunctionStmt {
             Type::merge_free_vars(free_vars.as_ref(), free_vars_in_scope).as_ref(),
         )?;
 
-        println!("{} {free_vars_in_scope:?}", self.name);
-
         let (stack, frame) = TypedArg::init_state(&inputs);
 
         let function_type = FunctionType::from_typed_args(&inputs, &outputs);
@@ -106,9 +104,10 @@ impl FunctionDescription {
         functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
-    ) -> Result<(), HayError> {
+    ) -> Result<TypedExpr, HayError> {
         let (mut stack, mut frame) = self.start_state.clone();
-        self.body
+        let mut typed_expr = self
+            .body
             .as_ref()
             .ok_or(HayError::new(
                 "Can't type check stub function...",
@@ -138,9 +137,15 @@ impl FunctionDescription {
             todo!("{}", self.name)
         }
 
-        FunctionType::new(stack.clone(), self.typ.output.clone()).unify(&self.name, &mut stack)?;
+        let subs = FunctionType::new(self.typ.output.clone(), stack.clone())
+            .unify(&self.name, &mut stack)?;
 
-        Ok(())
+        println!("{}: {subs:?}", self.name);
+        if !subs.is_empty() {
+            typed_expr.substitute(&self.name, &subs)?;
+        }
+
+        Ok(typed_expr)
     }
 
     pub fn type_check_all(

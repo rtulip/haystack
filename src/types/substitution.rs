@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::collections::{
+    hash_map::{IntoIter, Iter, IterMut},
+    HashMap,
+};
 
 use crate::{error::HayError, lex::token::Token};
 
@@ -8,6 +11,10 @@ use super::{Stack, Type, TypeVar};
 pub struct Substitutions(HashMap<TypeVar, Type>);
 
 impl Substitutions {
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     pub fn empty() -> Self {
         Self(HashMap::new())
     }
@@ -44,5 +51,21 @@ impl Substitutions {
                 }
             }
         }
+    }
+}
+
+impl<'a> IntoIterator for &'a Substitutions {
+    type Item = (&'a TypeVar, &'a Type);
+    type IntoIter = Iter<'a, TypeVar, Type>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut Substitutions {
+    type Item = (&'a TypeVar, &'a mut Type);
+    type IntoIter = IterMut<'a, TypeVar, Type>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter_mut()
     }
 }

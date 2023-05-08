@@ -1,7 +1,7 @@
 use super::{
     TypedAsExpr, TypedBlockExpr, TypedCallExpr, TypedGetAddressOfFramedExpr, TypedGetFrameExpr,
-    TypedIfExpr, TypedLiteralExpr, TypedOperatorExpr, TypedReadExpr, TypedVarExpr, TypedWhileExpr,
-    TypedWriteExpr,
+    TypedGlobalExpr, TypedIfExpr, TypedLiteralExpr, TypedOperatorExpr, TypedReadExpr,
+    TypedSizeOfExpr, TypedVarExpr, TypedWhileExpr, TypedWriteExpr,
 };
 
 pub enum TypedExpr {
@@ -18,4 +18,8 @@ pub enum TypedExpr {
     While(TypedWhileExpr),
     Cast,
     AddrFramed(TypedGetAddressOfFramedExpr),
+    Global(TypedGlobalExpr),
+    Never,
+    Return,
+    SizeOf(TypedSizeOfExpr),
 }

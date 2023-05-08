@@ -42,12 +42,21 @@ impl UnaryExpr {
                     inner,
                     token,
                 }) => {
-                    if let Some((_, t)) = frame.iter().find(|(s, _)| s == &ident.lexeme) {
+                    if let Some((idx, (_, t))) = frame
+                        .iter()
+                        .enumerate()
+                        .find(|(_, (s, _))| s == &ident.lexeme)
+                    {
                         stack.push(Type::Pointer(PointerType {
                             mutable: false,
                             inner: Box::new(t.get_inner_accessors(&token, &inner)?),
                         }));
-                        todo!()
+
+                        Ok(TypedExpr::AddrFramed(TypedGetAddressOfFramedExpr {
+                            frame: frame.clone(),
+                            idx,
+                            inner: None,
+                        }))
                     } else {
                         todo!()
                     }
@@ -80,12 +89,27 @@ impl UnaryExpr {
                     inner,
                     token,
                 }) => {
-                    if let Some((_, t)) = frame.iter().find(|(s, _)| s == &ident.lexeme) {
+                    if let Some((idx, (_, t))) = frame
+                        .iter()
+                        .enumerate()
+                        .find(|(_, (s, _))| s == &ident.lexeme)
+                    {
                         stack.push(Type::Pointer(PointerType {
                             mutable: true,
                             inner: Box::new(t.get_inner_accessors(&token, &inner)?),
                         }));
-                        todo!()
+
+                        Ok(TypedExpr::AddrFramed(TypedGetAddressOfFramedExpr {
+                            frame: frame.clone(),
+                            idx,
+                            inner: Some(
+                                inner
+                                    .clone()
+                                    .into_iter()
+                                    .map(|token| token.lexeme)
+                                    .collect(),
+                            ),
+                        }))
                     } else {
                         todo!()
                     }

@@ -13,8 +13,7 @@ impl VariantType {
         match &self.typ {
             box Type::Record(ref record) => {
                 if record.kind == RecordKind::EnumStruct {
-                    record.cast_variant(&self.variant, token, stack)?;
-                    todo!()
+                    record.cast_variant(&self.variant, token, stack)
                 } else {
                     todo!()
                 }

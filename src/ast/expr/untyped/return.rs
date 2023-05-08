@@ -29,6 +29,6 @@ impl ReturnExpr {
         }
 
         stack.push(Type::never());
-        Ok(todo!())
+        Ok(TypedExpr::Return)
     }
 }

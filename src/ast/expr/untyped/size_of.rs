@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{
-        expr::{TypedExpr, TypedLiteralExpr},
+        expr::{TypedExpr, TypedLiteralExpr, TypedSizeOfExpr},
         stmt::{Interfaces, UserDefinedTypes},
     },
     error::HayError,
@@ -27,13 +27,13 @@ impl SizeOfExpr {
         free_vars: Option<&FreeVars>,
     ) -> Result<TypedExpr, HayError> {
         stack.push(Type::u64());
-        let t = Type::from_token(&self.typ, user_defined_types, interfaces, free_vars)?;
+        let typ = Type::from_token(&self.typ, user_defined_types, interfaces, free_vars)?;
 
-        match t.size(&self.token) {
+        match typ.size(&self.token) {
             Ok(size) => Ok(TypedExpr::Literal(TypedLiteralExpr {
                 value: Literal::U64(size as u64),
             })),
-            Err(_) => todo!(),
+            Err(_) => Ok(TypedExpr::SizeOf(TypedSizeOfExpr { typ })),
         }
     }
 }

@@ -109,7 +109,9 @@ impl OperatorExpr {
                     FunctionType::new(vec![Type::u8(), Type::u8()], vec![Type::u8()]),
                 ];
                 FunctionType::unify_many(&fs, &self.token, stack)?;
-                todo!()
+                Ok(TypedExpr::Operator(TypedOperatorExpr {
+                    op: self.op.clone(),
+                }))
             }
             Operator::Equal | Operator::BangEqual => {
                 let fs = vec![
@@ -120,7 +122,9 @@ impl OperatorExpr {
                 ];
 
                 FunctionType::unify_many(&fs, &self.token, stack)?;
-                todo!()
+                Ok(TypedExpr::Operator(TypedOperatorExpr {
+                    op: self.op.clone(),
+                }))
                 // Signature::evaluate_many(
                 //     &vec![
                 //         // u64 == u64 -> bool

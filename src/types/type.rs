@@ -65,8 +65,8 @@ impl Type {
 
                 Ok(sum)
             },
-
-            _ => todo!("{self}"),
+            Type::TypeVar(_) => Err(HayError::new(format!("TypeVar {self} have unknown size"), token.loc.clone())),
+            _ => todo!("{self:?}"),
         }
 
     }

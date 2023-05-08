@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{
-        expr::{TypedExpr, TypedIfExpr},
+        expr::{TypedElseIfExpr, TypedExpr, TypedIfExpr},
         stmt::{
             FunctionDescription, Functions, GlobalVars, InterfaceFunctionTable, Interfaces,
             StmtKind, UserDefinedTypes,
@@ -204,7 +204,7 @@ impl ExprElseIf {
         interface_fn_table: &InterfaceFunctionTable,
         free_vars: Option<&FreeVars>,
         subs: &mut Substitutions,
-    ) -> Result<TypedExpr, HayError> {
+    ) -> Result<TypedElseIfExpr, HayError> {
         let mut typed_condition = vec![];
         for expr in &self.condition {
             typed_condition.push(expr.type_check(
@@ -218,14 +218,14 @@ impl ExprElseIf {
                 interface_fn_table,
                 free_vars,
                 subs,
-            ));
+            )?);
         }
 
         FunctionType::new(vec![Type::bool()], vec![]).unify(&self.token, stack)?;
 
         // let stack_after_check = stack.clone();
 
-        self.block.type_check(
+        let typed_block = self.block.type_check(
             stack,
             frame,
             function,
@@ -238,6 +238,9 @@ impl ExprElseIf {
             subs,
         )?;
 
-        Ok(todo!())
+        Ok(TypedElseIfExpr {
+            condition: typed_condition,
+            block: Box::new(typed_block),
+        })
     }
 }

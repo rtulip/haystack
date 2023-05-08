@@ -95,7 +95,7 @@ impl RecordType {
 
             f.unify(token, stack)?;
 
-            Ok(todo!())
+            Ok(TypedExpr::Cast)
         } else {
             todo!()
         }

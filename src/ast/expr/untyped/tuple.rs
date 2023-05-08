@@ -16,7 +16,7 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{
-        expr::TypedExpr,
+        expr::{TypedBlockExpr, TypedExpr},
         stmt::{
             FunctionDescription, Functions, GlobalVars, InterfaceFunctionTable, Interfaces,
             StmtKind, UserDefinedTypes,
@@ -51,9 +51,10 @@ impl TupleExpr {
         free_vars: Option<&FreeVars>,
         subs: &mut Substitutions,
     ) -> Result<TypedExpr, HayError> {
+        let mut typed_exprs = vec![];
         let mut sub_stack = vec![];
         for e in &self.exprs {
-            e.type_check(
+            typed_exprs.push(e.type_check(
                 &mut sub_stack,
                 frame,
                 function,
@@ -64,11 +65,11 @@ impl TupleExpr {
                 interface_fn_table,
                 free_vars,
                 subs,
-            )?;
+            )?);
         }
 
         let tuple = RecordType::tuple(sub_stack);
         stack.push(Type::Record(tuple));
-        Ok(todo!())
+        Ok(TypedExpr::Block(TypedBlockExpr { exprs: typed_exprs }))
     }
 }

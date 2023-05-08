@@ -13,6 +13,6 @@ pub struct NeverExpr {
 impl NeverExpr {
     pub fn type_check(&self, stack: &mut Stack) -> Result<TypedExpr, HayError> {
         stack.push(Type::never());
-        Ok(todo!())
+        Ok(TypedExpr::Never)
     }
 }

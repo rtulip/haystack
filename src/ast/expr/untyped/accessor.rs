@@ -51,7 +51,11 @@ impl AccessorExpr {
                         ..
                     }) if record.kind == RecordKind::EnumStruct => {
                         stack.push(Type::u64());
-                        return Ok(todo!());
+                        return Ok(TypedExpr::Framed(TypedGetFrameExpr {
+                            frame: frame.clone(),
+                            idx: i,
+                            inner: Some(vec![]),
+                        }));
                     }
                     _ => todo!(),
                 }

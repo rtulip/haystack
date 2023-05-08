@@ -1,10 +1,13 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::expr::TypedExpr,
+    ast::{
+        expr::{TypedExpr, TypedLiteralExpr},
+        stmt::{Interfaces, UserDefinedTypes},
+    },
     error::HayError,
     lex::token::{Literal, Token},
-    types::{Stack, Type},
+    types::{FreeVars, Stack, Type},
 };
 
 #[derive(Debug, Clone)]
@@ -16,9 +19,21 @@ pub struct SizeOfExpr {
 }
 
 impl SizeOfExpr {
-    pub fn type_check(&self, stack: &mut Stack) -> Result<TypedExpr, HayError> {
+    pub fn type_check(
+        &self,
+        stack: &mut Stack,
+        user_defined_types: &UserDefinedTypes,
+        interfaces: &Interfaces,
+        free_vars: Option<&FreeVars>,
+    ) -> Result<TypedExpr, HayError> {
         stack.push(Type::u64());
+        let t = Type::from_token(&self.typ, user_defined_types, interfaces, free_vars)?;
 
-        Ok(todo!())
+        match t.size(&self.token) {
+            Ok(size) => Ok(TypedExpr::Literal(TypedLiteralExpr {
+                value: Literal::U64(size as u64),
+            })),
+            Err(_) => todo!(),
+        }
     }
 }

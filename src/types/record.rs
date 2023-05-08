@@ -70,7 +70,7 @@ impl RecordType {
                 let f = FunctionType::new(inputs, vec![Type::Record(self.clone())]);
 
                 f.unify(token, stack)?;
-                todo!()
+                Ok(TypedExpr::Cast)
             }
             _ => todo!("{:?}", self.kind),
         }

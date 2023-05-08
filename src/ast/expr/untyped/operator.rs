@@ -1,6 +1,6 @@
 use crate::{
     ast::{
-        expr::{TypedExpr, TypedOperatorExpr, TypedReadExpr},
+        expr::{TypedExpr, TypedOperatorExpr, TypedReadExpr, TypedWriteExpr},
         stmt::{Interfaces, StmtKind, UserDefinedTypes},
     },
     error::HayError,
@@ -195,9 +195,11 @@ impl OperatorExpr {
                     inner: Box::new(t.clone()),
                 });
 
-                let func = FunctionType::new(vec![t, ptr], vec![]);
-                func.unify(&self.token, stack)?;
-                todo!()
+                let func = FunctionType::new(vec![t.clone(), ptr], vec![]);
+                let subs = func.unify(&self.token, stack)?;
+                let typ = t.substitute(&self.token, &subs)?;
+
+                Ok(TypedExpr::Write(TypedWriteExpr { typ }))
             }
             op => todo!("{op:?}"),
         }

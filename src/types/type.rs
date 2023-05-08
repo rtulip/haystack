@@ -182,6 +182,7 @@ impl Type {
                 todo!("{token}: {typ} {free_vars:?}")
             }
             TypeToken::Parameterized { base, inner } => {
+                let mut free_vars = free_vars.cloned();
                 let (base_typ, ordered_free_vars);
                 if let Some(TypeDescription::Record(desc)) =
                     user_defined_types.get(&TypeId::new(base))
@@ -193,9 +194,37 @@ impl Type {
                         todo!()
                     }
                 } else if let Some(iface) = interfaces.get(base) {
+                    free_vars = match free_vars {
+                        Some(free_vars) => {
+                            Some(FreeVars::from_iter(free_vars
+                                .clone()
+                                .into_iter()
+                                .chain(iface.ordered_free_vars
+                                    .clone()
+                                    .into_iter()
+                                )
+                                .chain(iface.associated_types
+                                    .clone()
+                                    .into_iter()
+                                )
+                            ))
+                        },
+                        None => {
+                            Some(FreeVars::from_iter(iface
+                                .ordered_free_vars
+                                .clone()
+                                .into_iter()
+                                .chain(iface.associated_types
+                                    .clone()
+                                    .into_iter()
+                                )
+                            ))
+                        }
+                    };
+                    
                     let mut types = vec![];
                     for inner in inner {
-                        types.push(Type::from_type_token(&token, inner, user_defined_types, interfaces, free_vars)?)
+                        types.push(Type::from_type_token(&token, inner, user_defined_types, interfaces, free_vars.as_ref())?)
                     }
                     
                     base_typ = Type::Interface(InterfaceType { iface: base.clone(), types  });
@@ -211,7 +240,7 @@ impl Type {
                         inner,
                         user_defined_types,
                         interfaces, 
-                        free_vars,
+                        free_vars.as_ref(),
                     )?);
                 }
 

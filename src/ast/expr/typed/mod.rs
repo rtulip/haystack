@@ -9,6 +9,7 @@ mod read;
 mod typed_expr;
 mod var;
 mod r#while;
+mod write;
 
 pub use block::*;
 pub use call::*;
@@ -21,3 +22,4 @@ pub use r#while::*;
 pub use read::*;
 pub use typed_expr::*;
 pub use var::*;
+pub use write::*;

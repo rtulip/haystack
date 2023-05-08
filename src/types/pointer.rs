@@ -12,6 +12,6 @@ impl PointerType {
     pub fn cast(&self, token: &Token, stack: &mut Stack) -> Result<TypedExpr, HayError> {
         FunctionType::new(vec![Type::u64()], vec![Type::Pointer(self.clone())])
             .unify(token, stack)?;
-        todo!()
+        Ok(TypedExpr::Cast)
     }
 }

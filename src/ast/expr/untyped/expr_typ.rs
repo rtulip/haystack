@@ -156,7 +156,9 @@ impl Expr {
             ),
             Expr::As(as_expr) => as_expr.type_check(stack, frame),
             Expr::Cast(cast) => cast.type_check(stack, user_defined_types, interfaces, function),
-            Expr::SizeOf(size_of) => size_of.type_check(stack),
+            Expr::SizeOf(size_of) => {
+                size_of.type_check(stack, user_defined_types, interfaces, free_vars)
+            }
             Expr::AnnotatedCall(call) => {
                 call.type_check(stack, user_defined_types, interfaces, functions)
             }

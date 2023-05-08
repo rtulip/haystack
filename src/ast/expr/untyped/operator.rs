@@ -39,7 +39,9 @@ impl OperatorExpr {
                 &interface_fn_name.into(),
             )?;
         }
-        Ok(todo!())
+        Ok(TypedExpr::Operator(TypedOperatorExpr {
+            op: self.op.clone(),
+        }))
     }
 
     pub fn type_check(
@@ -99,7 +101,6 @@ impl OperatorExpr {
                 FunctionType::unify_many(&fs, &self.token, stack)?;
                 Ok(TypedExpr::Operator(TypedOperatorExpr {
                     op: self.op.clone(),
-                    typ: None,
                 }))
             }
             Operator::Modulo => {

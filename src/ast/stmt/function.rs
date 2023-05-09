@@ -151,7 +151,7 @@ impl FunctionDescription {
     pub fn type_check_all(
         global_vars: &GlobalVars,
         functions: &Functions,
-        types: &UserDefinedTypes,
+        user_defined_types: &UserDefinedTypes,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
     ) -> Result<HashMap<String, (TypedExpr, Token)>, HayError> {
@@ -161,7 +161,7 @@ impl FunctionDescription {
                 s.clone(),
                 f.type_check(
                     global_vars,
-                    types,
+                    user_defined_types,
                     functions,
                     interfaces,
                     interface_fn_table,
@@ -169,7 +169,15 @@ impl FunctionDescription {
             );
         }
 
-        for (s, i) in interfaces {}
+        for (s, iface) in interfaces {
+            iface.type_check(
+                global_vars,
+                user_defined_types,
+                functions,
+                interfaces,
+                interface_fn_table,
+            );
+        }
 
         Ok(typed_functions)
     }

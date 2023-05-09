@@ -24,17 +24,11 @@ pub struct InterfaceImplStmt {
 }
 
 impl InterfaceImplStmt {
-    fn is_generic(&self) -> bool {
-        self.generics.is_some()
-    }
-
     pub fn add_to_global_env(
         self,
         user_defined_types: &UserDefinedTypes,
         interfaces: &mut Interfaces,
     ) -> Result<(), HayError> {
-        let is_generic = self.is_generic();
-
         let (free_vars, _) = UntypedArg::into_free_vars(self.generics);
 
         let (base, inner) = match &self.interface.kind {
@@ -215,6 +209,7 @@ impl InterfaceImplStmt {
         // }
 
         let instance = InterfaceImpl {
+            token: self.token.clone(),
             subs,
             functions,
             requires: self.requires.clone(),

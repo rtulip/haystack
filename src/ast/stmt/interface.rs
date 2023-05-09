@@ -1,15 +1,15 @@
 use std::{collections::HashSet, ops::Sub};
 
 use crate::{
-    ast::arg::UntypedArg,
+    ast::{arg::UntypedArg, expr::TypedExpr},
     error::HayError,
     lex::token::Token,
-    types::{FreeVars, InterfaceType, Stack, Substitutions, Type, TypeId, TypeVar},
+    types::{FreeVars, FunctionType, InterfaceType, Stack, Substitutions, Type, TypeId, TypeVar},
 };
 
 use super::{
-    FunctionStmt, FunctionStubStmt, Functions, InterfaceFunctionTable, Interfaces, StmtKind,
-    UserDefinedTypes,
+    FunctionStmt, FunctionStubStmt, Functions, GlobalVars, InterfaceFunctionTable, Interfaces,
+    StmtKind, UserDefinedTypes,
 };
 
 #[derive(Debug, Clone)]
@@ -44,6 +44,7 @@ pub struct InterfaceDescription {
 
 #[derive(Debug)]
 pub struct InterfaceImpl {
+    pub token: Token,
     pub subs: Substitutions,
     pub functions: Functions,
     pub requires: Option<Vec<Token>>,
@@ -148,8 +149,33 @@ impl InterfaceDescription {
         todo!()
     }
 
-    pub fn type_check(&self) -> Result<(), HayError> {
-        todo!()
+    pub fn type_check(
+        &self,
+        global_vars: &GlobalVars,
+        user_defined_types: &UserDefinedTypes,
+        functions: &Functions,
+        interfaces: &Interfaces,
+        interface_fn_table: &InterfaceFunctionTable,
+    ) -> Result<Vec<(String, (TypedExpr, Token))>, HayError> {
+        if self.requires.is_some() {
+            todo!()
+        }
+        let mut exprs = vec![];
+        for iface_impl in &self.impls {
+            println!(
+                "{}: Type Check `{}` where {:?}",
+                iface_impl.token.loc, self.token.lexeme, iface_impl.subs
+            );
+            exprs.extend(iface_impl.type_check(
+                global_vars,
+                user_defined_types,
+                functions,
+                interfaces,
+                interface_fn_table,
+            )?);
+        }
+
+        Ok(exprs)
     }
 }
 
@@ -194,5 +220,32 @@ impl InterfaceImpl {
             }
             None => Ok(None),
         }
+    }
+
+    pub fn type_check(
+        &self,
+        global_vars: &GlobalVars,
+        user_defined_types: &UserDefinedTypes,
+        functions: &Functions,
+        interfaces: &Interfaces,
+        interface_fn_table: &InterfaceFunctionTable,
+    ) -> Result<Vec<(String, (TypedExpr, Token))>, HayError> {
+        let mut impls = vec![];
+        for (s, f) in &self.functions {
+            let id = FunctionType::name(&s, &self.subs);
+            println!("    Type checking {id}");
+            impls.push((
+                id,
+                f.type_check(
+                    global_vars,
+                    user_defined_types,
+                    functions,
+                    interfaces,
+                    interface_fn_table,
+                )?,
+            ));
+        }
+
+        Ok(impls)
     }
 }

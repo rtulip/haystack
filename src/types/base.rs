@@ -32,6 +32,18 @@ impl BaseType {
         Ok(TypedExpr::Cast)
     }
 
+    fn cast_u8(token: &Token, stack: &mut Stack) -> Result<TypedExpr, HayError> {
+        let fns = [
+            FunctionType::new(vec![Type::u64()], vec![Type::u8()]),
+            FunctionType::new(vec![Type::u8()], vec![Type::u8()]),
+            FunctionType::new(vec![Type::char()], vec![Type::u8()]),
+            FunctionType::new(vec![Type::bool()], vec![Type::u8()]),
+        ];
+
+        FunctionType::unify_many(&fns, token, stack)?;
+        Ok(TypedExpr::Cast)
+    }
+
     fn cast_char(token: &Token, stack: &mut Stack) -> Result<TypedExpr, HayError> {
         let fns = [
             FunctionType::new(vec![Type::u64()], vec![Type::char()]),
@@ -47,6 +59,7 @@ impl BaseType {
         match self {
             BaseType::U64 => BaseType::cast_u64(token, stack),
             BaseType::Char => BaseType::cast_char(token, stack),
+            BaseType::U8 => BaseType::cast_u8(token, stack),
             _ => todo!("{self}"),
         }
     }

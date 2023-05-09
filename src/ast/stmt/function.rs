@@ -176,7 +176,7 @@ impl FunctionDescription {
                 functions,
                 interfaces,
                 interface_fn_table,
-            );
+            )?;
         }
 
         Ok(typed_functions)

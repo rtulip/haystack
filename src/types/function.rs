@@ -108,7 +108,7 @@ impl FunctionType {
             format!(
                 "{base}<{}>",
                 subs.into_iter()
-                    .map(|(_, typ)| format!("{typ}"))
+                    .map(|(k, typ)| format!("{}={typ}", k.0))
                     .collect::<Vec<_>>()
                     .join(" ")
             )

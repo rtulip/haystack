@@ -47,7 +47,9 @@ pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
             let calls = calls
                 .into_iter()
                 .map(|(func, subs)| {
-                    let (expr, tok) = typed_functions.get(&func).unwrap();
+                    let (expr, tok) = typed_functions
+                        .get(&func)
+                        .unwrap_or_else(|| panic!("Unknown function: {func}"));
                     ((expr, tok), subs)
                 })
                 .collect::<Vec<_>>();

@@ -2,12 +2,14 @@ use crate::{error::HayError, lex::token::Token, types::Substitutions};
 
 use super::TypedExpr;
 
+#[derive(Debug, Clone)]
 pub struct TypedIfExpr {
     pub then: Box<TypedExpr>,
     pub otherwise: Vec<TypedElseIfExpr>,
     pub finally: Option<Box<TypedExpr>>,
 }
 
+#[derive(Debug, Clone)]
 pub struct TypedElseIfExpr {
     pub condition: Vec<TypedExpr>,
     pub block: Box<TypedExpr>,

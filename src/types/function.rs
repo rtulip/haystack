@@ -100,6 +100,20 @@ impl FunctionType {
         }
         Ok(Self { input, output })
     }
+
+    pub fn name(base: &str, subs: &Substitutions) -> String {
+        if subs.is_empty() {
+            format!("{base}")
+        } else {
+            format!(
+                "{base}<{}>",
+                subs.into_iter()
+                    .map(|(_, typ)| format!("{typ}"))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            )
+        }
+    }
 }
 
 impl Display for FunctionType {

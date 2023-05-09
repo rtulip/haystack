@@ -4,6 +4,7 @@ use crate::{
     types::{Substitutions, Type},
 };
 
+#[derive(Debug, Clone)]
 pub struct TypedWriteExpr {
     pub typ: Type,
 }

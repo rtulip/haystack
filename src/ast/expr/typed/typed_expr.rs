@@ -1,4 +1,9 @@
-use crate::{error::HayError, lex::token::Token, types::Substitutions};
+use crate::{
+    backend::{InitDataMap, Instruction},
+    error::HayError,
+    lex::token::Token,
+    types::Substitutions,
+};
 
 use super::{
     TypedAsExpr, TypedBlockExpr, TypedCallExpr, TypedGetAddressOfFramedExpr, TypedGetFrameExpr,
@@ -6,6 +11,7 @@ use super::{
     TypedSizeOfExpr, TypedSyscallExpr, TypedVarExpr, TypedWhileExpr, TypedWriteExpr,
 };
 
+#[derive(Debug, Clone)]
 pub enum TypedExpr {
     Block(TypedBlockExpr),
     Literal(TypedLiteralExpr),
@@ -48,6 +54,32 @@ impl TypedExpr {
             TypedExpr::Return => todo!(),
             TypedExpr::SizeOf(TypedSizeOfExpr) => todo!(),
             TypedExpr::Syscall(TypedSyscallExpr) => todo!(),
+        }
+    }
+
+    pub fn into_instructions(
+        &self,
+        init_data: &mut InitDataMap,
+    ) -> (Vec<Instruction>, Vec<(String, Substitutions)>) {
+        match self {
+            TypedExpr::Block(block) => block.into_instructions(init_data),
+            TypedExpr::Literal(literal) => literal.into_instructions(init_data),
+            TypedExpr::Var(_) => todo!(),
+            TypedExpr::Framed(_) => todo!(),
+            TypedExpr::Operator(_) => todo!(),
+            TypedExpr::Call(call) => call.into_instructions(init_data),
+            TypedExpr::If(_) => todo!(),
+            TypedExpr::Read(_) => todo!(),
+            TypedExpr::Write(_) => todo!(),
+            TypedExpr::As(_) => todo!(),
+            TypedExpr::While(_) => todo!(),
+            TypedExpr::Cast => todo!(),
+            TypedExpr::AddrFramed(_) => todo!(),
+            TypedExpr::Global(_) => todo!(),
+            TypedExpr::Never => todo!(),
+            TypedExpr::Return => todo!(),
+            TypedExpr::SizeOf(_) => todo!(),
+            TypedExpr::Syscall(_) => todo!(),
         }
     }
 }

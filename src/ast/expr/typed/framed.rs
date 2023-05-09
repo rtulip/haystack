@@ -4,6 +4,7 @@ use crate::{
     types::{Frame, Substitutions},
 };
 
+#[derive(Debug, Clone)]
 pub struct TypedGetFrameExpr {
     pub frame: Frame,
     pub idx: usize,

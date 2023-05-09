@@ -1,6 +1,6 @@
 use std::collections::{
-    hash_map::{IntoIter, Iter, IterMut},
-    HashMap,
+    btree_map::{Iter, IterMut},
+    BTreeMap, HashMap,
 };
 
 use crate::{error::HayError, lex::token::Token};
@@ -8,7 +8,7 @@ use crate::{error::HayError, lex::token::Token};
 use super::{Stack, Type, TypeVar};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Substitutions(HashMap<TypeVar, Type>);
+pub struct Substitutions(BTreeMap<TypeVar, Type>);
 
 impl Substitutions {
     pub fn is_empty(&self) -> bool {
@@ -16,7 +16,7 @@ impl Substitutions {
     }
 
     pub fn empty() -> Self {
-        Self(HashMap::new())
+        Self(BTreeMap::new())
     }
 
     pub fn new(token: &Token, free_vars: Vec<TypeVar>, subs: Vec<Type>) -> Result<Self, HayError> {
@@ -24,7 +24,7 @@ impl Substitutions {
             return Err(HayError::new("Can't make substitution", token.loc.clone()));
         }
 
-        let mut sub_map = HashMap::new();
+        let mut sub_map = BTreeMap::new();
 
         for (var, typ) in free_vars.into_iter().zip(subs.into_iter()) {
             if let Some(_) = sub_map.insert(var, typ) {

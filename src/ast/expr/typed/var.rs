@@ -1,3 +1,4 @@
+#[derive(Debug, Clone)]
 pub struct TypedVarExpr {
     pub size: usize,
     pub width: usize,

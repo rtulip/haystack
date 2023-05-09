@@ -1,9 +1,10 @@
+use std::collections::HashMap;
+
 use crate::{
     ast::{
         arg::{TypedArg, UntypedArg},
         expr::{Expr, TypedExpr},
     },
-    backend::{InitDataMap, Instruction},
     error::HayError,
     lex::token::Token,
     types::{BaseType, Frame, FreeVars, FunctionType, Stack, Substitutions, Type, TypeId, TypeVar},
@@ -104,7 +105,7 @@ impl FunctionDescription {
         functions: &Functions,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
-    ) -> Result<TypedExpr, HayError> {
+    ) -> Result<(TypedExpr, Token), HayError> {
         let (mut stack, mut frame) = self.start_state.clone();
         let mut typed_expr = self
             .body
@@ -140,12 +141,11 @@ impl FunctionDescription {
         let subs = FunctionType::new(self.typ.output.clone(), stack.clone())
             .unify(&self.name, &mut stack)?;
 
-        println!("{}: {subs:?}", self.name);
         if !subs.is_empty() {
             typed_expr.substitute(&self.name, &subs)?;
         }
 
-        Ok(typed_expr)
+        Ok((typed_expr, self.name.clone()))
     }
 
     pub fn type_check_all(
@@ -154,16 +154,23 @@ impl FunctionDescription {
         types: &UserDefinedTypes,
         interfaces: &Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
-    ) -> Result<(), HayError> {
-        for (_, f) in functions {
-            f.type_check(
-                global_vars,
-                types,
-                functions,
-                interfaces,
-                interface_fn_table,
-            )?;
+    ) -> Result<HashMap<String, (TypedExpr, Token)>, HayError> {
+        let mut typed_functions = HashMap::new();
+        for (s, f) in functions {
+            typed_functions.insert(
+                s.clone(),
+                f.type_check(
+                    global_vars,
+                    types,
+                    functions,
+                    interfaces,
+                    interface_fn_table,
+                )?,
+            );
         }
-        Ok(())
+
+        for (s, i) in interfaces {}
+
+        Ok(typed_functions)
     }
 }

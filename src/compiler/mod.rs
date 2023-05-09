@@ -3,7 +3,8 @@ use crate::backend::{InitData, InitDataMap};
 // use crate::backend::{compile, Instruction, X86_64};
 use crate::error::HayError;
 use crate::lex::token::Loc;
-use crate::types::{Type, TypeId};
+use crate::types::{FunctionType, Substitutions, Type, TypeId};
+use std::collections::{BTreeMap, HashSet};
 use std::io::{self, Write};
 use std::path::Path;
 use std::process::{Command, Output};
@@ -15,7 +16,8 @@ pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
 
     let (global_vars, functions, types, interfaces, interface_fn_table) =
         Stmt::build_types_and_data(stmts)?;
-    FunctionDescription::type_check_all(
+
+    let typed_functions = FunctionDescription::type_check_all(
         &global_vars,
         &functions,
         &types,
@@ -23,9 +25,35 @@ pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
         &interface_fn_table,
     )?;
 
-    if let Some(func) = functions.get("main") {
-        let mut todo = vec![func];
+    if let Some((exprs, token)) = typed_functions.get("main") {
+        let mut todo = vec![((exprs, token), Substitutions::empty())];
         let mut init_data = InitDataMap::new();
+
+        let mut fn_instructions = BTreeMap::new();
+        while let Some(((exprs, token), subs)) = todo.pop() {
+            let fn_name = FunctionType::name(&token.lexeme, &subs);
+            if fn_instructions.get(&fn_name).is_some() {
+                continue;
+            }
+
+            println!("Turning {fn_name} into instructions");
+
+            let mut exprs = (*exprs).clone();
+            exprs.substitute(token, &subs)?;
+            let (instrs, calls) = exprs.into_instructions(&mut init_data);
+
+            assert!(fn_instructions.insert(fn_name, instrs).is_none());
+
+            let calls = calls
+                .into_iter()
+                .map(|(func, subs)| {
+                    let (expr, tok) = typed_functions.get(&func).unwrap();
+                    ((expr, tok), subs)
+                })
+                .collect::<Vec<_>>();
+
+            todo.extend(calls);
+        }
 
         todo!();
     }

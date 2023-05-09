@@ -4,6 +4,7 @@ use crate::{
     types::Substitutions,
 };
 
+#[derive(Debug, Clone)]
 pub struct TypedOperatorExpr {
     pub op: Operator,
 }

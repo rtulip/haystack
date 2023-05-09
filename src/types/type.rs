@@ -424,7 +424,6 @@ impl Type {
         other: &Type,
         subs: &mut Substitutions,
     ) -> Result<(), HayError> {
-        println!("    {token}: {self} {other}");
         match (self, other) {
             (Type::TypeVar(this), Type::TypeVar(var)) if this == var => (),
             (t, Type::TypeVar(var)) | (Type::TypeVar(var), t) => match subs.get(&var) {
@@ -502,6 +501,20 @@ impl Type {
             Type::Pointer(pointer) => pointer.cast(token, stack),
             Type::Variant(variant) => variant.cast(token, stack),
             _ => todo!("{self}"),
+        }
+    }
+
+    pub fn is_generic(&self) -> bool {
+        match self {
+            Type::Base(_) => false,
+            Type::Function(_) => todo!(),
+            Type::Interface(_) => todo!(),
+            Type::Pointer(pointer) => pointer.inner.is_generic(),
+            Type::PreDeclaration(_) => todo!(),
+            Type::Record(record) => record.members.iter().any(|member| member.typ.is_generic()),
+            Type::TypeVar(_) => true,
+            Type::Variant(variant) => variant.typ.is_generic(),
+            
         }
     }
 }

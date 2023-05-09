@@ -10,7 +10,7 @@ use crate::{
     backend::Instruction,
     error::HayError,
     lex::token::Token,
-    types::{Frame, FreeVars, Stack, Substitutions},
+    types::{Frame, FreeVars, FunctionType, Stack, Substitutions},
 };
 
 #[derive(Debug, Clone)]
@@ -55,10 +55,16 @@ impl IdentExpr {
                 &self.ident.lexeme,
             )?;
 
-            return Ok(TypedExpr::Call(TypedCallExpr {
-                func: self.ident.lexeme.clone(),
-                subs,
-            }));
+            let (func, subs) = if (&subs).into_iter().any(|(_, t)| t.is_generic()) {
+                todo!()
+            } else {
+                (
+                    FunctionType::name(&self.ident.lexeme, &subs),
+                    Substitutions::empty(),
+                )
+            };
+
+            return Ok(TypedExpr::Call(TypedCallExpr { func, subs }));
         }
 
         if let Some(func) = functions.get(&self.ident.lexeme) {

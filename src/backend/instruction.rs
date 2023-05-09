@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::lex::token::Operator;
+use crate::lex::token::{Literal, Operator};
 
 #[derive(Debug, Clone)]
 pub enum InitData {
@@ -91,5 +91,24 @@ impl Instruction {
             i += 1;
         }
         new_s
+    }
+
+    pub fn from_literal(literal: &Literal, init_data: &mut InitDataMap) -> Instruction {
+        match literal {
+            Literal::Bool(b) => Instruction::PushU64(*b as u64),
+            Literal::Char(c) => Instruction::PushU64(*c as u64),
+            Literal::U64(n) => Instruction::PushU64(*n),
+            Literal::U8(n) => Instruction::PushU64(*n as u64),
+            Literal::String(s) => {
+                let n = init_data.len();
+                let id = format!("str_{n}");
+
+                assert!(init_data
+                    .insert(id.clone(), InitData::String(s.clone()))
+                    .is_none());
+
+                Instruction::PushGlobal { id }
+            }
+        }
     }
 }

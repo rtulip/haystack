@@ -147,6 +147,10 @@ impl InterfaceDescription {
 
         todo!()
     }
+
+    pub fn type_check(&self) -> Result<(), HayError> {
+        todo!()
+    }
 }
 
 impl InterfaceImpl {

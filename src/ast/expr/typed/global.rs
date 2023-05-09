@@ -1,5 +1,6 @@
 use crate::{error::HayError, lex::token::Token, types::Substitutions};
 
+#[derive(Debug, Clone)]
 pub struct TypedGlobalExpr {
     pub ident: String,
 }

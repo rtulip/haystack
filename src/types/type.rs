@@ -55,7 +55,14 @@ impl Type {
             Type::Base(base) if base != &BaseType::Never => Ok(1),
             Type::Pointer(_) => Ok(1),
             Type::Record(RecordType { kind: RecordKind::Union, members, .. }) => todo!(),
-            Type::Record(RecordType { kind: RecordKind::EnumStruct, members, .. }) => todo!(),
+            Type::Record(RecordType { kind: RecordKind::EnumStruct, members, .. }) => {
+                let mut sizes = vec![];
+                for m in members {
+                    sizes.push(m.typ.size(token)?);
+                }
+
+                Ok(sizes.iter().max().unwrap_or(&0) + 1)
+            },
             Type::Record(RecordType { kind: RecordKind::Enum, members, .. }) => todo!(),
             Type::Record(RecordType { kind: RecordKind::Struct | RecordKind::Tuple, members, .. }) => {
                 let mut sum = 0;
@@ -74,7 +81,8 @@ impl Type {
     pub fn size_unchecked(&self) -> usize {
 
         let token = Token::default();
-        self.size(&token).expect("Internal error unsized type...")
+        // TODO: DON'T DO THIS unwrap...
+        self.size(&token).unwrap_or(1)
 
     }
 
@@ -186,7 +194,7 @@ impl Type {
                     return Ok(Type::PreDeclaration(TypeId::new(&predecl.name)));
                 }
 
-                todo!("{token}: {typ} {free_vars:?}")
+                return Err(HayError::new(format!("Unknown Base Type: {base}. Free Types: {free_vars:?}"), token.loc.clone()))
             }
             TypeToken::Parameterized { base, inner } => {
                 let (base_typ, ordered_free_vars);

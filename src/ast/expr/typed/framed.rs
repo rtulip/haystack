@@ -30,19 +30,15 @@ impl TypedGetFrameExpr {
         let mut typ = &self.frame[self.idx].1;
         let bytes = if let Some(inner) = &self.inner {
             if inner.is_empty() {
-                todo!()
-                // match types.get(typ).unwrap() {
-                //     Type::Record {
-                //         kind: RecordKind::EnumStruct,
-                //         ..
-                //     } => {
-                //         offset += typ.size(types).unwrap() - 1;
-                //         1
-                //     }
-                //     _ => unreachable!(
-                //         "Internal Error: framed inner should only be empty on Enum Struct types"
-                //     ),
-                // }
+                match typ {
+                    Type::Record(record) if record.kind == RecordKind::EnumStruct => {
+                        offset += typ.size_unchecked() - 1;
+                        1
+                    }
+                    _ => unreachable!(
+                        "Internal Error: framed inner should only be empty on Enum Struct types"
+                    ),
+                }
             } else {
                 for inner in inner {
                     typ = match typ {

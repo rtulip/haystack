@@ -144,7 +144,7 @@ impl FunctionDescription {
             todo!("{}", self.name)
         }
 
-        let subs = FunctionType::new(self.typ.output.clone(), stack.clone())
+        let subs = FunctionType::new(stack.clone(), self.typ.output.clone())
             .unify(&self.name, &mut stack)?;
 
         if !subs.is_empty() {

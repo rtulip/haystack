@@ -161,7 +161,6 @@ impl InterfaceDescription {
         for (idx, iface_impl) in self.impls.iter().enumerate() {
             let f = iface_impl.functions.get(func).unwrap();
             let stack_before = stack.clone();
-
             match f.typ.unify(token, stack) {
                 Ok(subs) => {
                     match iface_impl.check_requirements(
@@ -240,10 +239,39 @@ impl InterfaceImpl {
 
                 for iface_typ in &interface_types {
                     if let Some(iface) = interfaces.get(&iface_typ.iface) {
-                        for iface_impl in &iface.impls {
-                            if &iface_impl.subs == subs {
-                                return Ok(Some(iface_impl));
+                        for (n, iface_impl) in iface.impls.iter().enumerate() {
+                            let mut temp_iterfaces = interfaces.clone();
+                            if let Some(mut tmp) = temp_iterfaces.remove(&iface_typ.iface) {
+                                tmp.impls = tmp
+                                    .impls
+                                    .into_iter()
+                                    .enumerate()
+                                    .filter(|(i, _)| i != &n)
+                                    .map(|(_, x)| x)
+                                    .collect();
+
+                                temp_iterfaces.insert(iface_typ.iface.clone(), tmp);
                             }
+
+                            match iface_impl.check_requirements(
+                                token,
+                                user_defined_types,
+                                free_vars,
+                                &temp_iterfaces,
+                                subs,
+                            ) {
+                                Ok(Some(_)) => {
+                                    return Ok(Some(iface_impl));
+                                }
+                                Ok(None) => {
+                                    if &iface_impl.subs == subs {
+                                        return Ok(Some(iface_impl));
+                                    }
+                                }
+                                Err(_) => {
+                                    continue;
+                                }
+                            };
                         }
 
                         return Err(HayError::new("Requirements not met...", token.loc.clone()));

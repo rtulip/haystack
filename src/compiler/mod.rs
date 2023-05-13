@@ -17,7 +17,7 @@ pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
     let (global_vars, functions, user_defined_types, mut interfaces, interface_fn_table) =
         Stmt::build_types_and_data(stmts)?;
 
-    let typed_functions = FunctionDescription::type_check_all(
+    let mut typed_functions = FunctionDescription::type_check_all(
         &global_vars,
         &functions,
         &user_defined_types,
@@ -25,27 +25,35 @@ pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
         &interface_fn_table,
     )?;
 
-    if let Some((exprs, token)) = typed_functions.get("main") {
+    if let Some((exprs, token)) = typed_functions.get("main").cloned() {
         let mut todo = vec![((exprs, token), Substitutions::empty())];
         let mut init_data = InitDataMap::new();
 
         let mut fn_instructions = BTreeMap::new();
-        while let Some(((exprs, token), subs)) = todo.pop() {
+        while let Some(((mut exprs, token), subs)) = todo.pop() {
             let fn_name = FunctionType::name(&token.lexeme, &subs);
+            println!("{token}: {fn_name}");
+
             if fn_instructions.get(&fn_name).is_some() {
                 continue;
             }
 
-            let mut exprs = (*exprs).clone();
-            exprs.substitute(token, &subs)?;
+            exprs.substitute(&token, &subs)?;
             let (instrs, calls) = exprs.into_instructions(&mut init_data);
+
+            dbg!(&calls);
 
             assert!(fn_instructions.insert(fn_name, instrs).is_none());
 
             let calls = calls
                 .into_iter()
                 .map(|call| {
-                    if let Some((expr, tok)) = typed_functions.get(&call.func) {
+                    if let Some((expr, tok)) = typed_functions.get(&call.func).cloned() {
+                        ((expr, tok), call.subs)
+                    } else if let Some((expr, tok)) = typed_functions
+                        .get(&FunctionType::name(&call.func, &call.subs))
+                        .cloned()
+                    {
                         ((expr, tok), call.subs)
                     } else if let Some(interface_id) = interface_fn_table.get(&call.func) {
                         assert!((&call.subs).into_iter().all(|(_, t)| !t.is_generic()));
@@ -54,17 +62,17 @@ pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
                         if let Some(idx) = call.impl_id {
                             if let Some(iface_impl) = interface.impls.get(idx) {
                                 let id = FunctionType::name(&call.func, &iface_impl.subs);
-
                                 if let Some((mut expr, tok)) = typed_functions.get(&id).cloned() {
-                                    expr.substitute(&tok, &subs).unwrap();
+                                    expr.substitute(&tok, &call.subs).unwrap();
                                     let new_id = FunctionType::name(&call.func, &call.subs);
-                                    println!("{tok}");
-                                    dbg!(&expr);
-                                    todo!()
+                                    println!("{new_id}");
+                                    assert!(typed_functions
+                                        .insert(new_id, (expr.clone(), tok.clone()))
+                                        .is_none());
+                                    ((expr, tok), call.subs)
                                 } else {
                                     todo!()
                                 }
-                                todo!("{id}");
                             } else {
                                 todo!()
                             }

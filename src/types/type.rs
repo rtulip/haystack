@@ -212,6 +212,7 @@ impl Type {
                     )?);
                 }
 
+
                 let subs = Substitutions::new(&token, ordered_free_vars, mapped_types)?;
                 let typ = base_typ.substitute(&token, &subs)?;
 
@@ -466,7 +467,7 @@ impl Type {
                     t.typ.unify(token, &o.typ, subs)?;
                 }
             }
-            (a, b) if a == b => (),
+            
             (Type::Record(RecordType { ident: Some(ident),.. }), Type::PreDeclaration(predecl)) 
                 | (Type::PreDeclaration(predecl), Type::Record(RecordType { ident: Some(ident),.. })) if ident == predecl => (),
             (Type::Interface(this), Type::Interface(that)) if &this.iface == &that.iface => {
@@ -475,6 +476,7 @@ impl Type {
                 }
 
             },
+            (a, b) if a == b => (),
             (a, b) => {
                 return Err(HayError::new(
                     format!("Cannot unify {a} and {b}"),
@@ -515,6 +517,7 @@ impl Type {
         if let Type::Interface(InterfaceType { iface, .. }) = self {
             
             if let Some(iface_desc) = interfaces.get(iface) {
+                                
                 let mut subs = Substitutions::empty();
                 self.unify(token, &iface_desc.typ, &mut subs)?;
                 Ok((iface.clone(), subs))

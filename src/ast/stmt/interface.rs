@@ -185,7 +185,7 @@ impl InterfaceDescription {
             }
         }
 
-        todo!()
+        todo!("{}: {token}", self.token)
     }
 
     pub fn type_check(

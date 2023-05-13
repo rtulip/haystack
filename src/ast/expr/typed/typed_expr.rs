@@ -52,7 +52,7 @@ impl TypedExpr {
             TypedExpr::Global(global) => global.substitute(token, subs),
             TypedExpr::Never => Ok(()),
             TypedExpr::Return => todo!(),
-            TypedExpr::SizeOf(_) => todo!(),
+            TypedExpr::SizeOf(size_of) => size_of.substitute(token, subs),
             TypedExpr::Syscall(_) => todo!(),
         }
     }

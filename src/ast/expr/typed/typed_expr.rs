@@ -51,7 +51,7 @@ impl TypedExpr {
             TypedExpr::AddrFramed(addr) => addr.substitute(token, subs),
             TypedExpr::Global(global) => global.substitute(token, subs),
             TypedExpr::Never => Ok(()),
-            TypedExpr::Return => todo!(),
+            TypedExpr::Return => Ok(()),
             TypedExpr::SizeOf(size_of) => size_of.substitute(token, subs),
             TypedExpr::Syscall(_) => Ok(()),
         }
@@ -60,7 +60,7 @@ impl TypedExpr {
     pub fn into_instructions(
         &self,
         init_data: &mut InitDataMap,
-    ) -> (Vec<Instruction>, Vec<(TypedCallExpr)>) {
+    ) -> (Vec<Instruction>, Vec<TypedCallExpr>) {
         match self {
             TypedExpr::Block(block) => block.into_instructions(init_data),
             TypedExpr::Literal(literal) => literal.into_instructions(init_data),
@@ -71,13 +71,13 @@ impl TypedExpr {
             TypedExpr::If(_) => todo!(),
             TypedExpr::Read(_) => todo!(),
             TypedExpr::Write(_) => todo!(),
-            TypedExpr::As(_) => todo!(),
+            TypedExpr::As(as_expr) => as_expr.into_instructions(),
             TypedExpr::While(_) => todo!(),
             TypedExpr::Cast => todo!(),
             TypedExpr::AddrFramed(_) => todo!(),
             TypedExpr::Global(_) => todo!(),
             TypedExpr::Never => todo!(),
-            TypedExpr::Return => todo!(),
+            TypedExpr::Return => (vec![Instruction::Return], vec![]),
             TypedExpr::SizeOf(_) => todo!(),
             TypedExpr::Syscall(syscall) => syscall.into_instructions(),
         }

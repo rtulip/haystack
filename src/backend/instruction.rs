@@ -94,12 +94,12 @@ impl Instruction {
         new_s
     }
 
-    pub fn from_literal(literal: &Literal, init_data: &mut InitDataMap) -> Instruction {
+    pub fn from_literal(literal: &Literal, init_data: &mut InitDataMap) -> Vec<Instruction> {
         match literal {
-            Literal::Bool(b) => Instruction::PushU64(*b as u64),
-            Literal::Char(c) => Instruction::PushU64(*c as u64),
-            Literal::U64(n) => Instruction::PushU64(*n),
-            Literal::U8(n) => Instruction::PushU64(*n as u64),
+            Literal::Bool(b) => vec![Instruction::PushU64(*b as u64)],
+            Literal::Char(c) => vec![Instruction::PushU64(*c as u64)],
+            Literal::U64(n) => vec![Instruction::PushU64(*n)],
+            Literal::U8(n) => vec![Instruction::PushU64(*n as u64)],
             Literal::String(s) => {
                 let n = init_data.len();
                 let id = format!("str_{n}");
@@ -108,8 +108,25 @@ impl Instruction {
                     .insert(id.clone(), InitData::String(s.clone()))
                     .is_none());
 
-                Instruction::PushGlobal { id }
+                vec![
+                    Instruction::PushU64(s.len() as u64),
+                    Instruction::PushGlobal { id },
+                ]
             }
         }
+    }
+
+    pub fn count_framed_bytes(instrs: &[Instruction]) -> usize {
+        let mut framed_bytes = 0;
+        for i in instrs {
+            match i {
+                Instruction::PushToFrame { quad_words } => framed_bytes += quad_words * 8,
+                Instruction::FramePtrToFrameReserve { .. } => framed_bytes += 8,
+                Instruction::EndBlock { bytes_to_free } => framed_bytes -= bytes_to_free,
+                _ => (),
+            }
+        }
+
+        framed_bytes
     }
 }

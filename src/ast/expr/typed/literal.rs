@@ -21,9 +21,6 @@ impl TypedLiteralExpr {
         &self,
         init_data: &mut InitDataMap,
     ) -> (Vec<Instruction>, Vec<TypedCallExpr>) {
-        (
-            vec![Instruction::from_literal(&self.value, init_data)],
-            vec![],
-        )
+        (Instruction::from_literal(&self.value, init_data), vec![])
     }
 }

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     ast::{
         arg::{TypedArg, UntypedArg},
-        expr::{Expr, TypedExpr},
+        expr::{Expr, TypedAsExpr, TypedBlockExpr, TypedExpr},
     },
     error::HayError,
     lex::token::Token,
@@ -107,6 +107,12 @@ impl FunctionDescription {
         interface_fn_table: &InterfaceFunctionTable,
     ) -> Result<(TypedExpr, Token), HayError> {
         let (mut stack, mut frame) = self.start_state.clone();
+
+        let mut wrapped_exprs = vec![];
+        wrapped_exprs.push(TypedExpr::As(TypedAsExpr {
+            typs: frame.clone().into_iter().map(|(_, t)| t).collect(),
+        }));
+
         let mut typed_expr = self
             .body
             .as_ref()
@@ -145,7 +151,19 @@ impl FunctionDescription {
             typed_expr.substitute(&self.name, &subs)?;
         }
 
-        Ok((typed_expr, self.name.clone()))
+        wrapped_exprs.push(typed_expr);
+
+        Ok((
+            TypedExpr::Block(TypedBlockExpr {
+                exprs: vec![
+                    TypedExpr::Block(TypedBlockExpr {
+                        exprs: wrapped_exprs,
+                    }),
+                    TypedExpr::Return,
+                ],
+            }),
+            self.name.clone(),
+        ))
     }
 
     pub fn type_check_all(

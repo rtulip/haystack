@@ -25,7 +25,7 @@ impl TypedBlockExpr {
         &self,
         init_data: &mut InitDataMap,
     ) -> (Vec<Instruction>, Vec<TypedCallExpr>) {
-        let mut instrs = vec![];
+        let mut instrs = vec![Instruction::StartBlock];
         let mut calls = vec![];
         for e in &self.exprs {
             let (temp_instrs, temp_calls) = e.into_instructions(init_data);
@@ -33,6 +33,8 @@ impl TypedBlockExpr {
             calls.extend(temp_calls);
         }
 
+        let bytes_to_free = Instruction::count_framed_bytes(&instrs);
+        instrs.push(Instruction::EndBlock { bytes_to_free });
         (instrs, calls)
     }
 }

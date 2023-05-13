@@ -114,6 +114,7 @@ impl TypedArg {
             let stack = vec![];
             let frame = args
                 .iter()
+                .rev()
                 .map(|arg| (arg.ident.clone().unwrap().lexeme, arg.typ.clone()))
                 .collect();
             (stack, frame)

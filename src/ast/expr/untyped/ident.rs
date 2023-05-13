@@ -56,10 +56,10 @@ impl IdentExpr {
                 interfaces,
                 &self.ident.lexeme,
             )?;
-            println!("       ----- {subs:?}");
+            println!("        ----- {subs:?}");
 
             let (func, subs) = if (&subs).into_iter().any(|(_, t)| t.is_generic()) {
-                todo!()
+                (self.ident.lexeme.clone(), subs)
             } else {
                 (
                     FunctionType::name(&self.ident.lexeme, &subs),

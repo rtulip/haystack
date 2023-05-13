@@ -166,15 +166,19 @@ impl InterfaceDescription {
 
             match f.typ.unify(token, stack) {
                 Ok(subs) => {
-                    iface_impl.check_requirements(
+                    match iface_impl.check_requirements(
                         token,
                         user_defined_types,
                         iface_impl.free_vars.as_ref(),
                         interfaces,
                         &subs,
-                    )?;
-
-                    return Ok(subs);
+                    ) {
+                        Ok(_) => return Ok(subs),
+                        Err(_) => {
+                            *stack = stack_before;
+                            continue;
+                        }
+                    }
                 }
                 Err(_) => {
                     *stack = stack_before;

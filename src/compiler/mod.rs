@@ -1,6 +1,6 @@
 use crate::ast::stmt::{FunctionDescription, Stmt};
+use crate::backend::{compile, Instruction, UninitDataMap, X86_64};
 use crate::backend::{InitData, InitDataMap};
-// use crate::backend::{compile, Instruction, X86_64};
 use crate::error::HayError;
 use crate::lex::token::{Loc, Token};
 use crate::types::{FunctionType, Substitutions, Type, TypeId};
@@ -25,9 +25,12 @@ pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
         &interface_fn_table,
     )?;
 
-    if let Some((exprs, token)) = typed_functions.get("main").cloned() {
+    let (fn_instructions, init_data, uninit_data) = if let Some((exprs, token)) =
+        typed_functions.get("main").cloned()
+    {
         let mut todo = vec![((exprs, token), Substitutions::empty())];
         let mut init_data = InitDataMap::new();
+        let mut uninit_data = UninitDataMap::new();
 
         let mut fn_instructions = BTreeMap::new();
         while let Some(((mut exprs, token), subs)) = todo.pop() {
@@ -83,50 +86,50 @@ pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
 
             todo.extend(calls);
         }
-        dbg!(&fn_instructions);
+
+        (fn_instructions, init_data, uninit_data)
+    } else {
+        return Ok(());
+    };
+
+    let path = Path::new(&input_path);
+    compile::<X86_64>(
+        path.with_extension("asm").to_str().unwrap(),
+        &fn_instructions.into_iter().collect::<Vec<_>>(),
+        &init_data,
+        &uninit_data,
+    )
+    .unwrap();
+
+    // assembler
+    run_command(
+        "nasm",
+        vec!["-felf64", path.with_extension("asm").to_str().unwrap()],
+        &input_path,
+        false,
+    )?;
+
+    // linker
+    run_command(
+        "ld",
+        vec![
+            "-o",
+            path.file_stem().unwrap().to_str().unwrap(),
+            path.with_extension("o").to_str().unwrap(),
+        ],
+        &input_path,
+        false,
+    )?;
+
+    if run {
+        // run the exe
+        run_command(
+            format!("./{}", &path.file_stem().unwrap().to_str().unwrap()).as_str(),
+            vec![],
+            &input_path,
+            true,
+        )?;
     }
-
-    // let fn_instructions = Instruction::from_type_map(&types, &mut init_data);
-    // check_for_entry_point(&types, &input_path)?;
-
-    // let path = Path::new(&input_path);
-    // compile::<X86_64>(
-    //     path.with_extension("asm").to_str().unwrap(),
-    //     &fn_instructions,
-    //     &init_data,
-    //     &uninit_data,
-    // )
-    // .unwrap();
-
-    // // assembler
-    // run_command(
-    //     "nasm",
-    //     vec!["-felf64", path.with_extension("asm").to_str().unwrap()],
-    //     &input_path,
-    //     false,
-    // )?;
-
-    // // linker
-    // run_command(
-    //     "ld",
-    //     vec![
-    //         "-o",
-    //         path.file_stem().unwrap().to_str().unwrap(),
-    //         path.with_extension("o").to_str().unwrap(),
-    //     ],
-    //     &input_path,
-    //     false,
-    // )?;
-
-    // if run {
-    //     // run the exe
-    //     run_command(
-    //         format!("./{}", &path.file_stem().unwrap().to_str().unwrap()).as_str(),
-    //         vec![],
-    //         &input_path,
-    //         true,
-    //     )?;
-    // }
     Ok(())
 }
 

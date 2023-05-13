@@ -41,7 +41,7 @@ pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
             }
 
             exprs.substitute(&token, &subs)?;
-            let (instrs, calls) = exprs.into_instructions(&mut init_data);
+            let (instrs, calls) = exprs.into_instructions(&mut init_data, &mut 0);
             assert!(fn_instructions.insert(fn_name, instrs).is_none());
 
             let calls = calls

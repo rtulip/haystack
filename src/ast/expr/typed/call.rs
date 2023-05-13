@@ -21,10 +21,7 @@ impl TypedCallExpr {
         Ok(())
     }
 
-    pub fn into_instructions(
-        &self,
-        init_data: &mut InitDataMap,
-    ) -> (Vec<Instruction>, Vec<TypedCallExpr>) {
+    pub fn into_instructions(&self) -> (Vec<Instruction>, Vec<TypedCallExpr>) {
         let id = FunctionType::name(&self.func, &self.subs);
         (vec![Instruction::Call(id)], vec![self.clone()])
     }

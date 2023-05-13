@@ -52,6 +52,10 @@ impl Substitutions {
             }
         }
     }
+
+    pub fn extend(&mut self, other: Substitutions) {
+        self.0.extend(other.0.into_iter())
+    }
 }
 
 impl<'a> IntoIterator for &'a Substitutions {

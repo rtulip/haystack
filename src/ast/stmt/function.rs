@@ -144,9 +144,14 @@ impl FunctionDescription {
             todo!("{}", self.name)
         }
 
-        let subs = FunctionType::new(stack.clone(), self.typ.output.clone())
-            .unify(&self.name, &mut stack)?;
+        if !self.typ.output.contains(&Type::never()) && stack.len() != self.typ.output.len() {
+            todo!()
+        }
 
+        let mut subs = Substitutions::empty();
+        for (t, o) in stack.iter().zip(&self.typ.output) {
+            o.unify(&self.name, t, &mut subs)?;
+        }
         if !subs.is_empty() {
             typed_expr.substitute(&self.name, &subs)?;
         }

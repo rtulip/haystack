@@ -64,12 +64,12 @@ impl IdentExpr {
 
         if let Some(func) = functions.get(&self.ident.lexeme) {
             let subs = func.typ.unify(&self.ident, stack)?;
-
             stack
                 .iter_mut()
                 .rev()
                 .take(func.typ.output.len())
                 .for_each(|t| *t = t.clone().substitute(&self.ident, &subs).unwrap());
+
             return Ok(TypedExpr::Call(TypedCallExpr {
                 func: self.ident.lexeme.clone(),
                 subs,

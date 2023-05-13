@@ -1,7 +1,10 @@
 use std::fmt::Display;
 
 use crate::{
-    ast::{expr::TypedExpr, visibility::Visibility},
+    ast::{
+        expr::{TypedCastExpr, TypedExpr},
+        visibility::Visibility,
+    },
     error::HayError,
     lex::token::Token,
 };
@@ -77,7 +80,9 @@ impl RecordType {
                     .rev()
                     .take(f.output.len())
                     .for_each(|t| *t = t.clone().substitute(token, &subs).unwrap());
-                Ok(TypedExpr::Cast)
+                Ok(TypedExpr::Cast(TypedCastExpr {
+                    typ: Type::Record(self.clone()),
+                }))
             }
             _ => todo!("{:?}", self.kind),
         }
@@ -92,17 +97,15 @@ impl RecordType {
         assert!(self.kind == RecordKind::EnumStruct);
 
         if let Some(member) = self.members.iter().find(|member| &member.ident == variant) {
-            let f = FunctionType::new(
-                vec![member.typ.clone()],
-                vec![Type::Variant(VariantType {
-                    variant: variant.clone(),
-                    typ: Box::new(Type::Record(self.clone())),
-                })],
-            );
+            let variant = Type::Variant(VariantType {
+                variant: variant.clone(),
+                typ: Box::new(Type::Record(self.clone())),
+            });
+            let f = FunctionType::new(vec![member.typ.clone()], vec![variant.clone()]);
 
             f.unify(token, stack)?;
 
-            Ok(TypedExpr::Cast)
+            Ok(TypedExpr::Cast(TypedCastExpr { typ: variant }))
         } else {
             todo!()
         }

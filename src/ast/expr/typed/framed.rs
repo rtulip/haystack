@@ -60,6 +60,17 @@ impl TypedGetFrameExpr {
 
                             &members[idx].typ
                         }
+                        Type::Record(RecordType {
+                            kind: RecordKind::EnumStruct,
+                            members,
+                            ..
+                        }) => {
+                            let idx = inner
+                                .parse::<usize>()
+                                .expect("Internal error - this should be a formatted usize");
+
+                            &members[idx].typ
+                        }
                         t => todo!("{t}"),
                     };
                 }

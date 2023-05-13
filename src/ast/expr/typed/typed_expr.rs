@@ -6,9 +6,9 @@ use crate::{
 };
 
 use super::{
-    TypedAsExpr, TypedBlockExpr, TypedCallExpr, TypedGetAddressOfFramedExpr, TypedGetFrameExpr,
-    TypedGlobalExpr, TypedIfExpr, TypedLiteralExpr, TypedOperatorExpr, TypedReadExpr,
-    TypedSizeOfExpr, TypedSyscallExpr, TypedVarExpr, TypedWhileExpr, TypedWriteExpr,
+    TypedAsExpr, TypedBlockExpr, TypedCallExpr, TypedCastExpr, TypedGetAddressOfFramedExpr,
+    TypedGetFrameExpr, TypedGlobalExpr, TypedIfExpr, TypedLiteralExpr, TypedOperatorExpr,
+    TypedReadExpr, TypedSizeOfExpr, TypedSyscallExpr, TypedVarExpr, TypedWhileExpr, TypedWriteExpr,
 };
 
 #[derive(Debug, Clone)]
@@ -24,7 +24,7 @@ pub enum TypedExpr {
     Write(TypedWriteExpr),
     As(TypedAsExpr),
     While(TypedWhileExpr),
-    Cast,
+    Cast(TypedCastExpr),
     AddrFramed(TypedGetAddressOfFramedExpr),
     Global(TypedGlobalExpr),
     Never,
@@ -47,7 +47,7 @@ impl TypedExpr {
             TypedExpr::Write(write) => write.substitute(token, subs),
             TypedExpr::As(as_expr) => as_expr.substitute(token, subs),
             TypedExpr::While(whlie_expr) => whlie_expr.substitute(token, subs),
-            TypedExpr::Cast => Ok(()),
+            TypedExpr::Cast(cast) => cast.substitute(token, subs),
             TypedExpr::AddrFramed(addr) => addr.substitute(token, subs),
             TypedExpr::Global(global) => global.substitute(token, subs),
             TypedExpr::Never => Ok(()),
@@ -60,23 +60,24 @@ impl TypedExpr {
     pub fn into_instructions(
         &self,
         init_data: &mut InitDataMap,
+        jump_count: &mut usize,
     ) -> (Vec<Instruction>, Vec<TypedCallExpr>) {
         match self {
-            TypedExpr::Block(block) => block.into_instructions(init_data),
+            TypedExpr::Block(block) => block.into_instructions(init_data, jump_count),
             TypedExpr::Literal(literal) => literal.into_instructions(init_data),
             TypedExpr::Var(_) => todo!(),
             TypedExpr::Framed(framed) => framed.into_instructions(),
             TypedExpr::Operator(op) => op.into_instructions(),
-            TypedExpr::Call(call) => call.into_instructions(init_data),
-            TypedExpr::If(_) => todo!(),
+            TypedExpr::Call(call) => call.into_instructions(),
+            TypedExpr::If(if_expr) => if_expr.into_instructions(init_data, jump_count),
             TypedExpr::Read(_) => todo!(),
             TypedExpr::Write(_) => todo!(),
             TypedExpr::As(as_expr) => as_expr.into_instructions(),
             TypedExpr::While(_) => todo!(),
-            TypedExpr::Cast => todo!(),
+            TypedExpr::Cast(cast) => cast.into_instructions(),
             TypedExpr::AddrFramed(_) => todo!(),
             TypedExpr::Global(_) => todo!(),
-            TypedExpr::Never => todo!(),
+            TypedExpr::Never => (vec![], vec![]),
             TypedExpr::Return => (vec![Instruction::Return], vec![]),
             TypedExpr::SizeOf(_) => todo!(),
             TypedExpr::Syscall(syscall) => syscall.into_instructions(),

@@ -341,7 +341,9 @@ impl Type {
                 }
             }
             Type::PreDeclaration(_) => Ok(self),
-            Type::Variant(_) => todo!(),
+            Type::Variant(variant) => {
+                Ok(Type::Variant(VariantType { variant: variant.variant, typ: Box::new(variant.typ.substitute(token, subs)?) }))
+            },
         }
     }
 
@@ -482,7 +484,31 @@ impl Type {
                     t.typ.unify(token, &o.typ, subs)?;
                 }
             }
-            
+            (
+                Type::Record(RecordType {
+                    kind: RecordKind::Struct | RecordKind::EnumStruct,
+                    ident: Some(ident),
+                    members,
+                    ..
+                }),
+                Type::Record(RecordType {
+                    kind: RecordKind::Struct | RecordKind::EnumStruct,
+                    ident: Some(other_ident),
+                    members: other_members,
+                    ..
+                })| Type::Variant(VariantType { typ: box Type::Record(RecordType {
+                    kind: RecordKind::Struct | RecordKind::EnumStruct,
+                    ident: Some(other_ident),
+                    members: other_members,
+                    ..
+                    }), 
+                    .. 
+                }),
+            ) if ident == other_ident => {
+                for (t, o) in members.iter().zip(other_members.iter()) {
+                    t.typ.unify(token, &o.typ, subs)?;
+                }
+            }
             (Type::Record(RecordType { ident: Some(ident),.. }), Type::PreDeclaration(predecl)) 
                 | (Type::PreDeclaration(predecl), Type::Record(RecordType { ident: Some(ident),.. })) if ident == predecl => (),
             (Type::Interface(this), Type::Interface(that)) if &this.iface == &that.iface => {
@@ -491,6 +517,12 @@ impl Type {
                 }
 
             },
+            (Type::Variant(this), Type::Variant(that)) if &this.variant == &that.variant => {
+                
+                this.typ.unify(token, &that.typ, subs)?;
+
+            }
+
             (a, b) if a == b => (),
             (a, b) => {
                 return Err(HayError::new(

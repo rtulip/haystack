@@ -24,11 +24,12 @@ impl TypedBlockExpr {
     pub fn into_instructions(
         &self,
         init_data: &mut InitDataMap,
+        jump_count: &mut usize,
     ) -> (Vec<Instruction>, Vec<TypedCallExpr>) {
         let mut instrs = vec![Instruction::StartBlock];
         let mut calls = vec![];
         for e in &self.exprs {
-            let (temp_instrs, temp_calls) = e.into_instructions(init_data);
+            let (temp_instrs, temp_calls) = e.into_instructions(init_data, jump_count);
             instrs.extend(temp_instrs);
             calls.extend(temp_calls);
         }

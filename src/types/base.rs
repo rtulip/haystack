@@ -1,4 +1,8 @@
-use crate::{ast::expr::TypedExpr, error::HayError, lex::token::Token};
+use crate::{
+    ast::expr::{TypedCastExpr, TypedExpr},
+    error::HayError,
+    lex::token::Token,
+};
 use std::{convert::TryFrom, fmt::Display};
 
 use super::{FunctionType, PointerType, Stack, Type, TypeVar};
@@ -29,7 +33,7 @@ impl BaseType {
         ];
 
         FunctionType::unify_many(&fns, token, stack)?;
-        Ok(TypedExpr::Cast)
+        Ok(TypedExpr::Cast(TypedCastExpr { typ: Type::u64() }))
     }
 
     fn cast_u8(token: &Token, stack: &mut Stack) -> Result<TypedExpr, HayError> {
@@ -41,7 +45,7 @@ impl BaseType {
         ];
 
         FunctionType::unify_many(&fns, token, stack)?;
-        Ok(TypedExpr::Cast)
+        Ok(TypedExpr::Cast(TypedCastExpr { typ: Type::u8() }))
     }
 
     fn cast_char(token: &Token, stack: &mut Stack) -> Result<TypedExpr, HayError> {
@@ -52,7 +56,7 @@ impl BaseType {
         ];
 
         FunctionType::unify_many(&fns, token, stack)?;
-        Ok(TypedExpr::Cast)
+        Ok(TypedExpr::Cast(TypedCastExpr { typ: Type::char() }))
     }
 
     pub fn cast(&self, token: &Token, stack: &mut Stack) -> Result<TypedExpr, HayError> {

@@ -46,6 +46,10 @@ impl FunctionType {
             s.unify(token, i, &mut subs)?;
         }
 
+        for (x, y) in self.output.iter().zip(self.output.iter()) {
+            x.unify(token, y, &mut subs)?;
+        }
+
         stack.extend(self.output.clone().into_iter());
         subs.apply(stack);
 

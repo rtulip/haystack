@@ -1,4 +1,8 @@
-use crate::{ast::expr::TypedExpr, error::HayError, lex::token::Token};
+use crate::{
+    ast::expr::{TypedCastExpr, TypedExpr},
+    error::HayError,
+    lex::token::Token,
+};
 
 use super::{FunctionType, Stack, Type};
 
@@ -12,6 +16,8 @@ impl PointerType {
     pub fn cast(&self, token: &Token, stack: &mut Stack) -> Result<TypedExpr, HayError> {
         FunctionType::new(vec![Type::u64()], vec![Type::Pointer(self.clone())])
             .unify(token, stack)?;
-        Ok(TypedExpr::Cast)
+        Ok(TypedExpr::Cast(TypedCastExpr {
+            typ: Type::Pointer(self.clone()),
+        }))
     }
 }

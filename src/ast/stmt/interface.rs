@@ -162,8 +162,6 @@ impl InterfaceDescription {
             let f = iface_impl.functions.get(func).unwrap();
             let stack_before = stack.clone();
 
-            println!("        {}", f.typ);
-
             match f.typ.unify(token, stack) {
                 Ok(subs) => {
                     match iface_impl.check_requirements(
@@ -202,14 +200,8 @@ impl InterfaceDescription {
             todo!()
         }
 
-        println!("{}: Type Checing `{}` Impls", self.token.loc, self.typ);
         let mut exprs = vec![];
         for iface_impl in &self.impls {
-            println!(
-                "  {}: Type Check `{}` where {:?}",
-                iface_impl.token.loc, self.token.lexeme, iface_impl.subs
-            );
-
             exprs.extend(iface_impl.type_check(
                 global_vars,
                 user_defined_types,
@@ -217,8 +209,6 @@ impl InterfaceDescription {
                 interfaces,
                 interface_fn_table,
             )?);
-
-            println!("-----------------------------------------------------");
         }
 
         Ok(exprs)
@@ -250,13 +240,7 @@ impl InterfaceImpl {
 
                 for iface_typ in &interface_types {
                     if let Some(iface) = interfaces.get(&iface_typ.iface) {
-                        println!(
-                            "      Checking Requirements for {} where {subs:?}",
-                            token.lexeme
-                        );
                         for iface_impl in &iface.impls {
-                            println!("        Looking for {:?}", iface_impl.subs);
-
                             if &iface_impl.subs == subs {
                                 return Ok(Some(iface_impl));
                             }
@@ -305,7 +289,6 @@ impl InterfaceImpl {
 
         for (s, f) in &self.functions {
             let id = FunctionType::name(&s, &self.subs);
-            println!("    Type checking {id}");
 
             impls.push((
                 id,

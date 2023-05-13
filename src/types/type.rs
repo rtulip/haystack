@@ -340,7 +340,7 @@ impl Type {
                 ..
             })
             | Type::Record(record)
-                if record.kind == RecordKind::Struct =>
+                if matches!(record.kind, RecordKind::Struct | RecordKind::Tuple)  =>
             {
                 if let Some(m) = record
                     .members

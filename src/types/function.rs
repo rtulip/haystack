@@ -32,7 +32,6 @@ impl FunctionType {
         }
 
         if stack.len() < self.input.len() {
-            println!("{token}: {stack:?} {self}");
             todo!()
         }
 

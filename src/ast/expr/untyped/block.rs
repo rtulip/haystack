@@ -38,7 +38,6 @@ impl BlockExpr {
     ) -> Result<TypedExpr, HayError> {
         let mut exprs = vec![];
         for e in &self.exprs {
-            println!("  {}: {stack:?}", e.token());
             exprs.push(e.type_check(
                 stack,
                 frame,

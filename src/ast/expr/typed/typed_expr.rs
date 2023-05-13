@@ -48,7 +48,7 @@ impl TypedExpr {
             TypedExpr::As(as_expr) => as_expr.substitute(token, subs),
             TypedExpr::While(whlie_expr) => whlie_expr.substitute(token, subs),
             TypedExpr::Cast => Ok(()),
-            TypedExpr::AddrFramed(_) => todo!(),
+            TypedExpr::AddrFramed(addr) => addr.substitute(token, subs),
             TypedExpr::Global(global) => global.substitute(token, subs),
             TypedExpr::Never => Ok(()),
             TypedExpr::Return => todo!(),

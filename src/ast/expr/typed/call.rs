@@ -26,7 +26,6 @@ impl TypedCallExpr {
         init_data: &mut InitDataMap,
     ) -> (Vec<Instruction>, Vec<TypedCallExpr>) {
         let id = FunctionType::name(&self.func, &self.subs);
-        println!("{id}: {:?}", self.subs);
         (vec![Instruction::Call(id)], vec![self.clone()])
     }
 }

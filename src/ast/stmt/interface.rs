@@ -289,7 +289,6 @@ impl InterfaceImpl {
 
         for (s, f) in &self.functions {
             let id = FunctionType::name(&s, &self.subs);
-            println!("{}: {id}", self.token);
             impls.push((
                 id,
                 f.type_check(

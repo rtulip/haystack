@@ -132,6 +132,23 @@ impl InterfaceDescription {
         Substitutions::new(token, self.ordered_free_vars.clone(), types)
     }
 
+    pub fn add_generic_impl(&mut self, token: &Token, subs: Substitutions) -> Result<(), HayError> {
+        let mut functions = self.functions.clone();
+        for (_, f) in &mut functions {
+            f.typ = f.typ.substitute(&token, &subs)?;
+        }
+
+        self.impls.push(InterfaceImpl {
+            token: self.token.clone(),
+            subs,
+            functions,
+            requires: None,
+            free_vars: None,
+        });
+
+        Ok(())
+    }
+
     pub fn unify(
         &self,
         token: &Token,
@@ -141,10 +158,11 @@ impl InterfaceDescription {
         interfaces: &Interfaces,
         func: &String,
     ) -> Result<Substitutions, HayError> {
-        println!("        {free_vars:?}");
         for iface_impl in &self.impls {
             let f = iface_impl.functions.get(func).unwrap();
             let stack_before = stack.clone();
+
+            println!("        {}", f.typ);
 
             match f.typ.unify(token, stack) {
                 Ok(subs) => {
@@ -275,6 +293,12 @@ impl InterfaceImpl {
             }
         }
 
+        for (id, subs) in interface_types.clone() {
+            if let Some(interface) = interfaces.get_mut(&id) {
+                interface.add_generic_impl(&self.token, subs)?;
+            }
+        }
+
         for (s, f) in &self.functions {
             let id = FunctionType::name(&s, &self.subs);
             println!("    Type checking {id}");
@@ -289,6 +313,12 @@ impl InterfaceImpl {
                     interface_fn_table,
                 )?,
             ));
+        }
+
+        for (id, _) in interface_types.clone() {
+            if let Some(interface) = interfaces.get_mut(&id) {
+                interface.impls.pop();
+            }
         }
 
         Ok(impls)

@@ -71,7 +71,12 @@ impl RecordType {
                     .collect();
                 let f = FunctionType::new(inputs, vec![Type::Record(self.clone())]);
 
-                f.unify(token, stack)?;
+                let subs = f.unify(token, stack)?;
+                stack
+                    .iter_mut()
+                    .rev()
+                    .take(f.output.len())
+                    .for_each(|t| *t = t.clone().substitute(token, &subs).unwrap());
                 Ok(TypedExpr::Cast)
             }
             _ => todo!("{:?}", self.kind),

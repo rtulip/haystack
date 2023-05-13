@@ -408,7 +408,7 @@ impl Type {
     ) -> Result<(), HayError> {
         match (self, other) {
             (Type::TypeVar(this), Type::TypeVar(var)) if this == var => (),
-            (t, Type::TypeVar(var)) | (Type::TypeVar(var), t) => match subs.get(&var) {
+            (t, Type::TypeVar(var))  => match subs.get(&var) {
                 Some(sub) if sub == t => (),
                 Some(sub) if matches!(sub, Type::TypeVar(_)) => {self.unify(token, &sub.clone(), subs)?;},
                 Some(_) => {

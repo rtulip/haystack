@@ -141,6 +141,7 @@ impl InterfaceDescription {
         interfaces: &Interfaces,
         func: &String,
     ) -> Result<Substitutions, HayError> {
+        println!("        {free_vars:?}");
         for iface_impl in &self.impls {
             let f = iface_impl.functions.get(func).unwrap();
             let stack_before = stack.clone();

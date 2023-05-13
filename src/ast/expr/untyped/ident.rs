@@ -45,6 +45,8 @@ impl IdentExpr {
         }
 
         if let Some(iface_id) = interface_fn_table.get(&self.ident.lexeme) {
+            println!("        -----");
+            println!("        {}", self.ident);
             let interface = interfaces.get(iface_id).expect("This sould be fine");
             let subs = interface.unify(
                 &self.ident,
@@ -54,6 +56,7 @@ impl IdentExpr {
                 interfaces,
                 &self.ident.lexeme,
             )?;
+            println!("       ----- {subs:?}");
 
             let (func, subs) = if (&subs).into_iter().any(|(_, t)| t.is_generic()) {
                 todo!()

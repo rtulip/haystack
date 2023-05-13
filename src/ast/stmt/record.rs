@@ -54,6 +54,11 @@ impl RecordStmt {
                 typ: m.typ,
             })
             .collect(),
+            ordered_free_vars: if let Some(vars) = &ordered_free_vars {
+                Some(vars.iter().map(|var| Type::TypeVar(var.clone())).collect())
+            } else {
+                None
+            },
         };
 
         if let Some(TypeDescription::Record(prev)) = user_defined_types.insert(

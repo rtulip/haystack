@@ -14,14 +14,14 @@ pub mod test_tools;
 pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
     let stmts = Stmt::from_file_with_prelude(&input_path)?;
 
-    let (global_vars, functions, types, interfaces, interface_fn_table) =
+    let (global_vars, functions, types, mut interfaces, interface_fn_table) =
         Stmt::build_types_and_data(stmts)?;
 
     let typed_functions = FunctionDescription::type_check_all(
         &global_vars,
         &functions,
         &types,
-        &interfaces,
+        &mut interfaces,
         &interface_fn_table,
     )?;
 
@@ -35,8 +35,6 @@ pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
             if fn_instructions.get(&fn_name).is_some() {
                 continue;
             }
-
-            println!("Turning {fn_name} into instructions");
 
             let mut exprs = (*exprs).clone();
             exprs.substitute(token, &subs)?;

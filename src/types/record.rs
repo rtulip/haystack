@@ -6,7 +6,7 @@ use crate::{
     lex::token::Token,
 };
 
-use super::{FunctionType, Stack, Type, TypeId, TypeVar, VariantType};
+use super::{FreeVars, FunctionType, Stack, Substitutions, Type, TypeId, TypeVar, VariantType};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RecordKind {
@@ -29,6 +29,7 @@ pub struct RecordType {
     pub kind: RecordKind,
     pub ident: Option<TypeId>,
     pub members: Vec<RecordMember>,
+    pub ordered_free_vars: Option<Vec<Type>>,
 }
 
 impl RecordType {
@@ -46,6 +47,7 @@ impl RecordType {
                     typ: t,
                 })
                 .collect(),
+            ordered_free_vars: None,
         }
     }
 

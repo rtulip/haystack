@@ -1,7 +1,7 @@
 use std::{collections::HashSet, ops::Sub};
 
 use crate::{
-    ast::{arg::UntypedArg, expr::TypedExpr},
+    ast::{arg::UntypedArg, expr::TypedExpr, stmt::FunctionDescription},
     error::HayError,
     lex::token::Token,
     types::{FreeVars, FunctionType, InterfaceType, Stack, Substitutions, Type, TypeId, TypeVar},
@@ -32,22 +32,25 @@ pub struct InterfaceStmt {
     pub requires: Option<Vec<Token>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InterfaceDescription {
     pub token: Token,
     pub ordered_free_vars: Vec<TypeVar>,
+    pub free_vars: FreeVars,
     pub associated_types: HashSet<TypeVar>,
     pub functions: Functions,
     pub impls: Vec<InterfaceImpl>,
     pub requires: Option<Vec<Token>>,
+    pub typ: Type,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InterfaceImpl {
     pub token: Token,
     pub subs: Substitutions,
     pub functions: Functions,
     pub requires: Option<Vec<Token>>,
+    pub free_vars: Option<FreeVars>,
 }
 
 impl InterfaceStmt {
@@ -69,13 +72,15 @@ impl InterfaceStmt {
             todo!();
         }
 
+        let free_vars = Type::merge_free_vars(free_vars.as_ref(), Some(&associated_types)).unwrap();
+
         for func in self.fns {
             interface_fn_table.insert(func.name.lexeme.clone(), interface_id.clone());
             func.add_to_global_env(
                 user_defined_types,
                 interfaces,
                 &mut functions,
-                Type::merge_free_vars(free_vars.as_ref(), Some(&associated_types)).as_ref(),
+                Some(&free_vars),
             )?;
         }
 
@@ -85,17 +90,29 @@ impl InterfaceStmt {
                 user_defined_types,
                 interfaces,
                 &mut functions,
-                Type::merge_free_vars(free_vars.as_ref(), Some(&associated_types)).as_ref(),
+                Some(&free_vars),
             )?;
         }
+
+        let typ = Type::Interface(InterfaceType {
+            iface: self.name.lexeme.clone(),
+            types: ordered_free_vars
+                .clone()
+                .unwrap()
+                .into_iter()
+                .map(|t| Type::TypeVar(t))
+                .collect(),
+        });
 
         let interface = InterfaceDescription {
             token: self.name,
             ordered_free_vars: ordered_free_vars.unwrap(),
+            free_vars,
             functions,
             associated_types,
             impls: vec![],
             requires: self.requires,
+            typ,
         };
 
         if let Some(prev) = interfaces.insert(interface_id, interface) {
@@ -131,8 +148,9 @@ impl InterfaceDescription {
             match f.typ.unify(token, stack) {
                 Ok(subs) => {
                     iface_impl.check_requirements(
+                        token,
                         user_defined_types,
-                        free_vars,
+                        iface_impl.free_vars.as_ref(),
                         interfaces,
                         &subs,
                     )?;
@@ -154,18 +172,21 @@ impl InterfaceDescription {
         global_vars: &GlobalVars,
         user_defined_types: &UserDefinedTypes,
         functions: &Functions,
-        interfaces: &Interfaces,
+        interfaces: &mut Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
     ) -> Result<Vec<(String, (TypedExpr, Token))>, HayError> {
         if self.requires.is_some() {
             todo!()
         }
+
+        println!("{}: Type Checing `{}` Impls", self.token.loc, self.typ);
         let mut exprs = vec![];
         for iface_impl in &self.impls {
             println!(
-                "{}: Type Check `{}` where {:?}",
+                "  {}: Type Check `{}` where {:?}",
                 iface_impl.token.loc, self.token.lexeme, iface_impl.subs
             );
+
             exprs.extend(iface_impl.type_check(
                 global_vars,
                 user_defined_types,
@@ -173,6 +194,8 @@ impl InterfaceDescription {
                 interfaces,
                 interface_fn_table,
             )?);
+
+            println!("-----------------------------------------------------");
         }
 
         Ok(exprs)
@@ -182,6 +205,7 @@ impl InterfaceDescription {
 impl InterfaceImpl {
     pub fn check_requirements<'a>(
         &self,
+        token: &Token,
         user_defined_types: &UserDefinedTypes,
         free_vars: Option<&FreeVars>,
         interfaces: &'a Interfaces,
@@ -190,6 +214,7 @@ impl InterfaceImpl {
         match &self.requires {
             Some(requires) => {
                 let mut interface_types = vec![];
+
                 for token in requires {
                     if let Type::Interface(iface_typ) =
                         Type::from_token(&token, user_defined_types, interfaces, free_vars)?
@@ -202,20 +227,24 @@ impl InterfaceImpl {
 
                 for iface_typ in &interface_types {
                     if let Some(iface) = interfaces.get(&iface_typ.iface) {
+                        println!(
+                            "      Checking Requirements for {} where {subs:?}",
+                            token.lexeme
+                        );
                         for iface_impl in &iface.impls {
+                            println!("        Looking for {:?}", iface_impl.subs);
+
                             if &iface_impl.subs == subs {
                                 return Ok(Some(iface_impl));
                             }
                         }
 
-                        todo!()
+                        return Err(HayError::new("Requirements not met...", token.loc.clone()));
                     } else {
                         todo!();
                     }
                 }
 
-                println!("{interface_types:?}");
-                println!("{subs:?}");
                 todo!()
             }
             None => Ok(None),
@@ -227,13 +256,28 @@ impl InterfaceImpl {
         global_vars: &GlobalVars,
         user_defined_types: &UserDefinedTypes,
         functions: &Functions,
-        interfaces: &Interfaces,
+        interfaces: &mut Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
     ) -> Result<Vec<(String, (TypedExpr, Token))>, HayError> {
         let mut impls = vec![];
+        let mut interface_types = vec![];
+        if let Some(requires) = &self.requires {
+            for token in requires {
+                let (iface_id, subs) = Type::from_token(
+                    token,
+                    user_defined_types,
+                    interfaces,
+                    self.free_vars.as_ref(),
+                )?
+                .unify_from_base(token, interfaces)?;
+                interface_types.push((iface_id, subs));
+            }
+        }
+
         for (s, f) in &self.functions {
             let id = FunctionType::name(&s, &self.subs);
             println!("    Type checking {id}");
+
             impls.push((
                 id,
                 f.type_check(

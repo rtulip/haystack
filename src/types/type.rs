@@ -1,8 +1,8 @@
-use std::{collections::HashSet, fmt::Display};
+use std::{collections::HashSet, fmt::{Display, Debug}};
 
 use crate::{
     ast::{
-        stmt::{TypeDescription, UserDefinedTypes, Interfaces},
+        stmt::{TypeDescription, UserDefinedTypes, Interfaces, RecordDescription},
         visibility::Visibility, expr::TypedExpr,
     },
     error::HayError,
@@ -16,7 +16,7 @@ use super::{
 };
 pub type FreeVars = HashSet<TypeVar>;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum Type {
     Base(BaseType),
     Pointer(PointerType),
@@ -122,7 +122,7 @@ impl Type {
         free_vars: Option<&FreeVars>,
     ) -> Result<Self, HayError> {
         match typ {
-            TypeToken::Array { base, size } => {
+            TypeToken::Array { base, .. } => {
                 let t = Type::from_type_token(token, base, user_defined_types, interfaces, free_vars)?;
 
                 let arr = match user_defined_types.get(&TypeId::new("Arr")) {
@@ -168,7 +168,7 @@ impl Type {
                 }
 
                 if let Some(free_vars) = free_vars {
-                    if let Some(free_var) = free_vars.get(&TypeVar::new(base)) {
+                    if let Some(free_var) = free_vars.get(&TypeVar::new(base)) {                        
                         return Ok(Type::TypeVar(free_var.clone()));
                     }
                 }
@@ -182,7 +182,6 @@ impl Type {
                 todo!("{token}: {typ} {free_vars:?}")
             }
             TypeToken::Parameterized { base, inner } => {
-                let mut free_vars = free_vars.cloned();
                 let (base_typ, ordered_free_vars);
                 if let Some(TypeDescription::Record(desc)) =
                     user_defined_types.get(&TypeId::new(base))
@@ -193,41 +192,10 @@ impl Type {
                     } else {
                         todo!()
                     }
-                } else if let Some(iface) = interfaces.get(base) {
-                    free_vars = match free_vars {
-                        Some(free_vars) => {
-                            Some(FreeVars::from_iter(free_vars
-                                .clone()
-                                .into_iter()
-                                .chain(iface.ordered_free_vars
-                                    .clone()
-                                    .into_iter()
-                                )
-                                .chain(iface.associated_types
-                                    .clone()
-                                    .into_iter()
-                                )
-                            ))
-                        },
-                        None => {
-                            Some(FreeVars::from_iter(iface
-                                .ordered_free_vars
-                                .clone()
-                                .into_iter()
-                                .chain(iface.associated_types
-                                    .clone()
-                                    .into_iter()
-                                )
-                            ))
-                        }
-                    };
+                } else if let Some(iface) = interfaces.get(base) {        
                     
-                    let mut types = vec![];
-                    for inner in inner {
-                        types.push(Type::from_type_token(&token, inner, user_defined_types, interfaces, free_vars.as_ref())?)
-                    }
+                    base_typ = iface.typ.clone();
                     
-                    base_typ = Type::Interface(InterfaceType { iface: base.clone(), types  });
                     ordered_free_vars = iface.ordered_free_vars.clone();
                 } else {
                     todo!();
@@ -240,7 +208,7 @@ impl Type {
                         inner,
                         user_defined_types,
                         interfaces, 
-                        free_vars.as_ref(),
+                        free_vars,
                     )?);
                 }
 
@@ -266,7 +234,7 @@ impl Type {
                 }
 
                 let idents: Vec<_> = match idents {
-                    Some(tokens) => tokens.iter().map(|tok| token.lexeme.clone()).collect(),
+                    Some(tokens) => tokens.iter().map(|tok| tok.lexeme.clone()).collect(),
                     None => (0..inner.len())
                         .into_iter()
                         .map(|i| format!("{i}"))
@@ -288,6 +256,7 @@ impl Type {
                     kind: RecordKind::Tuple,
                     ident: None,
                     members,
+                    ordered_free_vars: None,
                 }))
             }
         }
@@ -320,10 +289,23 @@ impl Type {
                     });
                 }
 
+                let mut ordered_free_vars = if let Some(ordered_free_vars) = record.ordered_free_vars {
+
+                    let mut new_free_vars = vec![];
+                    for t in ordered_free_vars {
+                        new_free_vars.push(t.substitute(token, subs)?);
+                    }
+
+                    Some(new_free_vars)
+
+                } else {
+                    None
+                };
                 let typ = RecordType {
                     kind: record.kind,
                     ident: record.ident,
                     members,
+                    ordered_free_vars,
                 };
 
                 Ok(Type::Record(typ))
@@ -342,7 +324,7 @@ impl Type {
                     Ok(Type::TypeVar(var))
                 }
             }
-            Type::PreDeclaration(_) => todo!(),
+            Type::PreDeclaration(_) => Ok(self),
             Type::Variant(_) => todo!(),
         }
     }
@@ -483,6 +465,12 @@ impl Type {
             (a, b) if a == b => (),
             (Type::Record(RecordType { ident: Some(ident),.. }), Type::PreDeclaration(predecl)) 
                 | (Type::PreDeclaration(predecl), Type::Record(RecordType { ident: Some(ident),.. })) if ident == predecl => (),
+            (Type::Interface(this), Type::Interface(that)) if &this.iface == &that.iface => {
+                for (t, o) in this.types.iter().zip(that.types.iter()) {
+                    t.unify(token, o, subs)?;
+                }
+
+            },
             (a, b) => {
                 return Err(HayError::new(
                     format!("Cannot unify {a} and {b}"),
@@ -517,6 +505,23 @@ impl Type {
             
         }
     }
+
+    pub fn unify_from_base(&self, token: &Token, interfaces: &Interfaces) -> Result<(String, Substitutions), HayError> {
+        
+        if let Type::Interface(InterfaceType { iface, .. }) = self {
+            
+            if let Some(iface_desc) = interfaces.get(iface) {
+                let mut subs = Substitutions::empty();
+                self.unify(token, &iface_desc.typ, &mut subs)?;
+                Ok((iface.clone(), subs))
+            } else {
+                todo!("Err")
+            }
+
+        } else {
+            todo!("err");
+        }
+    }
 }
 
 impl Display for Type {
@@ -528,8 +533,14 @@ impl Display for Type {
             Type::PreDeclaration(predecl) => write!(f, "{}", predecl.0),
             Type::Record(RecordType {
                 ident: Some(TypeId(ident)),
+                ordered_free_vars: None,
                 ..
             }) => write!(f, "{ident}"),
+            Type::Record(RecordType {
+                ident: Some(TypeId(ident)),
+                ordered_free_vars: Some(ordered_free_vars),
+                ..
+            }) => write!(f, "{ident}<{}>", ordered_free_vars.iter().map(|t| format!("{t}")).collect::<Vec<_>>().join(" ")),
             Type::Record(RecordType {
                 ident: None,
                 members,
@@ -539,7 +550,13 @@ impl Display for Type {
             }
             Type::TypeVar(TypeVar(ident)) => write!(f, "{ident}"),
             Type::Variant(variant) => write!(f, "{}::{}", variant.typ, variant.variant),
-            Type::Interface(_) => todo!(),
+            Type::Interface(iface) => write!(f, "{}<{}>", iface.iface, iface.types.iter().map(|t| format!("{t}")).collect::<Vec<_>>().join(" ")),
         }
+    }
+}
+
+impl Debug for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
     }
 }

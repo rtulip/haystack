@@ -213,6 +213,7 @@ impl InterfaceImplStmt {
             subs,
             functions,
             requires: self.requires.clone(),
+            free_vars,
         };
 
         interfaces.get_mut(base).unwrap().impls.push(instance);

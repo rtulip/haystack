@@ -152,7 +152,7 @@ impl FunctionDescription {
         global_vars: &GlobalVars,
         functions: &Functions,
         user_defined_types: &UserDefinedTypes,
-        interfaces: &Interfaces,
+        interfaces: &mut Interfaces,
         interface_fn_table: &InterfaceFunctionTable,
     ) -> Result<HashMap<String, (TypedExpr, Token)>, HayError> {
         let mut typed_functions = HashMap::new();
@@ -169,7 +169,7 @@ impl FunctionDescription {
             );
         }
 
-        for (s, iface) in interfaces {
+        for (s, iface) in interfaces.clone() {
             iface.type_check(
                 global_vars,
                 user_defined_types,

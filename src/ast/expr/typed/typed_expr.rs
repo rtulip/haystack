@@ -53,7 +53,7 @@ impl TypedExpr {
             TypedExpr::Never => Ok(()),
             TypedExpr::Return => todo!(),
             TypedExpr::SizeOf(size_of) => size_of.substitute(token, subs),
-            TypedExpr::Syscall(_) => todo!(),
+            TypedExpr::Syscall(_) => Ok(()),
         }
     }
 
@@ -66,7 +66,7 @@ impl TypedExpr {
             TypedExpr::Literal(literal) => literal.into_instructions(init_data),
             TypedExpr::Var(_) => todo!(),
             TypedExpr::Framed(framed) => framed.into_instructions(),
-            TypedExpr::Operator(_) => todo!(),
+            TypedExpr::Operator(op) => op.into_instructions(),
             TypedExpr::Call(call) => call.into_instructions(init_data),
             TypedExpr::If(_) => todo!(),
             TypedExpr::Read(_) => todo!(),
@@ -79,7 +79,7 @@ impl TypedExpr {
             TypedExpr::Never => todo!(),
             TypedExpr::Return => todo!(),
             TypedExpr::SizeOf(_) => todo!(),
-            TypedExpr::Syscall(_) => todo!(),
+            TypedExpr::Syscall(syscall) => syscall.into_instructions(),
         }
     }
 }

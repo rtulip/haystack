@@ -40,9 +40,6 @@ pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
 
             exprs.substitute(&token, &subs)?;
             let (instrs, calls) = exprs.into_instructions(&mut init_data);
-
-            dbg!(&calls);
-
             assert!(fn_instructions.insert(fn_name, instrs).is_none());
 
             let calls = calls
@@ -65,7 +62,6 @@ pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
                                 if let Some((mut expr, tok)) = typed_functions.get(&id).cloned() {
                                     expr.substitute(&tok, &call.subs).unwrap();
                                     let new_id = FunctionType::name(&call.func, &call.subs);
-                                    println!("{new_id}");
                                     assert!(typed_functions
                                         .insert(new_id, (expr.clone(), tok.clone()))
                                         .is_none());
@@ -87,8 +83,7 @@ pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
 
             todo.extend(calls);
         }
-
-        todo!();
+        dbg!(&fn_instructions);
     }
 
     // let fn_instructions = Instruction::from_type_map(&types, &mut init_data);
@@ -132,8 +127,7 @@ pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
     //         true,
     //     )?;
     // }
-    todo!()
-    // Ok(())
+    Ok(())
 }
 
 pub fn run_command(

@@ -40,6 +40,7 @@ pub enum Instruction {
     },
     Operator {
         op: Operator,
+        // TODO: REMOVE SIZE
         size: Option<(usize, usize)>,
     },
     JumpDest {

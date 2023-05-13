@@ -9,15 +9,12 @@ use crate::{
 pub struct TypedCallExpr {
     pub func: String,
     pub subs: Substitutions,
+    pub impl_id: Option<usize>,
 }
 
 impl TypedCallExpr {
     pub fn substitute(&mut self, token: &Token, subs: &Substitutions) -> Result<(), HayError> {
         for (_, sub) in (&mut self.subs).into_iter() {
-            if matches!(sub, Type::TypeVar(_)) {
-                todo!()
-            }
-
             *sub = sub.clone().substitute(token, subs)?;
         }
 
@@ -27,11 +24,9 @@ impl TypedCallExpr {
     pub fn into_instructions(
         &self,
         init_data: &mut InitDataMap,
-    ) -> (Vec<Instruction>, Vec<(String, Substitutions)>) {
+    ) -> (Vec<Instruction>, Vec<TypedCallExpr>) {
         let id = FunctionType::name(&self.func, &self.subs);
-        (
-            vec![Instruction::Call(id)],
-            vec![(self.func.clone(), self.subs.clone())],
-        )
+        println!("{id}: {:?}", self.subs);
+        (vec![Instruction::Call(id)], vec![self.clone()])
     }
 }

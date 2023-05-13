@@ -5,7 +5,7 @@ use crate::{
     types::Substitutions,
 };
 
-use super::TypedExpr;
+use super::{TypedCallExpr, TypedExpr};
 
 #[derive(Debug, Clone)]
 pub struct TypedBlockExpr {
@@ -24,7 +24,7 @@ impl TypedBlockExpr {
     pub fn into_instructions(
         &self,
         init_data: &mut InitDataMap,
-    ) -> (Vec<Instruction>, Vec<(String, Substitutions)>) {
+    ) -> (Vec<Instruction>, Vec<TypedCallExpr>) {
         let mut instrs = vec![];
         let mut calls = vec![];
         for e in &self.exprs {

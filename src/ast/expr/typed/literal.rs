@@ -5,6 +5,8 @@ use crate::{
     types::Substitutions,
 };
 
+use super::TypedCallExpr;
+
 #[derive(Debug, Clone)]
 pub struct TypedLiteralExpr {
     pub value: Literal,
@@ -18,7 +20,7 @@ impl TypedLiteralExpr {
     pub fn into_instructions(
         &self,
         init_data: &mut InitDataMap,
-    ) -> (Vec<Instruction>, Vec<(String, Substitutions)>) {
+    ) -> (Vec<Instruction>, Vec<TypedCallExpr>) {
         (
             vec![Instruction::from_literal(&self.value, init_data)],
             vec![],

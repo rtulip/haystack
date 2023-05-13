@@ -38,7 +38,7 @@ impl TypedExpr {
         match self {
             TypedExpr::Block(block) => block.substitute(token, subs),
             TypedExpr::Literal(literal) => literal.substitute(token, subs),
-            TypedExpr::Var(TypedVarExpr) => todo!(),
+            TypedExpr::Var(_) => todo!(),
             TypedExpr::Framed(framed) => framed.substitute(token, subs),
             TypedExpr::Operator(op) => op.substitute(token, subs),
             TypedExpr::Call(call) => call.substitute(token, subs),
@@ -46,21 +46,21 @@ impl TypedExpr {
             TypedExpr::Read(read) => read.substitute(token, subs),
             TypedExpr::Write(write) => write.substitute(token, subs),
             TypedExpr::As(as_expr) => as_expr.substitute(token, subs),
-            TypedExpr::While(TypedWhileExpr) => todo!(),
+            TypedExpr::While(_) => todo!(),
             TypedExpr::Cast => Ok(()),
-            TypedExpr::AddrFramed(TypedGetAddressOfFramedExpr) => todo!(),
+            TypedExpr::AddrFramed(_) => todo!(),
             TypedExpr::Global(global) => global.substitute(token, subs),
             TypedExpr::Never => todo!(),
             TypedExpr::Return => todo!(),
-            TypedExpr::SizeOf(TypedSizeOfExpr) => todo!(),
-            TypedExpr::Syscall(TypedSyscallExpr) => todo!(),
+            TypedExpr::SizeOf(_) => todo!(),
+            TypedExpr::Syscall(_) => todo!(),
         }
     }
 
     pub fn into_instructions(
         &self,
         init_data: &mut InitDataMap,
-    ) -> (Vec<Instruction>, Vec<(String, Substitutions)>) {
+    ) -> (Vec<Instruction>, Vec<(TypedCallExpr)>) {
         match self {
             TypedExpr::Block(block) => block.into_instructions(init_data),
             TypedExpr::Literal(literal) => literal.into_instructions(init_data),

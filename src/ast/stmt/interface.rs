@@ -157,8 +157,8 @@ impl InterfaceDescription {
         free_vars: Option<&FreeVars>,
         interfaces: &Interfaces,
         func: &String,
-    ) -> Result<Substitutions, HayError> {
-        for iface_impl in &self.impls {
+    ) -> Result<(usize, Substitutions), HayError> {
+        for (idx, iface_impl) in self.impls.iter().enumerate() {
             let f = iface_impl.functions.get(func).unwrap();
             let stack_before = stack.clone();
 
@@ -171,7 +171,7 @@ impl InterfaceDescription {
                         interfaces,
                         &subs,
                     ) {
-                        Ok(_) => return Ok(subs),
+                        Ok(_) => return Ok((idx, subs)),
                         Err(_) => {
                             *stack = stack_before;
                             continue;
@@ -289,7 +289,7 @@ impl InterfaceImpl {
 
         for (s, f) in &self.functions {
             let id = FunctionType::name(&s, &self.subs);
-
+            println!("{}: {id}", self.token);
             impls.push((
                 id,
                 f.type_check(

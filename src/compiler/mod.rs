@@ -2,7 +2,7 @@ use crate::ast::stmt::{FunctionDescription, Stmt};
 use crate::backend::{InitData, InitDataMap};
 // use crate::backend::{compile, Instruction, X86_64};
 use crate::error::HayError;
-use crate::lex::token::Loc;
+use crate::lex::token::{Loc, Token};
 use crate::types::{FunctionType, Substitutions, Type, TypeId};
 use std::collections::{BTreeMap, HashSet};
 use std::io::{self, Write};
@@ -14,13 +14,13 @@ pub mod test_tools;
 pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
     let stmts = Stmt::from_file_with_prelude(&input_path)?;
 
-    let (global_vars, functions, types, mut interfaces, interface_fn_table) =
+    let (global_vars, functions, user_defined_types, mut interfaces, interface_fn_table) =
         Stmt::build_types_and_data(stmts)?;
 
     let typed_functions = FunctionDescription::type_check_all(
         &global_vars,
         &functions,
-        &types,
+        &user_defined_types,
         &mut interfaces,
         &interface_fn_table,
     )?;
@@ -44,11 +44,36 @@ pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
 
             let calls = calls
                 .into_iter()
-                .map(|(func, subs)| {
-                    let (expr, tok) = typed_functions
-                        .get(&func)
-                        .unwrap_or_else(|| panic!("Unknown function: {func}"));
-                    ((expr, tok), subs)
+                .map(|call| {
+                    if let Some((expr, tok)) = typed_functions.get(&call.func) {
+                        ((expr, tok), call.subs)
+                    } else if let Some(interface_id) = interface_fn_table.get(&call.func) {
+                        assert!((&call.subs).into_iter().all(|(_, t)| !t.is_generic()));
+                        let interface = interfaces.get(interface_id).unwrap();
+
+                        if let Some(idx) = call.impl_id {
+                            if let Some(iface_impl) = interface.impls.get(idx) {
+                                let id = FunctionType::name(&call.func, &iface_impl.subs);
+
+                                if let Some((mut expr, tok)) = typed_functions.get(&id).cloned() {
+                                    expr.substitute(&tok, &subs).unwrap();
+                                    let new_id = FunctionType::name(&call.func, &call.subs);
+                                    println!("{tok}");
+                                    dbg!(&expr);
+                                    todo!()
+                                } else {
+                                    todo!()
+                                }
+                                todo!("{id}");
+                            } else {
+                                todo!()
+                            }
+                        } else {
+                            todo!()
+                        }
+                    } else {
+                        todo!()
+                    }
                 })
                 .collect::<Vec<_>>();
 

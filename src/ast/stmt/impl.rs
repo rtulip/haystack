@@ -189,13 +189,7 @@ impl InterfaceImplStmt {
         // let mut missing = HashSet::new();
         for f in to_define {
             let mut func = interface.functions.get(&f).cloned().unwrap();
-            func.typ = func.typ.clone().substitute(&self.token, &subs)?;
-            for t in &mut func.start_state.0 {
-                *t = t.clone().substitute(&self.token, &subs)?;
-            }
-            for (_, t) in &mut func.start_state.1 {
-                *t = t.clone().substitute(&self.token, &subs)?;
-            }
+            func.substitute(&self.token, &subs)?;
             functions.insert(f, func);
         }
 

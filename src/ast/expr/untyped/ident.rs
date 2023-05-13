@@ -46,7 +46,7 @@ impl IdentExpr {
 
         if let Some(iface_id) = interface_fn_table.get(&self.ident.lexeme) {
             let interface = interfaces.get(iface_id).expect("This sould be fine");
-            let subs = interface.unify(
+            let (impl_id, subs) = interface.unify(
                 &self.ident,
                 stack,
                 user_defined_types,
@@ -55,16 +55,11 @@ impl IdentExpr {
                 &self.ident.lexeme,
             )?;
 
-            let (func, subs) = if (&subs).into_iter().any(|(_, t)| t.is_generic()) {
-                (self.ident.lexeme.clone(), subs)
-            } else {
-                (
-                    FunctionType::name(&self.ident.lexeme, &subs),
-                    Substitutions::empty(),
-                )
-            };
-
-            return Ok(TypedExpr::Call(TypedCallExpr { func, subs }));
+            return Ok(TypedExpr::Call(TypedCallExpr {
+                func: self.ident.lexeme.clone(),
+                subs,
+                impl_id: Some(impl_id),
+            }));
         }
 
         if let Some(func) = functions.get(&self.ident.lexeme) {
@@ -78,6 +73,7 @@ impl IdentExpr {
             return Ok(TypedExpr::Call(TypedCallExpr {
                 func: self.ident.lexeme.clone(),
                 subs,
+                impl_id: None,
             }));
         }
 

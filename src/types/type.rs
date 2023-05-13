@@ -407,7 +407,11 @@ impl Type {
         subs: &mut Substitutions,
     ) -> Result<(), HayError> {
         match (self, other) {
-            (Type::TypeVar(this), Type::TypeVar(var)) if this == var => (),
+            (Type::TypeVar(this), Type::TypeVar(var)) if this == var => {
+                if subs.get(&var).is_none() {
+                    subs.insert(var.clone(), Type::TypeVar(this.clone()));
+                }   
+            },
             (t, Type::TypeVar(var))  => match subs.get(&var) {
                 Some(sub) if sub == t => (),
                 Some(sub) if matches!(sub, Type::TypeVar(_)) => {self.unify(token, &sub.clone(), subs)?;},

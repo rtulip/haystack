@@ -169,16 +169,31 @@ impl FunctionDescription {
             );
         }
 
-        for (s, iface) in interfaces.clone() {
-            iface.type_check(
+        for (_, iface) in interfaces.clone() {
+            let fs = iface.type_check(
                 global_vars,
                 user_defined_types,
                 functions,
                 interfaces,
                 interface_fn_table,
             )?;
+
+            for (id, typed) in fs {
+                assert!(typed_functions.insert(id, typed).is_none())
+            }
         }
 
         Ok(typed_functions)
+    }
+
+    pub fn substitute(&mut self, token: &Token, subs: &Substitutions) -> Result<(), HayError> {
+        self.typ = self.typ.clone().substitute(token, subs)?;
+        for t in &mut self.start_state.0 {
+            *t = t.clone().substitute(token, subs)?;
+        }
+        for (_, t) in &mut self.start_state.1 {
+            *t = t.clone().substitute(token, subs)?;
+        }
+        Ok(())
     }
 }

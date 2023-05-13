@@ -65,7 +65,7 @@ impl TypedExpr {
             TypedExpr::Block(block) => block.into_instructions(init_data),
             TypedExpr::Literal(literal) => literal.into_instructions(init_data),
             TypedExpr::Var(_) => todo!(),
-            TypedExpr::Framed(_) => todo!(),
+            TypedExpr::Framed(framed) => framed.into_instructions(),
             TypedExpr::Operator(_) => todo!(),
             TypedExpr::Call(call) => call.into_instructions(init_data),
             TypedExpr::If(_) => todo!(),

@@ -71,6 +71,13 @@ impl Type {
 
     }
 
+    pub fn size_unchecked(&self) -> usize {
+
+        let token = Token::default();
+        self.size(&token).expect("Internal error unsized type...")
+
+    }
+
     pub fn width(&self) -> usize {
         if matches!(self, Type::Base(BaseType::Char | BaseType::U8)) {
             1

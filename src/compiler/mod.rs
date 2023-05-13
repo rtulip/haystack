@@ -35,7 +35,6 @@ pub fn compile_haystack(input_path: String, run: bool) -> Result<(), HayError> {
         let mut fn_instructions = BTreeMap::new();
         while let Some(((mut exprs, token), subs)) = todo.pop() {
             let fn_name = FunctionType::name(&token.lexeme, &subs);
-            println!("{token}: {fn_name}");
 
             if fn_instructions.get(&fn_name).is_some() {
                 continue;

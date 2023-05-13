@@ -15,6 +15,39 @@ pub enum UninitData {
 pub type InitDataMap = HashMap<String, InitData>;
 pub type UninitDataMap = HashMap<String, UninitData>;
 
+impl InitData {
+    fn escape_string(s: &String) -> String {
+        let mut new_s = String::new();
+        let mut i = 0;
+
+        while i < s.len() {
+            match s.chars().nth(i).unwrap() {
+                '\\' => {
+                    i += 1;
+                    match s.chars().nth(i).unwrap() {
+                        'n' => new_s.push('\n'),
+                        't' => new_s.push('\t'),
+                        'r' => new_s.push('\r'),
+                        '0' => new_s.push('\0'),
+                        '\\' => new_s.push('\\'),
+                        _ => unreachable!(),
+                    }
+                }
+                c => new_s.push(c),
+            }
+
+            i += 1;
+        }
+        new_s
+    }
+
+    pub fn string(s: &String) -> (Self, usize) {
+        let escaped_s = InitData::escape_string(s);
+        let n = escaped_s.len();
+        (InitData::String(escaped_s), n)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Instruction {
     Call(String),
@@ -69,31 +102,6 @@ pub enum Instruction {
 }
 
 impl Instruction {
-    pub fn escape_string(s: &String) -> String {
-        let mut new_s = String::new();
-        let mut i = 0;
-
-        while i < s.len() {
-            match s.chars().nth(i).unwrap() {
-                '\\' => {
-                    i += 1;
-                    match s.chars().nth(i).unwrap() {
-                        'n' => new_s.push('\n'),
-                        't' => new_s.push('\t'),
-                        'r' => new_s.push('\r'),
-                        '0' => new_s.push('\0'),
-                        '\\' => new_s.push('\\'),
-                        _ => unreachable!(),
-                    }
-                }
-                c => new_s.push(c),
-            }
-
-            i += 1;
-        }
-        new_s
-    }
-
     pub fn from_literal(literal: &Literal, init_data: &mut InitDataMap) -> Vec<Instruction> {
         match literal {
             Literal::Bool(b) => vec![Instruction::PushU64(*b as u64)],
@@ -104,12 +112,12 @@ impl Instruction {
                 let n = init_data.len();
                 let id = format!("str_{n}");
 
-                assert!(init_data
-                    .insert(id.clone(), InitData::String(s.clone()))
-                    .is_none());
+                let (string_data, len) = InitData::string(s);
+
+                assert!(init_data.insert(id.clone(), string_data).is_none());
 
                 vec![
-                    Instruction::PushU64(s.len() as u64),
+                    Instruction::PushU64(len as u64),
                     Instruction::PushGlobal { id },
                 ]
             }

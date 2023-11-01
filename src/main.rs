@@ -1,8 +1,11 @@
 use clap::Parser;
 
 mod expression;
+mod types;
 
 use expression::{BlockExpr, Expr, LiteralExpr, VarExpr};
+
+use crate::types::FnTy;
 
 #[derive(Parser)]
 struct Cli {
@@ -19,6 +22,8 @@ fn main() {
         VarExpr::from("println").into(),
     ])
     .into();
+
+    let main_sig = FnTy::new([], []);
 
     dbg!(main_expr);
 }

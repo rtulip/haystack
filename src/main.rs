@@ -1,11 +1,15 @@
 use clap::Parser;
 
 mod expression;
+mod statement;
 mod types;
 
-use expression::{BlockExpr, Expr, LiteralExpr, VarExpr};
+use expression::{ApplicationError, BlockExpr, Expr, LiteralExpr, VarExpr};
 
-use crate::types::{Context, FnTy, Scheme, Stack, Ty, TyGen};
+use crate::{
+    statement::FunctionStmt,
+    types::{Context, FnTy, Scheme, Stack, Ty, TyGen},
+};
 
 #[derive(Parser)]
 struct Cli {
@@ -17,17 +21,19 @@ struct Cli {
 fn main() {
     // let cli = Cli::parse();
 
-    let main_expr: Expr<'_> = BlockExpr::from([
-        LiteralExpr::from("Hello World").into(),
-        VarExpr::from("println").into(),
-    ])
-    .into();
+    let main = FunctionStmt::new(
+        BlockExpr::from([
+            LiteralExpr::from("Hello World").into(),
+            VarExpr::from("println").into(),
+        ])
+        .into(),
+        Scheme::new([], FnTy::new([], [])),
+    );
 
-    let main_sig = FnTy::new([], []);
-
-    let mut ctx = Context::from([("println", Scheme::new([], FnTy::new([Ty::U32], [])))]);
+    let mut ctx = Context::from([("println", Scheme::new([], FnTy::new([Ty::Str], [])))]);
     let mut gen = TyGen::new();
 
-    let x = main_expr.apply(Stack::from([]), &mut ctx, &mut gen);
-    dbg!(x);
+    let out = main.type_check(&ctx, &mut gen);
+
+    dbg!(out);
 }

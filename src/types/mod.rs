@@ -38,7 +38,7 @@ impl<'src> Stack<'src> {
         self.0.extend(iter)
     }
 
-    fn unify(
+    pub fn unify(
         self,
         stack: Self,
         variance: Variance,

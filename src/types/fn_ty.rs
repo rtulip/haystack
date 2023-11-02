@@ -7,8 +7,8 @@ use super::{sequence::TySeq, ty::Ty, Stack, StackSplitError, Substitution, Varia
 
 #[derive(Clone)]
 pub struct FnTy<'a> {
-    input: TySeq<'a>,
-    output: TySeq<'a>,
+    pub input: TySeq<'a>,
+    pub output: TySeq<'a>,
 }
 
 impl<'a> FnTy<'a> {

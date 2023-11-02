@@ -36,3 +36,13 @@ impl<'src, const N: usize> From<[Expr<'src>; N]> for BlockExpr<'src> {
         Self(Vec::from(value))
     }
 }
+
+impl<'src> IntoIterator for BlockExpr<'src> {
+    type Item = Expr<'src>;
+
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}

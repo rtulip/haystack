@@ -14,25 +14,26 @@ impl<'src> FunctionStmt<'src> {
     }
 
     pub fn type_check(
-        self,
+        &self,
         context: &Context<'src>,
         gen: &mut TyGen,
     ) -> Result<Substitution<'src>, ApplicationError<'src>> {
         let mut ctx = context.clone();
-        let func = self.scheme.instantiate(gen);
+        let (func, subs) = self.scheme.instantiate(gen);
         let (output, s1) = self
             .expr
+            .clone()
             .apply(Stack::from_iter(func.input), &mut ctx, gen)?;
         let s2 = Stack::from_iter(func.output).unify(output, Variance::Contravariant)?;
 
-        Ok(s1.unify(s2)?)
+        Ok(subs.unify(s1.unify(s2)?)?)
     }
 }
 
 #[cfg(test)]
 mod test_type_check {
     use crate::{
-        expression::{ApplicationError, AsExpr, BlockExpr, LiteralExpr, VarExpr},
+        expression::{AddExpr, ApplicationError, AsExpr, BlockExpr, LiteralExpr, VarExpr},
         types::{
             Context, FnTy, QuantifiedType, Scheme, Stack, StackSplitError, Substitution, Ty, TyGen,
             UnificationError,
@@ -89,7 +90,7 @@ mod test_type_check {
 
         assert!(x.is_ok());
         let subs = x.unwrap();
-        assert_eq!(subs, Substitution::new());
+        assert_eq!(subs, Substitution::from([(0.into(), Ty::var(1))]));
     }
 
     #[test]
@@ -164,5 +165,55 @@ mod test_type_check {
                 1
             )))
         );
+    }
+
+    #[test]
+    fn context_inference() {
+        let mut gen = TyGen::new();
+
+        let ctx = Context::from([
+            ("putlns", Scheme::new([], FnTy::new([Ty::Str], []))),
+            ("putlnu", Scheme::new([], FnTy::new([Ty::U32], []))),
+            ("putlnb", Scheme::new([], FnTy::new([Ty::Bool], []))),
+        ]);
+        let (ty, var) = gen.fresh_with_var();
+        let foo = FunctionStmt::new(
+            BlockExpr::from([
+                AsExpr::from(["x"]).into(),
+                VarExpr::from("x").into(),
+                VarExpr::from("x").into(),
+                AddExpr.into(),
+                VarExpr::from("putlnu").into(),
+                VarExpr::from("x").into(),
+                VarExpr::from("putlns").into(),
+            ])
+            .into(),
+            Scheme::new([var], FnTy::new([ty], [])),
+        )
+        .type_check(&ctx, &mut gen);
+
+        assert_eq!(
+            foo,
+            Err(ApplicationError::UnificationError(
+                UnificationError::TypesNotEqual(Ty::U32, Ty::Str)
+            ))
+        );
+
+        let (ty, var) = gen.fresh_with_var();
+        let foo = FunctionStmt::new(
+            BlockExpr::from([
+                AsExpr::from(["x"]).into(),
+                VarExpr::from("x").into(),
+                VarExpr::from("x").into(),
+                AddExpr.into(),
+                VarExpr::from("putlnu").into(),
+            ])
+            .into(),
+            Scheme::new([var], FnTy::new([ty], [])),
+        )
+        .type_check(&ctx, &mut gen);
+
+        assert!(foo.is_ok());
+        assert_eq!(Ty::from(var).normalize(&foo.unwrap()), Ty::U32)
     }
 }

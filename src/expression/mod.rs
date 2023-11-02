@@ -1,13 +1,16 @@
 use crate::types::{
-    Context, FnTy, Scheme, Stack, StackSplitError, Substitution, TyGen, UnificationError, Var,
+    Context, FnTy, Scheme, Stack, StackSplitError, Substitution, Ty, TyGen, UnificationError, Var,
 };
 
-pub use self::{as_expr::AsExpr, block::BlockExpr, literal::LiteralExpr, var::VarExpr};
+pub use self::{
+    as_expr::AsExpr, block::BlockExpr, literal::LiteralExpr, operator::AddExpr, var::VarExpr,
+};
 use std::convert::From;
 
 mod as_expr;
 mod block;
 mod literal;
+mod operator;
 mod var;
 
 #[derive(Debug, Clone)]
@@ -16,6 +19,7 @@ pub enum Expr<'src> {
     Block(BlockExpr<'src>),
     Var(VarExpr<'src>),
     As(AsExpr<'src>),
+    Add(AddExpr),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,7 +43,7 @@ impl<'src> From<UnificationError<'src>> for ApplicationError<'src> {
 }
 
 impl<'src> From<()> for ApplicationError<'src> {
-    fn from(value: ()) -> Self {
+    fn from(_: ()) -> Self {
         Self::Other
     }
 }
@@ -59,7 +63,7 @@ impl<'src> Expr<'src> {
             Expr::Block(block) => block.apply(stack, context, gen)?,
             Expr::Var(VarExpr(var)) => {
                 let func = match context.iter().rev().find(|Var { ident, .. }| *ident == var) {
-                    Some(Var { scheme, .. }) => scheme.instantiate(gen),
+                    Some(Var { scheme, .. }) => scheme.instantiate(gen).0,
                     None => return Err(ApplicationError::UnknownVar(var)),
                 };
                 func.apply(stack)?
@@ -72,6 +76,7 @@ impl<'src> Expr<'src> {
 
                 (head, Substitution::new())
             }
+            Expr::Add(_) => FnTy::new([Ty::U32, Ty::U32], [Ty::U32]).apply(stack)?,
         };
 
         Ok((stack, subs))
@@ -99,5 +104,11 @@ impl<'src> From<VarExpr<'src>> for Expr<'src> {
 impl<'src> From<AsExpr<'src>> for Expr<'src> {
     fn from(value: AsExpr<'src>) -> Self {
         Self::As(value)
+    }
+}
+
+impl<'src> From<AddExpr> for Expr<'src> {
+    fn from(value: AddExpr) -> Self {
+        Self::Add(value)
     }
 }

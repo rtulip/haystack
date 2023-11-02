@@ -1,4 +1,4 @@
-use super::{variance, Substitution, UnificationError, Variance};
+use super::{Substitution, UnificationError, Variance};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TyVar(usize);
@@ -20,6 +20,13 @@ impl TyGen {
         let t = Ty::var(self.0);
         self.0 += 1;
         t
+    }
+
+    pub fn fresh_with_var<'src>(&mut self) -> (Ty<'src>, TyVar) {
+        let t = Ty::var(self.0);
+        let v = self.0.into();
+        self.0 += 1;
+        (t, v)
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -110,5 +117,61 @@ impl<'src> Ty<'src> {
             }
             (left, right) => Err(UnificationError::TypesNotEqual(left, right)),
         }
+    }
+
+    pub fn normalize(&self, subs: &Substitution<'src>) -> Self {
+        match self {
+            Ty::U32 => Ty::U32,
+            Ty::Bool => Ty::Bool,
+            Ty::Str => Ty::Str,
+            Ty::Var(var) => match subs.get(var) {
+                Some(t) => t.normalize(subs),
+                None => Ty::Var(*var),
+            },
+            Ty::Quant(QuantifiedType { ident, elements }) => Ty::quantified(
+                *ident,
+                elements
+                    .iter()
+                    .map(|t| t.normalize(subs))
+                    .collect::<Vec<_>>(),
+            ),
+        }
+    }
+}
+
+impl<'src> From<TyVar> for Ty<'src> {
+    fn from(value: TyVar) -> Self {
+        Self::Var(value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::types::{Substitution, Ty};
+
+    #[test]
+    fn normalize() {
+        assert_eq!(Ty::U32.normalize(&Substitution::new()), Ty::U32);
+        assert_eq!(Ty::Bool.normalize(&Substitution::new()), Ty::Bool);
+        assert_eq!(Ty::Str.normalize(&Substitution::new()), Ty::Str);
+        assert_eq!(
+            Ty::var(0).normalize(&Substitution::from([
+                (0.into(), Ty::var(1)),
+                (1.into(), Ty::var(2)),
+                (2.into(), Ty::var(3)),
+            ])),
+            Ty::var(3)
+        );
+
+        assert_eq!(
+            Ty::quantified("Foo", [Ty::U32, Ty::var(0), Ty::var(4)]).normalize(
+                &Substitution::from([
+                    (0.into(), Ty::var(1)),
+                    (1.into(), Ty::var(2)),
+                    (2.into(), Ty::var(3)),
+                ])
+            ),
+            Ty::quantified("Foo", [Ty::U32, Ty::var(3), Ty::var(4)])
+        );
     }
 }

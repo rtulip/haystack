@@ -3,7 +3,7 @@ use std::fmt::Debug;
 
 use crate::expression::{ApplicationError, LiteralExpr};
 
-use super::{sequence::TySeq, ty::Ty, Stack, StackSplitError, Substitution, Variance};
+use super::{sequence::TySeq, ty::Ty, Stack, Substitution, Variance};
 
 #[derive(Clone)]
 pub struct FnTy<'a> {
@@ -71,6 +71,19 @@ impl<'a> Debug for FnTy<'a> {
                 .map(|t| format!("{t:?}"))
                 .collect::<Vec<_>>()
                 .join(" ")
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::types::{FnTy, Ty};
+
+    #[test]
+    fn format_fn() {
+        assert_eq!(
+            format!("{:?}", FnTy::new([Ty::U32, Ty::Bool], [Ty::Str])),
+            format!("(U32 Bool) -> [Str]")
         )
     }
 }

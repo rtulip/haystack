@@ -113,18 +113,6 @@ impl<'src> Context<'src> {
         Self(vec![])
     }
 
-    pub fn substitute(self, subs: &Substitution<'src>) -> Self {
-        Self(
-            self.0
-                .into_iter()
-                .map(|var| Var {
-                    ident: var.ident,
-                    scheme: var.scheme.substitute(subs),
-                })
-                .collect(),
-        )
-    }
-
     pub fn iter(&self) -> std::slice::Iter<'_, Var<'src>> {
         self.0.iter()
     }
@@ -141,6 +129,32 @@ impl<'src, const N: usize> From<[(&'src str, Scheme<'src>); N]> for Context<'src
                 .into_iter()
                 .map(|(ident, scheme)| Var { ident, scheme })
                 .collect(),
+        )
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::types::{Ty, UnificationError};
+
+    use super::{Stack, Variance};
+
+    #[test]
+    fn unify_diff_len_stacks() {
+        assert_eq!(
+            Stack::from([Ty::U32]).unify(Stack::from([]), Variance::Covariant),
+            Err(UnificationError::StackLensDiffer(
+                Stack::from([Ty::U32]),
+                Stack::from([])
+            ))
+        )
+    }
+
+    #[test]
+    fn format_stack() {
+        assert_eq!(
+            format!("{:?}", Stack::from([Ty::U32, Ty::Str])),
+            format!("[U32 Str]")
         )
     }
 }

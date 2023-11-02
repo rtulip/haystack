@@ -1,7 +1,5 @@
 use std::convert::From;
 
-use crate::types::{FnTy, Ty};
-
 #[derive(Debug, Clone)]
 pub enum LiteralExpr<'a> {
     U32(u32),

@@ -14,15 +14,16 @@ pub use variance::*;
 
 use std::{convert::From, fmt::Debug};
 
-#[derive(Debug)]
-pub struct StackSplitError<'src>(Stack<'src>, usize);
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StackSplitError<'src>(pub Stack<'src>, pub usize);
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UnificationError<'src> {
     TypesNotEqual(Ty<'src>, Ty<'src>),
     StackLensDiffer(Stack<'src>, Stack<'src>),
 }
 
+#[derive(Clone, PartialEq, Eq)]
 pub struct Stack<'src>(Vec<Ty<'src>>);
 impl<'src> Stack<'src> {
     pub fn split(

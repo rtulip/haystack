@@ -16,8 +16,12 @@ impl<'a> Substitution<'a> {
                 Some(ty) => {
                     let sub = ty.clone().unify(v, Variance::Covariant)?;
                     for (k, v) in sub {
-                        match self.insert(k, v) {
-                            Some(_) => todo!(),
+                        match self.insert(k, v.clone()) {
+                            Some(ty) => {
+                                if ty != v {
+                                    return Err(UnificationError::TypesNotEqual(v, ty));
+                                }
+                            }
                             None => (),
                         }
                     }
@@ -55,5 +59,44 @@ impl<'a> IntoIterator for Substitution<'a> {
 impl<'a> FromIterator<(TyVar, Ty<'a>)> for Substitution<'a> {
     fn from_iter<T: IntoIterator<Item = (TyVar, Ty<'a>)>>(iter: T) -> Self {
         Self(HashMap::from_iter(iter))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::types::{Ty, UnificationError};
+
+    use super::Substitution;
+
+    #[test]
+    fn unify_subs() {
+        let s1 = Substitution::from([(0.into(), Ty::var(1))]);
+        let s2 = Substitution::from([(0.into(), Ty::Str)]);
+
+        assert_eq!(
+            s1.clone().unify(s2.clone()).unwrap(),
+            Substitution::from([(0.into(), Ty::var(1)), (1.into(), Ty::Str)])
+        );
+
+        assert_eq!(
+            s2.unify(s1).unwrap(),
+            Substitution::from([(0.into(), Ty::Str), (1.into(), Ty::Str)])
+        );
+
+        let s1 = Substitution::from([(1.into(), Ty::var(2)), (2.into(), Ty::Str)]);
+        let s2 = Substitution::from([(1.into(), Ty::U32)]);
+
+        assert_eq!(
+            s1.unify(s2),
+            Err(UnificationError::TypesNotEqual(Ty::U32, Ty::Str))
+        );
+
+        let s1 = Substitution::from([(1.into(), Ty::var(2)), (2.into(), Ty::Str)]);
+        let s2 = Substitution::from([(1.into(), Ty::Str)]);
+
+        assert_eq!(
+            s1.unify(s2).unwrap(),
+            Substitution::from([(2.into(), Ty::Str), (1.into(), Ty::var(2))])
+        );
     }
 }

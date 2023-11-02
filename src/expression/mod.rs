@@ -18,7 +18,7 @@ pub enum Expr<'src> {
     As(AsExpr<'src>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ApplicationError<'src> {
     TooFewElements(StackSplitError<'src>),
     UnificationError(UnificationError<'src>),

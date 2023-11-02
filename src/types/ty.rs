@@ -16,20 +16,23 @@ impl TyGen {
         Self(0)
     }
 
-    pub fn fresh<'a>(&mut self) -> Ty<'a> {
+    pub fn fresh<'src>(&mut self) -> Ty<'src> {
         let t = Ty::var(self.0);
         self.0 += 1;
         t
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct QuantifiedType<'a> {
-    ident: &'a str,
-    elements: Vec<Ty<'a>>,
+pub struct QuantifiedType<'src> {
+    ident: &'src str,
+    elements: Vec<Ty<'src>>,
 }
 
-impl<'a> QuantifiedType<'a> {
-    pub fn new<const N: usize>(ident: &'a str, ts: [Ty<'a>; N]) -> Self {
+impl<'src> QuantifiedType<'src> {
+    pub fn new<T>(ident: &'src str, ts: T) -> Self
+    where
+        T: Into<Vec<Ty<'src>>>,
+    {
         QuantifiedType {
             ident,
             elements: ts.into(),
@@ -38,24 +41,27 @@ impl<'a> QuantifiedType<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Ty<'a> {
+pub enum Ty<'src> {
     U32,
     Bool,
     Str,
     Var(TyVar),
-    Quant(QuantifiedType<'a>),
+    Quant(QuantifiedType<'src>),
 }
 
-impl<'a> Ty<'a> {
-    fn var(n: usize) -> Self {
+impl<'src> Ty<'src> {
+    pub fn var(n: usize) -> Self {
         Ty::Var(TyVar(n))
     }
 
-    fn quantified<const N: usize>(ident: &'a str, ts: [Self; N]) -> Self {
+    fn quantified<T>(ident: &'src str, ts: T) -> Self
+    where
+        T: Into<Vec<Ty<'src>>>,
+    {
         Self::Quant(QuantifiedType::new(ident, ts))
     }
 
-    pub fn substitute(self, subs: &Substitution<'a>) -> Self {
+    pub fn substitute(self, subs: &Substitution<'src>) -> Self {
         match self {
             Ty::U32 => Ty::U32,
             Ty::Bool => Ty::Bool,
@@ -64,10 +70,13 @@ impl<'a> Ty<'a> {
                 Some(ty) => ty.clone(),
                 None => Ty::Var(var),
             },
-            Ty::Quant(QuantifiedType { ident, elements }) => Ty::Quant(QuantifiedType {
+            Ty::Quant(QuantifiedType { ident, elements }) => Ty::quantified(
                 ident,
-                elements: elements.into_iter().map(|t| t.substitute(subs)).collect(),
-            }),
+                elements
+                    .into_iter()
+                    .map(|t| t.substitute(subs))
+                    .collect::<Vec<_>>(),
+            ),
         }
     }
 
@@ -75,7 +84,7 @@ impl<'a> Ty<'a> {
         self,
         other: Self,
         variance: Variance,
-    ) -> Result<Substitution<'a>, UnificationError<'a>> {
+    ) -> Result<Substitution<'src>, UnificationError<'src>> {
         match (self, other) {
             (Ty::U32, Ty::U32) => Ok(Substitution::new()),
             (Ty::Str, Ty::Str) => Ok(Substitution::new()),

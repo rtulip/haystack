@@ -1,7 +1,7 @@
 use std::convert::From;
 
 #[derive(Debug, Clone)]
-pub struct VarExpr<'a>(&'a str);
+pub struct VarExpr<'a>(pub &'a str);
 
 impl<'a> From<&'a str> for VarExpr<'a> {
     fn from(value: &'a str) -> Self {

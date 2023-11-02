@@ -1,7 +1,11 @@
+use std::convert::From;
 use std::fmt::Debug;
 
-use super::{sequence::TySeq, ty::Ty};
+use crate::expression::{ApplicationError, LiteralExpr};
 
+use super::{sequence::TySeq, ty::Ty, Stack, StackSplitError, Substitution, Variance};
+
+#[derive(Clone)]
 pub struct FnTy<'a> {
     input: TySeq<'a>,
     output: TySeq<'a>,
@@ -15,6 +19,39 @@ impl<'a> FnTy<'a> {
         Self {
             input: input.into(),
             output: output.into(),
+        }
+    }
+
+    pub fn apply(
+        self,
+        stack: Stack<'a>,
+    ) -> Result<(Stack<'a>, Substitution<'a>), ApplicationError<'a>> {
+        let (mut head, tail) = stack.split(self.input.len())?;
+
+        let subs = tail.unify(Stack(self.input), Variance::Covariant)?;
+        head.extend(self.output);
+
+        Ok((head.substitute(&subs), subs))
+    }
+
+    pub fn substitute(self, subs: &Substitution<'a>) -> Self {
+        Self {
+            input: self.input.into_iter().map(|t| t.substitute(subs)).collect(),
+            output: self
+                .output
+                .into_iter()
+                .map(|t| t.substitute(subs))
+                .collect(),
+        }
+    }
+}
+
+impl<'a> From<LiteralExpr<'a>> for FnTy<'a> {
+    fn from(value: LiteralExpr<'a>) -> Self {
+        match value {
+            LiteralExpr::U32(_) => FnTy::new([], [Ty::U32]),
+            LiteralExpr::String(_) => FnTy::new([], [Ty::Str]),
+            LiteralExpr::Bool(_) => FnTy::new([], [Ty::Bool]),
         }
     }
 }

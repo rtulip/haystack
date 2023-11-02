@@ -1,17 +1,35 @@
-use super::{FnTy, TyVar};
+use super::{FnTy, Substitution, TyGen, TyVar};
 
-struct Scheme<'a> {
+#[derive(Debug, Clone)]
+pub struct Scheme<'src> {
     free: Vec<TyVar>,
-    func: FnTy<'a>,
+    func: FnTy<'src>,
 }
 
-impl<'a> Scheme<'a> {
-    fn new<T, const N: usize>(free: [T; N], func: FnTy<'a>) -> Self
-    where
-        T: Into<TyVar>,
-    {
+impl<'src> Scheme<'src> {
+    pub fn substitute(self, subs: &Substitution<'src>) -> Self {
+        let subs = subs
+            .clone()
+            .into_iter()
+            .filter(|(k, _)| !self.free.contains(k))
+            .collect();
+
         Self {
-            free: free.into_iter().map(|n| n.into()).collect(),
+            free: self.free,
+            func: self.func.substitute(&subs),
+        }
+    }
+
+    pub fn instantiate(&self, gen: &mut TyGen) -> FnTy<'src> {
+        let subs = Substitution::from_iter(self.free.iter().map(|t| (*t, gen.fresh())));
+        self.func.clone().substitute(&subs)
+    }
+}
+
+impl<'src> Scheme<'src> {
+    pub fn new<const N: usize>(free: [TyVar; N], func: FnTy<'src>) -> Self {
+        Self {
+            free: free.into_iter().collect(),
             func,
         }
     }

@@ -1,11 +1,15 @@
 use std::convert::From;
 
+use crate::types::{FnTy, Ty};
+
 #[derive(Debug, Clone)]
 pub enum LiteralExpr<'a> {
     U32(u32),
     String(&'a str),
     Bool(bool),
 }
+
+impl<'a> LiteralExpr<'a> {}
 
 impl<'a> From<&'a str> for LiteralExpr<'a> {
     fn from(value: &'a str) -> Self {

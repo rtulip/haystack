@@ -5,7 +5,7 @@ mod types;
 
 use expression::{BlockExpr, Expr, LiteralExpr, VarExpr};
 
-use crate::types::FnTy;
+use crate::types::{Context, FnTy, Scheme, Stack, Ty, TyGen};
 
 #[derive(Parser)]
 struct Cli {
@@ -25,5 +25,9 @@ fn main() {
 
     let main_sig = FnTy::new([], []);
 
-    dbg!(main_expr);
+    let mut ctx = Context::from([("println", Scheme::new([], FnTy::new([Ty::U32], [])))]);
+    let mut gen = TyGen::new();
+
+    let x = main_expr.apply(Stack::from([]), &mut ctx, &mut gen);
+    dbg!(x);
 }

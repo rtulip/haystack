@@ -1,12 +1,11 @@
-use clap::App;
-
 use crate::types::{
-    Context, FnTy, Stack, StackSplitError, Substitution, TyGen, UnificationError, Var,
+    Context, FnTy, Scheme, Stack, StackSplitError, Substitution, TyGen, UnificationError, Var,
 };
 
-pub use self::{block::BlockExpr, literal::LiteralExpr, var::VarExpr};
+pub use self::{as_expr::AsExpr, block::BlockExpr, literal::LiteralExpr, var::VarExpr};
 use std::convert::From;
 
+mod as_expr;
 mod block;
 mod literal;
 mod var;
@@ -16,6 +15,7 @@ pub enum Expr<'src> {
     Literal(LiteralExpr<'src>),
     Block(BlockExpr<'src>),
     Var(VarExpr<'src>),
+    As(AsExpr<'src>),
 }
 
 #[derive(Debug)]
@@ -48,12 +48,9 @@ impl<'src> Expr<'src> {
     pub fn apply<'ctx>(
         self,
         stack: Stack<'src>,
-        context: &'ctx mut Context<'src>,
+        context: &mut Context<'src>,
         gen: &mut TyGen,
-    ) -> Result<(Stack<'src>, Substitution<'src>), ApplicationError<'src>>
-    where
-        'src: 'ctx,
-    {
+    ) -> Result<(Stack<'src>, Substitution<'src>), ApplicationError<'src>> {
         let (stack, subs) = match self {
             Expr::Literal(lit) => {
                 let func: FnTy<'_> = lit.into();
@@ -66,6 +63,14 @@ impl<'src> Expr<'src> {
                     None => return Err(ApplicationError::UnknownVar(var)),
                 };
                 func.apply(stack)?
+            }
+            Expr::As(AsExpr(bindings)) => {
+                let (head, tail) = stack.split(bindings.len())?;
+                for (ty, ident) in tail.into_iter().zip(bindings.into_iter()) {
+                    context.push(ident, Scheme::new([], FnTy::new([], [ty])));
+                }
+
+                (head, Substitution::new())
             }
         };
 
@@ -88,5 +93,11 @@ impl<'src> From<LiteralExpr<'src>> for Expr<'src> {
 impl<'src> From<VarExpr<'src>> for Expr<'src> {
     fn from(value: VarExpr<'src>) -> Self {
         Self::Var(value)
+    }
+}
+
+impl<'src> From<AsExpr<'src>> for Expr<'src> {
+    fn from(value: AsExpr<'src>) -> Self {
+        Self::As(value)
     }
 }

@@ -25,7 +25,10 @@ pub enum UnificationError<'src> {
 
 pub struct Stack<'src>(Vec<Ty<'src>>);
 impl<'src> Stack<'src> {
-    fn split(mut self, len: usize) -> Result<(Stack<'src>, Stack<'src>), StackSplitError<'src>> {
+    pub fn split(
+        mut self,
+        len: usize,
+    ) -> Result<(Stack<'src>, Stack<'src>), StackSplitError<'src>> {
         if len > self.0.len() {
             Err(StackSplitError(self, len))
         } else {
@@ -123,6 +126,10 @@ impl<'src> Context<'src> {
 
     pub fn iter(&self) -> std::slice::Iter<'_, Var<'src>> {
         self.0.iter()
+    }
+
+    pub fn push(&mut self, ident: &'src str, scheme: Scheme<'src>) {
+        self.0.push(Var { ident, scheme })
     }
 }
 

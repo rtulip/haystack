@@ -3,7 +3,7 @@ use std::convert::From;
 
 use super::{Ty, TyVar, UnificationError, Variance};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Substitution<'a>(HashMap<TyVar, Ty<'a>>);
 impl<'a> Substitution<'a> {
     pub fn new() -> Self {

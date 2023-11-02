@@ -29,7 +29,7 @@ pub struct QuantifiedType<'a> {
 }
 
 impl<'a> QuantifiedType<'a> {
-    fn new<const N: usize>(ident: &'a str, ts: [Ty<'a>; N]) -> Self {
+    pub fn new<const N: usize>(ident: &'a str, ts: [Ty<'a>; N]) -> Self {
         QuantifiedType {
             ident,
             elements: ts.into(),
@@ -92,7 +92,12 @@ impl<'a> Ty<'a> {
                     elements: right_elems,
                 }),
             ) if left == right && left_elems.len() == right_elems.len() => {
-                todo!()
+                let mut subs = Substitution::new();
+                for (l, r) in left_elems.into_iter().zip(right_elems.into_iter()) {
+                    subs = subs.unify(l.unify(r, variance)?)?;
+                }
+
+                Ok(subs)
             }
             (left, right) => Err(UnificationError::TypesNotEqual(left, right)),
         }

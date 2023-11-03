@@ -5,7 +5,7 @@ mod interpreter;
 mod statement;
 mod types;
 
-use expression::{AddExpr, AsExpr, BlockExpr, LiteralExpr, VarExpr};
+use expression::{AddExpr, AsExpr, BlockExpr, IfExpr, LessThanExpr, LiteralExpr, SubExpr, VarExpr};
 use interpreter::{Element, Interpreter};
 
 use crate::{
@@ -113,6 +113,34 @@ fn dup() -> (&'static str, Element<'static>) {
     )
 }
 
+fn fib() -> (&'static str, Element<'static>) {
+    (
+        "fib",
+        BlockExpr::from([
+            AsExpr::from(["n"]).into(),
+            VarExpr::from("n").into(),
+            LiteralExpr::from(2).into(),
+            LessThanExpr.into(),
+            IfExpr::new(
+                VarExpr::from("n"),
+                BlockExpr::from([
+                    VarExpr::from("n").into(),
+                    LiteralExpr::from(1).into(),
+                    SubExpr.into(),
+                    VarExpr::from("fib").into(),
+                    VarExpr::from("n").into(),
+                    LiteralExpr::from(2).into(),
+                    SubExpr.into(),
+                    VarExpr::from("fib").into(),
+                    AddExpr.into(),
+                ]),
+            )
+            .into(),
+        ])
+        .into(),
+    )
+}
+
 fn main() {
     // let cli = Cli::parse();
 
@@ -151,7 +179,48 @@ fn main() {
                 VarExpr::from("putlns").into(),
                 LiteralExpr::from(5).into(),
                 VarExpr::from("dup").into(),
+                LiteralExpr::from(true).into(),
+                IfExpr::new(
+                    BlockExpr::from([
+                        LiteralExpr::from("True Path").into(),
+                        VarExpr::from("putlns").into(),
+                    ]),
+                    BlockExpr::from([
+                        LiteralExpr::from(3).into(),
+                        AddExpr.into(),
+                        LiteralExpr::from("False Path").into(),
+                        VarExpr::from("putlns").into(),
+                    ]),
+                )
+                .into(),
                 AddExpr.into(),
+                VarExpr::from("putlnu").into(),
+            ])
+            .into(),
+        ),
+    ])
+    .start("main")
+    .unwrap();
+
+    println!("=============================");
+
+    Interpreter::new([
+        builtin_print_bool(),
+        builtin_print_string(),
+        builtin_print_u32(),
+        putb(),
+        puts(),
+        putu(),
+        putlnb(),
+        putlns(),
+        putlnu(),
+        dup(),
+        fib(),
+        (
+            "main",
+            BlockExpr::from([
+                LiteralExpr::from(10).into(),
+                VarExpr::from("fib").into(),
                 VarExpr::from("putlnu").into(),
             ])
             .into(),

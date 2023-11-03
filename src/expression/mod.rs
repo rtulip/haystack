@@ -1,14 +1,19 @@
+pub use self::{
+    as_expr::AsExpr,
+    block::BlockExpr,
+    if_expr::IfExpr,
+    literal::LiteralExpr,
+    operator::{AddExpr, LessThanExpr, SubExpr},
+    var::VarExpr,
+};
 use crate::types::{
     Context, FnTy, Scheme, Stack, StackSplitError, Substitution, Ty, TyGen, UnificationError, Var,
-};
-
-pub use self::{
-    as_expr::AsExpr, block::BlockExpr, literal::LiteralExpr, operator::AddExpr, var::VarExpr,
 };
 use std::convert::From;
 
 mod as_expr;
 mod block;
+mod if_expr;
 mod literal;
 mod operator;
 mod var;
@@ -20,6 +25,9 @@ pub enum Expr<'src> {
     Var(VarExpr<'src>),
     As(AsExpr<'src>),
     Add(AddExpr),
+    Sub(SubExpr),
+    LessThan(LessThanExpr),
+    If(IfExpr<'src>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -77,6 +85,9 @@ impl<'src> Expr<'src> {
                 (head, Substitution::new())
             }
             Expr::Add(_) => FnTy::new([Ty::U32, Ty::U32], [Ty::U32]).apply(stack)?,
+            Expr::Sub(_) => FnTy::new([Ty::U32, Ty::U32], [Ty::U32]).apply(stack)?,
+            Expr::LessThan(_) => FnTy::new([Ty::U32, Ty::U32], [Ty::Bool]).apply(stack)?,
+            Expr::If(_) => todo!(),
         };
 
         Ok((stack, subs))
@@ -110,5 +121,23 @@ impl<'src> From<AsExpr<'src>> for Expr<'src> {
 impl<'src> From<AddExpr> for Expr<'src> {
     fn from(value: AddExpr) -> Self {
         Self::Add(value)
+    }
+}
+
+impl<'src> From<LessThanExpr> for Expr<'src> {
+    fn from(value: LessThanExpr) -> Self {
+        Self::LessThan(value)
+    }
+}
+
+impl<'src> From<SubExpr> for Expr<'src> {
+    fn from(value: SubExpr) -> Self {
+        Self::Sub(value)
+    }
+}
+
+impl<'src> From<IfExpr<'src>> for Expr<'src> {
+    fn from(value: IfExpr<'src>) -> Self {
+        Self::If(value)
     }
 }

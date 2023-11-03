@@ -1,4 +1,4 @@
-use crate::expression::{AsExpr, Expr, VarExpr};
+use crate::expression::{AsExpr, Expr, IfExpr, VarExpr};
 
 pub use self::element::Element;
 
@@ -83,6 +83,23 @@ impl<'src> Interpreter<'src> {
                 let l = self.pop_u32()?;
                 let r = self.pop_u32()?;
                 self.stack.push((l + r).into())
+            }
+            Expr::Sub(_) => {
+                let b = self.pop_u32()?;
+                let a = self.pop_u32()?;
+                self.stack.push((a - b).into())
+            }
+            Expr::LessThan(_) => {
+                let b = self.pop_u32()?;
+                let a = self.pop_u32()?;
+                self.stack.push((a < b).into())
+            }
+            Expr::If(IfExpr { then, otherwise }) => {
+                if self.pop_bool()? {
+                    self.execute(*then)?;
+                } else {
+                    self.execute(*otherwise)?;
+                }
             }
         }
 

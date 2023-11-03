@@ -31,6 +31,7 @@ impl<'src> Scanner<'src> {
             ("fn", Keyword::Function.into()),
             ("if", Keyword::If.into()),
             ("else", Keyword::Else.into()),
+            ("as", Keyword::As.into()),
         ])
     }
 
@@ -60,7 +61,14 @@ impl<'src> Scanner<'src> {
             '[' => self.build_token(Symbol::LeftBracket),
             ']' => self.build_token(Symbol::RightBracket),
             '+' => self.build_token(Symbol::Plus),
-            '-' => self.build_token(Symbol::Minus),
+            '-' => {
+                if self.peek() == '>' {
+                    self.advance();
+                    self.build_token(Symbol::Arrow)
+                } else {
+                    self.build_token(Symbol::Minus)
+                }
+            }
             '>' => {
                 if self.peek() == '=' {
                     self.advance();
@@ -95,6 +103,7 @@ impl<'src> Scanner<'src> {
             }
             c if c.is_ascii_digit() => self.number(),
             c if c.is_alphabetic() => self.ident(keywords),
+            '"' => self.string(),
             '\n' => self.newline(),
             ws if ws.is_whitespace() => self.whitespace(),
             c => todo!("Not sure what to do with `{c}` yet..."),
@@ -182,6 +191,21 @@ impl<'src> Scanner<'src> {
             None => self.build_token(TokenKind::Identifier(ident)),
         }
     }
+
+    fn string(&mut self) -> Token<'src> {
+        while self.peek() != '"' && !self.is_at_end() {
+            self.advance();
+        }
+
+        if self.is_at_end() {
+            todo!("Error on unterminated string...");
+        } else {
+            self.advance();
+        }
+
+        let s = &self.source[self.token_start + 1..self.idx - 1];
+        self.build_token(Literal::String(s))
+    }
 }
 
 #[cfg(test)]
@@ -193,7 +217,12 @@ mod tests {
     fn scanner() {
         let tokens = Scanner::scan_tokens(
             "file.txt",
-            ">>=>>=((())){{{}}}[[[]]]+++---   \r\r\r\t\t\t\n\n\n==!=12345fn if else fnifelse",
+            "
+fn dup<T>(T) -> [T T] {
+    \"Hello Parser!\" putlns
+    as [t] t t 
+}
+",
         );
 
         for tok in tokens {

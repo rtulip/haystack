@@ -6,6 +6,7 @@ pub enum Keyword {
     Function,
     If,
     Else,
+    As,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,9 +25,8 @@ pub enum Symbol {
     LessEqual,
     Equals,
     NotEqual,
+    Arrow,
 }
-
-impl Symbol {}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Literal<'src> {

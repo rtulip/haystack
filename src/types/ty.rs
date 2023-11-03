@@ -22,6 +22,7 @@ impl TyGen {
         t
     }
 
+    #[cfg(test)]
     pub fn fresh_with_var<'src>(&mut self) -> (Ty<'src>, TyVar) {
         let t = Ty::var(self.0);
         let v = self.0.into();
@@ -119,6 +120,7 @@ impl<'src> Ty<'src> {
         }
     }
 
+    #[cfg(test)]
     pub fn normalize(&self, subs: &Substitution<'src>) -> Self {
         match self {
             Ty::U32 => Ty::U32,

@@ -62,7 +62,6 @@ impl<'src> Interpreter<'src> {
                     Element::Bool(b) => self.stack.push(b.into()),
                     Element::U32(n) => self.stack.push(n.into()),
                     Element::Str(s) => self.stack.push(s.into()),
-                    Element::Quant(_) => todo!(),
                     Element::Expr(e) => self.execute(e)?,
                     Element::Extern(f) => f(self)?,
                 }

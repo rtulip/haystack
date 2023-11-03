@@ -109,6 +109,7 @@ pub struct Var<'src> {
 pub struct Context<'src>(Vec<Var<'src>>);
 
 impl<'src> Context<'src> {
+    #[cfg(test)]
     pub fn new() -> Self {
         Self(vec![])
     }

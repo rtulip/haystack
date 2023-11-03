@@ -39,7 +39,7 @@ mod test_type_check {
         },
         types::{
             Context, FnTy, QuantifiedType, Scheme, Stack, StackSplitError, Substitution, Ty, TyGen,
-            UnificationError, Var,
+            UnificationError,
         },
     };
 

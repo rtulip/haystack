@@ -3,18 +3,12 @@ use std::convert::From;
 use crate::expression::{BlockExpr, Expr, LiteralExpr, VarExpr};
 
 use super::{Interpreter, InterpreterError};
-#[derive(Debug, Clone)]
-pub struct QuantifiedElement<'src> {
-    ident: &'src str,
-    elems: Vec<Element<'src>>,
-}
 
 #[derive(Debug, Clone)]
 pub enum Element<'src> {
     Bool(bool),
     U32(u32),
     Str(&'src str),
-    Quant(QuantifiedElement<'src>),
     Expr(Expr<'src>),
     Extern(fn(&mut Interpreter) -> Result<(), InterpreterError>),
 }

@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use super::{
     quote::{Loc, Quote},
-    token::{Literal, Symbol, Token, TokenKind},
+    token::{Keyword, Literal, Symbol, Token, TokenKind},
 };
 
 struct Scanner<'src> {
@@ -16,11 +18,20 @@ impl<'src> Scanner<'src> {
     pub fn scan_tokens(file: &'src str, source: &'src str) -> Vec<Token<'src>> {
         let mut scanner = Scanner::new(file, source);
         let mut tokens = vec![];
+        let keywords = Scanner::keywords();
         while !scanner.is_at_end() {
-            tokens.push(scanner.next());
+            tokens.push(scanner.next(&keywords));
         }
 
         tokens
+    }
+
+    fn keywords() -> HashMap<&'static str, TokenKind<'static>> {
+        HashMap::from([
+            ("fn", Keyword::Function.into()),
+            ("if", Keyword::If.into()),
+            ("else", Keyword::Else.into()),
+        ])
     }
 
     fn new(file: &'src str, source: &'src str) -> Self {
@@ -38,7 +49,7 @@ impl<'src> Scanner<'src> {
         self.idx >= self.source.len()
     }
 
-    fn next(&mut self) -> Token<'src> {
+    fn next(&mut self, keywords: &HashMap<&'src str, TokenKind<'src>>) -> Token<'src> {
         let c = self.advance();
 
         match c {
@@ -66,18 +77,27 @@ impl<'src> Scanner<'src> {
                     self.build_token(Symbol::LessThan)
                 }
             }
-            '=' if self.peek() == '=' => {
-                self.advance();
-                self.build_token(Symbol::Equals)
+            '=' => {
+                if self.peek() == '=' {
+                    self.advance();
+                    self.build_token(Symbol::Equals)
+                } else {
+                    todo!("Handle Errors")
+                }
             }
-            '!' if self.peek() == '=' => {
-                self.advance();
-                self.build_token(Symbol::NotEqual)
+            '!' => {
+                if self.peek() == '=' {
+                    self.advance();
+                    self.build_token(Symbol::NotEqual)
+                } else {
+                    todo!("Add `!` token")
+                }
             }
-            '\n' => self.newline(),
             c if c.is_ascii_digit() => self.number(),
+            c if c.is_alphabetic() => self.ident(keywords),
+            '\n' => self.newline(),
             ws if ws.is_whitespace() => self.whitespace(),
-            c => panic!("Not sure what to do with `{c}` yet..."),
+            c => todo!("Not sure what to do with `{c}` yet..."),
         }
     }
 
@@ -115,7 +135,7 @@ impl<'src> Scanner<'src> {
     fn whitespace(&mut self) -> Token<'src> {
         loop {
             let c = self.peek();
-            if c == '\n' || !c.is_whitespace() {
+            if c == '\n' || !c.is_whitespace() || self.is_at_end() {
                 break;
             }
             self.advance();
@@ -133,7 +153,7 @@ impl<'src> Scanner<'src> {
     }
 
     fn number(&mut self) -> Token<'src> {
-        while self.peek().is_ascii_digit() {
+        while self.peek().is_ascii_digit() && !self.is_at_end() {
             self.advance();
         }
 
@@ -143,11 +163,29 @@ impl<'src> Scanner<'src> {
 
         self.build_token(Literal::U32(n))
     }
+
+    fn ident(&mut self, keywords: &HashMap<&'src str, TokenKind<'src>>) -> Token<'src> {
+        loop {
+            let c = self.peek();
+            if self.is_at_end() {
+                break;
+            }
+            if c != '.' && !c.is_alphanumeric() {
+                break;
+            }
+
+            self.advance();
+        }
+        let ident = &self.source[self.token_start..self.idx];
+        match keywords.get(ident) {
+            Some(kw) => self.build_token(kw.clone()),
+            None => self.build_token(TokenKind::Identifier(ident)),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::token::Symbol;
 
     use super::Scanner;
 
@@ -155,7 +193,7 @@ mod tests {
     fn scanner() {
         let tokens = Scanner::scan_tokens(
             "file.txt",
-            ">>=>>=((())){{{}}}[[[]]]+++---   \r\r\r\t\t\t\n\n\n==!=12345",
+            ">>=>>=((())){{{}}}[[[]]]+++---   \r\r\r\t\t\t\n\n\n==!=12345fn if else fnifelse",
         );
 
         for tok in tokens {

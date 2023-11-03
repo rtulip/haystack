@@ -1,6 +1,6 @@
 use super::{
     quote::{Loc, Quote},
-    token::{Symbol, Token, TokenKind},
+    token::{Literal, Symbol, Token, TokenKind},
 };
 
 struct Scanner<'src> {
@@ -66,7 +66,16 @@ impl<'src> Scanner<'src> {
                     self.build_token(Symbol::LessThan)
                 }
             }
+            '=' if self.peek() == '=' => {
+                self.advance();
+                self.build_token(Symbol::Equals)
+            }
+            '!' if self.peek() == '=' => {
+                self.advance();
+                self.build_token(Symbol::NotEqual)
+            }
             '\n' => self.newline(),
+            c if c.is_ascii_digit() => self.number(),
             ws if ws.is_whitespace() => self.whitespace(),
             c => panic!("Not sure what to do with `{c}` yet..."),
         }
@@ -96,8 +105,11 @@ impl<'src> Scanner<'src> {
     }
 
     fn peek(&self) -> char {
-        assert!(!self.is_at_end());
-        self.source.chars().nth(self.idx).unwrap()
+        if self.is_at_end() {
+            '\0'
+        } else {
+            self.source.chars().nth(self.idx).unwrap()
+        }
     }
 
     fn whitespace(&mut self) -> Token<'src> {
@@ -119,6 +131,18 @@ impl<'src> Scanner<'src> {
 
         t
     }
+
+    fn number(&mut self) -> Token<'src> {
+        while self.peek().is_ascii_digit() {
+            self.advance();
+        }
+
+        let n = self.source[self.token_start..self.idx]
+            .parse::<u32>()
+            .unwrap();
+
+        self.build_token(Literal::U32(n))
+    }
 }
 
 #[cfg(test)]
@@ -131,11 +155,11 @@ mod tests {
     fn scanner() {
         let tokens = Scanner::scan_tokens(
             "file.txt",
-            ">>=>>=((())){{{}}}[[[]]]+++---   \r\r\r\t\t\t\n\n\n",
+            ">>=>>=((())){{{}}}[[[]]]+++---   \r\r\r\t\t\t\n\n\n==!=12345",
         );
 
         for tok in tokens {
-            println!("{}", tok.quote())
+            println!("{}: {:?}", tok.quote(), tok.kind())
         }
     }
 }

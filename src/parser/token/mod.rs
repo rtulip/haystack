@@ -5,6 +5,7 @@ use std::convert::From;
 pub enum Keyword {
     Function,
     If,
+    Else,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -22,6 +23,7 @@ pub enum Symbol {
     LessThan,
     LessEqual,
     Equals,
+    NotEqual,
 }
 
 impl Symbol {}
@@ -75,10 +77,10 @@ impl<'src> Token<'src> {
     pub fn new(kind: TokenKind<'src>, quote: Quote<'src>) -> Self {
         Self { kind, quote }
     }
-    pub fn kind(self) -> TokenKind<'src> {
-        self.kind
+    pub fn kind(&self) -> &TokenKind<'src> {
+        &self.kind
     }
-    pub fn quote(self) -> Quote<'src> {
-        self.quote
+    pub fn quote(&self) -> &Quote<'src> {
+        &self.quote
     }
 }

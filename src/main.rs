@@ -2,6 +2,7 @@ use clap::Parser;
 
 mod expression;
 mod interpreter;
+mod parser;
 mod statement;
 mod types;
 

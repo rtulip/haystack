@@ -33,10 +33,13 @@ impl<'src> FunctionStmt<'src> {
 #[cfg(test)]
 mod test_type_check {
     use crate::{
-        expression::{AddExpr, ApplicationError, AsExpr, BlockExpr, LiteralExpr, VarExpr},
+        expression::{
+            AddExpr, ApplicationError, AsExpr, BlockExpr, Expr, IfExpr, LessThanExpr, LiteralExpr,
+            SubExpr, VarExpr,
+        },
         types::{
             Context, FnTy, QuantifiedType, Scheme, Stack, StackSplitError, Substitution, Ty, TyGen,
-            UnificationError,
+            UnificationError, Var,
         },
     };
 
@@ -215,5 +218,95 @@ mod test_type_check {
 
         assert!(foo.is_ok());
         assert_eq!(Ty::from(var).normalize(&foo.unwrap()), Ty::U32)
+    }
+
+    #[test]
+    fn fib() {
+        let mut gen = TyGen::new();
+
+        let ctx = Context::from([("fib", Scheme::new([], FnTy::new([Ty::U32], [Ty::U32])))]);
+        let fib = FunctionStmt::new(
+            BlockExpr::from([
+                AsExpr::from("n").into(),
+                VarExpr::from("n").into(),
+                LiteralExpr::from(2).into(),
+                LessThanExpr.into(),
+                IfExpr::new(
+                    VarExpr::from("n"),
+                    BlockExpr::from([
+                        VarExpr::from("n").into(),
+                        LiteralExpr::from(1).into(),
+                        SubExpr.into(),
+                        VarExpr::from("fib").into(),
+                        VarExpr::from("n").into(),
+                        LiteralExpr::from(2).into(),
+                        SubExpr.into(),
+                        VarExpr::from("fib").into(),
+                        AddExpr.into(),
+                    ]),
+                )
+                .into(),
+            ])
+            .into(),
+            Scheme::new([], FnTy::new([Ty::U32], [Ty::U32])),
+        );
+
+        assert!(fib.type_check(&ctx, &mut gen).is_ok());
+    }
+
+    #[test]
+    fn hard_if_expr() {
+        let mut gen = TyGen::new();
+
+        let (ty, var) = gen.fresh_with_var();
+        let mut ctx = Context::from([
+            (
+                "Option.None",
+                Scheme::new([var], FnTy::new([], [ty.clone()])),
+            ),
+            (
+                "Option.Some",
+                Scheme::new(
+                    [var],
+                    FnTy::new([Ty::Var(var)], [Ty::quantified("Option", vec![ty.clone()])]),
+                ),
+            ),
+            ("drop", Scheme::new([var], FnTy::new([ty.clone()], []))),
+            (
+                "Option.Unwrap<u32>",
+                Scheme::new(
+                    [],
+                    FnTy::new([Ty::quantified("Option", [Ty::U32])], [Ty::U32]),
+                ),
+            ),
+        ]);
+
+        let e: Expr<'_> = BlockExpr::from([
+            IfExpr::new(
+                VarExpr::from("Option.Some"),
+                BlockExpr::from([
+                    VarExpr::from("drop").into(),
+                    VarExpr::from("Option.None").into(),
+                ]),
+            )
+            .into(),
+            VarExpr::from("Option.Unwrap<u32>").into(),
+        ])
+        .into();
+
+        let t1 = gen.fresh();
+        let t2 = gen.fresh();
+
+        let (stack, subs) = e
+            .apply(
+                Stack::from([Ty::U32, t1.clone(), t2.clone(), t1.clone()]),
+                &mut ctx,
+                &mut gen,
+            )
+            .unwrap();
+
+        assert_eq!(stack, Stack::from([Ty::U32, Ty::Bool, Ty::U32]));
+        assert_eq!(t1.normalize(&subs), Ty::Bool);
+        assert_eq!(t2.normalize(&subs), Ty::U32);
     }
 }

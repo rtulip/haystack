@@ -8,6 +8,7 @@ pub use self::{
 };
 use crate::types::{
     Context, FnTy, Scheme, Stack, StackSplitError, Substitution, Ty, TyGen, UnificationError, Var,
+    Variance,
 };
 use std::convert::From;
 
@@ -87,7 +88,22 @@ impl<'src> Expr<'src> {
             Expr::Add(_) => FnTy::new([Ty::U32, Ty::U32], [Ty::U32]).apply(stack)?,
             Expr::Sub(_) => FnTy::new([Ty::U32, Ty::U32], [Ty::U32]).apply(stack)?,
             Expr::LessThan(_) => FnTy::new([Ty::U32, Ty::U32], [Ty::Bool]).apply(stack)?,
-            Expr::If(_) => todo!(),
+            Expr::If(IfExpr { then, otherwise }) => {
+                let (stack, subs) = FnTy::new([Ty::Bool], []).apply(stack)?;
+
+                let (then_stack, then_sub) = then.apply(stack.clone(), context, gen)?;
+                let (otherwise_stack, otherwise_sub) =
+                    otherwise.apply(stack.clone(), context, gen)?;
+
+                let subs = subs.unify(then_sub)?.unify(otherwise_sub)?;
+
+                let then_stack = then_stack.substitute(&subs);
+                let otherwise_stack = otherwise_stack.substitute(&subs);
+
+                let subs =
+                    subs.unify(then_stack.unify(otherwise_stack.clone(), Variance::Covariant)?)?;
+                (otherwise_stack.substitute(&subs), subs)
+            }
         };
 
         Ok((stack, subs))

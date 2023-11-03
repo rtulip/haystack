@@ -60,7 +60,7 @@ impl<'src> Stack<'src> {
         Ok(subs)
     }
 
-    fn substitute(self, subs: &Substitution<'src>) -> Self {
+    pub fn substitute(self, subs: &Substitution<'src>) -> Self {
         Self(self.0.into_iter().map(|t| t.substitute(subs)).collect())
     }
 }

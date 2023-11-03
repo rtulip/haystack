@@ -10,3 +10,9 @@ impl<'src, const N: usize> From<[&'src str; N]> for AsExpr<'src> {
         Self(value.into())
     }
 }
+
+impl<'src> From<&'src str> for AsExpr<'src> {
+    fn from(value: &'src str) -> Self {
+        Self(vec![value])
+    }
+}

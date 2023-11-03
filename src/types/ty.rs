@@ -61,7 +61,7 @@ impl<'src> Ty<'src> {
         Ty::Var(TyVar(n))
     }
 
-    fn quantified<T>(ident: &'src str, ts: T) -> Self
+    pub fn quantified<T>(ident: &'src str, ts: T) -> Self
     where
         T: Into<Vec<Ty<'src>>>,
     {

@@ -36,8 +36,6 @@ impl<'src> Interpreter<'src> {
     }
 
     fn execute(&mut self, expr: Expr<'src>) -> Result<(), InterpreterError> {
-        eprintln!("executing {expr:?}");
-
         match expr {
             Expr::Literal(lit) => self.stack.push(lit.into()),
             Expr::Block(exprs) => {

@@ -31,9 +31,12 @@ impl<'src> BlockExpr<'src> {
     }
 }
 
-impl<'src, const N: usize> From<[Expr<'src>; N]> for BlockExpr<'src> {
-    fn from(value: [Expr<'src>; N]) -> Self {
-        Self(Vec::from(value))
+impl<'src, T> From<T> for BlockExpr<'src>
+where
+    T: Into<Vec<Expr<'src>>>,
+{
+    fn from(value: T) -> Self {
+        Self(value.into())
     }
 }
 

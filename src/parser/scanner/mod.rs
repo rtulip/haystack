@@ -5,7 +5,14 @@ use super::{
     token::{Keyword, Literal, Symbol, Token, TokenKind},
 };
 
-struct Scanner<'src> {
+#[derive(Debug, Clone)]
+pub enum ScannerError<'src> {
+    UnexpectedChar { char: char, quote: Quote<'src> },
+    U32ParseError { quote: Quote<'src> },
+    UnterminatedString { quote: Quote<'src> },
+}
+
+pub struct Scanner<'src> {
     file: &'src str,
     source: &'src str,
     idx: usize,
@@ -15,15 +22,20 @@ struct Scanner<'src> {
 }
 
 impl<'src> Scanner<'src> {
-    pub fn scan_tokens(file: &'src str, source: &'src str) -> Vec<Token<'src>> {
+    pub fn scan_tokens(
+        file: &'src str,
+        source: &'src str,
+    ) -> Result<Vec<Token<'src>>, ScannerError<'src>> {
         let mut scanner = Scanner::new(file, source);
         let mut tokens = vec![];
         let keywords = Scanner::keywords();
         while !scanner.is_at_end() {
-            tokens.push(scanner.next(&keywords));
+            tokens.push(scanner.next(&keywords)?);
         }
 
-        tokens
+        tokens.push(scanner.build_token(TokenKind::EndOfFile));
+
+        Ok(tokens.into_iter().rev().collect())
     }
 
     fn keywords() -> HashMap<&'static str, TokenKind<'static>> {
@@ -50,45 +62,48 @@ impl<'src> Scanner<'src> {
         self.idx >= self.source.len()
     }
 
-    fn next(&mut self, keywords: &HashMap<&'src str, TokenKind<'src>>) -> Token<'src> {
+    fn next(
+        &mut self,
+        keywords: &HashMap<&'src str, TokenKind<'src>>,
+    ) -> Result<Token<'src>, ScannerError<'src>> {
         let c = self.advance();
 
         match c {
-            '(' => self.build_token(Symbol::LeftParen),
-            ')' => self.build_token(Symbol::RightParen),
-            '{' => self.build_token(Symbol::LeftBrace),
-            '}' => self.build_token(Symbol::RightBrace),
-            '[' => self.build_token(Symbol::LeftBracket),
-            ']' => self.build_token(Symbol::RightBracket),
-            '+' => self.build_token(Symbol::Plus),
+            '(' => Ok(self.build_token(Symbol::LeftParen)),
+            ')' => Ok(self.build_token(Symbol::RightParen)),
+            '{' => Ok(self.build_token(Symbol::LeftBrace)),
+            '}' => Ok(self.build_token(Symbol::RightBrace)),
+            '[' => Ok(self.build_token(Symbol::LeftBracket)),
+            ']' => Ok(self.build_token(Symbol::RightBracket)),
+            '+' => Ok(self.build_token(Symbol::Plus)),
             '-' => {
                 if self.peek() == '>' {
                     self.advance();
-                    self.build_token(Symbol::Arrow)
+                    Ok(self.build_token(Symbol::Arrow))
                 } else {
-                    self.build_token(Symbol::Minus)
+                    Ok(self.build_token(Symbol::Minus))
                 }
             }
             '>' => {
                 if self.peek() == '=' {
                     self.advance();
-                    self.build_token(Symbol::GreaterEqual)
+                    Ok(self.build_token(Symbol::GreaterEqual))
                 } else {
-                    self.build_token(Symbol::GreaterThan)
+                    Ok(self.build_token(Symbol::GreaterThan))
                 }
             }
             '<' => {
                 if self.peek() == '=' {
                     self.advance();
-                    self.build_token(Symbol::LessEqual)
+                    Ok(self.build_token(Symbol::LessEqual))
                 } else {
-                    self.build_token(Symbol::LessThan)
+                    Ok(self.build_token(Symbol::LessThan))
                 }
             }
             '=' => {
                 if self.peek() == '=' {
                     self.advance();
-                    self.build_token(Symbol::Equals)
+                    Ok(self.build_token(Symbol::Equals))
                 } else {
                     todo!("Handle Errors")
                 }
@@ -96,16 +111,16 @@ impl<'src> Scanner<'src> {
             '!' => {
                 if self.peek() == '=' {
                     self.advance();
-                    self.build_token(Symbol::NotEqual)
+                    Ok(self.build_token(Symbol::NotEqual))
                 } else {
                     todo!("Add `!` token")
                 }
             }
             c if c.is_ascii_digit() => self.number(),
-            c if c.is_alphabetic() => self.ident(keywords),
+            c if c.is_alphabetic() => Ok(self.ident(keywords)),
             '"' => self.string(),
-            '\n' => self.newline(),
-            ws if ws.is_whitespace() => self.whitespace(),
+            '\n' => Ok(self.newline()),
+            ws if ws.is_whitespace() => Ok(self.whitespace()),
             c => todo!("Not sure what to do with `{c}` yet..."),
         }
     }
@@ -161,16 +176,23 @@ impl<'src> Scanner<'src> {
         t
     }
 
-    fn number(&mut self) -> Token<'src> {
+    fn number(&mut self) -> Result<Token<'src>, ScannerError<'src>> {
         while self.peek().is_ascii_digit() && !self.is_at_end() {
             self.advance();
         }
 
         let n = self.source[self.token_start..self.idx]
             .parse::<u32>()
-            .unwrap();
+            .map_err(|_| ScannerError::U32ParseError {
+                quote: Quote::new(
+                    self.source,
+                    self.token_start,
+                    self.idx,
+                    Loc::new(self.file, self.line, self.relative_idx),
+                ),
+            })?;
 
-        self.build_token(Literal::U32(n))
+        Ok(self.build_token(Literal::U32(n)))
     }
 
     fn ident(&mut self, keywords: &HashMap<&'src str, TokenKind<'src>>) -> Token<'src> {
@@ -192,19 +214,26 @@ impl<'src> Scanner<'src> {
         }
     }
 
-    fn string(&mut self) -> Token<'src> {
+    fn string(&mut self) -> Result<Token<'src>, ScannerError<'src>> {
         while self.peek() != '"' && !self.is_at_end() {
             self.advance();
         }
 
         if self.is_at_end() {
-            todo!("Error on unterminated string...");
+            return Err(ScannerError::UnterminatedString {
+                quote: Quote::new(
+                    self.source,
+                    self.token_start,
+                    self.idx,
+                    Loc::new(self.file, self.line, self.relative_idx),
+                ),
+            });
         } else {
             self.advance();
         }
 
         let s = &self.source[self.token_start + 1..self.idx - 1];
-        self.build_token(Literal::String(s))
+        Ok(self.build_token(Literal::String(s)))
     }
 }
 
@@ -223,7 +252,8 @@ fn dup<T>(T) -> [T T] {
     as [t] t t 
 }
 ",
-        );
+        )
+        .unwrap();
 
         for tok in tokens {
             println!("{}: {:?}", tok.quote(), tok.kind())

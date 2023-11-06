@@ -10,6 +10,7 @@ use expression::{AddExpr, AsExpr, BlockExpr, IfExpr, LessThanExpr, LiteralExpr, 
 use interpreter::{Element, Interpreter};
 
 use crate::{
+    parser::scanner::{Scanner, ScannerError},
     statement::FunctionStmt,
     types::{Context, FnTy, Scheme, Ty, TyGen},
 };
@@ -229,4 +230,14 @@ fn main() {
     ])
     .start("main")
     .unwrap();
+
+    let file = "example.hay";
+    let source = "
+        fn main() {
+            \"Hello World\" putlns
+        }
+    ";
+
+    let tokens = Scanner::scan_tokens(file, source).unwrap();
+    let functions = crate::parser::Parser::parse(tokens).unwrap();
 }

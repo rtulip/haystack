@@ -6,9 +6,12 @@ pub use self::{
     operator::{AddExpr, LessThanExpr, SubExpr},
     var::VarExpr,
 };
-use crate::types::{
-    Context, FnTy, Scheme, Stack, StackSplitError, Substitution, Ty, TyGen, UnificationError, Var,
-    Variance,
+use crate::{
+    parser::token::Literal,
+    types::{
+        Context, FnTy, Scheme, Stack, StackSplitError, Substitution, Ty, TyGen, UnificationError,
+        Var, Variance,
+    },
 };
 use std::convert::From;
 
@@ -155,5 +158,15 @@ impl<'src> From<SubExpr> for Expr<'src> {
 impl<'src> From<IfExpr<'src>> for Expr<'src> {
     fn from(value: IfExpr<'src>) -> Self {
         Self::If(value)
+    }
+}
+
+impl<'src> From<Literal<'src>> for Expr<'src> {
+    fn from(value: Literal<'src>) -> Self {
+        match value {
+            Literal::U32(n) => Expr::Literal(n.into()),
+            Literal::Bool(b) => Expr::Literal(b.into()),
+            Literal::String(s) => Expr::Literal(s.into()),
+        }
     }
 }

@@ -3,6 +3,7 @@ use crate::{
     expression::{BlockExpr, Expr},
     parser::token::TokenShape,
     statement::FunctionStmt,
+    types::{FnTy, Scheme, Ty},
 };
 
 pub mod quote;
@@ -23,13 +24,51 @@ pub struct ParseFunction<'src> {
     signature: ParseSignature<'src>,
     body: Expr<'src>,
 }
+
+impl<'src> ParseFunction<'src> {
+    pub fn to_func_stmt(&self) -> Result<FunctionStmt<'src>, ()> {
+        Ok(FunctionStmt::new(
+            self.name.clone(),
+            self.body.clone(),
+            self.signature.to_scheme()?,
+        ))
+    }
+}
+
 pub struct ParseTy<'src> {
     ident: Token<'src>,
+}
+
+impl<'src> ParseTy<'src> {
+    fn to_concrete(&self) -> Result<Ty<'src>, ()> {
+        match self.ident.quote().as_str() {
+            "u32" => Ok(Ty::U32),
+            "bool" => Ok(Ty::Bool),
+            "Str" => Ok(Ty::Str),
+            _ => todo!(),
+        }
+    }
 }
 
 pub struct ParseSignature<'src> {
     input: Vec<ParseTy<'src>>,
     output: Vec<ParseTy<'src>>,
+}
+
+impl<'src> ParseSignature<'src> {
+    fn to_scheme(&self) -> Result<Scheme<'src>, ()> {
+        let mut input = vec![];
+        let mut output = vec![];
+
+        for ty in &self.input {
+            input.push(ty.to_concrete()?);
+        }
+        for ty in &self.output {
+            output.push(ty.to_concrete()?);
+        }
+
+        Ok(Scheme::new([], FnTy::new(input, output)))
+    }
 }
 
 pub struct Parser<'src> {
@@ -152,7 +191,7 @@ impl<'src> Parser<'src> {
         })
     }
 
-    pub fn parse(tokens: Vec<Token<'src>>) -> Result<Vec<ParseFunction<'src>>, ParseError<'src>> {
+    pub fn parse(tokens: Vec<Token<'src>>) -> Result<Vec<FunctionStmt<'src>>, ParseError<'src>> {
         let mut parser = Self { tokens };
 
         let mut fns = vec![];
@@ -161,6 +200,11 @@ impl<'src> Parser<'src> {
             fns.push(parser.function_declaration()?);
         }
 
-        Ok(fns)
+        let mut stmts = vec![];
+        for func in fns {
+            stmts.push(func.to_func_stmt().unwrap());
+        }
+
+        Ok(stmts)
     }
 }

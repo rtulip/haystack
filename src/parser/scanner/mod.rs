@@ -117,7 +117,7 @@ impl<'src> Scanner<'src> {
                 }
             }
             c if c.is_ascii_digit() => self.number(),
-            c if c.is_alphabetic() => Ok(self.ident(keywords)),
+            c if c.is_alphabetic() || c == '_' => Ok(self.ident(keywords)),
             '"' => self.string(),
             '\n' => Ok(self.newline()),
             ws if ws.is_whitespace() => Ok(self.whitespace()),
@@ -201,7 +201,7 @@ impl<'src> Scanner<'src> {
             if self.is_at_end() {
                 break;
             }
-            if c != '.' && !c.is_alphanumeric() {
+            if c != '.' && c != '_' && !c.is_alphanumeric() {
                 break;
             }
 

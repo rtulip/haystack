@@ -1,16 +1,36 @@
 use crate::{
     expression::{ApplicationError, Expr},
+    parser::{
+        quote::{Loc, Quote},
+        token::{Token, TokenKind},
+    },
     types::{Context, Scheme, Stack, Substitution, TyGen, Variance},
 };
 
 pub struct FunctionStmt<'src> {
-    expr: Expr<'src>,
+    pub token: Token<'src>,
+    pub expr: Expr<'src>,
     scheme: Scheme<'src>,
 }
 
 impl<'src> FunctionStmt<'src> {
-    pub fn new(expr: Expr<'src>, scheme: Scheme<'src>) -> Self {
-        Self { expr, scheme }
+    pub fn new(token: Token<'src>, expr: Expr<'src>, scheme: Scheme<'src>) -> Self {
+        Self {
+            token,
+            expr,
+            scheme,
+        }
+    }
+
+    pub fn new_wo_token(expr: Expr<'src>, scheme: Scheme<'src>) -> Self {
+        Self {
+            token: Token::new(
+                TokenKind::Identifier("anon_func"),
+                Quote::new("anon_func", 0, 0, Loc::new("generated", 0, 0)),
+            ),
+            expr,
+            scheme,
+        }
     }
 
     pub fn type_check(
@@ -27,6 +47,14 @@ impl<'src> FunctionStmt<'src> {
         let s2 = Stack::from_iter(func.output).unify(output, Variance::Contravariant)?;
 
         Ok(subs.unify(s1.unify(s2)?)?)
+    }
+
+    pub fn token(&self) -> &Token<'src> {
+        &self.token
+    }
+
+    pub fn scheme(&self) -> &Scheme<'src> {
+        &self.scheme
     }
 }
 
@@ -55,7 +83,7 @@ mod test_type_check {
             Scheme::new([0.into()], FnTy::new([], [option_t])),
         )]);
 
-        let x = FunctionStmt::new(
+        let x = FunctionStmt::new_wo_token(
             VarExpr::from("Option.None").into(),
             Scheme::new(
                 [],
@@ -77,7 +105,7 @@ mod test_type_check {
         let ctx = Context::new();
 
         let free = gen.fresh();
-        let x = FunctionStmt::new(
+        let x = FunctionStmt::new_wo_token(
             BlockExpr::from([
                 AsExpr::from(["x"]).into(),
                 VarExpr::from("x").into(),
@@ -106,7 +134,7 @@ mod test_type_check {
             ("putlnb", Scheme::new([], FnTy::new([Ty::Bool], []))),
         ]);
 
-        let main = FunctionStmt::new(
+        let main = FunctionStmt::new_wo_token(
             BlockExpr::from([
                 LiteralExpr::from(true).into(),
                 LiteralExpr::from(12345).into(),
@@ -131,7 +159,7 @@ mod test_type_check {
 
         let ctx = Context::from([("putlns", Scheme::new([], FnTy::new([Ty::Str], [])))]);
 
-        let main = FunctionStmt::new(
+        let main = FunctionStmt::new_wo_token(
             BlockExpr::from([
                 LiteralExpr::from(12345).into(),
                 VarExpr::from("putlns").into(),
@@ -155,7 +183,7 @@ mod test_type_check {
 
         let ctx = Context::from([("putlns", Scheme::new([], FnTy::new([Ty::Str], [])))]);
 
-        let main = FunctionStmt::new(
+        let main = FunctionStmt::new_wo_token(
             BlockExpr::from([VarExpr::from("putlns").into()]).into(),
             Scheme::new([], FnTy::new([], [])),
         )
@@ -180,7 +208,7 @@ mod test_type_check {
             ("putlnb", Scheme::new([], FnTy::new([Ty::Bool], []))),
         ]);
         let (ty, var) = gen.fresh_with_var();
-        let foo = FunctionStmt::new(
+        let foo = FunctionStmt::new_wo_token(
             BlockExpr::from([
                 AsExpr::from(["x"]).into(),
                 VarExpr::from("x").into(),
@@ -203,7 +231,7 @@ mod test_type_check {
         );
 
         let (ty, var) = gen.fresh_with_var();
-        let foo = FunctionStmt::new(
+        let foo = FunctionStmt::new_wo_token(
             BlockExpr::from([
                 AsExpr::from(["x"]).into(),
                 VarExpr::from("x").into(),
@@ -225,7 +253,7 @@ mod test_type_check {
         let mut gen = TyGen::new();
 
         let ctx = Context::from([("fib", Scheme::new([], FnTy::new([Ty::U32], [Ty::U32])))]);
-        let fib = FunctionStmt::new(
+        let fib = FunctionStmt::new_wo_token(
             BlockExpr::from([
                 AsExpr::from("n").into(),
                 VarExpr::from("n").into(),

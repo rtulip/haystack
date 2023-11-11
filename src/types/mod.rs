@@ -14,6 +14,8 @@ pub use variance::*;
 
 use std::{convert::From, fmt::Debug};
 
+use crate::statement::FunctionStmt;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StackSplitError<'src>(pub Stack<'src>, pub usize);
 
@@ -109,7 +111,6 @@ pub struct Var<'src> {
 pub struct Context<'src>(Vec<Var<'src>>);
 
 impl<'src> Context<'src> {
-    #[cfg(test)]
     pub fn new() -> Self {
         Self(vec![])
     }
@@ -120,6 +121,28 @@ impl<'src> Context<'src> {
 
     pub fn push(&mut self, ident: &'src str, scheme: Scheme<'src>) {
         self.0.push(Var { ident, scheme })
+    }
+
+    pub fn from_functions(functions: &'src Vec<FunctionStmt<'src>>) -> Self {
+        let mut ctx = Context::new();
+        ctx.push(
+            "__builtin_print_bool",
+            Scheme::new([], FnTy::new([Ty::Bool], [])),
+        );
+        ctx.push(
+            "__builtin_print_u32",
+            Scheme::new([], FnTy::new([Ty::U32], [])),
+        );
+        ctx.push(
+            "__builtin_print_string",
+            Scheme::new([], FnTy::new([Ty::Str], [])),
+        );
+
+        for func in functions {
+            ctx.push(func.token().quote().as_str(), func.scheme().clone())
+        }
+
+        ctx
     }
 }
 

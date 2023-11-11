@@ -146,7 +146,7 @@ fn fib() -> (&'static str, Element<'static>) {
 fn main() {
     // let cli = Cli::parse();
 
-    let main = FunctionStmt::new(
+    let main = FunctionStmt::new_wo_token(
         BlockExpr::from([
             LiteralExpr::from("Hello World").into(),
             VarExpr::from("putlns").into(),
@@ -233,11 +233,36 @@ fn main() {
 
     let file = "example.hay";
     let source = "
+        fn putu(u32)  __builtin_print_u32
+        fn putb(bool) __builtin_print_bool
+        fn puts(Str)  __builtin_print_string
         fn main() {
-            \"Hello World\" putlns
+            \"Hello World\" puts
         }
     ";
 
     let tokens = Scanner::scan_tokens(file, source).unwrap();
     let functions = crate::parser::Parser::parse(tokens).unwrap();
+    let context = Context::from_functions(&functions);
+    let mut gen = TyGen::new();
+
+    for func in &functions {
+        func.type_check(&context, &mut gen).unwrap();
+    }
+
+    let mut elements = vec![
+        builtin_print_bool(),
+        builtin_print_string(),
+        builtin_print_u32(),
+    ];
+    elements.extend(functions.iter().map(|func| {
+        (
+            func.token.quote().as_str(),
+            Element::Expr(func.expr.clone()),
+        )
+    }));
+
+    let interpreter = Interpreter::new(elements);
+
+    interpreter.start("main").unwrap();
 }

@@ -12,10 +12,11 @@ pub struct FnTy<'a> {
 }
 
 impl<'a> FnTy<'a> {
-    pub fn new<const IN: usize, const OUT: usize>(
-        input: [Ty<'a>; IN],
-        output: [Ty<'a>; OUT],
-    ) -> Self {
+    pub fn new<IN, OUT>(input: IN, output: OUT) -> Self
+    where
+        IN: Into<TySeq<'a>>,
+        OUT: Into<TySeq<'a>>,
+    {
         Self {
             input: input.into(),
             output: output.into(),

@@ -164,7 +164,11 @@ impl<'src> Parser<'src> {
 
     fn identifier(&mut self) -> Result<Expr<'src>, ParseError<'src>> {
         let ident = self.expect(TokenShape::Identifier)?;
-        Ok(Expr::Var(ident.ident().into()))
+        match ident.quote().as_str() {
+            "true" => Ok(Expr::Literal(true.into())),
+            "false" => Ok(Expr::Literal(false.into())),
+            _ => Ok(Expr::Var(ident.ident().into())),
+        }
     }
 
     fn expr(&mut self) -> Result<Expr<'src>, ParseError<'src>> {

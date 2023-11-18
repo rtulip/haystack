@@ -1,6 +1,6 @@
 use self::token::{Keyword, Literal, Symbol, Token, TokenKind};
 use crate::{
-    expression::{BlockExpr, Expr, ExprKind},
+    expression::{BlockExpr, Expr, ExprKind, IfExpr},
     parser::token::TokenShape,
     statement::FunctionStmt,
     types::{FnTy, Scheme, Ty},
@@ -176,7 +176,19 @@ impl<'src> Parser<'src> {
             TokenKind::Symbol(Symbol::LeftBrace) => self.block(),
             lit if lit.is_shape(TokenShape::Literal) => self.literal(),
             ident if ident.is_shape(TokenShape::Identifier) => self.identifier(),
+            kw_if if kw_if.is_shape(TokenShape::Keyword(Keyword::If)) => self.if_expr(),
             x => todo!("{x:?}"),
+        }
+    }
+
+    fn if_expr(&mut self) -> Result<Expr<'src>, ParseError<'src>> {
+        let if_tok = self.expect(Keyword::If)?;
+        let then_expr = self.expr()?;
+        if self.expect(Keyword::Else).is_ok() {
+            let else_expr = self.expr()?;
+            Ok(Expr::new(IfExpr::new_full(then_expr, else_expr), if_tok))
+        } else {
+            Ok(Expr::new(IfExpr::new(then_expr), if_tok))
         }
     }
 

@@ -95,7 +95,9 @@ impl<'src> Interpreter<'src> {
                 if self.pop_bool()? {
                     self.execute(*then)?;
                 } else {
-                    self.execute(*otherwise)?;
+                    if let Some(otherwise) = otherwise {
+                        self.execute(*otherwise)?;
+                    }
                 }
             }
         }

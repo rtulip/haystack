@@ -107,8 +107,11 @@ impl<'src> Expr<'src> {
                 let (stack, subs) = FnTy::new([Ty::Bool], []).apply(&self.token, stack)?;
 
                 let (then_stack, then_sub) = then.apply(stack.clone(), context, gen)?;
-                let (otherwise_stack, otherwise_sub) =
-                    otherwise.apply(stack.clone(), context, gen)?;
+                let (otherwise_stack, otherwise_sub) = if let Some(otherwise) = otherwise {
+                    otherwise.apply(stack.clone(), context, gen)?
+                } else {
+                    (stack.clone(), Substitution::new())
+                };
 
                 let subs = subs
                     .unify(then_sub)

@@ -16,9 +16,12 @@ impl<'src> BlockExpr<'src> {
         let mut ctx = context.clone();
         let mut stack_outer = stack;
         let mut subs_outer = Substitution::new();
-        for e in self.0 {
-            let (stack, sub) = e.apply(stack_outer, &mut ctx, gen)?;
-            subs_outer = subs_outer.unify(sub)?;
+        for expr in self.0 {
+            let tok = expr.token.clone();
+            let (stack, sub) = expr.apply(stack_outer, &mut ctx, gen)?;
+            subs_outer = subs_outer
+                .unify(sub)
+                .map_err(|e| ApplicationError::UnificationError(tok, e))?;
             stack_outer = stack
                 .into_iter()
                 .map(|t| t.substitute(&subs_outer))

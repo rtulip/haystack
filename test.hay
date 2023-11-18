@@ -1,0 +1,19 @@
+fn putu(u32)  __builtin_print_u32
+fn putb(bool) __builtin_print_bool
+fn puts(Str)  __builtin_print_string
+fn putlnu(u32) {
+    putu "\n" puts
+}
+fn putlnb(bool) {
+    putb "\n" puts
+}
+fn putlns(Str) {
+    puts "\n" puts
+}
+
+fn main() {
+    "Hello World" putlns
+    true putlnb
+    false putlnb
+    12345 putlnu
+}

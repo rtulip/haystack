@@ -1,7 +1,10 @@
 use std::convert::From;
 use std::fmt::Debug;
 
-use crate::expression::{ApplicationError, LiteralExpr};
+use crate::{
+    expression::{ApplicationError, LiteralExpr},
+    parser::token::Token,
+};
 
 use super::{sequence::TySeq, ty::Ty, Stack, Substitution, Variance};
 
@@ -25,11 +28,16 @@ impl<'a> FnTy<'a> {
 
     pub fn apply(
         self,
+        token: &Token<'a>,
         stack: Stack<'a>,
     ) -> Result<(Stack<'a>, Substitution<'a>), ApplicationError<'a>> {
-        let (mut head, tail) = stack.split(self.input.len())?;
+        let (mut head, tail) = stack
+            .split(self.input.len())
+            .map_err(|e| ApplicationError::TooFewElements(token.clone(), e))?;
 
-        let subs = tail.unify(Stack(self.input), Variance::Covariant)?;
+        let subs = tail
+            .unify(Stack(self.input), Variance::Covariant)
+            .map_err(|e| ApplicationError::UnificationError(token.clone(), e))?;
         head.extend(self.output);
 
         Ok((head.substitute(&subs), subs))

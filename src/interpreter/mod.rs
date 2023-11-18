@@ -1,4 +1,4 @@
-use crate::expression::{AsExpr, Expr, IfExpr, VarExpr};
+use crate::expression::{AsExpr, Expr, ExprKind, IfExpr, VarExpr};
 
 pub use self::element::Element;
 
@@ -36,16 +36,16 @@ impl<'src> Interpreter<'src> {
     }
 
     fn execute(&mut self, expr: Expr<'src>) -> Result<(), InterpreterError> {
-        match expr {
-            Expr::Literal(lit) => self.stack.push(lit.into()),
-            Expr::Block(exprs) => {
+        match expr.kind {
+            ExprKind::Literal(lit) => self.stack.push(lit.into()),
+            ExprKind::Block(exprs) => {
                 let len = self.context.len();
                 for expr in exprs {
                     self.execute(expr)?
                 }
                 self.context.truncate(len);
             }
-            Expr::Var(VarExpr(var)) => {
+            ExprKind::Var(VarExpr(var)) => {
                 match self
                     .context
                     .iter()
@@ -64,7 +64,7 @@ impl<'src> Interpreter<'src> {
                     Element::Extern(f) => f(self)?,
                 }
             }
-            Expr::As(AsExpr(bindings)) => {
+            ExprKind::As(AsExpr(bindings)) => {
                 if bindings.len() > self.stack.len() {
                     return Err(InterpreterError::RuntimeError(
                         "Too few elements on the stack".into(),
@@ -76,22 +76,22 @@ impl<'src> Interpreter<'src> {
                     }
                 }
             }
-            Expr::Add(_) => {
+            ExprKind::Add(_) => {
                 let l = self.pop_u32()?;
                 let r = self.pop_u32()?;
                 self.stack.push((l + r).into())
             }
-            Expr::Sub(_) => {
+            ExprKind::Sub(_) => {
                 let b = self.pop_u32()?;
                 let a = self.pop_u32()?;
                 self.stack.push((a - b).into())
             }
-            Expr::LessThan(_) => {
+            ExprKind::LessThan(_) => {
                 let b = self.pop_u32()?;
                 let a = self.pop_u32()?;
                 self.stack.push((a < b).into())
             }
-            Expr::If(IfExpr { then, otherwise }) => {
+            ExprKind::If(IfExpr { then, otherwise }) => {
                 if self.pop_bool()? {
                     self.execute(*then)?;
                 } else {

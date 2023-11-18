@@ -6,13 +6,11 @@ mod parser;
 mod statement;
 mod types;
 
-use expression::{AddExpr, AsExpr, BlockExpr, IfExpr, LessThanExpr, LiteralExpr, SubExpr, VarExpr};
 use interpreter::{Element, Interpreter};
 
 use crate::{
-    parser::scanner::{Scanner, ScannerError},
-    statement::FunctionStmt,
-    types::{Context, FnTy, Scheme, Ty, TyGen},
+    parser::scanner::Scanner,
+    types::{Context, TyGen},
 };
 
 #[derive(Parser)]
@@ -22,12 +20,33 @@ struct Cli {
     run: bool,
 }
 
+fn unescape_string(s: &str) -> String {
+    let mut chars = s.chars();
+    let mut out = String::new();
+
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => match chars.next() {
+                Some('n') => out.push('\n'),
+                Some('t') => out.push('\t'),
+                Some('r') => out.push('\r'),
+                Some('0') => out.push('\0'),
+                Some(c) => panic!("Unknown excape character: `\\{c}`"),
+                None => panic!("Expected a chacter to escape, but found none"),
+            },
+            c => out.push(c),
+        }
+    }
+
+    out
+}
+
 fn builtin_print_string() -> (&'static str, Element<'static>) {
     (
         "__builtin_print_string",
         Element::Extern(|interp: &mut Interpreter| {
             let s = interp.pop_str()?;
-            print!("{s}");
+            print!("{}", unescape_string(s));
             Ok(())
         }),
     )
@@ -55,206 +74,13 @@ fn builtin_print_u32() -> (&'static str, Element<'static>) {
     )
 }
 
-fn puts() -> (&'static str, Element<'static>) {
-    ("puts", VarExpr::from("__builtin_print_string").into())
-}
-
-fn putlns() -> (&'static str, Element<'static>) {
-    (
-        "putlns",
-        BlockExpr::from([
-            VarExpr::from("puts").into(),
-            LiteralExpr::from("\n").into(),
-            VarExpr::from("puts").into(),
-        ])
-        .into(),
-    )
-}
-
-fn putb() -> (&'static str, Element<'static>) {
-    ("putb", VarExpr::from("__builtin_print_bool").into())
-}
-
-fn putlnb() -> (&'static str, Element<'static>) {
-    (
-        "putlnb",
-        BlockExpr::from([
-            VarExpr::from("putb").into(),
-            LiteralExpr::from("\n").into(),
-            VarExpr::from("puts").into(),
-        ])
-        .into(),
-    )
-}
-
-fn putu() -> (&'static str, Element<'static>) {
-    ("putu", VarExpr::from("__builtin_print_u32").into())
-}
-
-fn putlnu() -> (&'static str, Element<'static>) {
-    (
-        "putlnu",
-        BlockExpr::from([
-            VarExpr::from("putu").into(),
-            LiteralExpr::from("\n").into(),
-            VarExpr::from("puts").into(),
-        ])
-        .into(),
-    )
-}
-
-fn dup() -> (&'static str, Element<'static>) {
-    (
-        "dup",
-        BlockExpr::from([
-            AsExpr::from(["t"]).into(),
-            VarExpr::from("t").into(),
-            VarExpr::from("t").into(),
-        ])
-        .into(),
-    )
-}
-
-fn fib() -> (&'static str, Element<'static>) {
-    (
-        "fib",
-        BlockExpr::from([
-            AsExpr::from(["n"]).into(),
-            VarExpr::from("n").into(),
-            LiteralExpr::from(2).into(),
-            LessThanExpr.into(),
-            IfExpr::new(
-                VarExpr::from("n"),
-                BlockExpr::from([
-                    VarExpr::from("n").into(),
-                    LiteralExpr::from(1).into(),
-                    SubExpr.into(),
-                    VarExpr::from("fib").into(),
-                    VarExpr::from("n").into(),
-                    LiteralExpr::from(2).into(),
-                    SubExpr.into(),
-                    VarExpr::from("fib").into(),
-                    AddExpr.into(),
-                ]),
-            )
-            .into(),
-        ])
-        .into(),
-    )
-}
-
 fn main() {
     // let cli = Cli::parse();
 
-    let main = FunctionStmt::new_wo_token(
-        BlockExpr::from([
-            LiteralExpr::from("Hello World").into(),
-            VarExpr::from("putlns").into(),
-        ])
-        .into(),
-        Scheme::new([], FnTy::new([], [])),
-    );
+    let file = "test.hay";
+    let source = std::fs::read_to_string(file).unwrap();
 
-    let ctx = Context::from([("putlns", Scheme::new([], FnTy::new([Ty::Str], [])))]);
-    let mut gen = TyGen::new();
-
-    // FIXME:
-    main.type_check(&ctx, &mut gen).unwrap();
-
-    Interpreter::new([
-        builtin_print_bool(),
-        builtin_print_string(),
-        builtin_print_u32(),
-        putb(),
-        puts(),
-        putu(),
-        putlnb(),
-        putlns(),
-        putlnu(),
-        dup(),
-        (
-            "main",
-            BlockExpr::from([
-                LiteralExpr::from("Hello World").into(),
-                VarExpr::from("dup").into(),
-                VarExpr::from("putlns").into(),
-                VarExpr::from("putlns").into(),
-                LiteralExpr::from(5).into(),
-                VarExpr::from("dup").into(),
-                LiteralExpr::from(true).into(),
-                IfExpr::new(
-                    BlockExpr::from([
-                        LiteralExpr::from("True Path").into(),
-                        VarExpr::from("putlns").into(),
-                    ]),
-                    BlockExpr::from([
-                        LiteralExpr::from(3).into(),
-                        AddExpr.into(),
-                        LiteralExpr::from("False Path").into(),
-                        VarExpr::from("putlns").into(),
-                    ]),
-                )
-                .into(),
-                AddExpr.into(),
-                VarExpr::from("putlnu").into(),
-            ])
-            .into(),
-        ),
-    ])
-    .start("main")
-    .unwrap();
-
-    println!("=============================");
-
-    Interpreter::new([
-        builtin_print_bool(),
-        builtin_print_string(),
-        builtin_print_u32(),
-        putb(),
-        puts(),
-        putu(),
-        putlnb(),
-        putlns(),
-        putlnu(),
-        dup(),
-        fib(),
-        (
-            "main",
-            BlockExpr::from([
-                LiteralExpr::from(10).into(),
-                VarExpr::from("fib").into(),
-                VarExpr::from("putlnu").into(),
-            ])
-            .into(),
-        ),
-    ])
-    .start("main")
-    .unwrap();
-
-    let file = "example.hay";
-    let source = "
-        fn putu(u32)  __builtin_print_u32
-        fn putb(bool) __builtin_print_bool
-        fn puts(Str)  __builtin_print_string
-        fn putlnu(u32) {
-            putu \"\n\" puts
-        }
-        fn putlnb(bool) {
-            putb \"\n\" puts
-        }
-        fn putlns(Str) {
-            puts \"\n\" puts
-        }
-
-        fn main() {
-            \"Hello World\" putlns
-            true putlnb
-            false putlnb
-            12345 putlnu
-        }
-    ";
-
-    let tokens = Scanner::scan_tokens(file, source).unwrap();
+    let tokens = Scanner::scan_tokens(file, &source).unwrap();
     let functions = crate::parser::Parser::parse(tokens).unwrap();
     let context = Context::from_functions(&functions);
     let mut gen = TyGen::new();

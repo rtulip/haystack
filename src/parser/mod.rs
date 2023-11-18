@@ -1,6 +1,6 @@
 use self::token::{Keyword, Literal, Symbol, Token, TokenKind};
 use crate::{
-    expression::{BlockExpr, Expr},
+    expression::{BlockExpr, Expr, ExprKind},
     parser::token::TokenShape,
     statement::FunctionStmt,
     types::{FnTy, Scheme, Ty},
@@ -147,27 +147,27 @@ impl<'src> Parser<'src> {
     }
 
     fn block(&mut self) -> Result<Expr<'src>, ParseError<'src>> {
-        self.expect(Symbol::LeftBrace)?;
+        let open = self.expect(Symbol::LeftBrace)?;
         let mut exprs = vec![];
         while !self.peek().is_shape(Symbol::RightBrace) && !self.is_at_end() {
             exprs.push(self.expr()?);
         }
         self.expect(Symbol::RightBrace)?;
 
-        Ok(BlockExpr::from(exprs).into())
+        Ok(Expr::new(BlockExpr::from(exprs), open))
     }
 
     fn literal(&mut self) -> Result<Expr<'src>, ParseError<'src>> {
         let lit = self.expect(TokenShape::Literal)?;
-        Ok(lit.literal().clone().into())
+        Ok(Expr::new(lit.literal().clone(), lit))
     }
 
     fn identifier(&mut self) -> Result<Expr<'src>, ParseError<'src>> {
         let ident = self.expect(TokenShape::Identifier)?;
         match ident.quote().as_str() {
-            "true" => Ok(Expr::Literal(true.into())),
-            "false" => Ok(Expr::Literal(false.into())),
-            _ => Ok(Expr::Var(ident.ident().into())),
+            "true" => Ok(Expr::new(ExprKind::Literal(true.into()), ident)),
+            "false" => Ok(Expr::new(ExprKind::Literal(false.into()), ident)),
+            _ => Ok(Expr::new(ExprKind::Var(ident.ident().into()), ident)),
         }
     }
 
@@ -185,8 +185,6 @@ impl<'src> Parser<'src> {
         let name = self.expect(TokenShape::Identifier)?;
         let signature = self.arguments()?;
         let body = self.expr()?;
-
-        dbg!(&body);
 
         Ok(ParseFunction {
             name,

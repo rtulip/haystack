@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Loc<'src> {
     file: &'src str,
     line: usize,
@@ -19,7 +19,7 @@ impl<'src> Display for Loc<'src> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Quote<'src> {
     source: &'src str,
     start: usize,

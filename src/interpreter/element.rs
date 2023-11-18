@@ -32,18 +32,6 @@ impl<'src> From<LiteralExpr<'src>> for Element<'src> {
     }
 }
 
-impl<'src> From<BlockExpr<'src>> for Element<'src> {
-    fn from(value: BlockExpr<'src>) -> Self {
-        Element::Expr(value.into())
-    }
-}
-
-impl<'src> From<VarExpr<'src>> for Element<'src> {
-    fn from(value: VarExpr<'src>) -> Self {
-        Element::Expr(value.into())
-    }
-}
-
 impl<'src> From<Expr<'src>> for Element<'src> {
     fn from(value: Expr<'src>) -> Self {
         Self::Expr(value)

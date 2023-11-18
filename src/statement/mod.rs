@@ -1,9 +1,6 @@
 use crate::{
     expression::{ApplicationError, Expr},
-    parser::{
-        quote::{Loc, Quote},
-        token::{Token, TokenKind},
-    },
+    parser::token::Token,
     types::{Context, Scheme, Stack, Substitution, TyGen, Variance},
 };
 
@@ -22,17 +19,6 @@ impl<'src> FunctionStmt<'src> {
         }
     }
 
-    pub fn new_wo_token(expr: Expr<'src>, scheme: Scheme<'src>) -> Self {
-        Self {
-            token: Token::new(
-                TokenKind::Identifier("anon_func"),
-                Quote::new("anon_func", 0, 0, Loc::new("generated", 0, 0)),
-            ),
-            expr,
-            scheme,
-        }
-    }
-
     pub fn type_check(
         &self,
         context: &Context<'src>,
@@ -44,9 +30,16 @@ impl<'src> FunctionStmt<'src> {
             .expr
             .clone()
             .apply(Stack::from_iter(func.input), &mut ctx, gen)?;
-        let s2 = Stack::from_iter(func.output).unify(output, Variance::Contravariant)?;
+        let s2 = Stack::from_iter(func.output)
+            .unify(output, Variance::Contravariant)
+            .map_err(|e| ApplicationError::UnificationError(self.token.clone(), e))?;
 
-        Ok(subs.unify(s1.unify(s2)?)?)
+        Ok(subs
+            .unify(
+                s1.unify(s2)
+                    .map_err(|e| ApplicationError::UnificationError(self.token.clone(), e))?,
+            )
+            .map_err(|e| ApplicationError::UnificationError(self.token.clone(), e))?)
     }
 
     pub fn token(&self) -> &Token<'src> {

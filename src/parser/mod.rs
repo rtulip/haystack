@@ -1,6 +1,6 @@
 use self::token::{Keyword, Literal, Symbol, Token, TokenKind};
 use crate::{
-    expression::{BlockExpr, Expr, ExprKind, IfExpr},
+    expression::{BlockExpr, Expr, ExprKind, IfExpr, AsExpr},
     parser::token::TokenShape,
     statement::FunctionStmt,
     types::{FnTy, Scheme, Ty},
@@ -177,8 +177,27 @@ impl<'src> Parser<'src> {
             lit if lit.is_shape(TokenShape::Literal) => self.literal(),
             ident if ident.is_shape(TokenShape::Identifier) => self.identifier(),
             kw_if if kw_if.is_shape(TokenShape::Keyword(Keyword::If)) => self.if_expr(),
+            kw_as if kw_as.is_shape(TokenShape::Keyword(Keyword::As)) => self.as_expr(),
             x => todo!("{x:?}"),
         }
+    }
+
+    fn as_expr(&mut self) -> Result<Expr<'src>, ParseError<'src>> {
+        let as_tok = self.expect(Keyword::As)?;
+        self.expect(Symbol::LeftBracket)?;
+        let mut idents = vec![];
+
+        while !self.peek().is_shape(Symbol::RightBracket) {
+            if self.is_at_end() {
+                todo!()
+            }
+
+            idents.push(self.expect(TokenShape::Identifier)?.ident())
+        }
+
+        self.expect(Symbol::RightBracket)?;
+
+        Ok(Expr::new(AsExpr::from(idents), as_tok))
     }
 
     fn if_expr(&mut self) -> Result<Expr<'src>, ParseError<'src>> {

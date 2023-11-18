@@ -80,10 +80,10 @@ fn main() {
     let file = "test.hay";
     let source = std::fs::read_to_string(file).unwrap();
 
-    let tokens = Scanner::scan_tokens(file, &source).unwrap();
-    let functions = crate::parser::Parser::parse(tokens).unwrap();
-    let context = Context::from_functions(&functions);
     let mut gen = TyGen::new();
+    let tokens = Scanner::scan_tokens(file, &source).unwrap();
+    let functions = crate::parser::Parser::parse(tokens, &mut gen).unwrap();
+    let context = Context::from_functions(&functions);
 
     for func in &functions {
         func.type_check(&context, &mut gen).unwrap();

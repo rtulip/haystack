@@ -11,9 +11,12 @@ fn putlns(Str) {
     puts "\n" puts
 }
 
+fn dup<T>(T) -> [T T] { 
+    as [s] 
+    s s
+}
+
 fn main() {
-    "Hello World" putlns
-    true putlnb
-    false putlnb
-    12345 putlnu
+    "Hello World" dup putlns putlns 
+    12345 dup putlnu putlnu
 }

@@ -22,7 +22,6 @@ impl TyGen {
         t
     }
 
-    #[cfg(test)]
     pub fn fresh_with_var<'src>(&mut self) -> (Ty<'src>, TyVar) {
         let t = Ty::var(self.0);
         let v = self.0.into();
@@ -144,6 +143,12 @@ impl<'src> Ty<'src> {
 impl<'src> From<TyVar> for Ty<'src> {
     fn from(value: TyVar) -> Self {
         Self::Var(value)
+    }
+}
+
+impl<'src> From<&TyVar> for Ty<'src> {
+    fn from(value: &TyVar) -> Self {
+        Self::Var(*value)
     }
 }
 

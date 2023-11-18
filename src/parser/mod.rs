@@ -1,9 +1,9 @@
 use self::token::{Keyword, Literal, Symbol, Token, TokenKind};
 use crate::{
-    expression::{BlockExpr, Expr, ExprKind, IfExpr, AsExpr},
+    expression::{AsExpr, BlockExpr, Expr, ExprKind, IfExpr},
     parser::token::TokenShape,
     statement::FunctionStmt,
-    types::{FnTy, Scheme, Ty},
+    types::{FnTy, Scheme, Ty, TyGen, TyVar},
 };
 
 pub mod quote;
@@ -21,16 +21,17 @@ pub enum ParseError<'src> {
 
 pub struct ParseFunction<'src> {
     name: Token<'src>,
+    annotations: Vec<&'src str>,
     signature: ParseSignature<'src>,
     body: Expr<'src>,
 }
 
 impl<'src> ParseFunction<'src> {
-    pub fn to_func_stmt(&self) -> Result<FunctionStmt<'src>, ()> {
+    pub fn to_func_stmt(&self, gen: &mut TyGen) -> Result<FunctionStmt<'src>, ()> {
         Ok(FunctionStmt::new(
             self.name.clone(),
             self.body.clone(),
-            self.signature.to_scheme()?,
+            self.signature.to_scheme(&self.annotations, gen)?,
         ))
     }
 }
@@ -40,11 +41,19 @@ pub struct ParseTy<'src> {
 }
 
 impl<'src> ParseTy<'src> {
-    fn to_concrete(&self) -> Result<Ty<'src>, ()> {
+    fn to_concrete(&self, fresh: &[TyVar], annotations: &[&'src str]) -> Result<Ty<'src>, ()> {
+        assert_eq!(fresh.len(), annotations.len());
         match self.ident.quote().as_str() {
             "u32" => Ok(Ty::U32),
             "bool" => Ok(Ty::Bool),
             "Str" => Ok(Ty::Str),
+            ty if annotations.iter().find(|ann| **ann == ty).is_some() => Ok(annotations
+                .iter()
+                .zip(fresh.iter())
+                .find(|(ann, _)| **ann == ty)
+                .unwrap()
+                .1
+                .into()),
             _ => todo!(),
         }
     }
@@ -56,18 +65,23 @@ pub struct ParseSignature<'src> {
 }
 
 impl<'src> ParseSignature<'src> {
-    fn to_scheme(&self) -> Result<Scheme<'src>, ()> {
+    fn to_scheme(&self, annotations: &[&'src str], gen: &mut TyGen) -> Result<Scheme<'src>, ()> {
         let mut input = vec![];
         let mut output = vec![];
 
+        let free = (0..annotations.len())
+            .into_iter()
+            .map(|_| gen.fresh_with_var().1)
+            .collect::<Vec<_>>();
+
         for ty in &self.input {
-            input.push(ty.to_concrete()?);
+            input.push(ty.to_concrete(&free, annotations)?);
         }
         for ty in &self.output {
-            output.push(ty.to_concrete()?);
+            output.push(ty.to_concrete(&free, annotations)?);
         }
 
-        Ok(Scheme::new([], FnTy::new(input, output)))
+        Ok(Scheme::new(free, FnTy::new(input, output)))
     }
 }
 
@@ -214,17 +228,44 @@ impl<'src> Parser<'src> {
     fn function_declaration(&mut self) -> Result<ParseFunction<'src>, ParseError<'src>> {
         self.expect(Keyword::Function)?;
         let name = self.expect(TokenShape::Identifier)?;
+
+        let annotations = if self.peek().is_shape(Symbol::LessThan) {
+            self.annotations()?
+        } else {
+            vec![]
+        };
+
         let signature = self.arguments()?;
         let body = self.expr()?;
 
         Ok(ParseFunction {
             name,
+            annotations,
             signature,
             body,
         })
     }
 
-    pub fn parse(tokens: Vec<Token<'src>>) -> Result<Vec<FunctionStmt<'src>>, ParseError<'src>> {
+    fn annotations(&mut self) -> Result<Vec<&'src str>, ParseError<'src>> {
+        self.expect(Symbol::LessThan)?;
+        let mut idents = vec![];
+
+        while !self.peek().is_shape(Symbol::GreaterThan) {
+            if self.is_at_end() {
+                todo!()
+            }
+
+            idents.push(self.expect(TokenShape::Identifier)?.ident())
+        }
+
+        self.expect(Symbol::GreaterThan)?;
+        Ok(idents)
+    }
+
+    pub fn parse(
+        tokens: Vec<Token<'src>>,
+        gen: &mut TyGen,
+    ) -> Result<Vec<FunctionStmt<'src>>, ParseError<'src>> {
         let mut parser = Self { tokens };
 
         let mut fns = vec![];
@@ -235,7 +276,7 @@ impl<'src> Parser<'src> {
 
         let mut stmts = vec![];
         for func in fns {
-            stmts.push(func.to_func_stmt().unwrap());
+            stmts.push(func.to_func_stmt(gen).unwrap());
         }
 
         Ok(stmts)

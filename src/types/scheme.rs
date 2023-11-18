@@ -14,9 +14,12 @@ impl<'src> Scheme<'src> {
 }
 
 impl<'src> Scheme<'src> {
-    pub fn new<const N: usize>(free: [TyVar; N], func: FnTy<'src>) -> Self {
+    pub fn new<T>(free: T, func: FnTy<'src>) -> Self
+    where
+        T: Into<Vec<TyVar>>,
+    {
         Self {
-            free: free.into_iter().collect(),
+            free: free.into(),
             func,
         }
     }

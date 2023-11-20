@@ -65,6 +65,10 @@ impl<'src> Stack<'src> {
     pub fn substitute(self, subs: &Substitution<'src>) -> Self {
         Self(self.0.into_iter().map(|t| t.substitute(subs)).collect())
     }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
 }
 
 impl<'src, const N: usize> From<[Ty<'src>; N]> for Stack<'src> {

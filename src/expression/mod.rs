@@ -13,7 +13,7 @@ use crate::{
         Var, Variance,
     },
 };
-use std::convert::From;
+use std::{convert::From, fmt::Debug};
 
 mod as_expr;
 mod block;
@@ -40,12 +40,44 @@ pub struct Expr<'src> {
     pub kind: ExprKind<'src>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum ApplicationError<'src> {
     TooFewElements(Token<'src>, StackSplitError<'src>),
     UnificationError(Token<'src>, UnificationError<'src>),
     UnknownVar(Token<'src>, &'src str),
     Other,
+}
+
+impl<'src> Debug for ApplicationError<'src> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::TooFewElements(tok, StackSplitError(stack, n)) => {
+                writeln!(f, "{}: Too few elements on the stack", tok.quote().loc())?;
+                writeln!(
+                    f,
+                    "  ┏━ Expected {n} elements, but found {} instead.",
+                    stack.len()
+                )?;
+                write!(f, "  ┖─── Stack: {stack:?}")?;
+                Ok(())
+            }
+            Self::UnificationError(token, UnificationError::TypesNotEqual(left, right)) => {
+                writeln!(f, "{}: Unification Error", token.quote().loc())?;
+                write!(f, "  ━━━ Failed to unify types: `{left:?}` and `{right:?}`")
+            }
+            Self::UnificationError(token, UnificationError::StackLensDiffer(left, right)) => {
+                writeln!(f, "{}: Unification Error", token.quote().loc())?;
+                writeln!(f, "  ┏━ Branches produced stacks of different lengths")?;
+                writeln!(f, "  ┠───  true: {left:?}")?;
+                write!(f, "  ┖─── false: {right:?}")?;
+                Ok(())
+            }
+            Self::UnknownVar(token, var) => {
+                write!(f, "{}: Unknown Variable `{var}`", token.quote().loc())
+            }
+            Self::Other => write!(f, "Other"),
+        }
+    }
 }
 
 impl<'src> From<()> for ApplicationError<'src> {

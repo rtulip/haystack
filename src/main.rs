@@ -1,3 +1,5 @@
+use std::{fmt::Debug, process::exit};
+
 use clap::Parser;
 
 mod expression;
@@ -74,19 +76,37 @@ fn builtin_print_u32() -> (&'static str, Element<'static>) {
     )
 }
 
+trait Report<T> {
+    fn report(self) -> T;
+}
+impl<T, E> Report<T> for Result<T, E>
+where
+    E: Debug,
+{
+    fn report(self) -> T {
+        match self {
+            Ok(ok) => ok,
+            Err(err) => {
+                eprintln!("{err:?}");
+                exit(1)
+            }
+        }
+    }
+}
+
 fn main() {
     // let cli = Cli::parse();
 
     let file = "test.hay";
-    let source = std::fs::read_to_string(file).unwrap();
+    let source = std::fs::read_to_string(file).report();
 
     let mut gen = TyGen::new();
-    let tokens = Scanner::scan_tokens(file, &source).unwrap();
-    let functions = crate::parser::Parser::parse(tokens, &mut gen).unwrap();
+    let tokens = Scanner::scan_tokens(file, &source).report();
+    let functions = crate::parser::Parser::parse(tokens, &mut gen).report();
     let context = Context::from_functions(&functions);
 
     for func in &functions {
-        func.type_check(&context, &mut gen).unwrap();
+        func.type_check(&context, &mut gen).report();
     }
 
     let mut elements = vec![
@@ -103,5 +123,5 @@ fn main() {
 
     let interpreter = Interpreter::new(elements);
 
-    interpreter.start("main").unwrap();
+    interpreter.start("main").report();
 }

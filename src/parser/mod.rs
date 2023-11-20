@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use self::token::{Keyword, Literal, Symbol, Token, TokenKind};
 use crate::{
     expression::{AsExpr, BlockExpr, Expr, ExprKind, IfExpr, LessThanExpr},
@@ -10,13 +12,30 @@ pub mod quote;
 pub mod scanner;
 pub mod token;
 
-#[derive(Debug)]
 pub enum ParseError<'src> {
     UnexpectedToken {
         expected: TokenShape,
         found: Token<'src>,
     },
-    TODO(&'src str),
+}
+impl<'src> Debug for ParseError<'src> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParseError::UnexpectedToken { expected, found } => {
+                writeln!(
+                    f,
+                    "{}: Parse Error -- Unexpected Token",
+                    found.quote().loc()
+                )?;
+                write!(
+                    f,
+                    "  ━━ Expected `{expected:?}`, but found `{}` instead.",
+                    found.quote().as_str()
+                )?;
+                Ok(())
+            }
+        }
+    }
 }
 
 pub struct ParseFunction<'src> {

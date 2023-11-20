@@ -53,7 +53,7 @@ impl<'src> Scanner<'src> {
             source,
             idx: 0,
             line: 1,
-            relative_idx: 0,
+            relative_idx: 1,
             token_start: 0,
         }
     }
@@ -136,6 +136,7 @@ impl<'src> Scanner<'src> {
             ),
         );
 
+        self.relative_idx += self.idx - self.token_start;
         self.token_start = self.idx;
         tok
     }
@@ -144,7 +145,6 @@ impl<'src> Scanner<'src> {
         assert!(!self.is_at_end());
         let c = self.source.chars().nth(self.idx).unwrap();
         self.idx += 1;
-        self.relative_idx += 1;
         c
     }
 

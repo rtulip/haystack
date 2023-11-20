@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Debug};
 
 use super::{
     quote::{Loc, Quote},
     token::{Keyword, Literal, Symbol, Token, TokenKind},
 };
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum ScannerError<'src> {
     UnexpectedChar { char: char, quote: Quote<'src> },
     U32ParseError { quote: Quote<'src> },
@@ -121,7 +121,15 @@ impl<'src> Scanner<'src> {
             '"' => self.string(),
             '\n' => Ok(self.newline()),
             ws if ws.is_whitespace() => Ok(self.whitespace()),
-            c => todo!("Not sure what to do with `{c}` yet..."),
+            c => Err(ScannerError::UnexpectedChar {
+                char: c,
+                quote: Quote::new(
+                    self.source,
+                    self.idx - 1,
+                    self.idx,
+                    Loc::new(self.file, self.line, self.relative_idx),
+                ),
+            }),
         }
     }
 
@@ -234,6 +242,33 @@ impl<'src> Scanner<'src> {
 
         let s = &self.source[self.token_start + 1..self.idx - 1];
         Ok(self.build_token(Literal::String(s)))
+    }
+}
+
+impl<'src> Debug for ScannerError<'src> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnexpectedChar { char, quote } => {
+                write!(
+                    f,
+                    "{}: Scanner Error -- Unexpected Character: `{char}`",
+                    quote.loc()
+                )?;
+                Ok(())
+            }
+            Self::U32ParseError { quote } => {
+                writeln!(f, "{}: Scanner Error -- U32 Parse Error", quote.loc())?;
+                writeln!(f, "  ┏━ Failed to convert `{}` into a u32", quote.as_str())?;
+                writeln!(f, "  ┠─── u32 max is: {}", u32::MAX)?;
+                write!(f, "  ┖─── u32 min is: {}", u32::MIN)?;
+                Ok(())
+            }
+            Self::UnterminatedString { quote } => {
+                writeln!(f, "{}: Scanner Error -- Unterminated String", quote.loc())?;
+                write!(f, "  ━━ Opening quote is here: {}", quote.loc())?;
+                Ok(())
+            }
+        }
     }
 }
 

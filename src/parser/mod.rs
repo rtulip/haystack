@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use self::token::{Keyword, Literal, Symbol, Token, TokenKind};
+use self::token::{Keyword, Symbol, Token, TokenKind};
 use crate::{
     expression::{AsExpr, BlockExpr, Expr, ExprKind, IfExpr, LessThanExpr},
     parser::token::TokenShape,

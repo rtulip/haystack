@@ -1,6 +1,6 @@
 use std::convert::From;
 
-use crate::expression::{BlockExpr, Expr, LiteralExpr, VarExpr};
+use crate::expression::{Expr, LiteralExpr};
 
 use super::{Interpreter, InterpreterError};
 

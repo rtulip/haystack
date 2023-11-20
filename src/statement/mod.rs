@@ -1,7 +1,7 @@
 use crate::{
     expression::{ApplicationError, Expr},
     parser::token::Token,
-    types::{Context, Scheme, Stack, Substitution, TyGen, Variance},
+    types::{Context, Scheme, Stack, Substitution, Ty, TyGen, Variance},
 };
 
 pub struct FunctionStmt<'src> {
@@ -25,7 +25,7 @@ impl<'src> FunctionStmt<'src> {
         gen: &mut TyGen,
     ) -> Result<Substitution<'src>, ApplicationError<'src>> {
         let mut ctx = context.clone();
-        let (func, subs) = self.scheme.instantiate(gen);
+        let (func, subs) = self.scheme.concrete_instantiation(gen);
         let (output, s1) = self
             .expr
             .clone()
@@ -34,12 +34,14 @@ impl<'src> FunctionStmt<'src> {
             .unify(output, Variance::Contravariant)
             .map_err(|e| ApplicationError::UnificationError(self.token.clone(), e))?;
 
-        Ok(subs
+        let subs = subs
             .unify(
                 s1.unify(s2)
                     .map_err(|e| ApplicationError::UnificationError(self.token.clone(), e))?,
             )
-            .map_err(|e| ApplicationError::UnificationError(self.token.clone(), e))?)
+            .map_err(|e| ApplicationError::UnificationError(self.token.clone(), e))?;
+
+        Ok(subs)
     }
 
     pub fn token(&self) -> &Token<'src> {

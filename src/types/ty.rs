@@ -28,6 +28,12 @@ impl TyGen {
         self.0 += 1;
         (t, v)
     }
+
+    pub fn instance<'src>(&mut self) -> Ty<'src> {
+        let t = Ty::instance(self.0);
+        self.0 += 1;
+        t
+    }
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuantifiedType<'src> {
@@ -53,12 +59,17 @@ pub enum Ty<'src> {
     Bool,
     Str,
     Var(TyVar),
+    Instance(TyVar),
     Quant(QuantifiedType<'src>),
 }
 
 impl<'src> Ty<'src> {
     pub fn var(n: usize) -> Self {
         Ty::Var(TyVar(n))
+    }
+
+    pub fn instance(n: usize) -> Self {
+        Ty::Instance(TyVar(n))
     }
 
     pub fn quantified<T>(ident: &'src str, ts: T) -> Self
@@ -73,6 +84,7 @@ impl<'src> Ty<'src> {
             Ty::U32 => Ty::U32,
             Ty::Bool => Ty::Bool,
             Ty::Str => Ty::Str,
+            Ty::Instance(var) => Ty::Instance(var),
             Ty::Var(var) => match subs.get(&var) {
                 Some(ty) => ty.clone(),
                 None => Ty::Var(var),
@@ -96,6 +108,7 @@ impl<'src> Ty<'src> {
             (Ty::U32, Ty::U32) => Ok(Substitution::new()),
             (Ty::Str, Ty::Str) => Ok(Substitution::new()),
             (Ty::Bool, Ty::Bool) => Ok(Substitution::new()),
+            (Ty::Instance(left), Ty::Instance(right)) if left == right => Ok(Substitution::new()),
             (Ty::Var(left), Ty::Var(right)) if left == right => Ok(Substitution::new()),
             (Ty::Var(v), t) | (t, Ty::Var(v)) => Ok(Substitution::from([(v, t)])),
             (
@@ -119,7 +132,6 @@ impl<'src> Ty<'src> {
         }
     }
 
-    #[cfg(test)]
     pub fn normalize(&self, subs: &Substitution<'src>) -> Self {
         match self {
             Ty::U32 => Ty::U32,
@@ -136,6 +148,15 @@ impl<'src> Ty<'src> {
                     .map(|t| t.normalize(subs))
                     .collect::<Vec<_>>(),
             ),
+            Ty::Instance(var) => Ty::Instance(*var),
+        }
+    }
+
+    pub fn is_free(&self) -> bool {
+        match self {
+            Ty::Var(_) => true,
+            Ty::Quant(QuantifiedType { elements, .. }) => elements.iter().any(|ty| ty.is_free()),
+            Ty::U32 | Ty::Bool | Ty::Str | Ty::Instance(_) => false,
         }
     }
 }

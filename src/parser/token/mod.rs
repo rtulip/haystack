@@ -8,6 +8,7 @@ pub enum Keyword {
     Else,
     As,
     Enum,
+    Impl,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

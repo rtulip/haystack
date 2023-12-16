@@ -1,10 +1,5 @@
 pub use self::{
-    as_expr::AsExpr,
-    block::BlockExpr,
-    if_expr::IfExpr,
-    literal::LiteralExpr,
-    operator::{AddExpr, LessThanExpr, SubExpr},
-    var::VarExpr,
+    as_expr::AsExpr, block::BlockExpr, if_expr::IfExpr, literal::LiteralExpr, var::VarExpr,
 };
 use crate::{
     parser::token::{Literal, Token},
@@ -19,7 +14,6 @@ mod as_expr;
 mod block;
 mod if_expr;
 mod literal;
-mod operator;
 mod var;
 
 #[derive(Debug, Clone)]
@@ -28,9 +22,10 @@ pub enum ExprKind<'src> {
     Block(BlockExpr<'src>),
     Var(VarExpr<'src>),
     As(AsExpr<'src>),
-    Add(AddExpr),
-    Sub(SubExpr),
-    LessThan(LessThanExpr),
+    Add,
+    Sub,
+    LessThan,
+    Equals,
     If(IfExpr<'src>),
 }
 
@@ -126,15 +121,12 @@ impl<'src> Expr<'src> {
 
                 (head, Substitution::new())
             }
-            ExprKind::Add(_) => {
-                FnTy::new([Ty::U32, Ty::U32], [Ty::U32]).apply(&self.token, stack)?
-            }
-            ExprKind::Sub(_) => {
-                FnTy::new([Ty::U32, Ty::U32], [Ty::U32]).apply(&self.token, stack)?
-            }
-            ExprKind::LessThan(_) => {
+            ExprKind::Add => FnTy::new([Ty::U32, Ty::U32], [Ty::U32]).apply(&self.token, stack)?,
+            ExprKind::Sub => FnTy::new([Ty::U32, Ty::U32], [Ty::U32]).apply(&self.token, stack)?,
+            ExprKind::LessThan => {
                 FnTy::new([Ty::U32, Ty::U32], [Ty::Bool]).apply(&self.token, stack)?
             }
+            ExprKind::Equals => todo!(),
             ExprKind::If(IfExpr { then, otherwise }) => {
                 let (stack, subs) = FnTy::new([Ty::Bool], []).apply(&self.token, stack)?;
 
@@ -192,24 +184,6 @@ impl<'src> From<VarExpr<'src>> for ExprKind<'src> {
 impl<'src> From<AsExpr<'src>> for ExprKind<'src> {
     fn from(value: AsExpr<'src>) -> Self {
         Self::As(value)
-    }
-}
-
-impl<'src> From<AddExpr> for ExprKind<'src> {
-    fn from(value: AddExpr) -> Self {
-        Self::Add(value)
-    }
-}
-
-impl<'src> From<LessThanExpr> for ExprKind<'src> {
-    fn from(value: LessThanExpr) -> Self {
-        Self::LessThan(value)
-    }
-}
-
-impl<'src> From<SubExpr> for ExprKind<'src> {
-    fn from(value: SubExpr) -> Self {
-        Self::Sub(value)
     }
 }
 

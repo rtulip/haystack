@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use self::token::{Keyword, Symbol, Token, TokenKind};
 use crate::{
-    expression::{AsExpr, BlockExpr, Expr, ExprKind, IfExpr, LessThanExpr},
+    expression::{AsExpr, BlockExpr, Expr, ExprKind, IfExpr},
     parser::token::TokenShape,
     statement::{FunctionStmt, Stmt},
     types::{FnTy, Scheme, Ty, TyGen, TyVar},
@@ -80,9 +80,15 @@ impl<'src> ParseFunction<'src> {
     }
 }
 
-enum ParseStmt<'src> {
+pub struct ParseImpl<'src> {
+    ty: ParseTy<'src>,
+    fns: Vec<ParseFunction<'src>>,
+}
+
+pub enum ParseStmt<'src> {
     Function(ParseFunction<'src>),
     TyDef(ParseTyDef<'src>),
+    Impl(ParseImpl<'src>),
 }
 
 impl<'src> From<ParseFunction<'src>> for ParseStmt<'src> {
@@ -94,6 +100,12 @@ impl<'src> From<ParseFunction<'src>> for ParseStmt<'src> {
 impl<'src> From<ParseTyDef<'src>> for ParseStmt<'src> {
     fn from(value: ParseTyDef<'src>) -> Self {
         ParseStmt::TyDef(value)
+    }
+}
+
+impl<'src> From<ParseImpl<'src>> for ParseStmt<'src> {
+    fn from(value: ParseImpl<'src>) -> Self {
+        ParseStmt::Impl(value)
     }
 }
 
@@ -268,7 +280,17 @@ impl<'src> Parser<'src> {
             kw_as if kw_as.is_shape(TokenShape::Keyword(Keyword::As)) => self.as_expr(),
             lt if lt.is_shape(Symbol::LessThan) => {
                 let tok = self.expect(Symbol::LessThan)?;
-                Ok(Expr::new(LessThanExpr, tok))
+                Ok(Expr {
+                    token: tok,
+                    kind: ExprKind::LessThan,
+                })
+            }
+            eq if eq.is_shape(Symbol::Equals) => {
+                let tok = self.expect(Symbol::Equals)?;
+                Ok(Expr {
+                    token: tok,
+                    kind: ExprKind::Equals,
+                })
             }
             x => todo!("{x:?}"),
         }
@@ -358,10 +380,28 @@ impl<'src> Parser<'src> {
         Ok(idents)
     }
 
+    pub fn implementation(&mut self) -> Result<ParseImpl<'src>, ParseError<'src>> {
+        self.expect(Keyword::Impl)?;
+
+        let ty = self.ty()?;
+
+        self.expect(Symbol::LeftBrace)?;
+
+        let mut fns = vec![];
+        while let Ok(func) = self.function_declaration() {
+            fns.push(func);
+        }
+
+        self.expect(Symbol::RightBrace)?;
+
+        Ok(ParseImpl { ty, fns })
+    }
+
     pub fn statement(&mut self) -> Result<ParseStmt<'src>, ParseError<'src>> {
         match self.peek() {
             TokenKind::Keyword(Keyword::Function) => Ok(self.function_declaration()?.into()),
             TokenKind::Keyword(Keyword::Enum) => Ok(self.enum_declaration()?.into()),
+            TokenKind::Keyword(Keyword::Impl) => Ok(self.implementation()?.into()),
             _ => Err(ParseError::UnexpectedToken {
                 expected: vec![Keyword::Function.into(), Keyword::Enum.into()],
                 found: self.peek_token().clone(),
@@ -385,7 +425,8 @@ impl<'src> Parser<'src> {
         for stmt in parsed_statements {
             match stmt {
                 ParseStmt::Function(func) => stmts.push(func.to_func_stmt(gen).unwrap().into()),
-                ParseStmt::TyDef(_) => todo!(),
+                ParseStmt::TyDef(_) => (),
+                ParseStmt::Impl(_) => (),
             }
         }
 

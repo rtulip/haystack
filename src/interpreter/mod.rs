@@ -76,21 +76,22 @@ impl<'src> Interpreter<'src> {
                     }
                 }
             }
-            ExprKind::Add(_) => {
+            ExprKind::Add => {
                 let l = self.pop_u32()?;
                 let r = self.pop_u32()?;
                 self.stack.push((l + r).into())
             }
-            ExprKind::Sub(_) => {
+            ExprKind::Sub => {
                 let b = self.pop_u32()?;
                 let a = self.pop_u32()?;
                 self.stack.push((a - b).into())
             }
-            ExprKind::LessThan(_) => {
+            ExprKind::LessThan => {
                 let b = self.pop_u32()?;
                 let a = self.pop_u32()?;
                 self.stack.push((a < b).into())
             }
+            ExprKind::Equals => todo!(),
             ExprKind::If(IfExpr { then, otherwise }) => {
                 if self.pop_bool()? {
                     self.execute(*then)?;

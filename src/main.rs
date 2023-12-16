@@ -102,7 +102,18 @@ fn main() {
 
     let mut gen = TyGen::new();
     let tokens = Scanner::scan_tokens(file, &source).report();
-    let functions = crate::parser::Parser::parse(tokens, &mut gen).report();
+    let stmts = crate::parser::Parser::parse(tokens, &mut gen).report();
+
+    let mut ty_defs = vec![];
+    let mut functions = vec![];
+
+    for stmt in stmts {
+        match stmt {
+            statement::Stmt::Function(f) => functions.push(f),
+            statement::Stmt::TypeDef(def) => ty_defs.push(def),
+        }
+    }
+
     let context = Context::from_functions(&functions);
 
     for func in &functions {

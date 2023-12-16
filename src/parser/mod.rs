@@ -4,7 +4,7 @@ use self::token::{Keyword, Symbol, Token, TokenKind};
 use crate::{
     expression::{AsExpr, BlockExpr, Expr, ExprKind, IfExpr, LessThanExpr},
     parser::token::TokenShape,
-    statement::FunctionStmt,
+    statement::{FunctionStmt, Stmt},
     types::{FnTy, Scheme, Ty, TyGen, TyVar},
 };
 
@@ -14,7 +14,7 @@ pub mod token;
 
 pub enum ParseError<'src> {
     UnexpectedToken {
-        expected: TokenShape,
+        expected: Vec<TokenShape>,
         found: Token<'src>,
     },
 }
@@ -22,16 +22,41 @@ impl<'src> Debug for ParseError<'src> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ParseError::UnexpectedToken { expected, found } => {
+                assert!(!expected.is_empty());
                 writeln!(
                     f,
                     "{}: Parse Error -- Unexpected Token",
                     found.quote().loc()
                 )?;
-                write!(
-                    f,
-                    "  ━━ Expected `{expected:?}`, but found `{}` instead.",
-                    found.quote().as_str()
-                )?;
+                if expected.len() == 1 {
+                    write!(
+                        f,
+                        "  ━━ Expected `{:?}`, but found `{}` instead.",
+                        expected[0],
+                        found.quote().as_str()
+                    )?;
+                }
+                if expected.len() == 2 {
+                    write!(
+                        f,
+                        "  ━━ Expected `{:?}` or {:?}, but found `{}` instead.",
+                        expected[0],
+                        expected[1],
+                        found.quote().as_str()
+                    )?;
+                } else {
+                    write!(f, "  ━━ Expected one of ")?;
+                    for shape in &expected[0..expected.len() - 1] {
+                        write!(f, "`{shape:?}`, ")?;
+                    }
+                    write!(
+                        f,
+                        "or {:?}`, but found `{}` instead.",
+                        expected.last().unwrap(),
+                        found.quote().as_str()
+                    )?;
+                }
+
                 Ok(())
             }
         }
@@ -53,6 +78,32 @@ impl<'src> ParseFunction<'src> {
             self.signature.to_scheme(&self.annotations, gen)?,
         ))
     }
+}
+
+enum ParseStmt<'src> {
+    Function(ParseFunction<'src>),
+    TyDef(ParseTyDef<'src>),
+}
+
+impl<'src> From<ParseFunction<'src>> for ParseStmt<'src> {
+    fn from(value: ParseFunction<'src>) -> Self {
+        ParseStmt::Function(value)
+    }
+}
+
+impl<'src> From<ParseTyDef<'src>> for ParseStmt<'src> {
+    fn from(value: ParseTyDef<'src>) -> Self {
+        ParseStmt::TyDef(value)
+    }
+}
+
+pub enum ParseTyInfo<'src> {
+    Enum { variants: Vec<ParseTy<'src>> },
+}
+
+pub struct ParseTyDef<'src> {
+    name: Token<'src>,
+    ty: ParseTyInfo<'src>,
 }
 
 pub struct ParseTy<'src> {
@@ -122,6 +173,10 @@ impl<'src> Parser<'src> {
         self.tokens.last().unwrap().kind()
     }
 
+    fn peek_token(&self) -> &Token<'src> {
+        self.tokens.last().unwrap()
+    }
+
     fn expect_exact<T: Into<TokenShape> + Copy>(
         &mut self,
         shape: T,
@@ -130,7 +185,7 @@ impl<'src> Parser<'src> {
             Ok(self.tokens.pop().unwrap())
         } else {
             Err(ParseError::UnexpectedToken {
-                expected: shape.into(),
+                expected: vec![shape.into()],
                 found: self.tokens.last().unwrap().clone(),
             })
         }
@@ -269,6 +324,11 @@ impl<'src> Parser<'src> {
         })
     }
 
+    fn enum_declaration(&mut self) -> Result<ParseTyDef<'src>, ParseError<'src>> {
+        self.expect(Keyword::Enum)?;
+        todo!()
+    }
+
     fn annotations(&mut self) -> Result<Vec<&'src str>, ParseError<'src>> {
         self.expect(Symbol::LessThan)?;
         let mut idents = vec![];
@@ -285,21 +345,35 @@ impl<'src> Parser<'src> {
         Ok(idents)
     }
 
+    pub fn statement(&mut self) -> Result<ParseStmt<'src>, ParseError<'src>> {
+        match self.peek() {
+            TokenKind::Keyword(Keyword::Function) => Ok(self.function_declaration()?.into()),
+            TokenKind::Keyword(Keyword::Enum) => Ok(self.enum_declaration()?.into()),
+            _ => Err(ParseError::UnexpectedToken {
+                expected: vec![Keyword::Function.into(), Keyword::Enum.into()],
+                found: self.peek_token().clone(),
+            }),
+        }
+    }
+
     pub fn parse(
         tokens: Vec<Token<'src>>,
         gen: &mut TyGen,
-    ) -> Result<Vec<FunctionStmt<'src>>, ParseError<'src>> {
+    ) -> Result<Vec<Stmt<'src>>, ParseError<'src>> {
         let mut parser = Self { tokens };
 
-        let mut fns = vec![];
+        let mut parsed_statements = vec![];
         parser.discard_whitespace();
         while !parser.peek().is_shape(TokenShape::EndOfFile) {
-            fns.push(parser.function_declaration()?);
+            parsed_statements.push(parser.statement()?);
         }
 
         let mut stmts = vec![];
-        for func in fns {
-            stmts.push(func.to_func_stmt(gen).unwrap());
+        for stmt in parsed_statements {
+            match stmt {
+                ParseStmt::Function(func) => stmts.push(func.to_func_stmt(gen).unwrap().into()),
+                ParseStmt::TyDef(_) => todo!(),
+            }
         }
 
         Ok(stmts)

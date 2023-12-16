@@ -44,6 +44,7 @@ impl<'src> Scanner<'src> {
             ("if", Keyword::If.into()),
             ("else", Keyword::Else.into()),
             ("as", Keyword::As.into()),
+            ("enum", Keyword::Enum.into()),
         ])
     }
 

@@ -10,6 +10,22 @@ pub struct FunctionStmt<'src> {
     scheme: Scheme<'src>,
 }
 
+pub struct TypeDefStmt<'src> {
+    pub name: Token<'src>,
+    pub ty: Ty<'src>,
+}
+
+pub enum Stmt<'src> {
+    Function(FunctionStmt<'src>),
+    TypeDef(TypeDefStmt<'src>),
+}
+
+impl<'src> From<FunctionStmt<'src>> for Stmt<'src> {
+    fn from(value: FunctionStmt<'src>) -> Self {
+        Stmt::Function(value)
+    }
+}
+
 impl<'src> FunctionStmt<'src> {
     pub fn new(token: Token<'src>, expr: Expr<'src>, scheme: Scheme<'src>) -> Self {
         Self {

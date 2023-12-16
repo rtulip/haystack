@@ -36,7 +36,7 @@ pub enum ExprKind<'src> {
 
 #[derive(Debug, Clone)]
 pub struct Expr<'src> {
-    token: Token<'src>,
+    pub token: Token<'src>,
     pub kind: ExprKind<'src>,
 }
 

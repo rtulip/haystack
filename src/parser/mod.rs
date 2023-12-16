@@ -98,7 +98,7 @@ impl<'src> From<ParseTyDef<'src>> for ParseStmt<'src> {
 }
 
 pub enum ParseTyInfo<'src> {
-    Enum { variants: Vec<ParseTy<'src>> },
+    Enum { variants: Vec<Token<'src>> },
 }
 
 pub struct ParseTyDef<'src> {
@@ -326,7 +326,20 @@ impl<'src> Parser<'src> {
 
     fn enum_declaration(&mut self) -> Result<ParseTyDef<'src>, ParseError<'src>> {
         self.expect(Keyword::Enum)?;
-        todo!()
+        let name = self.expect(TokenShape::Identifier)?;
+
+        self.expect(Symbol::LeftBrace)?;
+        let mut variants = vec![];
+        while let Ok(variant) = self.expect(TokenShape::Identifier) {
+            variants.push(variant)
+        }
+
+        self.expect(Symbol::RightBrace)?;
+
+        Ok(ParseTyDef {
+            name,
+            ty: ParseTyInfo::Enum { variants },
+        })
     }
 
     fn annotations(&mut self) -> Result<Vec<&'src str>, ParseError<'src>> {

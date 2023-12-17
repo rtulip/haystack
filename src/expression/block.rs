@@ -4,7 +4,7 @@ use super::{ApplicationError, Expr};
 use std::convert::From;
 
 #[derive(Debug, Clone)]
-pub struct BlockExpr<'src>(Vec<Expr<'src>>);
+pub struct BlockExpr<'src>(pub Vec<Expr<'src>>);
 
 impl<'src> BlockExpr<'src> {
     pub fn apply<'ctx>(

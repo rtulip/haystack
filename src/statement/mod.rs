@@ -67,6 +67,10 @@ impl<'src> FunctionStmt<'src> {
     pub fn scheme(&self) -> &Scheme<'src> {
         &self.scheme
     }
+
+    pub fn resolve_names(&mut self) {
+        self.expr.resolve_names()
+    }
 }
 
 #[cfg(test)]

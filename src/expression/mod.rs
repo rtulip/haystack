@@ -163,6 +163,33 @@ impl<'src> Expr<'src> {
 
         Ok((stack, subs))
     }
+
+    pub fn resolve_names(&mut self) {
+        match &mut self.kind {
+            ExprKind::DotSequence(seq) => {
+                seq.reverse();
+
+                let top = seq
+                    .pop()
+                    .expect("Dot Sequences must have at least one element");
+
+                match top.kind {
+                    ExprKind::Var(VarExpr(ident)) => todo!("{ident}"),
+                    kind => {
+                        unreachable!("Top level kind is {kind:?}. This shouldn't be possible...")
+                    }
+                }
+
+                todo!("{}", self.token.quote().as_str());
+            }
+            ExprKind::Block(BlockExpr(exprs)) => {
+                for e in exprs {
+                    e.resolve_names();
+                }
+            }
+            _ => (),
+        }
+    }
 }
 
 impl<'src> From<BlockExpr<'src>> for ExprKind<'src> {

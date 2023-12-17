@@ -114,6 +114,10 @@ fn main() {
         }
     }
 
+    for function in &mut functions {
+        function.resolve_names();
+    }
+
     let context = Context::from_functions(&functions);
 
     for func in &functions {

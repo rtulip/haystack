@@ -28,6 +28,7 @@ pub enum Symbol {
     Equals,
     NotEqual,
     Arrow,
+    Dot,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

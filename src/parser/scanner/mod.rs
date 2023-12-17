@@ -118,6 +118,7 @@ impl<'src> Scanner<'src> {
                     todo!("Add `!` token")
                 }
             }
+            '.' => Ok(self.build_token(Symbol::Dot)),
             c if c.is_ascii_digit() => self.number(),
             c if c.is_alphabetic() || c == '_' => Ok(self.ident(keywords)),
             '"' => self.string(),
@@ -211,7 +212,7 @@ impl<'src> Scanner<'src> {
             if self.is_at_end() {
                 break;
             }
-            if c != '.' && c != '_' && !c.is_alphanumeric() {
+            if c != '_' && !c.is_alphanumeric() {
                 break;
             }
 

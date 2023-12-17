@@ -267,7 +267,22 @@ impl<'src> Parser<'src> {
         match ident.quote().as_str() {
             "true" => Ok(Expr::new(ExprKind::Literal(true.into()), ident)),
             "false" => Ok(Expr::new(ExprKind::Literal(false.into()), ident)),
-            _ => Ok(Expr::new(ExprKind::Var(ident.ident().into()), ident)),
+            _ => {
+                if self.peek().is_shape(Symbol::Dot) {
+                    let mut tok = ident.clone();
+                    let mut vars = vec![Expr::new(ExprKind::Var(ident.ident().into()), ident)];
+                    while let Ok(_) = self.expect(Symbol::Dot) {
+                        let ident = self.expect(TokenShape::Identifier)?;
+
+                        tok.quote.end = ident.quote.end;
+                        vars.push(Expr::new(ExprKind::Var(ident.ident().into()), ident));
+                    }
+
+                    Ok(Expr::new(ExprKind::DotSequence(vars), tok))
+                } else {
+                    Ok(Expr::new(ExprKind::Var(ident.ident().into()), ident))
+                }
+            }
         }
     }
 

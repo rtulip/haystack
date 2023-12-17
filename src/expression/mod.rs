@@ -27,6 +27,7 @@ pub enum ExprKind<'src> {
     LessThan,
     Equals,
     If(IfExpr<'src>),
+    DotSequence(Vec<Expr<'src>>),
 }
 
 #[derive(Debug, Clone)]
@@ -157,6 +158,7 @@ impl<'src> Expr<'src> {
                     .map_err(|e| ApplicationError::UnificationError(self.token, e))?;
                 (otherwise_stack.substitute(&subs), subs)
             }
+            ExprKind::DotSequence(_) => todo!(),
         };
 
         Ok((stack, subs))

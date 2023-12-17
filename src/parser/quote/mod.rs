@@ -23,7 +23,7 @@ impl<'src> Display for Loc<'src> {
 pub struct Quote<'src> {
     source: &'src str,
     start: usize,
-    end: usize,
+    pub end: usize,
     loc: Loc<'src>,
 }
 

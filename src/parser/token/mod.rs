@@ -123,7 +123,7 @@ impl From<Symbol> for TokenShape {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token<'src> {
     kind: TokenKind<'src>,
-    quote: Quote<'src>,
+    pub quote: Quote<'src>,
 }
 
 impl<'src> Token<'src> {

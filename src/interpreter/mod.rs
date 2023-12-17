@@ -101,6 +101,7 @@ impl<'src> Interpreter<'src> {
                     }
                 }
             }
+            ExprKind::DotSequence(_) => todo!(),
         }
 
         Ok(())

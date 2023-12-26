@@ -174,7 +174,7 @@ impl<'src> Expr<'src> {
                     .expect("Dot Sequences must have at least one element");
 
                 match top.kind {
-                    ExprKind::Var(VarExpr(ident)) => todo!("{ident}"),
+                    ExprKind::Var(VarExpr(ident)) => todo!("{}", self.token.quote),
                     kind => {
                         unreachable!("Top level kind is {kind:?}. This shouldn't be possible...")
                     }

@@ -35,6 +35,13 @@ impl TyGen {
         t
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnumType<'src> {
+    ident: &'src str,
+    variants: Vec<&'src str>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuantifiedType<'src> {
     ident: &'src str,
@@ -61,6 +68,7 @@ pub enum Ty<'src> {
     Var(TyVar),
     Instance(TyVar),
     Quant(QuantifiedType<'src>),
+    Enum(EnumType<'src>),
 }
 
 impl<'src> Ty<'src> {
@@ -96,6 +104,7 @@ impl<'src> Ty<'src> {
                     .map(|t| t.substitute(subs))
                     .collect::<Vec<_>>(),
             ),
+            Ty::Enum(e) => Ty::Enum(e),
         }
     }
 
@@ -128,6 +137,9 @@ impl<'src> Ty<'src> {
 
                 Ok(subs)
             }
+            (Ty::Enum(EnumType { ident: left, .. }), Ty::Enum(EnumType { ident: right, .. })) => {
+                Ok(Substitution::new())
+            }
             (left, right) => Err(UnificationError::TypesNotEqual(left, right)),
         }
     }
@@ -137,6 +149,7 @@ impl<'src> Ty<'src> {
             Ty::U32 => Ty::U32,
             Ty::Bool => Ty::Bool,
             Ty::Str => Ty::Str,
+            Ty::Enum(e) => Ty::Enum(e.clone()),
             Ty::Var(var) => match subs.get(var) {
                 Some(t) => t.normalize(subs),
                 None => Ty::Var(*var),
@@ -156,7 +169,7 @@ impl<'src> Ty<'src> {
         match self {
             Ty::Var(_) => true,
             Ty::Quant(QuantifiedType { elements, .. }) => elements.iter().any(|ty| ty.is_free()),
-            Ty::U32 | Ty::Bool | Ty::Str | Ty::Instance(_) => false,
+            Ty::U32 | Ty::Bool | Ty::Str | Ty::Instance(_) | Ty::Enum(_) => false,
         }
     }
 }

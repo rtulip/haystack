@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     expression::{ApplicationError, Expr},
     parser::token::Token,
@@ -68,8 +70,8 @@ impl<'src> FunctionStmt<'src> {
         &self.scheme
     }
 
-    pub fn resolve_names(&mut self) {
-        self.expr.resolve_names()
+    pub fn resolve_names(&mut self, types: &HashMap<&'src str, Ty<'src>>) -> Result<(), ()> {
+        self.expr.resolve_names(types)
     }
 }
 

@@ -1,11 +1,11 @@
-use std::fmt::Debug;
+use std::{collections::HashMap, fmt::Debug};
 
 use self::token::{Keyword, Symbol, Token, TokenKind};
 use crate::{
     expression::{AsExpr, BlockExpr, Expr, ExprKind, IfExpr},
     parser::token::TokenShape,
     statement::{FunctionStmt, Stmt},
-    types::{FnTy, Scheme, Ty, TyGen, TyVar},
+    types::{EnumType, FnTy, Scheme, Ty, TyGen, TyVar},
 };
 
 pub mod quote;
@@ -116,6 +116,17 @@ pub enum ParseTyInfo<'src> {
 pub struct ParseTyDef<'src> {
     name: Token<'src>,
     ty: ParseTyInfo<'src>,
+}
+
+impl<'src> ParseTyDef<'src> {
+    fn to_type(self) -> Result<Ty<'src>, ()> {
+        match self.ty {
+            ParseTyInfo::Enum { variants } => Ok(Ty::Enum(EnumType {
+                ident: self.name.quote.as_str(),
+                variants: variants.into_iter().map(|tok| tok.quote.as_str()).collect(),
+            })),
+        }
+    }
 }
 
 pub struct ParseTy<'src> {
@@ -426,6 +437,7 @@ impl<'src> Parser<'src> {
 
     pub fn parse(
         tokens: Vec<Token<'src>>,
+        types: &mut HashMap<&'src str, Ty<'src>>,
         gen: &mut TyGen,
     ) -> Result<Vec<Stmt<'src>>, ParseError<'src>> {
         let mut parser = Self { tokens };
@@ -440,7 +452,9 @@ impl<'src> Parser<'src> {
         for stmt in parsed_statements {
             match stmt {
                 ParseStmt::Function(func) => stmts.push(func.to_func_stmt(gen).unwrap().into()),
-                ParseStmt::TyDef(_) => (),
+                ParseStmt::TyDef(tydef) => assert!(types
+                    .insert(tydef.name.quote.as_str(), tydef.to_type().unwrap())
+                    .is_none()),
                 ParseStmt::Impl(_) => (),
             }
         }

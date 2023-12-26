@@ -28,7 +28,7 @@ pub struct Quote<'src> {
 }
 
 impl<'src> Quote<'src> {
-    pub fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> &'src str {
         &self.source[self.start..self.end]
     }
 

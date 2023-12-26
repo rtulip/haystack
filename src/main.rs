@@ -1,4 +1,4 @@
-use std::{fmt::Debug, process::exit};
+use std::{collections::HashMap, fmt::Debug, process::exit};
 
 use clap::Parser;
 
@@ -9,6 +9,7 @@ mod statement;
 mod types;
 
 use interpreter::{Element, Interpreter};
+use types::Ty;
 
 use crate::{
     parser::scanner::Scanner,
@@ -101,8 +102,10 @@ fn main() {
     let source = std::fs::read_to_string(file).report();
 
     let mut gen = TyGen::new();
+    let mut types = HashMap::from([("u32", Ty::U32), ("bool", Ty::Bool), ("Str", Ty::Str)]);
+
     let tokens = Scanner::scan_tokens(file, &source).report();
-    let stmts = crate::parser::Parser::parse(tokens, &mut gen).report();
+    let stmts = crate::parser::Parser::parse(tokens, &mut types, &mut gen).report();
 
     let mut ty_defs = vec![];
     let mut functions = vec![];
@@ -115,7 +118,7 @@ fn main() {
     }
 
     for function in &mut functions {
-        function.resolve_names();
+        function.resolve_names(&types).unwrap();
     }
 
     let context = Context::from_functions(&functions);

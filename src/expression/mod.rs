@@ -1,19 +1,21 @@
+use self::ty_instance::TyInstanceExpr;
 pub use self::{
     as_expr::AsExpr, block::BlockExpr, if_expr::IfExpr, literal::LiteralExpr, var::VarExpr,
 };
 use crate::{
     parser::token::{Literal, Token},
     types::{
-        Context, FnTy, Scheme, Stack, StackSplitError, Substitution, Ty, TyGen, UnificationError,
-        Var, Variance,
+        Context, EnumType, FnTy, Scheme, Stack, StackSplitError, Substitution, Ty, TyGen,
+        UnificationError, Var, Variance,
     },
 };
-use std::{convert::From, fmt::Debug};
+use std::{collections::HashMap, convert::From, fmt::Debug};
 
 mod as_expr;
 mod block;
 mod if_expr;
 mod literal;
+mod ty_instance;
 mod var;
 
 #[derive(Debug, Clone)]
@@ -28,6 +30,7 @@ pub enum ExprKind<'src> {
     Equals,
     If(IfExpr<'src>),
     DotSequence(Vec<Expr<'src>>),
+    TyInstance(TyInstanceExpr<'src>),
 }
 
 #[derive(Debug, Clone)]
@@ -158,13 +161,14 @@ impl<'src> Expr<'src> {
                     .map_err(|e| ApplicationError::UnificationError(self.token, e))?;
                 (otherwise_stack.substitute(&subs), subs)
             }
+            ExprKind::TyInstance(_) => todo!(),
             ExprKind::DotSequence(_) => todo!(),
         };
 
         Ok((stack, subs))
     }
 
-    pub fn resolve_names(&mut self) {
+    pub fn resolve_names(&mut self, types: &HashMap<&'src str, Ty<'src>>) -> Result<(), ()> {
         match &mut self.kind {
             ExprKind::DotSequence(seq) => {
                 seq.reverse();
@@ -174,21 +178,48 @@ impl<'src> Expr<'src> {
                     .expect("Dot Sequences must have at least one element");
 
                 match top.kind {
-                    ExprKind::Var(VarExpr(ident)) => todo!("{}", self.token.quote),
+                    ExprKind::Var(VarExpr(ident)) => match types.get(ident) {
+                        Some(Ty::Enum(EnumType {
+                            variants,
+                            ident: base,
+                        })) => {
+                            if seq.len() != 1 {
+                                return Err(());
+                            }
+
+                            let next_id = seq.pop().unwrap();
+
+                            match next_id.kind {
+                                ExprKind::Var(VarExpr(ident)) => {
+                                    if let Some(variant) =
+                                        variants.iter().find(|variant| **variant == ident)
+                                    {
+                                        self.kind = ExprKind::TyInstance(TyInstanceExpr::Enum {
+                                            base,
+                                            variant: *variant,
+                                        });
+                                    }
+                                }
+                                _ => unreachable!("This shouldn't be reachable here..."),
+                            }
+                        }
+                        Some(ty) => todo!("Not sure yet what to do with {:?}", ty),
+                        None => todo!(),
+                    },
                     kind => {
                         unreachable!("Top level kind is {kind:?}. This shouldn't be possible...")
                     }
                 }
-
-                todo!("{}", self.token.quote().as_str());
             }
             ExprKind::Block(BlockExpr(exprs)) => {
                 for e in exprs {
-                    e.resolve_names();
+                    e.resolve_names(types).unwrap();
                 }
             }
             _ => (),
         }
+
+        Ok(())
     }
 }
 

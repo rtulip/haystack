@@ -38,8 +38,8 @@ impl TyGen {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnumType<'src> {
-    ident: &'src str,
-    variants: Vec<&'src str>,
+    pub ident: &'src str,
+    pub variants: Vec<&'src str>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -137,7 +137,9 @@ impl<'src> Ty<'src> {
 
                 Ok(subs)
             }
-            (Ty::Enum(EnumType { ident: left, .. }), Ty::Enum(EnumType { ident: right, .. })) => {
+            (Ty::Enum(EnumType { ident: left, .. }), Ty::Enum(EnumType { ident: right, .. }))
+                if left == right =>
+            {
                 Ok(Substitution::new())
             }
             (left, right) => Err(UnificationError::TypesNotEqual(left, right)),

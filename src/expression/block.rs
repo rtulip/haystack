@@ -1,4 +1,4 @@
-use crate::types::{Context, Stack, Substitution, Ty, TyGen};
+use crate::types::{Context, Stack, Substitution, Ty, TyGen, Types};
 
 use super::{ApplicationError, Expr};
 use std::{collections::HashMap, convert::From};
@@ -10,7 +10,7 @@ impl<'src> BlockExpr<'src> {
     pub fn apply<'ctx>(
         self,
         stack: Stack<'src>,
-        types: &HashMap<&'src str, Ty<'src>>,
+        types: &Types<'src>,
         context: &mut Context<'src>,
         gen: &mut TyGen,
     ) -> Result<(Stack<'src>, Substitution<'src>), ApplicationError<'src>> {

@@ -12,7 +12,7 @@ pub use substitution::*;
 pub use ty::*;
 pub use variance::*;
 
-use std::{convert::From, fmt::Debug};
+use std::{collections::HashMap, convert::From, fmt::Debug};
 
 use crate::statement::FunctionStmt;
 
@@ -24,6 +24,8 @@ pub enum UnificationError<'src> {
     TypesNotEqual(Ty<'src>, Ty<'src>),
     StackLensDiffer(Stack<'src>, Stack<'src>),
 }
+
+pub type Types<'src> = HashMap<&'src str, Ty<'src>>;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Stack<'src>(Vec<Ty<'src>>);

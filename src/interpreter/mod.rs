@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     expression::{AsExpr, Expr, ExprKind, IfExpr, TyInstanceExpr, VarExpr},
-    types::Ty,
+    types::{Ty, Types},
 };
 
 pub use self::element::Element;
@@ -16,12 +16,12 @@ pub enum InterpreterError {
 
 pub struct Interpreter<'src> {
     pub stack: Vec<Element<'src>>,
-    types: &'src HashMap<&'src str, Ty<'src>>,
+    types: &'src Types<'src>,
     context: Vec<(&'src str, Element<'src>)>,
 }
 
 impl<'src> Interpreter<'src> {
-    pub fn new<T>(context: T, types: &'src HashMap<&'src str, Ty<'src>>) -> Self
+    pub fn new<T>(context: T, types: &'src Types<'src>) -> Self
     where
         T: IntoIterator<Item = (&'src str, Element<'src>)>,
     {

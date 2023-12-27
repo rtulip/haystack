@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     parser::token::Token,
-    types::{FnTy, Stack, Substitution, Ty},
+    types::{FnTy, Stack, Substitution, Ty, Types},
 };
 
 use super::ApplicationError;
@@ -16,8 +16,8 @@ impl<'src> TyInstanceExpr<'src> {
     pub fn apply(
         self,
         token: &Token<'src>,
-        mut stack: Stack<'src>,
-        types: &HashMap<&'src str, Ty<'src>>,
+        stack: Stack<'src>,
+        types: &Types<'src>,
     ) -> Result<(Stack<'src>, Substitution<'src>), ApplicationError<'src>> {
         match self {
             TyInstanceExpr::Enum { base, variant } => FnTy::new(

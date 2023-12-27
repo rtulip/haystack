@@ -1,7 +1,7 @@
 use crate::{
     expression::{ApplicationError, Expr},
     parser::token::Token,
-    types::{Context, Scheme, Stack, Substitution, Ty, TyGen, Variance},
+    types::{Context, Scheme, Stack, Substitution, Ty, TyGen, Types, Variance},
 };
 
 pub struct FunctionStmt<'src> {
@@ -15,14 +15,27 @@ pub struct TypeDefStmt<'src> {
     pub ty: Ty<'src>,
 }
 
+pub struct ImplStmt<'src> {
+    pub token: Token<'src>,
+    pub ty: Ty<'src>,
+    pub fns: Vec<FunctionStmt<'src>>,
+}
+
 pub enum Stmt<'src> {
     Function(FunctionStmt<'src>),
     TypeDef(TypeDefStmt<'src>),
+    Impl(ImplStmt<'src>),
 }
 
 impl<'src> From<FunctionStmt<'src>> for Stmt<'src> {
     fn from(value: FunctionStmt<'src>) -> Self {
         Stmt::Function(value)
+    }
+}
+
+impl<'src> From<ImplStmt<'src>> for Stmt<'src> {
+    fn from(value: ImplStmt<'src>) -> Self {
+        Stmt::Impl(value)
     }
 }
 

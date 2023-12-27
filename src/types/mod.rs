@@ -14,7 +14,7 @@ pub use variance::*;
 
 use std::{collections::HashMap, convert::From, fmt::Debug};
 
-use crate::statement::FunctionStmt;
+use crate::{expression::Expr, statement::FunctionStmt};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StackSplitError<'src>(pub Stack<'src>, pub usize);

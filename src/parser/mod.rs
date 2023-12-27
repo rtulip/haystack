@@ -4,7 +4,7 @@ use self::token::{Keyword, Symbol, Token, TokenKind};
 use crate::{
     expression::{AsExpr, BlockExpr, Expr, ExprKind, IfExpr},
     parser::token::TokenShape,
-    statement::{FunctionStmt, Stmt},
+    statement::{FunctionStmt, ImplStmt, Stmt},
     types::{EnumType, FnTy, Scheme, Ty, TyGen, TyVar, Types},
 };
 
@@ -71,11 +71,15 @@ pub struct ParseFunction<'src> {
 }
 
 impl<'src> ParseFunction<'src> {
-    pub fn to_func_stmt(&self, gen: &mut TyGen) -> Result<FunctionStmt<'src>, ()> {
+    pub fn to_func_stmt(
+        &self,
+        gen: &mut TyGen,
+        types: &Types<'src>,
+    ) -> Result<FunctionStmt<'src>, ()> {
         Ok(FunctionStmt::new(
             self.name.clone(),
             self.body.clone(),
-            self.signature.to_scheme(&self.annotations, gen)?,
+            self.signature.to_scheme(&self.annotations, types, gen)?,
         ))
     }
 }
@@ -83,6 +87,23 @@ impl<'src> ParseFunction<'src> {
 pub struct ParseImpl<'src> {
     ty: ParseTy<'src>,
     fns: Vec<ParseFunction<'src>>,
+}
+
+impl<'src> ParseImpl<'src> {
+    fn to_stmt(self, types: &Types<'src>, gen: &mut TyGen) -> Result<ImplStmt<'src>, ()> {
+        match types.get(self.ty.ident.quote().as_str()) {
+            Some(ty) => Ok(ImplStmt {
+                token: self.ty.ident,
+                ty: ty.clone(),
+                fns: self
+                    .fns
+                    .into_iter()
+                    .map(|func| func.to_func_stmt(gen, types))
+                    .collect::<Result<Vec<_>, _>>()?,
+            }),
+            None => Err(()),
+        }
+    }
 }
 
 pub enum ParseStmt<'src> {
@@ -134,12 +155,14 @@ pub struct ParseTy<'src> {
 }
 
 impl<'src> ParseTy<'src> {
-    fn to_concrete(&self, fresh: &[TyVar], annotations: &[&'src str]) -> Result<Ty<'src>, ()> {
+    fn to_concrete(
+        &self,
+        fresh: &[TyVar],
+        annotations: &[&'src str],
+        types: &Types<'src>,
+    ) -> Result<Ty<'src>, ()> {
         assert_eq!(fresh.len(), annotations.len());
         match self.ident.quote().as_str() {
-            "u32" => Ok(Ty::U32),
-            "bool" => Ok(Ty::Bool),
-            "Str" => Ok(Ty::Str),
             ty if annotations.iter().find(|ann| **ann == ty).is_some() => Ok(annotations
                 .iter()
                 .zip(fresh.iter())
@@ -147,7 +170,9 @@ impl<'src> ParseTy<'src> {
                 .unwrap()
                 .1
                 .into()),
-            _ => todo!(),
+            ty if types.contains_key(ty) => Ok(types.get(ty).unwrap().clone()),
+
+            foo => todo!("{foo}"),
         }
     }
 }
@@ -158,7 +183,12 @@ pub struct ParseSignature<'src> {
 }
 
 impl<'src> ParseSignature<'src> {
-    fn to_scheme(&self, annotations: &[&'src str], gen: &mut TyGen) -> Result<Scheme<'src>, ()> {
+    fn to_scheme(
+        &self,
+        annotations: &[&'src str],
+        types: &Types<'src>,
+        gen: &mut TyGen,
+    ) -> Result<Scheme<'src>, ()> {
         let mut input = vec![];
         let mut output = vec![];
 
@@ -168,10 +198,10 @@ impl<'src> ParseSignature<'src> {
             .collect::<Vec<_>>();
 
         for ty in &self.input {
-            input.push(ty.to_concrete(&free, annotations)?);
+            input.push(ty.to_concrete(&free, annotations, types)?);
         }
         for ty in &self.output {
-            output.push(ty.to_concrete(&free, annotations)?);
+            output.push(ty.to_concrete(&free, annotations, types)?);
         }
 
         Ok(Scheme::new(free, FnTy::new(input, output)))
@@ -451,11 +481,13 @@ impl<'src> Parser<'src> {
         let mut stmts = vec![];
         for stmt in parsed_statements {
             match stmt {
-                ParseStmt::Function(func) => stmts.push(func.to_func_stmt(gen).unwrap().into()),
+                ParseStmt::Function(func) => {
+                    stmts.push(func.to_func_stmt(gen, types).unwrap().into())
+                }
                 ParseStmt::TyDef(tydef) => assert!(types
                     .insert(tydef.name.quote.as_str(), tydef.to_type().unwrap())
                     .is_none()),
-                ParseStmt::Impl(_) => (),
+                ParseStmt::Impl(impl_) => stmts.push(impl_.to_stmt(types, gen).unwrap().into()),
             }
         }
 

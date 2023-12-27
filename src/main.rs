@@ -109,11 +109,13 @@ fn main() {
 
     let mut ty_defs = vec![];
     let mut functions = vec![];
+    let mut impls = vec![];
 
     for stmt in stmts {
         match stmt {
             statement::Stmt::Function(f) => functions.push(f),
             statement::Stmt::TypeDef(def) => ty_defs.push(def),
+            statement::Stmt::Impl(impl_) => impls.push(impl_),
         }
     }
 

@@ -1,4 +1,9 @@
-use crate::expression::{AsExpr, Expr, ExprKind, IfExpr, VarExpr};
+use std::collections::HashMap;
+
+use crate::{
+    expression::{AsExpr, Expr, ExprKind, IfExpr, TyInstanceExpr, VarExpr},
+    types::Ty,
+};
 
 pub use self::element::Element;
 
@@ -11,16 +16,18 @@ pub enum InterpreterError {
 
 pub struct Interpreter<'src> {
     pub stack: Vec<Element<'src>>,
+    types: &'src HashMap<&'src str, Ty<'src>>,
     context: Vec<(&'src str, Element<'src>)>,
 }
 
 impl<'src> Interpreter<'src> {
-    pub fn new<T>(context: T) -> Self
+    pub fn new<T>(context: T, types: &'src HashMap<&'src str, Ty<'src>>) -> Self
     where
         T: IntoIterator<Item = (&'src str, Element<'src>)>,
     {
         Self {
             stack: vec![],
+            types,
             context: context.into_iter().collect(),
         }
     }
@@ -61,6 +68,7 @@ impl<'src> Interpreter<'src> {
                     Element::U32(n) => self.stack.push(n.into()),
                     Element::Str(s) => self.stack.push(s.into()),
                     Element::Expr(e) => self.execute(e)?,
+                    Element::Enum { .. } => todo!(),
                     Element::Extern(f) => f(self)?,
                 }
             }
@@ -91,7 +99,30 @@ impl<'src> Interpreter<'src> {
                 let a = self.pop_u32()?;
                 self.stack.push((a < b).into())
             }
-            ExprKind::Equals => todo!(),
+            ExprKind::Equals => {
+                let b = self.stack.pop().unwrap();
+                let a = self.stack.pop().unwrap();
+
+                match (a, b) {
+                    (
+                        Element::Enum {
+                            base: left,
+                            variant: variant_left,
+                        },
+                        Element::Enum {
+                            base: right,
+                            variant: variant_right,
+                        },
+                    ) => {
+                        assert!(left == right);
+                        self.stack.push((variant_left == variant_right).into())
+                    }
+                    (Element::U32(left), Element::U32(right)) => {
+                        self.stack.push((left == right).into())
+                    }
+                    _ => todo!(),
+                }
+            }
             ExprKind::If(IfExpr { then, otherwise }) => {
                 if self.pop_bool()? {
                     self.execute(*then)?;
@@ -101,8 +132,10 @@ impl<'src> Interpreter<'src> {
                     }
                 }
             }
+            ExprKind::TyInstance(TyInstanceExpr::Enum { base, variant }) => {
+                self.stack.push(Element::Enum { base, variant })
+            }
             ExprKind::DotSequence(_) => todo!(),
-            ExprKind::TyInstance(_) => todo!(),
         }
 
         Ok(())

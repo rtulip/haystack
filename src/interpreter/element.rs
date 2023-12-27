@@ -9,6 +9,7 @@ pub enum Element<'src> {
     Bool(bool),
     U32(u32),
     Str(&'src str),
+    Enum { base: &'src str, variant: &'src str },
     Expr(Expr<'src>),
     Extern(fn(&mut Interpreter) -> Result<(), InterpreterError>),
 }

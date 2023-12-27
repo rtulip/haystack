@@ -53,6 +53,20 @@ impl<'a> FnTy<'a> {
                 .collect(),
         }
     }
+
+    pub fn apply_with_predicate<P>(
+        self,
+        token: &Token<'a>,
+        stack: Stack<'a>,
+        predicate: P,
+    ) -> Result<(Stack<'a>, Substitution<'a>), ApplicationError<'a>>
+    where
+        P: Fn(&Substitution<'a>) -> Result<(), ApplicationError<'a>>,
+    {
+        let (stk, subs) = self.apply(token, stack)?;
+        predicate(&subs)?;
+        Ok((stk, subs))
+    }
 }
 
 impl<'a> From<LiteralExpr<'a>> for FnTy<'a> {

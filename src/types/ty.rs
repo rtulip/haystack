@@ -144,6 +144,9 @@ impl<'src> Ty<'src> {
             {
                 Ok(Substitution::new())
             }
+            (Ty::EnumInstance(left, _), Ty::EnumInstance(right, _)) if left == right => {
+                Ok(Substitution::new())
+            }
             (left, right) => Err(UnificationError::TypesNotEqual(left, right)),
         }
     }

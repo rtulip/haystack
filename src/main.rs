@@ -139,7 +139,7 @@ fn main() {
         )
     }));
 
-    let interpreter = Interpreter::new(elements);
+    let interpreter = Interpreter::new(elements, &types);
 
     interpreter.start("main").report();
 }

@@ -1,6 +1,6 @@
-use self::ty_instance::TyInstanceExpr;
 pub use self::{
-    as_expr::AsExpr, block::BlockExpr, if_expr::IfExpr, literal::LiteralExpr, var::VarExpr,
+    as_expr::AsExpr, block::BlockExpr, if_expr::IfExpr, literal::LiteralExpr,
+    ty_instance::TyInstanceExpr, var::VarExpr,
 };
 use crate::{
     parser::token::{Literal, Token},
@@ -44,6 +44,7 @@ pub enum ApplicationError<'src> {
     TooFewElements(Token<'src>, StackSplitError<'src>),
     UnificationError(Token<'src>, UnificationError<'src>),
     UnknownVar(Token<'src>, &'src str),
+    Message(Token<'src>, String),
     Other,
 }
 
@@ -73,6 +74,9 @@ impl<'src> Debug for ApplicationError<'src> {
             }
             Self::UnknownVar(token, var) => {
                 write!(f, "{}: Unknown Variable `{var}`", token.quote().loc())
+            }
+            Self::Message(token, message) => {
+                write!(f, "{}: {message}", token.quote().loc())
             }
             Self::Other => write!(f, "Other"),
         }
@@ -131,7 +135,24 @@ impl<'src> Expr<'src> {
             ExprKind::LessThan => {
                 FnTy::new([Ty::U32, Ty::U32], [Ty::Bool]).apply(&self.token, stack)?
             }
-            ExprKind::Equals => todo!(),
+            ExprKind::Equals => {
+                let (t, var) = gen.fresh_with_var();
+                FnTy::new([t.clone(), t.clone()], [Ty::Bool]).apply_with_predicate(
+                    &self.token,
+                    stack,
+                    |subs| -> Result<(), ApplicationError<'_>> {
+                        match subs.get(&var) {
+                            Some(Ty::U32) => Ok(()),
+                            Some(Ty::EnumInstance(_, _)) => Ok(()),
+                            Some(ty) => Err(ApplicationError::Message(
+                                self.token.clone(),
+                                format!("Don't know how to compare {ty:?}"),
+                            )),
+                            None => Err(ApplicationError::Other),
+                        }
+                    },
+                )?
+            }
             ExprKind::If(IfExpr { then, otherwise }) => {
                 let (stack, subs) = FnTy::new([Ty::Bool], []).apply(&self.token, stack)?;
 

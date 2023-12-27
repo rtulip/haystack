@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Debug, process::exit};
+use std::{collections::HashMap, fmt::Debug, process::exit, rc::Rc};
 
 use clap::Parser;
 
@@ -44,9 +44,9 @@ fn unescape_string(s: &str) -> String {
     out
 }
 
-fn builtin_print_string() -> (&'static str, Element<'static>) {
+fn builtin_print_string() -> (String, Element<'static>) {
     (
-        "__builtin_print_string",
+        "__builtin_print_string".to_owned(),
         Element::Extern(|interp: &mut Interpreter| {
             let s = interp.pop_str()?;
             print!("{}", unescape_string(s));
@@ -55,9 +55,9 @@ fn builtin_print_string() -> (&'static str, Element<'static>) {
     )
 }
 
-fn builtin_print_bool() -> (&'static str, Element<'static>) {
+fn builtin_print_bool() -> (String, Element<'static>) {
     (
-        "__builtin_print_bool",
+        "__builtin_print_bool".to_owned(),
         Element::Extern(|interp: &mut Interpreter| {
             let b = interp.pop_bool()?;
             print!("{b}");
@@ -66,9 +66,9 @@ fn builtin_print_bool() -> (&'static str, Element<'static>) {
     )
 }
 
-fn builtin_print_u32() -> (&'static str, Element<'static>) {
+fn builtin_print_u32() -> (String, Element<'static>) {
     (
-        "__builtin_print_u32",
+        "__builtin_print_u32".to_owned(),
         Element::Extern(|interp: &mut Interpreter| {
             let n = interp.pop_u32()?;
             print!("{n}");
@@ -107,39 +107,47 @@ fn main() {
     let tokens = Scanner::scan_tokens(file, &source).report();
     let stmts = crate::parser::Parser::parse(tokens, &mut types, &mut gen).report();
 
-    let mut ty_defs = vec![];
     let mut functions = vec![];
-    let mut impls = vec![];
-
-    for stmt in stmts {
-        match stmt {
-            statement::Stmt::Function(f) => functions.push(f),
-            statement::Stmt::TypeDef(def) => ty_defs.push(def),
-            statement::Stmt::Impl(impl_) => impls.push(impl_),
-        }
-    }
-
-    for function in &mut functions {
-        function.resolve_names(&types).unwrap();
-    }
-
-    let context = Context::from_functions(&functions);
-
-    for func in &functions {
-        func.type_check(&types, &context, &mut gen).report();
-    }
+    let mut context = Context::new();
 
     let mut elements = vec![
         builtin_print_bool(),
         builtin_print_string(),
         builtin_print_u32(),
     ];
-    elements.extend(functions.iter().map(|func| {
-        (
-            func.token.quote().as_str(),
-            Element::Expr(func.expr.clone()),
-        )
-    }));
+
+    for stmt in stmts {
+        match stmt {
+            statement::Stmt::Function(f) => {
+                let ident = f.token.quote().as_str();
+                context.push(ident, f.scheme().clone());
+                functions.push((ident.to_owned(), f));
+            }
+            statement::Stmt::TypeDef(_) => (),
+            statement::Stmt::Impl(impl_) => {
+                let prefix = format!("{}", impl_.token.quote().as_str());
+                for f in impl_.fns {
+                    let ident = format!("{prefix}.{}", f.token.quote().as_str());
+                    context.push(ident.clone(), f.scheme().clone());
+                    functions.push((ident, f));
+                }
+            }
+        }
+    }
+
+    for (_, function) in &mut functions {
+        function.resolve_names(&types, &context).unwrap();
+    }
+
+    for (_, function) in &functions {
+        function.type_check(&types, &context, &mut gen).report();
+    }
+
+    elements.extend(
+        functions
+            .into_iter()
+            .map(|(ident, func)| (ident, Element::Expr(func.expr.clone()))),
+    );
 
     let interpreter = Interpreter::new(elements, &types);
 

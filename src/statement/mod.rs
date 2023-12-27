@@ -4,6 +4,7 @@ use crate::{
     types::{Context, Scheme, Stack, Substitution, Ty, TyGen, Types, Variance},
 };
 
+#[derive(Debug, Clone)]
 pub struct FunctionStmt<'src> {
     pub token: Token<'src>,
     pub expr: Expr<'src>,
@@ -82,8 +83,12 @@ impl<'src> FunctionStmt<'src> {
         &self.scheme
     }
 
-    pub fn resolve_names(&mut self, types: &Types<'src>) -> Result<(), ()> {
-        self.expr.resolve_names(types)
+    pub fn resolve_names(
+        &mut self,
+        types: &Types<'src>,
+        context: &Context<'src>,
+    ) -> Result<(), ()> {
+        self.expr.resolve_names(types, context)
     }
 }
 

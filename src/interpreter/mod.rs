@@ -15,13 +15,13 @@ pub enum InterpreterError {
 pub struct Interpreter<'src> {
     pub stack: Vec<Element<'src>>,
     types: &'src Types<'src>,
-    context: Vec<(&'src str, Element<'src>)>,
+    context: Vec<(String, Element<'src>)>,
 }
 
 impl<'src> Interpreter<'src> {
     pub fn new<T>(context: T, types: &'src Types<'src>) -> Self
     where
-        T: IntoIterator<Item = (&'src str, Element<'src>)>,
+        T: IntoIterator<Item = (String, Element<'src>)>,
     {
         Self {
             stack: vec![],
@@ -78,7 +78,7 @@ impl<'src> Interpreter<'src> {
                 } else {
                     let tail = self.stack.split_off(self.stack.len() - bindings.len());
                     for (id, elem) in bindings.into_iter().zip(tail.into_iter()) {
-                        self.context.push((id, elem))
+                        self.context.push((id.to_owned(), elem))
                     }
                 }
             }
@@ -133,7 +133,12 @@ impl<'src> Interpreter<'src> {
             ExprKind::TyInstance(TyInstanceExpr::Enum { base, variant }) => {
                 self.stack.push(Element::Enum { base, variant })
             }
-            ExprKind::DotSequence(_) => todo!(),
+            ExprKind::DotSequence(seq) => {
+                unreachable!(
+                    "Dot Sequences should be removed by this point! {}",
+                    seq.first().unwrap().token.quote()
+                )
+            }
         }
 
         Ok(())

@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use super::{Substitution, UnificationError, Variance};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -141,6 +143,11 @@ impl<'src> Ty<'src> {
             }
             (Ty::Enum(EnumType { ident: left, .. }), Ty::Enum(EnumType { ident: right, .. }))
                 if left == right =>
+            {
+                Ok(Substitution::new())
+            }
+            (Ty::Enum(e), Ty::EnumInstance(inst, _)) | (Ty::EnumInstance(inst, _), Ty::Enum(e))
+                if inst == e =>
             {
                 Ok(Substitution::new())
             }

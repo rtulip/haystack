@@ -14,7 +14,11 @@ pub use variance::*;
 
 use std::{collections::HashMap, convert::From, fmt::Debug};
 
-use crate::{expression::Expr, statement::FunctionStmt};
+use crate::{
+    expression::Expr,
+    interpreter::Element,
+    statement::{FunctionStmt, ImplStmt},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StackSplitError<'src>(pub Stack<'src>, pub usize);
@@ -109,7 +113,7 @@ impl<'src> Debug for Stack<'src> {
 
 #[derive(Debug, Clone)]
 pub struct Var<'src> {
-    pub ident: &'src str,
+    pub ident: String,
     pub scheme: Scheme<'src>,
 }
 
@@ -118,19 +122,7 @@ pub struct Context<'src>(Vec<Var<'src>>);
 
 impl<'src> Context<'src> {
     pub fn new() -> Self {
-        Self(vec![])
-    }
-
-    pub fn iter(&self) -> std::slice::Iter<'_, Var<'src>> {
-        self.0.iter()
-    }
-
-    pub fn push(&mut self, ident: &'src str, scheme: Scheme<'src>) {
-        self.0.push(Var { ident, scheme })
-    }
-
-    pub fn from_functions(functions: &'src Vec<FunctionStmt<'src>>) -> Self {
-        let mut ctx = Context::new();
+        let mut ctx = Context(vec![]);
         ctx.push(
             "__builtin_print_bool",
             Scheme::new([], FnTy::new([Ty::Bool], [])),
@@ -144,24 +136,38 @@ impl<'src> Context<'src> {
             Scheme::new([], FnTy::new([Ty::Str], [])),
         );
 
-        for func in functions {
-            ctx.push(func.token().quote().as_str(), func.scheme().clone())
-        }
-
         ctx
     }
-}
 
-impl<'src, const N: usize> From<[(&'src str, Scheme<'src>); N]> for Context<'src> {
-    fn from(value: [(&'src str, Scheme<'src>); N]) -> Self {
-        Self(
-            value
-                .into_iter()
-                .map(|(ident, scheme)| Var { ident, scheme })
-                .collect(),
-        )
+    pub fn iter(&self) -> std::slice::Iter<'_, Var<'src>> {
+        self.0.iter()
+    }
+
+    pub fn push<S>(&mut self, ident: S, scheme: Scheme<'src>)
+    where
+        S: Into<String>,
+    {
+        self.0.push(Var {
+            ident: ident.into(),
+            scheme,
+        })
     }
 }
+
+// impl<'src, const N: usize> From<[(&'src str, Scheme<'src>, Element<'src>); N]> for Context<'src> {
+//     fn from(value: [(&'src str, Scheme<'src>, Element<'src>); N]) -> Self {
+//         Self(
+//             value
+//                 .into_iter()
+//                 .map(|(ident, scheme, element)| Var {
+//                     ident: ident.into(),
+//                     scheme,
+//                     element,
+//                 })
+//                 .collect(),
+//         )
+//     }
+// }
 
 #[cfg(test)]
 mod test {

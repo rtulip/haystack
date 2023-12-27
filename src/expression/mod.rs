@@ -144,6 +144,7 @@ impl<'src> Expr<'src> {
                         match subs.get(&var) {
                             Some(Ty::U32) => Ok(()),
                             Some(Ty::EnumInstance(_, _)) => Ok(()),
+                            Some(Ty::Enum(_)) => Ok(()),
                             Some(ty) => Err(ApplicationError::Message(
                                 self.token.clone(),
                                 format!("Don't know how to compare {ty:?}"),
@@ -190,7 +191,11 @@ impl<'src> Expr<'src> {
         Ok((stack, subs))
     }
 
-    pub fn resolve_names(&mut self, types: &Types<'src>) -> Result<(), ()> {
+    pub fn resolve_names(
+        &mut self,
+        types: &Types<'src>,
+        context: &Context<'src>,
+    ) -> Result<(), ()> {
         match &mut self.kind {
             ExprKind::DotSequence(seq) => {
                 seq.reverse();
@@ -200,7 +205,7 @@ impl<'src> Expr<'src> {
                     .expect("Dot Sequences must have at least one element");
 
                 match top.kind {
-                    ExprKind::Var(VarExpr(ident)) => match types.get(ident) {
+                    ExprKind::Var(VarExpr(top_ident)) => match types.get(top_ident) {
                         Some(Ty::Enum(EnumType {
                             variants,
                             ident: base,
@@ -220,6 +225,12 @@ impl<'src> Expr<'src> {
                                             base,
                                             variant: *variant,
                                         });
+                                    } else if let Some(f) = context
+                                        .iter()
+                                        .find(|f| f.ident == self.token.quote().as_str())
+                                    {
+                                        self.kind =
+                                            ExprKind::Var(VarExpr(self.token.quote.as_str()))
                                     } else {
                                         todo!("{ident}")
                                     }
@@ -237,7 +248,7 @@ impl<'src> Expr<'src> {
             }
             ExprKind::Block(BlockExpr(exprs)) => {
                 for e in exprs {
-                    e.resolve_names(types).unwrap();
+                    e.resolve_names(types, context).unwrap();
                 }
             }
             _ => (),

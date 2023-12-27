@@ -63,6 +63,7 @@ impl<'src> Debug for ParseError<'src> {
     }
 }
 
+#[derive(Debug)]
 pub struct ParseFunction<'src> {
     name: Token<'src>,
     annotations: Vec<&'src str>,
@@ -84,6 +85,7 @@ impl<'src> ParseFunction<'src> {
     }
 }
 
+#[derive(Debug)]
 pub struct ParseImpl<'src> {
     ty: ParseTy<'src>,
     fns: Vec<ParseFunction<'src>>,
@@ -150,6 +152,7 @@ impl<'src> ParseTyDef<'src> {
     }
 }
 
+#[derive(Debug)]
 pub struct ParseTy<'src> {
     ident: Token<'src>,
 }
@@ -177,6 +180,7 @@ impl<'src> ParseTy<'src> {
     }
 }
 
+#[derive(Debug)]
 pub struct ParseSignature<'src> {
     input: Vec<ParseTy<'src>>,
     output: Vec<ParseTy<'src>>,
@@ -484,9 +488,11 @@ impl<'src> Parser<'src> {
                 ParseStmt::Function(func) => {
                     stmts.push(func.to_func_stmt(gen, types).unwrap().into())
                 }
-                ParseStmt::TyDef(tydef) => assert!(types
-                    .insert(tydef.name.quote.as_str(), tydef.to_type().unwrap())
-                    .is_none()),
+                ParseStmt::TyDef(tydef) => {
+                    assert!(types
+                        .insert(tydef.name.quote.as_str(), tydef.to_type().unwrap())
+                        .is_none())
+                }
                 ParseStmt::Impl(impl_) => stmts.push(impl_.to_stmt(types, gen).unwrap().into()),
             }
         }

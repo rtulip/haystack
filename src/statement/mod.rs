@@ -39,15 +39,16 @@ impl<'src> FunctionStmt<'src> {
 
     pub fn type_check(
         &self,
+        types: &HashMap<&'src str, Ty<'src>>,
         context: &Context<'src>,
         gen: &mut TyGen,
     ) -> Result<Substitution<'src>, ApplicationError<'src>> {
         let mut ctx = context.clone();
         let (func, subs) = self.scheme.concrete_instantiation(gen);
-        let (output, s1) = self
-            .expr
-            .clone()
-            .apply(Stack::from_iter(func.input), &mut ctx, gen)?;
+        let (output, s1) =
+            self.expr
+                .clone()
+                .apply(Stack::from_iter(func.input), types, &mut ctx, gen)?;
         let s2 = Stack::from_iter(func.output)
             .unify(output, Variance::Contravariant)
             .map_err(|e| ApplicationError::UnificationError(self.token.clone(), e))?;

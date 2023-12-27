@@ -1,7 +1,7 @@
-use crate::types::{Context, Stack, Substitution, TyGen};
+use crate::types::{Context, Stack, Substitution, Ty, TyGen};
 
 use super::{ApplicationError, Expr};
-use std::convert::From;
+use std::{collections::HashMap, convert::From};
 
 #[derive(Debug, Clone)]
 pub struct BlockExpr<'src>(pub Vec<Expr<'src>>);
@@ -10,6 +10,7 @@ impl<'src> BlockExpr<'src> {
     pub fn apply<'ctx>(
         self,
         stack: Stack<'src>,
+        types: &HashMap<&'src str, Ty<'src>>,
         context: &mut Context<'src>,
         gen: &mut TyGen,
     ) -> Result<(Stack<'src>, Substitution<'src>), ApplicationError<'src>> {
@@ -18,7 +19,7 @@ impl<'src> BlockExpr<'src> {
         let mut subs_outer = Substitution::new();
         for expr in self.0 {
             let tok = expr.token.clone();
-            let (stack, sub) = expr.apply(stack_outer, &mut ctx, gen)?;
+            let (stack, sub) = expr.apply(stack_outer, types, &mut ctx, gen)?;
             subs_outer = subs_outer
                 .unify(sub)
                 .map_err(|e| ApplicationError::UnificationError(tok, e))?;

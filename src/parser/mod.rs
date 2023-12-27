@@ -288,7 +288,7 @@ impl<'src> Parser<'src> {
                         tok.quote.end = ident.quote.end;
                         vars.push(Expr::new(ExprKind::Var(ident.ident().into()), ident));
                     }
-
+                    assert!(vars.len() != 0);
                     Ok(Expr::new(ExprKind::DotSequence(vars), tok))
                 } else {
                     Ok(Expr::new(ExprKind::Var(ident.ident().into()), ident))

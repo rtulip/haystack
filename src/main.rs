@@ -124,7 +124,7 @@ fn main() {
     let context = Context::from_functions(&functions);
 
     for func in &functions {
-        func.type_check(&context, &mut gen).report();
+        func.type_check(&types, &context, &mut gen).report();
     }
 
     let mut elements = vec![

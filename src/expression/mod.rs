@@ -99,6 +99,7 @@ impl<'src> Expr<'src> {
     pub fn apply<'ctx>(
         self,
         stack: Stack<'src>,
+        types: &HashMap<&'src str, Ty<'src>>,
         context: &mut Context<'src>,
         gen: &mut TyGen,
     ) -> Result<(Stack<'src>, Substitution<'src>), ApplicationError<'src>> {
@@ -107,7 +108,7 @@ impl<'src> Expr<'src> {
                 let func: FnTy<'_> = lit.into();
                 func.apply(&self.token, stack)?
             }
-            ExprKind::Block(block) => block.apply(stack, context, gen)?,
+            ExprKind::Block(block) => block.apply(stack, types, context, gen)?,
             ExprKind::Var(VarExpr(var)) => {
                 let func = match context.iter().rev().find(|Var { ident, .. }| *ident == var) {
                     Some(Var { scheme, .. }) => scheme.instantiate(gen).0,
@@ -134,9 +135,9 @@ impl<'src> Expr<'src> {
             ExprKind::If(IfExpr { then, otherwise }) => {
                 let (stack, subs) = FnTy::new([Ty::Bool], []).apply(&self.token, stack)?;
 
-                let (then_stack, then_sub) = then.apply(stack.clone(), context, gen)?;
+                let (then_stack, then_sub) = then.apply(stack.clone(), types, context, gen)?;
                 let (otherwise_stack, otherwise_sub) = if let Some(otherwise) = otherwise {
-                    otherwise.apply(stack.clone(), context, gen)?
+                    otherwise.apply(stack.clone(), types, context, gen)?
                 } else {
                     (stack.clone(), Substitution::new())
                 };
@@ -161,8 +162,8 @@ impl<'src> Expr<'src> {
                     .map_err(|e| ApplicationError::UnificationError(self.token, e))?;
                 (otherwise_stack.substitute(&subs), subs)
             }
-            ExprKind::TyInstance(_) => todo!(),
-            ExprKind::DotSequence(_) => todo!(),
+            ExprKind::TyInstance(ty_instance) => ty_instance.apply(&self.token, stack, types)?,
+            ExprKind::DotSequence(seq) => unreachable!("{}", self.token.quote),
         };
 
         Ok((stack, subs))
@@ -198,6 +199,8 @@ impl<'src> Expr<'src> {
                                             base,
                                             variant: *variant,
                                         });
+                                    } else {
+                                        todo!("{ident}")
                                     }
                                 }
                                 _ => unreachable!("This shouldn't be reachable here..."),

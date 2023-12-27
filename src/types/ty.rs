@@ -69,6 +69,7 @@ pub enum Ty<'src> {
     Instance(TyVar),
     Quant(QuantifiedType<'src>),
     Enum(EnumType<'src>),
+    EnumInstance(EnumType<'src>, &'src str),
 }
 
 impl<'src> Ty<'src> {
@@ -105,6 +106,7 @@ impl<'src> Ty<'src> {
                     .collect::<Vec<_>>(),
             ),
             Ty::Enum(e) => Ty::Enum(e),
+            Ty::EnumInstance(e, variant) => Ty::EnumInstance(e, variant),
         }
     }
 
@@ -164,6 +166,7 @@ impl<'src> Ty<'src> {
                     .collect::<Vec<_>>(),
             ),
             Ty::Instance(var) => Ty::Instance(*var),
+            Ty::EnumInstance(base, variant) => Ty::EnumInstance(base.clone(), *variant),
         }
     }
 
@@ -171,7 +174,19 @@ impl<'src> Ty<'src> {
         match self {
             Ty::Var(_) => true,
             Ty::Quant(QuantifiedType { elements, .. }) => elements.iter().any(|ty| ty.is_free()),
-            Ty::U32 | Ty::Bool | Ty::Str | Ty::Instance(_) | Ty::Enum(_) => false,
+            Ty::U32
+            | Ty::Bool
+            | Ty::Str
+            | Ty::Instance(_)
+            | Ty::Enum(_)
+            | Ty::EnumInstance(_, _) => false,
+        }
+    }
+
+    pub fn get_enum(self) -> EnumType<'src> {
+        match self {
+            Ty::Enum(e) => e,
+            ty => panic!("Expected an enum, but found {ty:?}"),
         }
     }
 }

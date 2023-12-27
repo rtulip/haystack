@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::{
     expression::{ApplicationError, Expr},
     parser::token::Token,
@@ -39,7 +37,7 @@ impl<'src> FunctionStmt<'src> {
 
     pub fn type_check(
         &self,
-        types: &HashMap<&'src str, Ty<'src>>,
+        types: &Types<'src>,
         context: &Context<'src>,
         gen: &mut TyGen,
     ) -> Result<Substitution<'src>, ApplicationError<'src>> {
@@ -71,7 +69,7 @@ impl<'src> FunctionStmt<'src> {
         &self.scheme
     }
 
-    pub fn resolve_names(&mut self, types: &HashMap<&'src str, Ty<'src>>) -> Result<(), ()> {
+    pub fn resolve_names(&mut self, types: &Types<'src>) -> Result<(), ()> {
         self.expr.resolve_names(types)
     }
 }

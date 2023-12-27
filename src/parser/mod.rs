@@ -1,11 +1,11 @@
-use std::{collections::HashMap, fmt::Debug};
+use std::fmt::Debug;
 
 use self::token::{Keyword, Symbol, Token, TokenKind};
 use crate::{
     expression::{AsExpr, BlockExpr, Expr, ExprKind, IfExpr},
     parser::token::TokenShape,
     statement::{FunctionStmt, Stmt},
-    types::{EnumType, FnTy, Scheme, Ty, TyGen, TyVar},
+    types::{EnumType, FnTy, Scheme, Ty, TyGen, TyVar, Types},
 };
 
 pub mod quote;
@@ -437,7 +437,7 @@ impl<'src> Parser<'src> {
 
     pub fn parse(
         tokens: Vec<Token<'src>>,
-        types: &mut HashMap<&'src str, Ty<'src>>,
+        types: &mut Types<'src>,
         gen: &mut TyGen,
     ) -> Result<Vec<Stmt<'src>>, ParseError<'src>> {
         let mut parser = Self { tokens };

@@ -5,11 +5,11 @@ pub use self::{
 use crate::{
     parser::token::{Literal, Token},
     types::{
-        Context, EnumType, FnTy, Scheme, Stack, StackSplitError, Substitution, Ty, TyGen,
+        Context, EnumType, FnTy, Scheme, Stack, StackSplitError, Substitution, Ty, TyGen, Types,
         UnificationError, Var, Variance,
     },
 };
-use std::{collections::HashMap, convert::From, fmt::Debug};
+use std::{convert::From, fmt::Debug};
 
 mod as_expr;
 mod block;
@@ -103,7 +103,7 @@ impl<'src> Expr<'src> {
     pub fn apply<'ctx>(
         self,
         stack: Stack<'src>,
-        types: &HashMap<&'src str, Ty<'src>>,
+        types: &Types<'src>,
         context: &mut Context<'src>,
         gen: &mut TyGen,
     ) -> Result<(Stack<'src>, Substitution<'src>), ApplicationError<'src>> {
@@ -190,7 +190,7 @@ impl<'src> Expr<'src> {
         Ok((stack, subs))
     }
 
-    pub fn resolve_names(&mut self, types: &HashMap<&'src str, Ty<'src>>) -> Result<(), ()> {
+    pub fn resolve_names(&mut self, types: &Types<'src>) -> Result<(), ()> {
         match &mut self.kind {
             ExprKind::DotSequence(seq) => {
                 seq.reverse();

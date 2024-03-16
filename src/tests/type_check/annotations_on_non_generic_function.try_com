@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/annotations_on_non_generic_function.hay:5:5] Error: Type Error: Cannot provide annotations to non generic function `foo`\n"
-}

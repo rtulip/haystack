@@ -1,7 +1,0 @@
-enum Foo {Bar Baz}
-
-fn main() {
-
-    0 cast(Foo::Bar)
-
-}

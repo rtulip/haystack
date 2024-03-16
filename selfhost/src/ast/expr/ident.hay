@@ -1,5 +1,0 @@
-include "selfhost/src/lex/token.hay"
-
-struct IdentExpr {
-    pub Token: ident 
-}

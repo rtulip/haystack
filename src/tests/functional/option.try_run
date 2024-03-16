@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "true\nfalse\nHello World\nfalse\nfalse\nUnwrapped a None variant\n",
-  "stderr": ""
-}

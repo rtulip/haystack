@@ -1,8 +1,0 @@
-fn foo<T>(T) { drop } 
-
-fn main() {
-
-    12345 as [n]
-    &n foo
-
-}

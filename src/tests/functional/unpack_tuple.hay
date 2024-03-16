@@ -1,6 +1,0 @@
-fn main() {
-    [1 true "Three"] unpack 
-    println
-    println
-    println
-}

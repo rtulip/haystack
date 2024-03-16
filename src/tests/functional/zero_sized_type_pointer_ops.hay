@@ -1,5 +1,0 @@
-fn main() {
-    var []: zst_p
-    [] zst_p !
-    zst_p @ println
-}

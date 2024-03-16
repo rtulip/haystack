@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/stmt/impl_unknown_interface.hay:1:6] Error: Unrecognized interface: `Foo`\n"
-}

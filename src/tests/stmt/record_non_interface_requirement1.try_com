@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/stmt/record_non_interface_requirement1.hay:2:12] Error: Invalid requirement: `Str` is not an interface.\n"
-}

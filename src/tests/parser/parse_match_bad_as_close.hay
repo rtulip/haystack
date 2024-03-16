@@ -1,7 +1,0 @@
-fn main() {
-
-    match {
-        Foo::Bar as [ x }
-    }
-
-}

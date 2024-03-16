@@ -1,8 +1,0 @@
-include "selfhost/src/ast/expr/operator.hay"
-
-struct Expr: 
-
-struct UnaryExpr {
-    pub OperatorExpr: op
-    pub &Expr: expr
-}

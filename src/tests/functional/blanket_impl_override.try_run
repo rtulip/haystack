@@ -1,5 +1,0 @@
-{
-  "exit_code": 0,
-  "stdout": "Hello world!\n12345\n54321\nInside override\nHello Print!\n",
-  "stderr": ""
-}

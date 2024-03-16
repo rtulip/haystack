@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_bad_requirement_start.hay:2:10] Error: Expected `:` after keyword `requires`. Found `[` instead.\n"
-}

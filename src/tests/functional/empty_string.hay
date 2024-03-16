@@ -1,5 +1,0 @@
-fn main() {
-    "" as [s]
-    s::size 0 == println
-    "`" print s print "`" println
-}

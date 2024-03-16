@@ -1,8 +1,0 @@
-
-fn foo<T>(T Arr<u64>) { drop drop }
-
-fn main() {
-    
-    1 "Hello World" foo
-
-}

@@ -1,3 +1,0 @@
-fn main() {
-    10 foo::<u64> drop
-}

@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/bind_insufficient_elements.hay:3:11] Error: Type Error: Insufficient elements on the stack to bind\n    [Note]: Expected 4 elements to bind to idents: [\"a\", \"b\", \"c\", \"d\"]\n    [Note]: Found: [u64, u64, u64]\n"
-}

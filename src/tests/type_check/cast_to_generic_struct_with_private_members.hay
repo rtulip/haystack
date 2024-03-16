@@ -1,7 +1,0 @@
-struct Foo<T> {
-    T: bar
-}
-
-fn main() {
-    1 cast(Foo)
-}

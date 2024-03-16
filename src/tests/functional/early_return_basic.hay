@@ -1,9 +1,0 @@
-fn foo(u64) -> [u64] {
-    return
-}
-
-fn main() {
-
-    10 foo println
-
-}

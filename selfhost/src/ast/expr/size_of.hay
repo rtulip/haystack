@@ -1,6 +1,0 @@
-include "selfhost/src/lex/token.hay"
-
-struct SizeOfExpr {
-    pub Token: token
-    pub Token: type
-}

@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/stmt/fn_name_conflict.hay:2:4] Error: Function name conflict. `Foo` defined elsewhere\n"
-}

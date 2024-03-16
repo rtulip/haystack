@@ -1,6 +1,0 @@
-fn main() {
-
-    "Hello World" 0 syscall(1)
-
-
-}

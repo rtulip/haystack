@@ -1,6 +1,10 @@
-pub struct UnifiactionError<V>(V, V);
+pub struct UnifiactionError<V>(pub V, pub V);
 
-struct UnificationTable<K, V> {
+pub struct UnificationTable<K, V>
+where
+    K: PartialEq + From<usize> + Into<usize> + Copy,
+    V: Clone + PartialEq,
+{
     parents: Vec<(K, Option<V>)>,
 }
 
@@ -9,7 +13,7 @@ where
     K: PartialEq + From<usize> + Into<usize> + Copy,
     V: Clone + PartialEq,
 {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self { parents: vec![] }
     }
 
@@ -27,14 +31,14 @@ where
         }
     }
 
-    fn new_key(&mut self) -> K {
+    pub fn new_key(&mut self) -> K {
         let len = self.parents.len();
         let key = K::from(len);
         self.parents.push((key, None));
         key
     }
 
-    fn find_key(&self, k: K) -> K {
+    pub fn find_key(&self, k: K) -> K {
         let root = self.parents[k.into()].0.clone();
         if root != k {
             self.find_key(root)
@@ -43,7 +47,7 @@ where
         }
     }
 
-    fn get(&self, k: K) -> &Option<V> {
+    pub fn get(&self, k: K) -> &Option<V> {
         let root = self.find_key(k);
         &self.parents[root.into()].1
     }

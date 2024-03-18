@@ -1,21 +1,22 @@
 mod expr;
 mod stmt;
+mod types;
+mod union_find;
+
+use std::collections::HashMap;
 
 use expr::Expr;
-use stmt::{Function, Stmt};
 
-fn example() -> Stmt<'static, (), (), ()> {
-    Stmt::function(
-        Function::new(
-            "main",
-            Expr::block([Expr::literal(12345, ()), Expr::print(())], ()),
-        ),
-        (),
-    )
+use crate::types::{Stack, TypeInference};
+
+fn example() -> Expr<'static, (),()> {
+    Expr::block([Expr::literal(12345, ()), Expr::print(())], ())
 }
 
 fn main() {
+    let mut inference = TypeInference::new();
     let e = example();
 
-    println!("Hello World!");
+    let (e, scheme) = inference.type_check(e, &HashMap::new(), &mut Stack::new(), Stack::new()).unwrap();
+    
 }

@@ -31,11 +31,15 @@ pub enum ExprBase<'src, M, E> {
 /// types information, etc...
 ///
 pub struct Expr<'src, Meta, Ext> {
-    expr: ExprBase<'src, Meta, Ext>,
-    meta: Meta,
+    pub expr: ExprBase<'src, Meta, Ext>,
+    pub meta: Meta,
 }
 
 impl<'src, M, E> Expr<'src, M, E> {
+    pub fn new(meta: M, expr: ExprBase<'src, M, E>) -> Self {
+        Expr { expr, meta }
+    }
+
     pub fn literal<L>(lit: L, meta: M) -> Self
     where
         L: Into<Literal<'src>>,

@@ -20,6 +20,7 @@ use crate::expr::Literal;
 pub enum ExprBase<'src, M, E> {
     Literal(Literal<'src>),
     Print,
+    PrintString,
     Block(Vec<Expr<'src, M, E>>),
     Ext(E),
 }
@@ -63,6 +64,13 @@ impl<'src, M, E> Expr<'src, M, E> {
     pub fn print(meta: M) -> Self {
         Expr {
             expr: ExprBase::<M, E>::Print,
+            meta,
+        }
+    }
+
+    pub fn print_string(meta: M) -> Self {
+        Expr {
+            expr: ExprBase::<M, E>::PrintString,
             meta,
         }
     }

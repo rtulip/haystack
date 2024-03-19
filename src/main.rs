@@ -14,8 +14,8 @@ use crate::types::{Stack, Type, TypeInference};
 fn example() -> Expr<'static, (), ()> {
     Expr::block(
         [
-            Expr::literal(3u8, ()),
-            Expr::print(()),
+            Expr::literal("Hello World!", ()),
+            Expr::print_string(()),
         ],
         (),
     )
@@ -31,12 +31,20 @@ fn main() {
         .0
         .into_ssa_form(Stack::new());
 
-    println!("#include <stdio.h>");
-    println!("#include <stdint.h>");
-    println!("#include <stdbool.h>");
-    
-    println!("int main() {{");
+    generate!(0, "#include <stdio.h>");
+    generate!(0, "#include <stdint.h>");
+    generate!(0, "#include <stdbool.h>");
+    generate!(0, "");
+
+    generate!(0, "typedef struct HaystackStr {{");
+    generate!(4, "uint32_t size;");
+    generate!(4, "uint8_t* string;");
+    generate!(0, "}} HaystackStr;\n");
+    generate!(0, "");
+
+
+    generate!(0, "int main() {{");
     e.transpile(4, 4);
-    println!("}}");
+    generate!(0, "}}");
     
 }

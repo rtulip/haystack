@@ -98,6 +98,13 @@ impl TypeInference {
                     vec![Constraint::Equal(t, Type::U32)],
                 )))
             }
+            crate::expr::ExprBase::PrintString => {
+                let t = stack.pop().ok_or_else(|| InferenceError::StackUnderflow)?;
+                Ok(Expr::print_string((
+                    expr.meta,
+                    vec![Constraint::Equal(t, Type::String)],
+                )))
+            }
             crate::expr::ExprBase::Block(exprs) => {
                 let mut local_env = env.clone();
 
@@ -241,6 +248,7 @@ impl TypeInference {
         match expr.expr {
             crate::expr::ExprBase::Literal(_) => (HashSet::new(), expr),
             crate::expr::ExprBase::Print => (HashSet::new(), expr),
+            crate::expr::ExprBase::PrintString => (HashSet::new(), expr),
             crate::expr::ExprBase::Block(exprs) => {
                 let mut unbound = HashSet::new();
                 let exprs = exprs

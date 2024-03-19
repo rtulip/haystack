@@ -11,6 +11,7 @@ pub enum CSsaExtension<'src> {
         output: CVar<'src>,
     },
     ExitLoop,
+    Return(CType<'src>),
 }
 
 #[derive(Debug, Clone)]
@@ -19,6 +20,7 @@ pub enum CType<'src> {
     Bool,
     U8,
     Char,
+    Void,
     Struct {
         name: &'src str,
         elements: Vec<(&'src str, CType<'src>)>,
@@ -47,6 +49,16 @@ impl<'src> CType<'src> {
         Ts: Into<Vec<CType<'src>>>,
     {
         CType::Tuple(ts.into())
+    }
+}
+
+impl<'src> From<Vec<CType<'src>>> for CType<'src> {
+    fn from(mut value: Vec<CType<'src>>) -> Self {
+        match value.len() {
+            0 => CType::Void,
+            1 => value.pop().unwrap(),
+            _ => CType::Tuple(value),
+        }
     }
 }
 
@@ -83,6 +95,7 @@ impl<'src> Display for CType<'src> {
             CType::Bool => write!(f, "bool"),
             CType::U8 => write!(f, "uint8_t"),
             CType::Char => write!(f, "char"),
+            CType::Void => write!(f, "void"),
             CType::Struct { name, .. } => write!(f, "{name}"),
             CType::Pointer(ty) => write!(f, "{ty}*"),
             CType::Tuple(ts) => {
@@ -110,20 +123,31 @@ impl<'src> CVar<'src> {
 
         CVar { ty, ident }
     }
-}
 
-impl<'src> Display for CVar<'src> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {:?}", self.ty, self)
+    pub fn from_stack(stack: Stack) -> (Vec<Self>, usize) {
+        let mut counter = 0;
+        let mut stack = stack
+            .into_iter()
+            .map(|t| CVar::new(t.into(), &mut counter))
+            .collect();
+
+        return (stack, counter);
     }
 }
 
 impl<'src> Debug for CVar<'src> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.ty, self)
+    }
+}
+
+impl<'src> Display for CVar<'src> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "var{}", self.ident)
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Assignment<'src> {
     pub input: Option<Vec<CVar<'src>>>,
     pub output: Option<Vec<CVar<'src>>>,
@@ -131,12 +155,7 @@ pub struct Assignment<'src> {
 
 impl<'src, M, E> Expr<'src, M, E> {
     pub fn into_ssa_form(self, stack: Stack) -> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
-        let mut counter = 0;
-        let mut stack = stack
-            .into_iter()
-            .map(|t| CVar::new(t.into(), &mut counter))
-            .collect();
-
+        let (mut stack, mut counter) = CVar::from_stack(stack);
         self.get_var_ids(&mut stack, &mut counter)
     }
 

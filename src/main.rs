@@ -14,27 +14,30 @@ use crate::{
     types::{Stack, Type, TypeInference},
 };
 
-fn example() -> Expr<'static, (), ()> {
-    Expr::block(
-        [
-            Expr::literal(420u32, ()),
-            Expr::literal(69u32, ()),
-            Expr::binop(BinOp::Mul, ()),
-            Expr::print(()),
-        ],
-        (),
+fn example() -> Function<'static, (), ()> {
+    Function::new(
+        "main",
+        [],
+        [Type::U32],
+        Expr::block(
+            [
+                Expr::literal(420u32, ()),
+                Expr::literal(69u32, ()),
+                Expr::binop(BinOp::Mul, ()),
+                Expr::print(()),
+                Expr::literal(223u32, ()),
+            ],
+            (),
+        ),
     )
-}   
+}
 
 fn main() {
     let mut inference = TypeInference::new();
-    let e = example();
-
-    let e = inference
-        .type_check(e, &HashMap::new(), &mut Stack::new(), vec![])
+    let main_fn = example()
+        .type_check(&mut inference, &HashMap::new())
         .unwrap()
-        .0
-        .into_ssa_form(Stack::new());
+        .into_ssa_form();
 
     generate!(0, "#include <stdio.h>");
     generate!(0, "#include <stdint.h>");
@@ -43,7 +46,5 @@ fn main() {
 
     CType::string().transpile(0, 4);
 
-    generate!(0, "int main() {{");
-    e.transpile(4, 4);
-    generate!(0, "}}");
+    main_fn.transpile(0, 4);
 }

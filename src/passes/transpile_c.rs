@@ -16,28 +16,28 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
             crate::expr::ExprBase::Literal(Literal::Bool(b)) => {
                 generate!(
                     indentation,
-                    "{} = {b};",
+                    "{:?} = {b};",
                     self.meta.output.as_ref().unwrap()[0]
                 );
             }
             crate::expr::ExprBase::Literal(Literal::U32(n)) => {
                 generate!(
                     indentation,
-                    "{} = {n};",
+                    "{:?} = {n};",
                     self.meta.output.as_ref().unwrap()[0]
                 );
             }
             crate::expr::ExprBase::Literal(Literal::U8(n)) => {
                 generate!(
                     indentation,
-                    "{} = {n};",
+                    "{:?} = {n};",
                     self.meta.output.as_ref().unwrap()[0]
                 );
             }
             crate::expr::ExprBase::Literal(Literal::String(s)) => {
                 generate!(
                     indentation,
-                    "{} = {{ .size = {}, .string = \"{}\" }};",
+                    "{:?} = {{ .size = {}, .string = \"{}\" }};",
                     self.meta.output.as_ref().unwrap()[0],
                     s.len(),
                     s
@@ -46,14 +46,14 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
             crate::expr::ExprBase::Print => {
                 generate!(
                     indentation,
-                    "printf(\"%u\\n\", {:?});",
+                    "printf(\"%u\\n\", {});",
                     self.meta.input.as_ref().unwrap()[0]
                 );
             }
             crate::expr::ExprBase::PrintString => {
                 generate!(
                     indentation,
-                    "printf(\"%.*s\\n\", {:?}.size, {:?}.string);",
+                    "printf(\"%.*s\\n\", {}.size, {}.string);",
                     self.meta.input.as_ref().unwrap()[0],
                     self.meta.input.as_ref().unwrap()[0]
                 );
@@ -61,7 +61,7 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
             crate::expr::ExprBase::Block(exprs) => {
                 match &self.meta.output {
                     Some(output) => output.iter().for_each(|var| {
-                        generate!(indentation, "{var};");
+                        generate!(indentation, "{var:?};");
                     }),
                     None => (),
                 }
@@ -75,14 +75,23 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
             crate::expr::ExprBase::BinOp(op) => {
                 generate!(
                     indentation,
-                    "{} = {:?} {op} {:?};",
+                    "{:?} = {} {op} {};",
                     self.meta.output.as_ref().unwrap()[0],
                     self.meta.input.as_ref().unwrap()[0],
                     self.meta.input.as_ref().unwrap()[1]
                 );
             }
             crate::expr::ExprBase::Ext(CSsaExtension::BackAssign { input, output }) => {
-                generate!(indentation, "{output:?} = {input:?};");
+                generate!(indentation, "{output} = {input};");
+            }
+            crate::expr::ExprBase::Ext(CSsaExtension::Return(_ty)) => {
+                assert!(self.meta.input.as_ref().unwrap().len() == 1);
+
+                generate!(
+                    indentation,
+                    "return {};",
+                    self.meta.input.as_ref().unwrap()[0]
+                );
             }
             crate::expr::ExprBase::Ext(_) => todo!(),
         }
@@ -105,7 +114,8 @@ impl<'src> CType<'src> {
             | CType::Bool
             | CType::U8
             | CType::Char
-            | CType::Pointer(_) => (),
+            | CType::Pointer(_)
+            | CType::Void => (),
         }
     }
 }

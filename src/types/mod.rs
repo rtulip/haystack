@@ -3,6 +3,7 @@ mod inference;
 mod scheme;
 use crate::expr::Literal;
 
+pub use constraint::*;
 pub use inference::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

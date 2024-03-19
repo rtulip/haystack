@@ -46,6 +46,7 @@ impl<'src> From<&'_ Literal<'src>> for Type {
             Literal::U32(_) => Type::U32,
             Literal::String(_) => Type::String,
             Literal::Bool(_) => Type::Bool,
+            Literal::U8(_) => Type::U8,
         }
     }
 }

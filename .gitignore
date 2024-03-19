@@ -8,5 +8,7 @@ Cargo.lock
 *.asm
 *.out
 *.simple
-
+*.c
+*.s
+a.out
 

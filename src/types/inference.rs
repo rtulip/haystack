@@ -28,9 +28,11 @@ enum TypeUnificationError {
 
 impl TypeInference {
     pub fn new() -> Self {
-        Self { lookup: UnificationTable::new() }
+        Self {
+            lookup: UnificationTable::new(),
+        }
     }
-    
+
     fn fresh_type_var(&mut self) -> TypeVar {
         self.lookup.new_key()
     }
@@ -80,6 +82,10 @@ impl TypeInference {
             crate::expr::ExprBase::Literal(Literal::U32(n)) => {
                 stack.push(Type::U32);
                 Ok(Expr::literal(Literal::U32(n), (expr.meta, vec![])))
+            }
+            crate::expr::ExprBase::Literal(Literal::U8(n)) => {
+                stack.push(Type::U8);
+                Ok(Expr::literal(Literal::U8(n), (expr.meta, vec![])))
             }
             crate::expr::ExprBase::Literal(Literal::String(s)) => {
                 stack.push(Type::String);

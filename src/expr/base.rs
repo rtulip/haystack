@@ -1,5 +1,7 @@
 use crate::expr::Literal;
 
+use super::BinOp;
+
 /// Expression Base
 ///
 /// This is an extensible representation of the base expressions Haystack
@@ -22,6 +24,7 @@ pub enum ExprBase<'src, M, E> {
     Print,
     PrintString,
     Block(Vec<Expr<'src, M, E>>),
+    BinOp(BinOp),
     Ext(E),
 }
 
@@ -81,6 +84,16 @@ impl<'src, M, E> Expr<'src, M, E> {
     {
         Expr {
             expr: ExprBase::<M, E>::Ext(ext.into()),
+            meta,
+        }
+    }
+
+    pub fn binop<Op>(op: Op, meta: M) -> Self
+    where
+        Op: Into<BinOp>,
+    {
+        Expr {
+            expr: ExprBase::BinOp(op.into()),
             meta,
         }
     }

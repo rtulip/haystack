@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    expr::{Expr, Literal},
+    expr::{BinOp, Expr, Literal},
     union_find::{UnifiactionError, UnificationTable},
 };
 
@@ -115,6 +115,24 @@ impl TypeInference {
 
                 Ok(Expr::block(exprs, (expr.meta, vec![])))
             }
+            crate::expr::ExprBase::BinOp(op) => match op {
+                BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Mod => {
+                    let right = stack.pop().ok_or_else(|| InferenceError::StackUnderflow)?;
+                    let left = stack.pop().ok_or_else(|| InferenceError::StackUnderflow)?;
+                    stack.push(Type::U32);
+                    Ok(Expr::binop(
+                        op,
+                        (
+                            expr.meta,
+                            vec![
+                                Constraint::Equal(right, Type::U32),
+                                Constraint::Equal(left, Type::U32),
+                            ],
+                        ),
+                    ))
+                }
+                _ => todo!(),
+            },
             crate::expr::ExprBase::Ext(_) => Err(InferenceError::ExtensionExpressionReached),
         }
     }
@@ -262,6 +280,7 @@ impl TypeInference {
 
                 (unbound, Expr::block(exprs, expr.meta))
             }
+            crate::expr::ExprBase::BinOp(_) => (HashSet::new(), expr),
             crate::expr::ExprBase::Ext(_) => unreachable!(),
         }
     }

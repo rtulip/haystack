@@ -6,32 +6,25 @@ mod union_find;
 
 use std::collections::HashMap;
 
-use expr::Expr;
+use expr::{BinOp, Expr};
 use stmt::Function;
 
 use crate::{
     passes::CType,
-    types::{Stack, TypeInference},
+    types::{Stack, Type, TypeInference},
 };
 
 fn example() -> Expr<'static, (), ()> {
     Expr::block(
         [
-            Expr::literal(12345u32, ()),
-            Expr::block(
-                [
-                    Expr::literal("Hello World!", ()),
-                    Expr::literal(54321u32, ()),
-                    Expr::print(()),
-                ],
-                (),
-            ),
-            Expr::print_string(()),
+            Expr::literal(420u32, ()),
+            Expr::literal(69u32, ()),
+            Expr::binop(BinOp::Mul, ()),
             Expr::print(()),
         ],
         (),
     )
-}
+}   
 
 fn main() {
     let mut inference = TypeInference::new();

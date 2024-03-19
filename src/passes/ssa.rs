@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display};
 
 use crate::{
-    expr::{Expr, Literal},
+    expr::{BinOp, Expr, Literal},
     types::{Stack, Type},
 };
 
@@ -165,9 +165,7 @@ impl<'src, M, E> Expr<'src, M, E> {
                 })
             }
             crate::expr::ExprBase::PrintString => {
-                dbg!(&stack);
                 let input = stack.pop().unwrap();
-                dbg!(&input);
                 Expr::print_string(Assignment {
                     input: Some(vec![input]),
                     output: None,
@@ -217,10 +215,24 @@ impl<'src, M, E> Expr<'src, M, E> {
                     },
                 };
 
-                dbg!(&stack);
-
                 Expr::block(exprs, assignment)
             }
+            crate::expr::ExprBase::BinOp(op) => match op {
+                BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Mod => {
+                    let right = stack.pop().unwrap();
+                    let left = stack.pop().unwrap();
+                    let var: CVar = CVar::new(CType::U32, counter);
+                    stack.push(var.clone());
+                    Expr::binop(
+                        op,
+                        Assignment {
+                            input: Some(vec![left, right]),
+                            output: Some(vec![var]),
+                        },
+                    )
+                }
+                _ => todo!(),
+            },
             crate::expr::ExprBase::Ext(_) => todo!(),
         }
     }

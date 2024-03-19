@@ -72,6 +72,15 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
                     .for_each(|e| e.transpile(indentation + tab_size, tab_size));
                 generate!(indentation, "}}");
             }
+            crate::expr::ExprBase::BinOp(op) => {
+                generate!(
+                    indentation,
+                    "{} = {:?} {op} {:?};",
+                    self.meta.output.as_ref().unwrap()[0],
+                    self.meta.input.as_ref().unwrap()[0],
+                    self.meta.input.as_ref().unwrap()[1]
+                );
+            }
             crate::expr::ExprBase::Ext(CSsaExtension::BackAssign { input, output }) => {
                 generate!(indentation, "{output:?} = {input:?};");
             }

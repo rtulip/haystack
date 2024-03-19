@@ -5,13 +5,11 @@ use crate::{
     types::{Stack, Type},
 };
 
-pub struct Reassignment<'src> {
-    input: CVar<'src>,
-    output: CVar<'src>,
-}
-
 pub enum CSsaExtension<'src> {
-    BackAssign(Vec<Reassignment<'src>>),
+    BackAssign {
+        input: CVar<'src>,
+        output: CVar<'src>,
+    },
     ExitLoop,
 }
 
@@ -20,11 +18,13 @@ pub enum CType<'src> {
     U32,
     Bool,
     U8,
-    Struct{
+    Char,
+    Struct {
         name: &'src str,
         elements: Vec<(&'src str, CType<'src>)>,
     },
-    Pointer(Box<CType<'src>>)
+    Tuple(Vec<CType<'src>>),
+    Pointer(Box<CType<'src>>),
 }
 
 impl<'src> CType<'src> {
@@ -33,10 +33,20 @@ impl<'src> CType<'src> {
     }
 
     pub fn string() -> Self {
-        CType::Struct { name: "HaystackStr", elements: vec![
-            ("size", CType::U32),
-            ("string", CType::pointer(CType::U32))
-        ] }
+        CType::Struct {
+            name: "Str",
+            elements: vec![
+                ("size", CType::U32),
+                ("string", CType::pointer(CType::Char)),
+            ],
+        }
+    }
+
+    pub fn tuple<Ts>(ts: Ts) -> Self
+    where
+        Ts: Into<Vec<CType<'src>>>,
+    {
+        CType::Tuple(ts.into())
     }
 }
 
@@ -72,8 +82,17 @@ impl<'src> Display for CType<'src> {
             CType::U32 => write!(f, "uint32_t"),
             CType::Bool => write!(f, "bool"),
             CType::U8 => write!(f, "uint8_t"),
-            CType::Struct { name, ..} => write!(f, "{name}"),
+            CType::Char => write!(f, "char"),
+            CType::Struct { name, .. } => write!(f, "{name}"),
             CType::Pointer(ty) => write!(f, "{ty}*"),
+            CType::Tuple(ts) => {
+                write!(f, "struct {{ ")?;
+                ts.iter()
+                    .enumerate()
+                    .map(|(id, ty)| write!(f, "{ty} id{id}; "))
+                    .collect::<Result<Vec<_>, _>>()?;
+                write!(f, "}}")
+            }
         }
     }
 }
@@ -107,7 +126,7 @@ impl<'src> Debug for CVar<'src> {
 
 pub struct Assignment<'src> {
     pub input: Option<Vec<CVar<'src>>>,
-    pub output: Option<CVar<'src>>,
+    pub output: Option<Vec<CVar<'src>>>,
 }
 
 impl<'src, M, E> Expr<'src, M, E> {
@@ -134,7 +153,7 @@ impl<'src, M, E> Expr<'src, M, E> {
                     lit,
                     Assignment {
                         input: None,
-                        output: Some(var),
+                        output: Some(vec![var]),
                     },
                 )
             }
@@ -146,24 +165,61 @@ impl<'src, M, E> Expr<'src, M, E> {
                 })
             }
             crate::expr::ExprBase::PrintString => {
+                dbg!(&stack);
                 let input = stack.pop().unwrap();
+                dbg!(&input);
                 Expr::print_string(Assignment {
                     input: Some(vec![input]),
                     output: None,
                 })
             }
             crate::expr::ExprBase::Block(exprs) => {
-                let exprs: Vec<_> = exprs
+                let mut exprs: Vec<_> = exprs
                     .into_iter()
                     .map(|e| e.get_var_ids(stack, counter))
                     .collect();
-                Expr::block(
-                    exprs,
-                    Assignment {
+
+                // we need to be able to "return" from a block, this means that we may need to
+                // create an variable _before_ the block, and then back-assign at the end of
+                // the block to assign it back.
+                //
+                // _If_ we have no items on the stack, then no work needs to be done.
+                // _If_ we have only one item on the stack, then it's easy,
+                // _If_ we have _multiple_ items on the stack, then we need to do multiple
+                // back-assignments
+                let assignment = match stack.len() {
+                    0 => Assignment {
                         input: None,
                         output: None,
                     },
-                )
+                    _ => Assignment {
+                        input: None,
+                        output: Some(
+                            stack
+                                .iter_mut()
+                                .map(|var| {
+                                    let out_var = CVar::new(var.ty.clone(), counter);
+                                    exprs.push(Expr::ext(
+                                        CSsaExtension::BackAssign {
+                                            input: var.clone(),
+                                            output: out_var.clone(),
+                                        },
+                                        Assignment {
+                                            input: None,
+                                            output: None,
+                                        },
+                                    ));
+                                    *var = out_var.clone();
+                                    out_var
+                                })
+                                .collect(),
+                        ),
+                    },
+                };
+
+                dbg!(&stack);
+
+                Expr::block(exprs, assignment)
             }
             crate::expr::ExprBase::Ext(_) => todo!(),
         }

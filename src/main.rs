@@ -9,13 +9,25 @@ use std::collections::HashMap;
 use expr::Expr;
 use stmt::Function;
 
-use crate::types::{Stack, Type, TypeInference};
+use crate::{
+    passes::CType,
+    types::{Stack, TypeInference},
+};
 
 fn example() -> Expr<'static, (), ()> {
     Expr::block(
         [
-            Expr::literal("Hello World!", ()),
+            Expr::literal(12345u32, ()),
+            Expr::block(
+                [
+                    Expr::literal("Hello World!", ()),
+                    Expr::literal(54321u32, ()),
+                    Expr::print(()),
+                ],
+                (),
+            ),
             Expr::print_string(()),
+            Expr::print(()),
         ],
         (),
     )
@@ -36,15 +48,9 @@ fn main() {
     generate!(0, "#include <stdbool.h>");
     generate!(0, "");
 
-    generate!(0, "typedef struct HaystackStr {{");
-    generate!(4, "uint32_t size;");
-    generate!(4, "uint8_t* string;");
-    generate!(0, "}} HaystackStr;\n");
-    generate!(0, "");
-
+    CType::string().transpile(0, 4);
 
     generate!(0, "int main() {{");
     e.transpile(4, 4);
     generate!(0, "}}");
-    
 }

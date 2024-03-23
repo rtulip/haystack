@@ -81,6 +81,7 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
                     self.meta.input.as_ref().unwrap()[1]
                 );
             }
+            crate::expr::ExprBase::Call(_) => unreachable!("base call expressions should have been removed"),
             crate::expr::ExprBase::Ext(CSsaExtension::BackAssign { input, output }) => {
                 generate!(indentation, "{output} = {input};");
             }
@@ -92,6 +93,20 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
                     "return {};",
                     self.meta.input.as_ref().unwrap()[0]
                 );
+            }
+            crate::expr::ExprBase::Ext(CSsaExtension::Call(name)) => {
+                assert!(self.meta.output.as_ref().unwrap().len() < 2, "TODO: Support multiple returns");
+
+                if self.meta.output.as_ref().unwrap().is_empty() {
+                    todo!()
+                } else {
+                    generate!(indentation, "{:?} = {name}(", self.meta.output.as_ref().unwrap()[0]);
+                    self.meta.input.as_ref().unwrap().iter().enumerate().for_each(|(i, input)| {
+                        generate!(indentation + tab_size, "{input}{}", if i != self.meta.input.as_ref().unwrap().len() -1 {","} else {""});
+                    });
+                    generate!(indentation, ");");
+                }
+
             }
             crate::expr::ExprBase::Ext(_) => todo!(),
         }

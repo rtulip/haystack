@@ -1,4 +1,4 @@
-use crate::expr::Literal;
+use crate::{expr::Literal, types::Var};
 
 use super::BinOp;
 
@@ -25,6 +25,7 @@ pub enum ExprBase<'src, M, E> {
     PrintString,
     Block(Vec<Expr<'src, M, E>>),
     BinOp(BinOp),
+    Call(Var),
     Ext(E),
 }
 
@@ -94,6 +95,15 @@ impl<'src, M, E> Expr<'src, M, E> {
     {
         Expr {
             expr: ExprBase::BinOp(op.into()),
+            meta,
+        }
+    }
+
+    pub fn call(func: Var, meta: M) -> Self {
+        assert!(matches!(func, Var::Func(_)));
+
+        Expr {
+            expr: ExprBase::Call(func),
             meta,
         }
     }

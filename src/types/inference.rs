@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    hash::Hash,
+};
 
 use crate::{
     expr::{BinOp, Expr, Literal},
@@ -6,6 +9,23 @@ use crate::{
 };
 
 use super::{constraint::Constraint, scheme::Scheme, Stack, Type, TypeVar, Var};
+
+pub struct ConstrainedType {
+    var_ty: Option<Type>,
+    constriants: Vec<Constraint>,
+}
+
+impl ConstrainedType {
+    fn new<C>(ty: Option<Type>, constraints: C) -> Self
+    where
+        C: Into<Vec<Constraint>>,
+    {
+        Self {
+            var_ty: ty,
+            constriants: constraints.into(),
+        }
+    }
+}
 
 pub struct TypeInference {
     lookup: UnificationTable<TypeVar, Type>,
@@ -73,36 +93,48 @@ impl TypeInference {
         stack: &mut Stack,
         env: &mut HashMap<Var, Type>,
         expr: Expr<'a, M, ()>,
-    ) -> Result<Expr<'a, (M, Vec<Constraint>), ()>, InferenceError> {
+    ) -> Result<Expr<'a, (M, ConstrainedType), ()>, InferenceError> {
         match expr.expr {
             crate::expr::ExprBase::Literal(Literal::Bool(b)) => {
                 stack.push(Type::Bool);
-                Ok(Expr::literal(Literal::Bool(b), (expr.meta, vec![])))
+                Ok(Expr::literal(
+                    Literal::Bool(b),
+                    (expr.meta, ConstrainedType::new(None, [])),
+                ))
             }
             crate::expr::ExprBase::Literal(Literal::U32(n)) => {
                 stack.push(Type::U32);
-                Ok(Expr::literal(Literal::U32(n), (expr.meta, vec![])))
+                Ok(Expr::literal(
+                    Literal::U32(n),
+                    (expr.meta, ConstrainedType::new(None, [])),
+                ))
             }
             crate::expr::ExprBase::Literal(Literal::U8(n)) => {
                 stack.push(Type::U8);
-                Ok(Expr::literal(Literal::U8(n), (expr.meta, vec![])))
+                Ok(Expr::literal(
+                    Literal::U8(n),
+                    (expr.meta, ConstrainedType::new(None, [])),
+                ))
             }
             crate::expr::ExprBase::Literal(Literal::String(s)) => {
                 stack.push(Type::String);
-                Ok(Expr::literal(Literal::String(s), (expr.meta, vec![])))
+                Ok(Expr::literal(
+                    Literal::String(s),
+                    (expr.meta, ConstrainedType::new(None, [])),
+                ))
             }
             crate::expr::ExprBase::Print => {
                 let t = stack.pop().ok_or_else(|| InferenceError::StackUnderflow)?;
                 Ok(Expr::print((
                     expr.meta,
-                    vec![Constraint::Equal(t, Type::U32)],
+                    ConstrainedType::new(None, [Constraint::Equal(t, Type::U32)]),
                 )))
             }
             crate::expr::ExprBase::PrintString => {
                 let t = stack.pop().ok_or_else(|| InferenceError::StackUnderflow)?;
                 Ok(Expr::print_string((
                     expr.meta,
-                    vec![Constraint::Equal(t, Type::String)],
+                    ConstrainedType::new(None, [Constraint::Equal(t, Type::String)]),
                 )))
             }
             crate::expr::ExprBase::Block(exprs) => {
@@ -113,7 +145,10 @@ impl TypeInference {
                     .map(|e| self.infer(stack, &mut local_env, e))
                     .collect::<Result<Vec<_>, _>>()?;
 
-                Ok(Expr::block(exprs, (expr.meta, vec![])))
+                Ok(Expr::block(
+                    exprs,
+                    (expr.meta, ConstrainedType::new(None, [])),
+                ))
             }
             crate::expr::ExprBase::BinOp(op) => match op {
                 BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Mod => {
@@ -124,15 +159,45 @@ impl TypeInference {
                         op,
                         (
                             expr.meta,
-                            vec![
-                                Constraint::Equal(right, Type::U32),
-                                Constraint::Equal(left, Type::U32),
-                            ],
+                            ConstrainedType::new(
+                                None,
+                                [
+                                    Constraint::Equal(right, Type::U32),
+                                    Constraint::Equal(left, Type::U32),
+                                ],
+                            ),
                         ),
                     ))
                 }
                 _ => todo!(),
             },
+            crate::expr::ExprBase::Call(f) => {
+                let ty = env.get(&f).expect("Vars should be resolvable").clone();
+                let (input, output) = self.freshen(ty, &mut HashMap::new()).expect_function();
+
+                if stack.len() < input.len() {
+                    todo!("not enough elements on the stack to call function");
+                }
+
+                let split = stack.split_off(stack.len() - input.len());
+                let constraints = split
+                    .into_iter()
+                    .zip(input.clone().into_iter())
+                    .map(|(left, right)| Constraint::Subtype {
+                        parent: right,
+                        child: left,
+                    })
+                    .collect::<Vec<_>>();
+                stack.extend(output.clone());
+
+                Ok(Expr::call(
+                    f,
+                    (
+                        expr.meta,
+                        ConstrainedType::new(Some(Type::Func { input, output }), constraints),
+                    ),
+                ))
+            }
             crate::expr::ExprBase::Ext(_) => Err(InferenceError::ExtensionExpressionReached),
         }
     }
@@ -261,8 +326,8 @@ impl TypeInference {
 
     fn substitute_expr<'a, M>(
         &mut self,
-        expr: Expr<'a, M, ()>,
-    ) -> (HashSet<TypeVar>, Expr<'a, M, ()>) {
+        expr: Expr<'a, (M, ConstrainedType), ()>,
+    ) -> (HashSet<TypeVar>, Expr<'a, (M, ConstrainedType), ()>) {
         match expr.expr {
             crate::expr::ExprBase::Literal(_) => (HashSet::new(), expr),
             crate::expr::ExprBase::Print => (HashSet::new(), expr),
@@ -281,6 +346,37 @@ impl TypeInference {
                 (unbound, Expr::block(exprs, expr.meta))
             }
             crate::expr::ExprBase::BinOp(_) => (HashSet::new(), expr),
+            crate::expr::ExprBase::Call(Var::Func(f)) => {
+                let (input, output) = expr
+                    .meta
+                    .1
+                    .var_ty
+                    .expect("Call exprs should have `var_ty`, but found none ")
+                    .clone()
+                    .expect_function();
+
+                let (mut unbound, sub_input) = self.substitute(input);
+                let (out_unbound, sub_output) = self.substitute(output);
+
+                unbound.extend(out_unbound);
+
+                let fn_ty = Type::Func {
+                    input: sub_input,
+                    output: sub_output,
+                };
+
+                (
+                    unbound,
+                    Expr::call(
+                        Var::Func(f),
+                        (
+                            expr.meta.0,
+                            ConstrainedType::new(Some(fn_ty), expr.meta.1.constriants),
+                        ),
+                    ),
+                )
+            }
+            crate::expr::ExprBase::Call(Var::Ident(_)) => unreachable!("Can't call an ident"),
             crate::expr::ExprBase::Ext(_) => unreachable!(),
         }
     }
@@ -291,7 +387,7 @@ impl TypeInference {
         parent_env: &HashMap<Var, Type>,
         stack: &mut Stack,
         target: Stack,
-    ) -> Result<(Expr<'a, (M, Vec<Constraint>), ()>, Scheme), TypeCheckError> {
+    ) -> Result<(Expr<'a, (M, ConstrainedType), ()>, Scheme), TypeCheckError> {
         let (mut unbound, _) = self.substitute(stack.clone());
         let mut env = parent_env.clone();
         let mut out = self.infer(stack, &mut env, expr).map_err(|e| match e {
@@ -303,13 +399,15 @@ impl TypeInference {
 
         out.meta
             .1
+            .constriants
             .extend(Constraint::stack_compare(target, stack.clone()));
 
         // TODO: Constrain Type Vars here.
 
-        self.unification(out.meta.1.clone()).map_err(|e| match e {
-            TypeUnificationError::NotEqual(a, b) => TypeCheckError::TypesNotEqual(a, b),
-        })?;
+        self.unification(out.meta.1.constriants.clone())
+            .map_err(|e| match e {
+                TypeUnificationError::NotEqual(a, b) => TypeCheckError::TypesNotEqual(a, b),
+            })?;
 
         let (unbound_stk, stk) = self.substitute(stack.clone());
         let (unbound_expr, expr) = self.substitute_expr(out);

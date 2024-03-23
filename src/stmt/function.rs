@@ -4,11 +4,11 @@ use crate::{
     expr::Expr,
     generate,
     passes::{Assignment, CSsaExtension, CType, CVar},
-    types::{Constraint, Stack, Type, TypeCheckError, TypeInference, Var},
+    types::{ConstrainedType, Stack, Type, TypeCheckError, TypeInference, Var},
 };
 
 pub struct Function<'src, M, E> {
-    name: &'src str,
+    pub name: &'src str,
     pub input: Stack,
     pub output: Stack,
     body: Expr<'src, M, E>,
@@ -19,7 +19,7 @@ impl<'src, M> Function<'src, M, ()> {
         self,
         inference: &mut TypeInference,
         parent_env: &HashMap<Var, Type>,
-    ) -> Result<Function<'src, (M, Vec<Constraint>), ()>, TypeCheckError> {
+    ) -> Result<Function<'src, (M, ConstrainedType), ()>, TypeCheckError> {
         let (e, _scheme) = inference.type_check(
             self.body,
             parent_env,
@@ -48,8 +48,12 @@ impl<'src, M, E> Function<'src, M, E> {
         }
     }
 
-    pub fn into_ssa_form(self) -> Function<'src, Assignment<'src>, CSsaExtension<'src>> {
-        let mut body = self.body.into_ssa_form(self.input.clone());
+    pub fn into_ssa_form(
+        self,
+        env: &HashMap<Var, Type>,
+        fn_names: &'src HashMap<usize, String>,
+    ) -> Function<'src, Assignment<'src>, CSsaExtension<'src>> {
+        let mut body = self.body.into_ssa_form(self.input.clone(), env, fn_names);
 
         if !self.output.is_empty() {
             let ty = CType::from(
@@ -80,7 +84,7 @@ impl<'src, M, E> Function<'src, M, E> {
 }
 
 impl<'src> Function<'src, Assignment<'src>, CSsaExtension<'src>> {
-    pub fn transpile(&self, indentation: usize, tab_size: usize) {
+     fn signature(&self, indentation: usize, tab_size: usize) {
         let ty = CType::from(
             self.output
                 .iter()
@@ -101,6 +105,19 @@ impl<'src> Function<'src, Assignment<'src>, CSsaExtension<'src>> {
                 );
             });
         generate!(indentation, ")");
+
+    }
+    
+    pub fn declare(&self, indentation: usize, tab_size: usize) 
+    {
+        self.signature(indentation, tab_size);
+        generate!(indentation, ";");
+        generate!(indentation, "");
+    }
+
+    pub fn transpile(&self, indentation: usize, tab_size: usize) {
+        self.signature(indentation, tab_size);
+
         generate!(indentation, "{{");
         self.body.transpile(indentation + tab_size, tab_size);
         generate!(indentation, "}}");

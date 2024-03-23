@@ -1,8 +1,11 @@
-use std::fmt::{Debug, Display};
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Display},
+};
 
 use crate::{
     expr::{BinOp, Expr, Literal},
-    types::{Stack, Type},
+    types::{Stack, Type, Var},
 };
 
 pub enum CSsaExtension<'src> {
@@ -12,6 +15,7 @@ pub enum CSsaExtension<'src> {
     },
     ExitLoop,
     Return(CType<'src>),
+    Call(&'src str)
 }
 
 #[derive(Debug, Clone)]
@@ -74,6 +78,17 @@ impl<'src> From<Type> for CType<'src> {
             Type::String => todo!(),
             Type::Never => todo!(),
         }
+    }
+}
+
+impl<'src> From<Vec<Type>> for CType<'src> {
+    fn from(value: Vec<Type>) -> Self {
+        Self::from(
+            value
+                .into_iter()
+                .map(|ty| CType::from(ty))
+                .collect::<Vec<_>>(),
+        )
     }
 }
 
@@ -154,15 +169,22 @@ pub struct Assignment<'src> {
 }
 
 impl<'src, M, E> Expr<'src, M, E> {
-    pub fn into_ssa_form(self, stack: Stack) -> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
+    pub fn into_ssa_form(
+        self,
+        stack: Stack,
+        env: &HashMap<Var, Type>,
+        fn_names: &'src HashMap<usize, String>,
+    ) -> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
         let (mut stack, mut counter) = CVar::from_stack(stack);
-        self.get_var_ids(&mut stack, &mut counter)
+        self.get_var_ids(&mut stack, &mut counter, env, fn_names)
     }
 
     fn get_var_ids(
         self,
         stack: &mut Vec<CVar<'src>>,
         counter: &mut usize,
+        env: &HashMap<Var, Type>,
+        fn_names: &'src HashMap<usize, String>,
     ) -> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
         match self.expr {
             crate::expr::ExprBase::Literal(lit) => {
@@ -193,7 +215,7 @@ impl<'src, M, E> Expr<'src, M, E> {
             crate::expr::ExprBase::Block(exprs) => {
                 let mut exprs: Vec<_> = exprs
                     .into_iter()
-                    .map(|e| e.get_var_ids(stack, counter))
+                    .map(|e| e.get_var_ids(stack, counter, env, fn_names))
                     .collect();
 
                 // we need to be able to "return" from a block, this means that we may need to
@@ -201,7 +223,6 @@ impl<'src, M, E> Expr<'src, M, E> {
                 // the block to assign it back.
                 //
                 // _If_ we have no items on the stack, then no work needs to be done.
-                // _If_ we have only one item on the stack, then it's easy,
                 // _If_ we have _multiple_ items on the stack, then we need to do multiple
                 // back-assignments
                 let assignment = match stack.len() {
@@ -252,6 +273,31 @@ impl<'src, M, E> Expr<'src, M, E> {
                 }
                 _ => todo!(),
             },
+            crate::expr::ExprBase::Call(f) => {
+                let (input, output) = env
+                    .get(&f)
+                    .expect("call vars should be resolveable")
+                    .clone()
+                    .expect_function();
+
+                let input = stack.split_off(stack.len() - input.len());
+
+                assert!(output.len() < 2, "multiple return not supported yet");
+
+                let output = CVar::new(CType::from(output), counter);
+                stack.push(output.clone());
+            
+                let fn_name = fn_names.get(f.func()).expect("Function names should be known");
+
+                Expr::ext(
+                    CSsaExtension::Call(fn_name),
+                    Assignment {
+                        input: Some(input),
+                        output: Some(vec![output]),
+                    },
+                )
+            }
+
             crate::expr::ExprBase::Ext(_) => todo!(),
         }
     }

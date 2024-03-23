@@ -39,6 +39,15 @@ pub enum Type {
     Never,
 }
 
+impl Type {
+    pub fn expect_function(self) -> (Vec<Self>, Vec<Self>) {
+        match self {
+            Type::Func { input, output } => (input, output),
+            ty => panic!("Expected a function, but found `{ty:?}`"),
+        }
+    }
+}
+
 pub type Stack = Vec<Type>;
 
 impl<'src> From<&'_ Literal<'src>> for Type {
@@ -65,4 +74,13 @@ impl<'src, M, E> From<&'_ Function<'src, M, E>> for Type {
 pub enum Var {
     Func(usize),
     Ident(usize),
+}
+
+impl Var {
+    pub fn func(&self) -> &usize {
+        match self {
+            Var::Func(f) => &f,
+            Var::Ident(_) => panic!(),
+        }
+    }
 }

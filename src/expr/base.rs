@@ -107,4 +107,18 @@ impl<'src, M, E> Expr<'src, M, E> {
             meta,
         }
     }
+
+    pub fn for_each_meta(&self, mut func: impl FnMut(&M) -> ()) {
+        fn helper<'a, M, E>(e: &Expr<'a, M, E>, f: &mut impl FnMut(&M) -> ()) {
+            match &e.expr {
+                ExprBase::Block(exprs) => {
+                    f(&e.meta);
+                    exprs.iter().for_each(|e| helper(e, f));
+                }
+                _ => f(&e.meta),
+            }
+        }
+
+        helper(&self, &mut func);
+    }
 }

@@ -15,7 +15,7 @@ pub enum CSsaExtension<'src> {
     },
     ExitLoop,
     Return(CType<'src>),
-    Call(&'src str)
+    Call(&'src str),
 }
 
 #[derive(Debug, Clone)]
@@ -63,6 +63,12 @@ impl<'src> From<Vec<CType<'src>>> for CType<'src> {
             1 => value.pop().unwrap(),
             _ => CType::Tuple(value),
         }
+    }
+}
+
+impl<'src> From<Vec<CVar<'src>>> for CType<'src> {
+    fn from(value: Vec<CVar<'src>>) -> Self {
+        Self::from(value.into_iter().map(|var| var.ty).collect::<Vec<_>>())
     }
 }
 
@@ -114,12 +120,11 @@ impl<'src> Display for CType<'src> {
             CType::Struct { name, .. } => write!(f, "{name}"),
             CType::Pointer(ty) => write!(f, "{ty}*"),
             CType::Tuple(ts) => {
-                write!(f, "struct {{ ")?;
+                write!(f, "tuple_")?;
                 ts.iter()
-                    .enumerate()
-                    .map(|(id, ty)| write!(f, "{ty} id{id}; "))
+                    .map(|ty| write!(f, "{ty}_"))
                     .collect::<Result<Vec<_>, _>>()?;
-                write!(f, "}}")
+                Ok(())
             }
         }
     }
@@ -129,6 +134,7 @@ impl<'src> Display for CType<'src> {
 pub struct CVar<'src> {
     ty: CType<'src>,
     ident: usize,
+    member: Option<usize>,
 }
 
 impl<'src> CVar<'src> {
@@ -136,7 +142,11 @@ impl<'src> CVar<'src> {
         let ident = *counter;
         *counter += 1;
 
-        CVar { ty, ident }
+        CVar {
+            ty,
+            ident,
+            member: None,
+        }
     }
 
     pub fn from_stack(stack: Stack) -> (Vec<Self>, usize) {
@@ -148,6 +158,21 @@ impl<'src> CVar<'src> {
 
         return (stack, counter);
     }
+
+    pub fn tuple_member(&self, idx: usize) -> Self {
+        match &self.ty {
+            CType::Tuple(ts) => {
+                assert!(idx < ts.len(), "Out of Bounds tuple access!");
+
+                Self {
+                    ty: ts[idx].clone(),
+                    ident: self.ident,
+                    member: Some(idx),
+                }
+            }
+            ty => panic!("{ty:?} is not a tuple!"),
+        }
+    }
 }
 
 impl<'src> Debug for CVar<'src> {
@@ -158,7 +183,11 @@ impl<'src> Debug for CVar<'src> {
 
 impl<'src> Display for CVar<'src> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "var{}", self.ident)
+        write!(f, "var{}", self.ident)?;
+        if let Some(member) = &self.member {
+            write!(f, ".member{member}")?;
+        }
+        Ok(())
     }
 }
 
@@ -282,18 +311,90 @@ impl<'src, M, E> Expr<'src, M, E> {
 
                 let input = stack.split_off(stack.len() - input.len());
 
-                assert!(output.len() < 2, "multiple return not supported yet");
+                // Since calling a function _can_ return multiple values,
+                // things get a little tricky C-functions can only return a
+                // single value, so we need to operate within that limitation.
+                //
+                // To get around this, functions which return multiple values
+                // need to return a tuple instead, _then_ we'll back assign
+                // values to destructure the tuple.
 
-                let output = CVar::new(CType::from(output), counter);
-                stack.push(output.clone());
-            
-                let fn_name = fn_names.get(f.func()).expect("Function names should be known");
+                // First, we need to generate the Vars, that will end up on the
+                // stack after the function call.
+                let out_vars = output
+                    .into_iter()
+                    .map(|ty| CVar::new(CType::from(ty), counter))
+                    .collect::<Vec<_>>();
 
-                Expr::ext(
-                    CSsaExtension::Call(fn_name),
+                // Then we push those vars onto the stack since they'll be
+                // exposed
+                stack.extend(out_vars.clone());
+
+                // Then we need to generate the var which will be returned from
+                // the function call, and create back-assignments
+                let mut back_assignments = vec![];
+
+                let call_assignment = if out_vars.len() > 0 {
+                    let var = CVar::new(CType::from(out_vars.clone()), counter);
+
+                    match &var.ty {
+                        CType::Tuple(ts) => {
+                            assert!(ts.len() == out_vars.len());
+
+                            ts.iter().enumerate().zip(out_vars.iter()).for_each(
+                                |((idx, _), output)| {
+                                    back_assignments.push(Expr::ext(
+                                        CSsaExtension::BackAssign {
+                                            input: var.tuple_member(idx),
+                                            output: output.clone(),
+                                        },
+                                        Assignment {
+                                            input: None,
+                                            output: None,
+                                        },
+                                    ))
+                                },
+                            );
+                        }
+                        _ => {
+                            assert!(out_vars.len() == 1);
+
+                            back_assignments.push(Expr::ext(
+                                CSsaExtension::BackAssign {
+                                    input: var.clone(),
+                                    output: out_vars[0].clone(),
+                                },
+                                Assignment {
+                                    input: None,
+                                    output: None,
+                                },
+                            ));
+                        }
+                    }
                     Assignment {
                         input: Some(input),
-                        output: Some(vec![output]),
+                        output: Some(vec![var]),
+                    }
+                } else {
+                    Assignment {
+                        input: Some(input),
+                        output: None,
+                    }
+                };
+
+                let fn_name = fn_names
+                    .get(f.func())
+                    .expect("Function names should be known");
+
+                let mut block = vec![Expr::ext(CSsaExtension::Call(fn_name), call_assignment)];
+
+                block.extend(back_assignments);
+
+                Expr::block(
+                    block,
+                    Assignment {
+                        input: None,
+                        output: Some(out_vars),
                     },
                 )
             }

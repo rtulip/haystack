@@ -10,6 +10,7 @@ use crate::{
 
 use super::{constraint::Constraint, scheme::Scheme, Stack, Type, TypeVar, Var};
 
+#[derive(Debug)]
 pub struct ConstrainedType {
     var_ty: Option<Type>,
     constriants: Vec<Constraint>,
@@ -145,9 +146,14 @@ impl TypeInference {
                     .map(|e| self.infer(stack, &mut local_env, e))
                     .collect::<Result<Vec<_>, _>>()?;
 
+                let mut constraints = vec![];
+                exprs.iter().for_each(|e| e.for_each_meta(|(_, constrained_ty)| {
+                    constraints.extend(constrained_ty.constriants.clone())
+                }));
+
                 Ok(Expr::block(
                     exprs,
-                    (expr.meta, ConstrainedType::new(None, [])),
+                    (expr.meta, ConstrainedType::new(None, constraints)),
                 ))
             }
             crate::expr::ExprBase::BinOp(op) => match op {
@@ -173,6 +179,9 @@ impl TypeInference {
             },
             crate::expr::ExprBase::Call(f) => {
                 let ty = env.get(&f).expect("Vars should be resolvable").clone();
+
+                dbg!(&f);
+
                 let (input, output) = self.freshen(ty, &mut HashMap::new()).expect_function();
 
                 if stack.len() < input.len() {
@@ -189,6 +198,8 @@ impl TypeInference {
                     })
                     .collect::<Vec<_>>();
                 stack.extend(output.clone());
+
+                dbg!(&constraints);
 
                 Ok(Expr::call(
                     f,
@@ -403,6 +414,8 @@ impl TypeInference {
             .extend(Constraint::stack_compare(target, stack.clone()));
 
         // TODO: Constrain Type Vars here.
+
+        dbg!(&out.meta.1);
 
         self.unification(out.meta.1.constriants.clone())
             .map_err(|e| match e {

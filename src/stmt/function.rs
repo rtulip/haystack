@@ -84,7 +84,7 @@ impl<'src, M, E> Function<'src, M, E> {
 }
 
 impl<'src> Function<'src, Assignment<'src>, CSsaExtension<'src>> {
-     fn signature(&self, indentation: usize, tab_size: usize) {
+    fn signature(&self, indentation: usize, tab_size: usize) {
         let ty = CType::from(
             self.output
                 .iter()
@@ -105,11 +105,9 @@ impl<'src> Function<'src, Assignment<'src>, CSsaExtension<'src>> {
                 );
             });
         generate!(indentation, ")");
-
     }
-    
-    pub fn declare(&self, indentation: usize, tab_size: usize) 
-    {
+
+    pub fn declare(&self, indentation: usize, tab_size: usize) {
         self.signature(indentation, tab_size);
         generate!(indentation, ";");
         generate!(indentation, "");

@@ -21,8 +21,7 @@ fn example() -> Function<'static, (), ()> {
         [],
         Expr::block(
             [
-                Expr::literal(420u32, ()),
-                Expr::literal(69u32, ()),
+                Expr::call(Var::Func(2), ()),
                 Expr::call(Var::Func(1), ()),
                 Expr::print(()),
             ],
@@ -40,9 +39,18 @@ fn my_add() -> Function<'static, (), ()> {
     )
 }
 
+fn two_ints() -> Function<'static, (), ()> {
+    Function::new(
+        "two_ints",
+        [],
+        [Type::U32, Type::U32],
+        Expr::block([Expr::literal(1u32, ()), Expr::literal(2u32, ())], ()),
+    )
+}
+
 fn main() {
     let mut inference = TypeInference::new();
-    let fns = vec![example(), my_add()];
+    let fns = vec![example(), my_add(), two_ints()];
 
     let mut env = HashMap::new();
     let mut fn_names = HashMap::new();
@@ -65,9 +73,9 @@ fn main() {
     generate!(0, "#include <stdbool.h>");
     generate!(0, "");
 
-    fns.iter().for_each(|f| f.declare(0, 4));
-
     CType::string().transpile(0, 4);
+    CType::Tuple(vec![CType::U32, CType::U32]).transpile(0, 4);
 
+    fns.iter().for_each(|f| f.declare(0, 4));
     fns.iter().for_each(|f| f.transpile(0, 4));
 }

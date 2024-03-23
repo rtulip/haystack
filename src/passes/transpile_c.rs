@@ -81,32 +81,70 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
                     self.meta.input.as_ref().unwrap()[1]
                 );
             }
-            crate::expr::ExprBase::Call(_) => unreachable!("base call expressions should have been removed"),
+            crate::expr::ExprBase::Call(_) => {
+                unreachable!("base call expressions should have been removed")
+            }
             crate::expr::ExprBase::Ext(CSsaExtension::BackAssign { input, output }) => {
                 generate!(indentation, "{output} = {input};");
             }
-            crate::expr::ExprBase::Ext(CSsaExtension::Return(_ty)) => {
-                assert!(self.meta.input.as_ref().unwrap().len() == 1);
-
-                generate!(
-                    indentation,
-                    "return {};",
-                    self.meta.input.as_ref().unwrap()[0]
-                );
+            crate::expr::ExprBase::Ext(CSsaExtension::Return(ty)) => {
+                match self.meta.input.as_ref().unwrap().len() {
+                    0 => unreachable!("Shouldn't be returning anything in this case"),
+                    1 => {
+                        generate!(
+                            indentation,
+                            "return {};",
+                            self.meta.input.as_ref().unwrap()[0]
+                        );
+                    }
+                    _ => {
+                        generate!(indentation, "return ({ty}) {{");
+                        self.meta
+                            .input
+                            .as_ref()
+                            .unwrap()
+                            .iter()
+                            .enumerate()
+                            .for_each(|(i, var)| {
+                                generate!(indentation + tab_size, ".member{i} = {var},");
+                            });
+                        generate!(indentation, "}};");
+                    }
+                }
             }
             crate::expr::ExprBase::Ext(CSsaExtension::Call(name)) => {
-                assert!(self.meta.output.as_ref().unwrap().len() < 2, "TODO: Support multiple returns");
+                assert!(
+                    self.meta.output.as_ref().unwrap().len() < 2,
+                    "TODO: Support multiple returns"
+                );
 
                 if self.meta.output.as_ref().unwrap().is_empty() {
                     todo!()
                 } else {
-                    generate!(indentation, "{:?} = {name}(", self.meta.output.as_ref().unwrap()[0]);
-                    self.meta.input.as_ref().unwrap().iter().enumerate().for_each(|(i, input)| {
-                        generate!(indentation + tab_size, "{input}{}", if i != self.meta.input.as_ref().unwrap().len() -1 {","} else {""});
-                    });
+                    generate!(
+                        indentation,
+                        "{:?} = {name}(",
+                        self.meta.output.as_ref().unwrap()[0]
+                    );
+                    self.meta
+                        .input
+                        .as_ref()
+                        .unwrap()
+                        .iter()
+                        .enumerate()
+                        .for_each(|(i, input)| {
+                            generate!(
+                                indentation + tab_size,
+                                "{input}{}",
+                                if i != self.meta.input.as_ref().unwrap().len() - 1 {
+                                    ","
+                                } else {
+                                    ""
+                                }
+                            );
+                        });
                     generate!(indentation, ");");
                 }
-
             }
             crate::expr::ExprBase::Ext(_) => todo!(),
         }
@@ -124,8 +162,15 @@ impl<'src> CType<'src> {
                 generate!(indentation, "}} {name};");
                 generate!(indentation, "");
             }
-            CType::Tuple(_)
-            | CType::U32
+            CType::Tuple(elements) => {
+                generate!(indentation, "typedef struct {self} {{");
+                elements.iter().enumerate().for_each(|(i, ty)| {
+                    generate!(indentation + tab_size, "{ty} member{i};");
+                });
+                generate!(indentation, "}} {self};");
+                generate!(indentation, "");
+            }
+            CType::U32
             | CType::Bool
             | CType::U8
             | CType::Char

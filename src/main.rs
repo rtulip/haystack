@@ -32,9 +32,23 @@ fn example() -> Function<'static, (), ()> {
     )
 }
 
+fn my_add() -> Function<'static, (), ()> {
+    Function::new(
+        "my_add",
+        [Type::U32, Type::U32],
+        [Type::U32],
+        Expr::binop(BinOp::Add, ()),
+    )
+}
+
 fn main() {
     let mut inference = TypeInference::new();
     let main_fn = example()
+        .type_check(&mut inference, &HashMap::new())
+        .unwrap()
+        .into_ssa_form();
+
+    let my_add = my_add()
         .type_check(&mut inference, &HashMap::new())
         .unwrap()
         .into_ssa_form();
@@ -47,4 +61,5 @@ fn main() {
     CType::string().transpile(0, 4);
 
     main_fn.transpile(0, 4);
+    my_add.transpile(0, 4);
 }

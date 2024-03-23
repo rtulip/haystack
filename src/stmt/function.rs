@@ -66,7 +66,13 @@ impl<'src, M, E> Function<'src, M, E> {
                 },
             );
 
-            body = Expr::block([body, ret], Assignment { input: None, output: None });
+            body = Expr::block(
+                [body, ret],
+                Assignment {
+                    input: None,
+                    output: None,
+                },
+            );
         }
 
         Function::new(self.name, self.input, self.output, body)
@@ -86,12 +92,18 @@ impl<'src> Function<'src, Assignment<'src>, CSsaExtension<'src>> {
         CVar::from_stack(self.input.clone())
             .0
             .iter()
-            .for_each(|var| {
-                generate!(indentation + tab_size, "{var},");
+            .enumerate()
+            .for_each(|(i, var)| {
+                generate!(
+                    indentation + tab_size,
+                    "{var:?}{}",
+                    if i != self.input.len() - 1 { "," } else { "" }
+                );
             });
         generate!(indentation, ")");
         generate!(indentation, "{{");
         self.body.transpile(indentation + tab_size, tab_size);
         generate!(indentation, "}}");
+        generate!(indentation, "");
     }
 }

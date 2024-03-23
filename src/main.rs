@@ -11,7 +11,7 @@ use stmt::Function;
 
 use crate::{
     passes::CType,
-    types::{Stack, Type, TypeInference},
+    types::{Stack, Type, TypeInference, Var},
 };
 
 fn example() -> Function<'static, (), ()> {
@@ -43,15 +43,17 @@ fn my_add() -> Function<'static, (), ()> {
 
 fn main() {
     let mut inference = TypeInference::new();
-    let main_fn = example()
-        .type_check(&mut inference, &HashMap::new())
-        .unwrap()
-        .into_ssa_form();
+    let fns = vec![example(), my_add()];
 
-    let my_add = my_add()
-        .type_check(&mut inference, &HashMap::new())
-        .unwrap()
-        .into_ssa_form();
+    let mut env = HashMap::new();
+    fns.iter().enumerate().for_each(|(i, func)| {
+        assert!(env.insert(Var::Func(i), Type::from(func)).is_none());
+    });
+
+    let fns = fns
+        .into_iter()
+        .map(|f| f.type_check(&mut inference, &env).unwrap().into_ssa_form())
+        .collect::<Vec<_>>();
 
     generate!(0, "#include <stdio.h>");
     generate!(0, "#include <stdint.h>");
@@ -60,6 +62,5 @@ fn main() {
 
     CType::string().transpile(0, 4);
 
-    main_fn.transpile(0, 4);
-    my_add.transpile(0, 4);
+    fns.iter().for_each(|f| f.transpile(0, 4));
 }

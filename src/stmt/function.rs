@@ -9,8 +9,8 @@ use crate::{
 
 pub struct Function<'src, M, E> {
     name: &'src str,
-    input: Stack,
-    output: Stack,
+    pub input: Stack,
+    pub output: Stack,
     body: Expr<'src, M, E>,
 }
 

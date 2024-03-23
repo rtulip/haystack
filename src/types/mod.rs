@@ -1,7 +1,7 @@
 mod constraint;
 mod inference;
 mod scheme;
-use crate::expr::Literal;
+use crate::{expr::Literal, stmt::Function};
 
 pub use constraint::*;
 pub use inference::*;
@@ -52,7 +52,16 @@ impl<'src> From<&'_ Literal<'src>> for Type {
     }
 }
 
-#[derive(Debug, Clone)]
+impl<'src, M, E> From<&'_ Function<'src, M, E>> for Type {
+    fn from(value: &'_ Function<'src, M, E>) -> Self {
+        Type::Func {
+            input: value.input.clone(),
+            output: value.output.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Var {
     Func(usize),
     Ident(usize),

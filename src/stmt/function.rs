@@ -62,6 +62,7 @@ impl<'src, M, E> Function<'src, M, E> {
                     .map(|ty| CType::from(ty.clone()))
                     .collect::<Vec<_>>(),
             );
+
             let ret = Expr::ext(
                 CSsaExtension::Return(ty),
                 Assignment {

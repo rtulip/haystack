@@ -164,6 +164,19 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
                     generate!(indentation, ");");
                 }
             }
+            crate::expr::ExprBase::If { then, otherwise } => {
+                match &self.meta.output {
+                    Some(output) => output
+                        .iter()
+                        .for_each(|var| generate!(indentation, "{var:?};")),
+                    None => (),
+                }
+
+                generate!(indentation, "if ({})", self.meta.input.as_ref().unwrap()[0]);
+                then.transpile(indentation, tab_size);
+                generate!(indentation, "else");
+                otherwise.transpile(indentation, tab_size);
+            }
             crate::expr::ExprBase::Ext(_) => todo!(),
         }
     }

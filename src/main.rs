@@ -25,6 +25,9 @@ fn example() -> Function<'static, (), ()> {
                 Expr::call(Var::Func(1), ()),
                 Expr::print(()),
                 Expr::call(Var::Func(3), ()),
+                Expr::literal(2u32, ()),
+                Expr::call(Var::Func(4), ()),
+                Expr::print(()),
             ],
             (),
         ),
@@ -61,9 +64,27 @@ fn hello_world() -> Function<'static, (), ()> {
     )
 }
 
+fn even_odd() -> Function<'static, (), ()> {
+    Function::new(
+        "even_odd",
+        [Type::U32],
+        [Type::U32],
+        Expr::block(
+            [
+                Expr::literal(2u32, ()),
+                Expr::binop(BinOp::Mod, ()),
+                Expr::literal(0u32, ()),
+                Expr::binop(BinOp::Eq, ()),
+                Expr::iff(Expr::literal(123u32, ()), Expr::literal(321u32, ()), ()),
+            ],
+            (),
+        ),
+    )
+}
+
 fn main() {
     let mut inference = TypeInference::new();
-    let fns = vec![example(), my_add(), two_ints(), hello_world()];
+    let fns = vec![example(), my_add(), two_ints(), hello_world(), even_odd()];
 
     let mut env = HashMap::new();
     let mut fn_names = HashMap::new();
@@ -75,8 +96,9 @@ fn main() {
     let fns = fns
         .into_iter()
         .map(|f| {
+            let name = f.name;
             f.type_check(&mut inference, &env)
-                .unwrap()
+                .expect(&format!("function `{name}` didn't type check"))
                 .into_ssa_form(&env, &fn_names)
         })
         .collect::<Vec<_>>();

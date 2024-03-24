@@ -5,6 +5,7 @@ use std::{
 
 use crate::{
     expr::{BinOp, Expr, Literal},
+    types::constraint,
     union_find::{UnifiactionError, UnificationTable},
 };
 
@@ -41,6 +42,7 @@ pub enum Typing {
 enum InferenceError {
     StackUnderflow,
     ExtensionExpressionReached,
+    ConditionalsDifferentStackLengths(Stack, Stack),
 }
 
 enum TypeUnificationError {
@@ -177,7 +179,25 @@ impl TypeInference {
                         ),
                     ))
                 }
-                _ => todo!(),
+                BinOp::Eq => {
+                    let right = stack.pop().ok_or_else(|| InferenceError::StackUnderflow)?;
+                    let left = stack.pop().ok_or_else(|| InferenceError::StackUnderflow)?;
+                    stack.push(Type::Bool);
+                    Ok(Expr::binop(
+                        op,
+                        (
+                            expr.meta,
+                            ConstrainedType::new(
+                                None,
+                                [
+                                    Constraint::Equal(right, Type::U32),
+                                    Constraint::Equal(left, Type::U32),
+                                ],
+                            ),
+                        ),
+                    ))
+                }
+                op => todo!("{op:?} is not implemented yet"),
             },
             crate::expr::ExprBase::Call(f) => {
                 let ty = env.get(&f).expect("Vars should be resolvable").clone();
@@ -205,6 +225,38 @@ impl TypeInference {
                         expr.meta,
                         ConstrainedType::new(Some(Type::Func { input, output }), constraints),
                     ),
+                ))
+            }
+            crate::expr::ExprBase::If { then, otherwise } => {
+                let condition = stack.pop().ok_or_else(|| InferenceError::StackUnderflow)?;
+
+                let mut then_stack = stack.clone();
+                let mut otherwise_stack = stack.clone();
+
+                let then = self.infer(&mut then_stack, env, *then)?;
+                let otherwise = self.infer(&mut otherwise_stack, env, *otherwise)?;
+
+                if then_stack.len() != otherwise_stack.len() {
+                    return Err(InferenceError::ConditionalsDifferentStackLengths(
+                        then_stack,
+                        otherwise_stack,
+                    ));
+                }
+
+                *stack = otherwise_stack.clone();
+
+                let mut constraints = vec![Constraint::Equal(condition, Type::Bool)];
+                constraints.extend(
+                    then_stack
+                        .into_iter()
+                        .zip(otherwise_stack.into_iter())
+                        .map(|(left, right)| Constraint::Equal(left, right)),
+                );
+
+                Ok(Expr::iff(
+                    then,
+                    otherwise,
+                    (expr.meta, ConstrainedType::new(None, constraints)),
                 ))
             }
             crate::expr::ExprBase::Ext(_) => Err(InferenceError::ExtensionExpressionReached),
@@ -386,6 +438,14 @@ impl TypeInference {
                 )
             }
             crate::expr::ExprBase::Call(Var::Ident(_)) => unreachable!("Can't call an ident"),
+            crate::expr::ExprBase::If { then, otherwise } => {
+                let (mut unbound, sub_then) = self.substitute_expr(*then);
+                let (unbound_otherwise, sub_otherwise) = self.substitute_expr(*otherwise);
+
+                unbound.extend(unbound_otherwise);
+
+                (unbound, Expr::iff(sub_then, sub_otherwise, expr.meta))
+            }
             crate::expr::ExprBase::Ext(_) => unreachable!(),
         }
     }
@@ -404,12 +464,13 @@ impl TypeInference {
             InferenceError::ExtensionExpressionReached => {
                 TypeCheckError::ExtensionExpressionReached
             }
+            InferenceError::ConditionalsDifferentStackLengths(_, _) => todo!(),
         })?;
 
         out.meta
             .1
             .constriants
-            .extend(Constraint::stack_compare(target, stack.clone()));
+            .extend(Constraint::stack_compare(target, stack.clone())?);
 
         // TODO: Constrain Type Vars here.
         self.unification(out.meta.1.constriants.clone())
@@ -438,4 +499,5 @@ pub enum TypeCheckError {
     StackUnderflow,
     ExtensionExpressionReached,
     TypesNotEqual(Type, Type),
+    StackLengthsDiffer,
 }

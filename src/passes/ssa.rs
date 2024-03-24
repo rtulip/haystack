@@ -18,7 +18,7 @@ pub enum CSsaExtension<'src> {
     Call(&'src str),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CType<'src> {
     U32,
     Bool,
@@ -300,7 +300,20 @@ impl<'src, M, E> Expr<'src, M, E> {
                         },
                     )
                 }
-                _ => todo!(),
+                BinOp::Eq => {
+                    let right = stack.pop().unwrap();
+                    let left = stack.pop().unwrap();
+                    let var: CVar = CVar::new(CType::Bool, counter);
+                    stack.push(var.clone());
+                    Expr::binop(
+                        op,
+                        Assignment {
+                            input: Some(vec![left, right]),
+                            output: Some(vec![var]),
+                        },
+                    )
+                }
+                op => todo!("{op:?} isn't implemneted yet"),
             },
             crate::expr::ExprBase::Call(f) => {
                 let (input, output) = env
@@ -398,7 +411,87 @@ impl<'src, M, E> Expr<'src, M, E> {
                     },
                 )
             }
+            crate::expr::ExprBase::If { then, otherwise } => {
+                let condition = stack.pop().unwrap();
+                assert!(condition.ty == CType::Bool);
+                let mut then_stack = stack.clone();
+                let mut otherwise_stack = stack.clone();
+                let then = then.get_var_ids(&mut then_stack, counter, env, fn_names);
+                let otherwise = otherwise.get_var_ids(&mut otherwise_stack, counter, env, fn_names);
 
+                // collect the outputs into a vector (if any)
+                match (&then.meta.output, &otherwise.meta.output) {
+                    (None, None) => todo!(),
+                    (None, Some(_)) | (Some(_), None) => {
+                        unreachable!("If branches should product the same output")
+                    }
+                    (Some(then_out), Some(otherwise_out)) => {
+                        assert!(then_out.len() == otherwise_out.len());
+
+                        let mut output = vec![];
+                        let mut then_back_assign = vec![];
+                        let mut otherwise_back_assign = vec![];
+
+                        then_out
+                            .iter()
+                            .zip(otherwise_out.iter())
+                            .for_each(|(then, otherwise)| {
+                                assert!(then.ty == otherwise.ty);
+
+                                let out = CVar::new(then.ty.clone(), counter);
+                                then_back_assign.push(Expr::ext(
+                                    CSsaExtension::BackAssign {
+                                        input: then.clone(),
+                                        output: out.clone(),
+                                    },
+                                    Assignment {
+                                        input: None,
+                                        output: None,
+                                    },
+                                ));
+                                otherwise_back_assign.push(Expr::ext(
+                                    CSsaExtension::BackAssign {
+                                        input: otherwise.clone(),
+                                        output: out.clone(),
+                                    },
+                                    Assignment {
+                                        input: None,
+                                        output: None,
+                                    },
+                                ));
+                                output.push(out);
+                            });
+
+                        let mut then_block = vec![then];
+                        let mut otherwise_block = vec![otherwise];
+                        then_block.extend(then_back_assign);
+                        otherwise_block.extend(otherwise_back_assign);
+
+                        stack.extend(output.clone());
+
+                        Expr::iff(
+                            Expr::block(
+                                then_block,
+                                Assignment {
+                                    input: None,
+                                    output: None,
+                                },
+                            ),
+                            Expr::block(
+                                otherwise_block,
+                                Assignment {
+                                    input: None,
+                                    output: None,
+                                },
+                            ),
+                            Assignment {
+                                input: Some(vec![condition]),
+                                output: Some(output),
+                            },
+                        )
+                    }
+                }
+            }
             crate::expr::ExprBase::Ext(_) => todo!(),
         }
     }

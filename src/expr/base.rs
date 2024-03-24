@@ -26,6 +26,10 @@ pub enum ExprBase<'src, M, E> {
     Block(Vec<Expr<'src, M, E>>),
     BinOp(BinOp),
     Call(Var),
+    If {
+        then: Box<Expr<'src, M, E>>,
+        otherwise: Box<Expr<'src, M, E>>,
+    },
     Ext(E),
 }
 
@@ -104,6 +108,16 @@ impl<'src, M, E> Expr<'src, M, E> {
 
         Expr {
             expr: ExprBase::Call(func),
+            meta,
+        }
+    }
+
+    pub fn iff(then: Self, otherwise: Self, meta: M) -> Self {
+        Expr {
+            expr: ExprBase::If {
+                then: Box::new(then),
+                otherwise: Box::new(otherwise),
+            },
             meta,
         }
     }

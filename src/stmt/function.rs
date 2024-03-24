@@ -102,7 +102,7 @@ impl<'src> Function<'src, Assignment<'src>, CSsaExtension<'src>> {
                     indentation + tab_size,
                     "{var:?}{}",
                     if i != self.input.len() - 1 { "," } else { "" }
-                );
+                )
             });
         generate!(indentation, ")");
     }

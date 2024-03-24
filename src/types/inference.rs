@@ -147,9 +147,11 @@ impl TypeInference {
                     .collect::<Result<Vec<_>, _>>()?;
 
                 let mut constraints = vec![];
-                exprs.iter().for_each(|e| e.for_each_meta(|(_, constrained_ty)| {
-                    constraints.extend(constrained_ty.constriants.clone())
-                }));
+                exprs.iter().for_each(|e| {
+                    e.for_each_meta(|(_, constrained_ty)| {
+                        constraints.extend(constrained_ty.constriants.clone())
+                    })
+                });
 
                 Ok(Expr::block(
                     exprs,

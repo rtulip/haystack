@@ -24,6 +24,7 @@ fn example() -> Function<'static, (), ()> {
                 Expr::call(Var::Func(2), ()),
                 Expr::call(Var::Func(1), ()),
                 Expr::print(()),
+                Expr::call(Var::Func(3), ()),
             ],
             (),
         ),
@@ -48,9 +49,21 @@ fn two_ints() -> Function<'static, (), ()> {
     )
 }
 
+fn hello_world() -> Function<'static, (), ()> {
+    Function::new(
+        "hello",
+        [],
+        [],
+        Expr::block(
+            [Expr::literal("Hello World", ()), Expr::print_string(())],
+            (),
+        ),
+    )
+}
+
 fn main() {
     let mut inference = TypeInference::new();
-    let fns = vec![example(), my_add(), two_ints()];
+    let fns = vec![example(), my_add(), two_ints(), hello_world()];
 
     let mut env = HashMap::new();
     let mut fn_names = HashMap::new();
@@ -73,9 +86,12 @@ fn main() {
     generate!(0, "#include <stdbool.h>");
     generate!(0, "");
 
-    CType::string().transpile(0, 4);
-    CType::Tuple(vec![CType::U32, CType::U32]).transpile(0, 4);
+    let mut types = HashMap::new();
+    fns.iter().for_each(|f| types.extend(f.body.get_ctypes()));
 
+    types.values().for_each(|ty| ty.declare(0));
+    generate!(0, "");
+    types.values().for_each(|ty| ty.transpile(0, 4));
     fns.iter().for_each(|f| f.declare(0, 4));
     fns.iter().for_each(|f| f.transpile(0, 4));
 }

@@ -11,7 +11,7 @@ pub struct Function<'src, M, E> {
     pub name: &'src str,
     pub input: Stack,
     pub output: Stack,
-    body: Expr<'src, M, E>,
+    pub body: Expr<'src, M, E>,
 }
 
 impl<'src, M> Function<'src, M, ()> {

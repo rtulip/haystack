@@ -182,8 +182,6 @@ impl TypeInference {
             crate::expr::ExprBase::Call(f) => {
                 let ty = env.get(&f).expect("Vars should be resolvable").clone();
 
-                dbg!(&f);
-
                 let (input, output) = self.freshen(ty, &mut HashMap::new()).expect_function();
 
                 if stack.len() < input.len() {
@@ -200,8 +198,6 @@ impl TypeInference {
                     })
                     .collect::<Vec<_>>();
                 stack.extend(output.clone());
-
-                dbg!(&constraints);
 
                 Ok(Expr::call(
                     f,
@@ -416,9 +412,6 @@ impl TypeInference {
             .extend(Constraint::stack_compare(target, stack.clone()));
 
         // TODO: Constrain Type Vars here.
-
-        dbg!(&out.meta.1);
-
         self.unification(out.meta.1.constriants.clone())
             .map_err(|e| match e {
                 TypeUnificationError::NotEqual(a, b) => TypeCheckError::TypesNotEqual(a, b),

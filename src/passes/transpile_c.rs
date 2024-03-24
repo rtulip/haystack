@@ -1,4 +1,9 @@
-use crate::expr::{Expr, Literal};
+use std::collections::HashMap;
+
+use crate::{
+    expr::{Expr, Literal},
+    stmt::Function,
+};
 
 use super::{Assignment, CSsaExtension, CType};
 
@@ -113,13 +118,26 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
                 }
             }
             crate::expr::ExprBase::Ext(CSsaExtension::Call(name)) => {
-                assert!(
-                    self.meta.output.as_ref().unwrap().len() < 2,
-                    "TODO: Support multiple returns"
-                );
-
-                if self.meta.output.as_ref().unwrap().is_empty() {
-                    todo!()
+                if self.meta.output.is_none() {
+                    generate!(indentation, "{name}(");
+                    self.meta
+                        .input
+                        .as_ref()
+                        .unwrap()
+                        .iter()
+                        .enumerate()
+                        .for_each(|(i, input)| {
+                            generate!(
+                                indentation + tab_size,
+                                "{input}{}",
+                                if i != self.meta.input.as_ref().unwrap().len() - 1 {
+                                    ","
+                                } else {
+                                    ""
+                                }
+                            )
+                        });
+                    generate!(indentation, ");");
                 } else {
                     generate!(
                         indentation,
@@ -149,6 +167,28 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
             crate::expr::ExprBase::Ext(_) => todo!(),
         }
     }
+
+    pub fn get_ctypes(&self) -> HashMap<String, CType<'src>> {
+        let mut types = HashMap::new();
+
+        self.for_each_meta(|a| {
+            let empty = vec![];
+            match (&a.input, &a.output) {
+                (Some(input), Some(output)) => input.iter().chain(output.iter()),
+                (None, None) => empty.iter().chain(empty.iter()),
+                (None, Some(ts)) | (Some(ts), None) => ts.iter().chain(empty.iter()),
+            }
+            .for_each(|var| {
+                let t = &var.ty;
+                let k = format!("{t}");
+                if !types.contains_key(&k) {
+                    types.insert(k, t.clone());
+                }
+            })
+        });
+
+        types
+    }
 }
 
 impl<'src> CType<'src> {
@@ -170,6 +210,23 @@ impl<'src> CType<'src> {
                     .for_each(|(i, ty)| generate!(indentation + tab_size, "{ty} member{i};"));
                 generate!(indentation, "}} {self};");
                 generate!(indentation, "");
+            }
+            CType::U32
+            | CType::Bool
+            | CType::U8
+            | CType::Char
+            | CType::Pointer(_)
+            | CType::Void => (),
+        }
+    }
+
+    pub fn declare(&self, indentation: usize) {
+        match self {
+            CType::Struct { name, .. } => {
+                generate!(indentation, "struct {name};")
+            }
+            CType::Tuple(_) => {
+                generate!(indentation, "struct {self};")
             }
             CType::U32
             | CType::Bool

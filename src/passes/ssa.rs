@@ -132,7 +132,7 @@ impl<'src> Display for CType<'src> {
 
 #[derive(Clone)]
 pub struct CVar<'src> {
-    ty: CType<'src>,
+    pub ty: CType<'src>,
     ident: usize,
     member: Option<usize>,
 }

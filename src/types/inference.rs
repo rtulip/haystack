@@ -5,15 +5,15 @@ use std::{
 
 use crate::{
     expr::{BinOp, Expr, Literal},
-    types::constraint,
+    types::{constraint, FunctionType},
     union_find::{UnifiactionError, UnificationTable},
 };
 
 use super::{constraint::Constraint, scheme::Scheme, Stack, Type, TypeVar, Var};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ConstrainedType {
-    var_ty: Option<Type>,
+    pub var_ty: Option<Type>,
     constriants: Vec<Constraint>,
 }
 
@@ -27,11 +27,17 @@ impl ConstrainedType {
             constriants: constraints.into(),
         }
     }
+
+    pub fn is_free(&self) -> bool {
+        match &self.var_ty {
+            Some(ty) => ty.is_free(),
+            None => todo!(),
+        }
+    }
 }
 
 pub struct TypeInference {
     lookup: UnificationTable<TypeVar, Type>,
-    var_generator: usize,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -54,7 +60,6 @@ impl TypeInference {
     pub fn new() -> Self {
         Self {
             lookup: UnificationTable::new(),
-            var_generator: 0,
         }
     }
 
@@ -90,10 +95,36 @@ impl TypeInference {
                 ty: Box::new(self.freshen(*ty, fresh)),
                 mutable,
             },
-            Type::Func { input, output } => Type::Func {
-                input: self.freshen_many(input, fresh),
-                output: self.freshen_many(output, fresh),
-            },
+            Type::Func(f) => {
+                let params = self.freshen_many(f.params.clone(), fresh);
+
+                let tbl = f.params.iter().zip(params.iter()).collect::<Vec<_>>();
+                let input = f
+                    .input
+                    .into_iter()
+                    .map(|t| match tbl.iter().find(|(prev, _)| &t == *prev) {
+                        Some((Type::Var(_), fresh_ty)) => (*fresh_ty).clone(),
+                        Some(_) => t,
+                        None => t,
+                    })
+                    .collect();
+
+                let output = f
+                    .output
+                    .into_iter()
+                    .map(|t| match tbl.iter().find(|(prev, _)| &t == *prev) {
+                        Some((Type::Var(_), fresh_ty)) => (*fresh_ty).clone(),
+                        Some(_) => t,
+                        None => t,
+                    })
+                    .collect();
+
+                Type::Func(FunctionType {
+                    input,
+                    output,
+                    params,
+                })
+            }
             Type::String => Type::String,
             Type::Never => Type::Never,
         }
@@ -214,28 +245,28 @@ impl TypeInference {
             crate::expr::ExprBase::Call(f) => {
                 let ty = env.get(&f).expect("Vars should be resolvable").clone();
 
-                let (input, output) = self.freshen(ty, &mut HashMap::new()).expect_function();
+                let func = self.freshen(ty, &mut HashMap::new()).expect_function();
 
-                if stack.len() < input.len() {
+                if stack.len() < func.input.len() {
                     todo!("not enough elements on the stack to call function");
                 }
 
-                let split = stack.split_off(stack.len() - input.len());
+                let split = stack.split_off(stack.len() - func.input.len());
                 let constraints = split
                     .into_iter()
-                    .zip(input.clone().into_iter())
+                    .zip(func.input.clone().into_iter())
                     .map(|(left, right)| Constraint::Subtype {
                         parent: right,
                         child: left,
                     })
                     .collect::<Vec<_>>();
-                stack.extend(output.clone());
+                stack.extend(func.output.clone());
 
                 Ok(Expr::call(
                     f,
                     (
                         expr.meta,
-                        ConstrainedType::new(Some(Type::Func { input, output }), constraints),
+                        ConstrainedType::new(Some(Type::Func(func)), constraints),
                     ),
                 ))
             }
@@ -324,10 +355,13 @@ impl TypeInference {
                 ty: Box::new(self.normalize_ty(*ty)),
                 mutable,
             },
-            Type::Func { input, output } => Type::Func {
-                input: input.into_iter().map(|ty| self.normalize_ty(ty)).collect(),
-                output: output.into_iter().map(|ty| self.normalize_ty(ty)).collect(),
-            },
+            Type::Func(f) => {
+                // Type::Func {
+                // input: input.into_iter().map(|ty| self.normalize_ty(ty)).collect(),
+                // output: output.into_iter().map(|ty| self.normalize_ty(ty)).collect(),
+                // },
+                todo!()
+            }
             Type::String => Type::String,
             Type::Never => Type::Never,
         }
@@ -395,14 +429,17 @@ impl TypeInference {
                     },
                 )
             }
-            Type::Func { input, output } => {
-                let (in_subs, input) = self.substitute(input);
-                let (out_subs, output) = self.substitute(output);
+            Type::Func(f) => {
+                todo!()
+                //     {
+                //     let (in_subs, input) = self.substitute(input);
+                //     let (out_subs, output) = self.substitute(output);
 
-                (
-                    in_subs.into_iter().chain(out_subs.into_iter()).collect(),
-                    Type::Func { input, output },
-                )
+                //     (
+                //         in_subs.into_iter().chain(out_subs.into_iter()).collect(),
+                //         Type::Func { input, output },
+                //     )
+                // }
             }
         }
     }
@@ -443,7 +480,7 @@ impl TypeInference {
             }
             crate::expr::ExprBase::BinOp(_) => (HashSet::new(), expr),
             crate::expr::ExprBase::Call(Var::Func(f)) => {
-                let (input, output) = expr
+                let func = expr
                     .meta
                     .1
                     .var_ty
@@ -451,15 +488,18 @@ impl TypeInference {
                     .clone()
                     .expect_function();
 
-                let (mut unbound, sub_input) = self.substitute(input);
-                let (out_unbound, sub_output) = self.substitute(output);
+                let (mut unbound, sub_input) = self.substitute(func.input);
+                let (out_unbound, sub_output) = self.substitute(func.output);
+                let (param_unbound, sub_params) = self.substitute(func.params);
 
                 unbound.extend(out_unbound);
+                unbound.extend(param_unbound);
 
-                let fn_ty = Type::Func {
+                let fn_ty = Type::Func(FunctionType {
                     input: sub_input,
                     output: sub_output,
-                };
+                    params: sub_params,
+                });
 
                 (
                     unbound,

@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     fmt::{Debug, Display},
 };
 
@@ -54,6 +54,77 @@ impl<'src> CType<'src> {
     {
         CType::Tuple(ts.into())
     }
+
+    fn structs_referenced(&self) -> Option<&Self> {
+        match self {
+            CType::Struct { .. } | CType::Tuple(_) => Some(self),
+            CType::Pointer(t) => t.structs_referenced(),
+            CType::U32 | CType::Bool | CType::U8 | CType::Char | CType::Void => None,
+        }
+    }
+
+    fn dependencies(&self) -> Vec<&Self> {
+        match self {
+            CType::U32 => vec![],
+            CType::Bool => vec![],
+            CType::U8 => vec![],
+            CType::Char => vec![],
+            CType::Void => vec![],
+            CType::Struct { elements, .. } => elements
+                .iter()
+                .map(|(_, ty)| ty.structs_referenced())
+                .flatten()
+                .collect(),
+            CType::Tuple(ts) => ts
+                .iter()
+                .map(|ty| ty.structs_referenced())
+                .flatten()
+                .collect(),
+            CType::Pointer(ty) => ty.structs_referenced().into_iter().collect(),
+        }
+    }
+
+    /// This is a _really_ bad topological sort which should be cleaned up at some point
+    pub fn organize_dependencies<Ts>(ts: Ts) -> Result<Vec<Self>, ()>
+    where
+        Ts: IntoIterator<Item = CType<'src>>,
+    {
+        // Mark that not every node hasn't been visited
+        let mut ts = ts.into_iter().map(|t| (t, false)).collect::<VecDeque<_>>();
+
+        let mut out: Vec<CType<'_>> = vec![];
+        while let Some((ty, visit)) = ts.pop_front() {
+            if visit {
+                return Err(());
+            }
+
+            if ty
+                .dependencies()
+                .iter()
+                .map(|dep| {
+                    if !out.contains(dep) {
+                        eprintln!("{ty} depends on {dep}");
+                        true
+                    } else {
+                        false
+                    }
+                })
+                .any(|x| x)
+            {
+                // Type depends on another type, so push it back to the end, and get back to it later.
+                ts.push_back((ty, true))
+            } else {
+                // Type has no dependencies so safe to add to the output array
+                eprintln!("Added {ty}");
+                out.push(ty);
+
+                // Safe to revist, so mark that each hasn't been visited
+                ts.iter_mut().for_each(|(_, visited)| *visited = false);
+            }
+        }
+
+        Ok(out)
+    }
 }
 
 impl<'src> From<Vec<CType<'src>>> for CType<'src> {
@@ -80,8 +151,8 @@ impl<'src> From<Type> for CType<'src> {
             Type::Bool => CType::Bool,
             Type::Var(_) => panic!("Can't do ssa on type variables. Must do monomorphization"),
             Type::Pointer { ty, mutable } => todo!(),
-            Type::Func { input, output } => todo!(),
-            Type::String => todo!(),
+            Type::Func(_) => todo!(),
+            Type::String => CType::string(),
             Type::Never => todo!(),
         }
     }
@@ -316,11 +387,13 @@ impl<'src, M, E> Expr<'src, M, E> {
                 }
             },
             crate::expr::ExprBase::Call(f) => {
-                let (input, output) = env
+                let func = env
                     .get(&f)
                     .expect("call vars should be resolveable")
                     .clone()
                     .expect_function();
+
+                let (input, output) = (func.input, func.output);
 
                 let input = stack.split_off(stack.len() - input.len());
 

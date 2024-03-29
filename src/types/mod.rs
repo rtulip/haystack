@@ -28,21 +28,39 @@ pub enum Mutability {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FunctionType {
+    pub input: Vec<Type>,
+    pub output: Vec<Type>,
+    pub params: Vec<Type>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     U32,
     U8,
     Bool,
     Var(TypeVar),
     Pointer { ty: Box<Self>, mutable: Mutability },
-    Func { input: Vec<Self>, output: Vec<Self> },
+    Func(FunctionType),
     String,
     Never,
 }
 
 impl Type {
-    pub fn expect_function(self) -> (Vec<Self>, Vec<Self>) {
+    pub fn is_free(&self) -> bool {
         match self {
-            Type::Func { input, output } => (input, output),
+            Type::Var(_) => true,
+            Type::Pointer { ty, mutable } => ty.is_free(),
+            Type::Func(FunctionType { input, output, .. }) => {
+                input.iter().chain(output.iter()).any(|ty| ty.is_free())
+            }
+            Type::U32 | Type::U8 | Type::Bool | Type::String | Type::Never => false,
+        }
+    }
+
+    pub fn expect_function(self) -> FunctionType {
+        match self {
+            Type::Func(f) => f,
             ty => panic!("Expected a function, but found `{ty:?}`"),
         }
     }
@@ -63,10 +81,21 @@ impl<'src> From<&'_ Literal<'src>> for Type {
 
 impl<'src, M, E> From<&'_ Function<'src, M, E>> for Type {
     fn from(value: &'_ Function<'src, M, E>) -> Self {
-        Type::Func {
+        Type::Func(FunctionType {
             input: value.input.clone(),
             output: value.output.clone(),
-        }
+            params: value
+                .type_vars
+                .iter()
+                .map(|tv| Type::from(&tv.tyvar))
+                .collect(),
+        })
+    }
+}
+
+impl<'a> From<&'a TypeVar> for Type {
+    fn from(value: &'a TypeVar) -> Self {
+        Type::Var(value.clone())
     }
 }
 

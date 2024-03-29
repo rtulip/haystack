@@ -7,12 +7,13 @@ use crate::{
     types::{ConstrainedType, Stack, Type, TypeCheckError, TypeInference, TypeVar, Var},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TypeParameter<'src> {
     name: &'src str,
-    tyvar: TypeVar,
+    pub tyvar: TypeVar,
 }
 
+#[derive(Clone)]
 pub struct Function<'src, M, E> {
     pub name: &'src str,
     pub input: Stack,
@@ -104,9 +105,6 @@ impl<'src, M, E> Function<'src, M, E> {
         if !self.type_vars.is_empty() {
             return None;
         }
-
-        dbg!(&self.name);
-        dbg!(&self.type_vars);
 
         let mut body = self.body.into_ssa_form(self.input.clone(), env, fn_names);
 

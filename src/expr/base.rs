@@ -19,6 +19,7 @@ use super::BinOp;
 /// The `E` generic is any user extensions which can be added. This allows for
 /// custom operations to be representable within the same structure. This will
 /// make it easier to reuse the same base.
+#[derive(Debug, Clone)]
 pub enum ExprBase<'src, M, E> {
     Literal(Literal<'src>),
     Print,
@@ -41,6 +42,7 @@ pub enum ExprBase<'src, M, E> {
 /// be attached with some metadata `M`, such as sorce location information,
 /// types information, etc...
 ///
+#[derive(Debug, Clone)]
 pub struct Expr<'src, Meta, Ext> {
     pub expr: ExprBase<'src, Meta, Ext>,
     pub meta: Meta,
@@ -164,10 +166,41 @@ impl<'src, M, E> Expr<'src, M, E> {
                 ExprBase::Block(exprs) => {
                     exprs.iter().for_each(|e| helper(e, f));
                 }
+                ExprBase::If { then, otherwise } => {
+                    helper(then, f);
+                    helper(otherwise, f);
+                }
                 _ => (),
             }
         }
 
         helper(&self, &mut func);
+    }
+
+    pub fn map_meta<M2>(self, mut func: impl FnMut(M) -> M2) -> Expr<'src, M2, E> {
+        fn helper<'a, M1, M2, E>(
+            e: Expr<'a, M1, E>,
+            f: &mut impl FnMut(M1) -> M2,
+        ) -> Expr<'a, M2, E> {
+            match e.expr {
+                ExprBase::Literal(lit) => Expr::literal(lit, f(e.meta)),
+                ExprBase::Print => Expr::print(f(e.meta)),
+                ExprBase::PrintString => Expr::print_string(f(e.meta)),
+                ExprBase::Block(exprs) => Expr::block(
+                    exprs.into_iter().map(|e| helper(e, f)).collect::<Vec<_>>(),
+                    f(e.meta),
+                ),
+                ExprBase::BinOp(op) => Expr::binop(op, f(e.meta)),
+                ExprBase::Call(var) => Expr::call(var, f(e.meta)),
+                ExprBase::If { then, otherwise } => {
+                    Expr::iff(helper(*then, f), helper(*otherwise, f), f(e.meta))
+                }
+                ExprBase::Bind(n) => Expr::bind(n, f(e.meta)),
+                ExprBase::Var(var) => Expr::var(var, f(e.meta)),
+                ExprBase::Ext(ext) => Expr::ext(ext, f(e.meta)),
+            }
+        }
+
+        helper(self, &mut func)
     }
 }

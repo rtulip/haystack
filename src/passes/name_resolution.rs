@@ -23,8 +23,7 @@ impl<'src, M> Expr<'src, M, LexExtension<'src>> {
             crate::expr::ExprBase::If { then, otherwise } => {
                 Expr::iff(then.resolve_idents(fn_idents, bound), otherwise.resolve_idents(fn_idents, bound), self.meta)
             },
-            crate::expr::ExprBase::Bind(_) => todo!(),
-            crate::expr::ExprBase::Var(_) => todo!(),
+            
             crate::expr::ExprBase::Ext(LexExtension::Ident(ident)) => {
                 if let Some(id) = fn_idents.get(ident) {
                     Expr::call(Var::Func(*id), self.meta)
@@ -40,6 +39,8 @@ impl<'src, M> Expr<'src, M, LexExtension<'src>> {
 
                 Expr::bind(n, self.meta)
             },
+            crate::expr::ExprBase::Bind(_) => panic!("Bind Expressions shouldn't be used before identifier resolution"),
+            crate::expr::ExprBase::Var(_) => panic!("Var Expressions shouldn't be used before identifier resolution"),
         }
     }
 }

@@ -68,7 +68,7 @@ impl TypeInference {
         })
     }
 
-    fn fresh_type_var(&mut self) -> TypeVar {
+    pub fn fresh_type_var(&mut self) -> TypeVar {
         self.lookup.new_key()
     }
 
@@ -505,6 +505,7 @@ impl TypeInference {
         parent_env: &HashMap<Var, Type>,
         stack: &mut Stack,
         target: Stack,
+        ty_vars_in_scope: Vec<&TypeVar>,
     ) -> Result<(Expr<'a, (M, ConstrainedType), ()>, Scheme), TypeCheckError> {
         let (mut unbound, _) = self.substitute(stack.clone());
         let mut env = parent_env.clone();

@@ -78,7 +78,7 @@ impl<'src> From<Type> for CType<'src> {
             Type::U32 => CType::U32,
             Type::U8 => CType::U8,
             Type::Bool => CType::Bool,
-            Type::Var(_) => todo!(),
+            Type::Var(_) => panic!("Can't do ssa on type variables. Must do monomorphization"),
             Type::Pointer { ty, mutable } => todo!(),
             Type::Func { input, output } => todo!(),
             Type::String => todo!(),
@@ -151,7 +151,7 @@ impl<'src> CVar<'src> {
 
     pub fn from_stack(stack: Stack) -> (Vec<Self>, usize) {
         let mut counter = 0;
-        let mut stack = stack
+        let stack = stack
             .into_iter()
             .map(|t| CVar::new(t.into(), &mut counter))
             .collect();

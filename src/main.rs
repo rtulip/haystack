@@ -1,18 +1,19 @@
 mod expr;
+mod lex;
 mod passes;
 mod stmt;
 mod types;
 mod union_find;
-mod lex;
 
 use std::collections::HashMap;
 
 use expr::{BinOp, Expr};
 use stmt::Function;
+use types::TypeVar;
 
 use crate::{
-    types::{Stack, Type, TypeInference, Var},
     lex::LexExtension,
+    types::{Stack, Type, TypeInference, Var},
 };
 
 fn example() -> Function<'static, (), LexExtension<'static>> {
@@ -152,7 +153,7 @@ fn fib() -> Function<'static, (), LexExtension<'static>> {
 }
 
 fn bind_test() -> Function<'static, (), LexExtension<'static>> {
-    // { 
+    // {
     //     "outer" as [x]
     //     x print
     //     {
@@ -161,20 +162,49 @@ fn bind_test() -> Function<'static, (), LexExtension<'static>> {
     //     }
     //     x print
     // }
-    Function::new("bind_test", [], [], Expr::block([
-        Expr::literal("outer", ()),
-        Expr::ext(LexExtension::As(vec!["x"]), ()),
-        Expr::ext(LexExtension::Ident("x"), ()),
-        Expr::print_string(()),
-        Expr::block([
-            Expr::literal(12345u32, ()),
-            Expr::ext(LexExtension::As(vec!["x"]), ()),
-            Expr::ext(LexExtension::Ident("x"), ()),
-            Expr::print(()),
-        ], ()),
-        Expr::ext(LexExtension::Ident("x"), ()),
-        Expr::print_string(()),
-    ], ()))
+    Function::new(
+        "bind_test",
+        [],
+        [],
+        Expr::block(
+            [
+                Expr::literal("outer", ()),
+                Expr::ext(LexExtension::As(vec!["x"]), ()),
+                Expr::ext(LexExtension::Ident("x"), ()),
+                Expr::print_string(()),
+                Expr::block(
+                    [
+                        Expr::literal(12345u32, ()),
+                        Expr::ext(LexExtension::As(vec!["x"]), ()),
+                        Expr::ext(LexExtension::Ident("x"), ()),
+                        Expr::print(()),
+                    ],
+                    (),
+                ),
+                Expr::ext(LexExtension::Ident("x"), ()),
+                Expr::print_string(()),
+            ],
+            (),
+        ),
+    )
+}
+
+fn dup(ctx: &mut TypeInference) -> Function<'static, (), LexExtension<'static>> {
+    Function::new_generic(
+        "dup",
+        [Type::Var(TypeVar(0))],
+        [Type::Var(TypeVar(0)), Type::Var(TypeVar(0))],
+        Expr::block(
+            [
+                Expr::ext(LexExtension::As(vec!["t"]), ()),
+                Expr::ext(LexExtension::Ident("t"), ()),
+                Expr::ext(LexExtension::Ident("t"), ()),
+            ],
+            (),
+        ),
+        ["T"],
+        ctx,
+    )
 }
 
 fn main() {
@@ -186,7 +216,8 @@ fn main() {
         hello_world(),
         even_odd(),
         fib(),
-        bind_test()
+        bind_test(),
+        dup(&mut inference),
     ];
 
     let mut env = HashMap::new();
@@ -200,12 +231,15 @@ fn main() {
 
     let fns = fns
         .into_iter()
-        .map(|f| {
-            let name = f.name;
-            f.resolve_names(&fn_idents).type_check(&mut inference, &env)
-                .expect(&format!("function `{name}` didn't type check"))
-                .into_ssa_form(&env, &fn_names)
-        })
+        .map(|f| f.resolve_names(&fn_idents).type_check(&mut inference, &env))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|(func, e)| format!("`{func}` failed to type check: {e:?}"))
+        .unwrap();
+
+    let fns = fns
+        .into_iter()
+        .map(|func| func.into_ssa_form(&env, &fn_names))
+        .flatten()
         .collect::<Vec<_>>();
 
     generate!(0, "#include <stdio.h>");

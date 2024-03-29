@@ -7,7 +7,7 @@ pub use constraint::*;
 pub use inference::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct TypeVar(usize);
+pub struct TypeVar(pub usize);
 
 impl From<usize> for TypeVar {
     fn from(value: usize) -> Self {

@@ -4,14 +4,21 @@ use crate::{
     expr::Expr,
     generate,
     passes::{Assignment, CSsaExtension, CType, CVar},
-    types::{ConstrainedType, Stack, Type, TypeCheckError, TypeInference, Var},
+    types::{ConstrainedType, Stack, Type, TypeCheckError, TypeInference, TypeVar, Var},
 };
+
+#[derive(Debug)]
+pub struct TypeParameter<'src> {
+    name: &'src str,
+    tyvar: TypeVar,
+}
 
 pub struct Function<'src, M, E> {
     pub name: &'src str,
     pub input: Stack,
     pub output: Stack,
     pub body: Expr<'src, M, E>,
+    pub type_vars: Vec<TypeParameter<'src>>,
 }
 
 impl<'src, M> Function<'src, M, ()> {
@@ -19,18 +26,27 @@ impl<'src, M> Function<'src, M, ()> {
         self,
         inference: &mut TypeInference,
         parent_env: &HashMap<Var, Type>,
-    ) -> Result<Function<'src, (M, ConstrainedType), ()>, TypeCheckError> {
-        let (e, _scheme) = inference.type_check(
-            self.body,
-            parent_env,
-            &mut self.input.clone(),
-            self.output.clone(),
-        )?;
+    ) -> Result<Function<'src, (M, ConstrainedType), ()>, (&'src str, TypeCheckError)> {
+        let (e, _scheme) = inference
+            .type_check(
+                self.body,
+                parent_env,
+                &mut self.input.clone(),
+                self.output.clone(),
+                self.type_vars.iter().map(|param| &param.tyvar).collect(),
+            )
+            .map_err(|e| (self.name, e))?;
 
         // TODO: there's stuff that needs to be checked with the scheme here
         // once we've got generic functions
 
-        Ok(Function::new(self.name, self.input, self.output, e))
+        Ok(Function {
+            name: self.name,
+            input: self.input,
+            output: self.output,
+            body: e,
+            type_vars: self.type_vars,
+        })
     }
 }
 
@@ -45,6 +61,38 @@ impl<'src, M, E> Function<'src, M, E> {
             input: input.into(),
             output: output.into(),
             body,
+            type_vars: vec![],
+        }
+    }
+
+    pub fn new_generic<In, Out, Ts>(
+        name: &'src str,
+        input: In,
+        output: Out,
+        body: Expr<'src, M, E>,
+        type_vars: Ts,
+        ctx: &mut TypeInference,
+    ) -> Self
+    where
+        In: Into<Stack>,
+        Out: Into<Stack>,
+        Ts: Into<Vec<&'src str>>,
+    {
+        let type_vars = type_vars
+            .into()
+            .into_iter()
+            .map(|name| TypeParameter {
+                name,
+                tyvar: ctx.fresh_type_var(),
+            })
+            .collect();
+
+        Function {
+            name,
+            input: input.into(),
+            output: output.into(),
+            body,
+            type_vars,
         }
     }
 
@@ -52,7 +100,14 @@ impl<'src, M, E> Function<'src, M, E> {
         self,
         env: &HashMap<Var, Type>,
         fn_names: &'src HashMap<usize, String>,
-    ) -> Function<'src, Assignment<'src>, CSsaExtension<'src>> {
+    ) -> Option<Function<'src, Assignment<'src>, CSsaExtension<'src>>> {
+        if !self.type_vars.is_empty() {
+            return None;
+        }
+
+        dbg!(&self.name);
+        dbg!(&self.type_vars);
+
         let mut body = self.body.into_ssa_form(self.input.clone(), env, fn_names);
 
         if !self.output.is_empty() {
@@ -80,7 +135,7 @@ impl<'src, M, E> Function<'src, M, E> {
             );
         }
 
-        Function::new(self.name, self.input, self.output, body)
+        Some(Function::new(self.name, self.input, self.output, body))
     }
 }
 

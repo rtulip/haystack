@@ -3,6 +3,7 @@ mod passes;
 mod stmt;
 mod types;
 mod union_find;
+mod lex;
 
 use std::collections::HashMap;
 
@@ -10,55 +11,56 @@ use expr::{BinOp, Expr};
 use stmt::Function;
 
 use crate::{
-    passes::CType,
     types::{Stack, Type, TypeInference, Var},
+    lex::LexExtension,
 };
 
-fn example() -> Function<'static, (), ()> {
+fn example() -> Function<'static, (), LexExtension<'static>> {
     Function::new(
         "main",
         [],
         [],
         Expr::block(
             [
-                Expr::call(Var::Func(2), ()),
-                Expr::call(Var::Func(1), ()),
+                Expr::ext(LexExtension::Ident("two_ints"), ()),
+                Expr::ext(LexExtension::Ident("my_add"), ()),
                 Expr::print(()),
-                Expr::call(Var::Func(3), ()),
+                Expr::ext(LexExtension::Ident("hello"), ()),
                 Expr::literal(2u32, ()),
-                Expr::call(Var::Func(4), ()),
+                Expr::ext(LexExtension::Ident("even_odd"), ()),
                 Expr::print(()),
                 Expr::literal(0u32, ()),
-                Expr::call(Var::Func(5), ()),
+                Expr::ext(LexExtension::Ident("fib"), ()),
                 Expr::print(()),
                 Expr::literal(1u32, ()),
-                Expr::call(Var::Func(5), ()),
+                Expr::ext(LexExtension::Ident("fib"), ()),
                 Expr::print(()),
                 Expr::literal(2u32, ()),
-                Expr::call(Var::Func(5), ()),
+                Expr::ext(LexExtension::Ident("fib"), ()),
                 Expr::print(()),
                 Expr::literal(3u32, ()),
-                Expr::call(Var::Func(5), ()),
+                Expr::ext(LexExtension::Ident("fib"), ()),
                 Expr::print(()),
                 Expr::literal(4u32, ()),
-                Expr::call(Var::Func(5), ()),
+                Expr::ext(LexExtension::Ident("fib"), ()),
                 Expr::print(()),
                 Expr::literal(5u32, ()),
-                Expr::call(Var::Func(5), ()),
+                Expr::ext(LexExtension::Ident("fib"), ()),
                 Expr::print(()),
                 Expr::literal(6u32, ()),
-                Expr::call(Var::Func(5), ()),
+                Expr::ext(LexExtension::Ident("fib"), ()),
                 Expr::print(()),
                 Expr::literal(7u32, ()),
-                Expr::call(Var::Func(5), ()),
+                Expr::ext(LexExtension::Ident("fib"), ()),
                 Expr::print(()),
+                Expr::ext(LexExtension::Ident("bind_test"), ()),
             ],
             (),
         ),
     )
 }
 
-fn my_add() -> Function<'static, (), ()> {
+fn my_add() -> Function<'static, (), LexExtension<'static>> {
     Function::new(
         "my_add",
         [Type::U32, Type::U32],
@@ -67,7 +69,7 @@ fn my_add() -> Function<'static, (), ()> {
     )
 }
 
-fn two_ints() -> Function<'static, (), ()> {
+fn two_ints() -> Function<'static, (), LexExtension<'static>> {
     Function::new(
         "two_ints",
         [],
@@ -76,7 +78,7 @@ fn two_ints() -> Function<'static, (), ()> {
     )
 }
 
-fn hello_world() -> Function<'static, (), ()> {
+fn hello_world() -> Function<'static, (), LexExtension<'static>> {
     Function::new(
         "hello",
         [],
@@ -88,7 +90,7 @@ fn hello_world() -> Function<'static, (), ()> {
     )
 }
 
-fn even_odd() -> Function<'static, (), ()> {
+fn even_odd() -> Function<'static, (), LexExtension<'static>> {
     Function::new(
         "even_odd",
         [Type::U32],
@@ -107,38 +109,36 @@ fn even_odd() -> Function<'static, (), ()> {
 }
 
 /// fn fib(u64: n) -> [u64] {
-///     n 0 == if {
-///         1
-///     } else n 1 == if {
+///     n 2 < if {
 ///         1
 ///     } else {
 ///         n 1 - fib
 ///         n 2 - fib +
 ///     }
 /// }
-fn fib() -> Function<'static, (), ()> {
+fn fib() -> Function<'static, (), LexExtension<'static>> {
     Function::new(
         "fib",
         [Type::U32],
         [Type::U32],
         Expr::block(
             [
-                Expr::bind(1, ()),
-                Expr::var(Var::Ident(0), ()),
+                Expr::ext(LexExtension::As(vec!["n"]), ()),
+                Expr::ext(LexExtension::Ident("n"), ()),
                 Expr::literal(2u32, ()),
                 Expr::binop(BinOp::Lt, ()),
                 Expr::iff(
                     Expr::literal(1u32, ()),
                     Expr::block(
                         [
-                            Expr::var(Var::Ident(0), ()),
+                            Expr::ext(LexExtension::Ident("n"), ()),
                             Expr::literal(1u32, ()),
                             Expr::binop(BinOp::Sub, ()),
-                            Expr::call(Var::Func(5), ()),
-                            Expr::var(Var::Ident(0), ()),
+                            Expr::ext(LexExtension::Ident("fib"), ()),
+                            Expr::ext(LexExtension::Ident("n"), ()),
                             Expr::literal(2u32, ()),
                             Expr::binop(BinOp::Sub, ()),
-                            Expr::call(Var::Func(5), ()),
+                            Expr::ext(LexExtension::Ident("fib"), ()),
                             Expr::binop(BinOp::Add, ()),
                         ],
                         (),
@@ -151,6 +151,32 @@ fn fib() -> Function<'static, (), ()> {
     )
 }
 
+fn bind_test() -> Function<'static, (), LexExtension<'static>> {
+    // { 
+    //     "outer" as [x]
+    //     x print
+    //     {
+    //          12345 as [x]
+    //          x print
+    //     }
+    //     x print
+    // }
+    Function::new("bind_test", [], [], Expr::block([
+        Expr::literal("outer", ()),
+        Expr::ext(LexExtension::As(vec!["x"]), ()),
+        Expr::ext(LexExtension::Ident("x"), ()),
+        Expr::print_string(()),
+        Expr::block([
+            Expr::literal(12345u32, ()),
+            Expr::ext(LexExtension::As(vec!["x"]), ()),
+            Expr::ext(LexExtension::Ident("x"), ()),
+            Expr::print(()),
+        ], ()),
+        Expr::ext(LexExtension::Ident("x"), ()),
+        Expr::print_string(()),
+    ], ()))
+}
+
 fn main() {
     let mut inference = TypeInference::new();
     let fns = vec![
@@ -160,12 +186,15 @@ fn main() {
         hello_world(),
         even_odd(),
         fib(),
+        bind_test()
     ];
 
     let mut env = HashMap::new();
     let mut fn_names = HashMap::new();
+    let mut fn_idents = HashMap::new();
     fns.iter().enumerate().for_each(|(i, func)| {
         assert!(fn_names.insert(i, format!("{}", &func.name)).is_none());
+        assert!(fn_idents.insert(format!("{}", &func.name), i).is_none());
         assert!(env.insert(Var::Func(i), Type::from(func)).is_none());
     });
 
@@ -173,7 +202,7 @@ fn main() {
         .into_iter()
         .map(|f| {
             let name = f.name;
-            f.type_check(&mut inference, &env)
+            f.resolve_names(&fn_idents).type_check(&mut inference, &env)
                 .expect(&format!("function `{name}` didn't type check"))
                 .into_ssa_form(&env, &fn_names)
         })

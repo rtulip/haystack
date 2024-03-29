@@ -28,6 +28,30 @@ fn example() -> Function<'static, (), ()> {
                 Expr::literal(2u32, ()),
                 Expr::call(Var::Func(4), ()),
                 Expr::print(()),
+                Expr::literal(0u32, ()),
+                Expr::call(Var::Func(5), ()),
+                Expr::print(()),
+                Expr::literal(1u32, ()),
+                Expr::call(Var::Func(5), ()),
+                Expr::print(()),
+                Expr::literal(2u32, ()),
+                Expr::call(Var::Func(5), ()),
+                Expr::print(()),
+                Expr::literal(3u32, ()),
+                Expr::call(Var::Func(5), ()),
+                Expr::print(()),
+                Expr::literal(4u32, ()),
+                Expr::call(Var::Func(5), ()),
+                Expr::print(()),
+                Expr::literal(5u32, ()),
+                Expr::call(Var::Func(5), ()),
+                Expr::print(()),
+                Expr::literal(6u32, ()),
+                Expr::call(Var::Func(5), ()),
+                Expr::print(()),
+                Expr::literal(7u32, ()),
+                Expr::call(Var::Func(5), ()),
+                Expr::print(()),
             ],
             (),
         ),
@@ -82,9 +106,61 @@ fn even_odd() -> Function<'static, (), ()> {
     )
 }
 
+/// fn fib(u64: n) -> [u64] {
+///     n 0 == if {
+///         1
+///     } else n 1 == if {
+///         1
+///     } else {
+///         n 1 - fib
+///         n 2 - fib +
+///     }
+/// }
+fn fib() -> Function<'static, (), ()> {
+    Function::new(
+        "fib",
+        [Type::U32],
+        [Type::U32],
+        Expr::block(
+            [
+                Expr::bind(1, ()),
+                Expr::var(Var::Ident(0), ()),
+                Expr::literal(2u32, ()),
+                Expr::binop(BinOp::Lt, ()),
+                Expr::iff(
+                    Expr::literal(1u32, ()),
+                    Expr::block(
+                        [
+                            Expr::var(Var::Ident(0), ()),
+                            Expr::literal(1u32, ()),
+                            Expr::binop(BinOp::Sub, ()),
+                            Expr::call(Var::Func(5), ()),
+                            Expr::var(Var::Ident(0), ()),
+                            Expr::literal(2u32, ()),
+                            Expr::binop(BinOp::Sub, ()),
+                            Expr::call(Var::Func(5), ()),
+                            Expr::binop(BinOp::Add, ()),
+                        ],
+                        (),
+                    ),
+                    (),
+                ),
+            ],
+            (),
+        ),
+    )
+}
+
 fn main() {
     let mut inference = TypeInference::new();
-    let fns = vec![example(), my_add(), two_ints(), hello_world(), even_odd()];
+    let fns = vec![
+        example(),
+        my_add(),
+        two_ints(),
+        hello_world(),
+        even_odd(),
+        fib(),
+    ];
 
     let mut env = HashMap::new();
     let mut fn_names = HashMap::new();

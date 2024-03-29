@@ -12,7 +12,7 @@ impl Constraint {
         mut found: Vec<Type>,
     ) -> Result<Vec<Self>, TypeCheckError> {
         if expected.len() != found.len() {
-            return Err(TypeCheckError::StackLengthsDiffer);
+            return Err(TypeCheckError::StacksDiffer(expected, found));
         }
 
         Ok(expected

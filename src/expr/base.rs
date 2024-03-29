@@ -30,6 +30,8 @@ pub enum ExprBase<'src, M, E> {
         then: Box<Expr<'src, M, E>>,
         otherwise: Box<Expr<'src, M, E>>,
     },
+    Bind(usize),
+    Var(Var),
     Ext(E),
 }
 
@@ -122,14 +124,47 @@ impl<'src, M, E> Expr<'src, M, E> {
         }
     }
 
-    pub fn for_each_meta(&self, mut func: impl FnMut(&M) -> ()) {
-        fn helper<'a, M, E>(e: &Expr<'a, M, E>, f: &mut impl FnMut(&M) -> ()) {
+    pub fn bind(n: usize, meta: M) -> Self {
+        Self {
+            expr: ExprBase::Bind(n),
+            meta,
+        }
+    }
+
+    pub fn var(var: Var, meta: M) -> Self {
+        assert!(matches!(var, Var::Ident(_)));
+        Self {
+            expr: ExprBase::Var(var),
+            meta,
+        }
+    }
+
+    pub fn for_each(&self, mut func: impl FnMut(&Self) -> ()) {
+        fn helper<'a, M, E>(e: &Expr<'a, M, E>, f: &mut impl FnMut(&Expr<'a, M, E>) -> ()) {
+            f(&e);
             match &e.expr {
                 ExprBase::Block(exprs) => {
-                    f(&e.meta);
                     exprs.iter().for_each(|e| helper(e, f));
                 }
-                _ => f(&e.meta),
+                ExprBase::If { then, otherwise } => {
+                    helper(then, f);
+                    helper(otherwise, f);
+                }
+                _ => (),
+            }
+        }
+
+        helper(&self, &mut func);
+    }
+
+    pub fn for_each_meta(&self, mut func: impl FnMut(&M) -> ()) {
+        fn helper<'a, M, E>(e: &Expr<'a, M, E>, f: &mut impl FnMut(&M) -> ()) {
+            f(&e.meta);
+            match &e.expr {
+                ExprBase::Block(exprs) => {
+                    exprs.iter().for_each(|e| helper(e, f));
+                }
+                _ => (),
             }
         }
 

@@ -31,6 +31,7 @@ impl ConstrainedType {
 
 pub struct TypeInference {
     lookup: UnificationTable<TypeVar, Type>,
+    var_generator: usize,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -53,7 +54,18 @@ impl TypeInference {
     pub fn new() -> Self {
         Self {
             lookup: UnificationTable::new(),
+            var_generator: 0,
         }
+    }
+
+    fn env_get_num_idents(env: &HashMap<Var, Type>) -> usize {
+        env.iter().fold(0, |acc, (var, _)| {
+            if matches!(var, Var::Ident(_)) {
+                acc + 1
+            } else {
+                acc
+            }
+        })
     }
 
     fn fresh_type_var(&mut self) -> TypeVar {
@@ -179,7 +191,7 @@ impl TypeInference {
                         ),
                     ))
                 }
-                BinOp::Eq => {
+                BinOp::Eq | BinOp::Le | BinOp::Lt | BinOp::Ge | BinOp::Gt | BinOp::Ne => {
                     let right = stack.pop().ok_or_else(|| InferenceError::StackUnderflow)?;
                     let left = stack.pop().ok_or_else(|| InferenceError::StackUnderflow)?;
                     stack.push(Type::Bool);
@@ -197,7 +209,7 @@ impl TypeInference {
                         ),
                     ))
                 }
-                op => todo!("{op:?} is not implemented yet"),
+                _ => todo!("{op:?} is not implemented yet"),
             },
             crate::expr::ExprBase::Call(f) => {
                 let ty = env.get(&f).expect("Vars should be resolvable").clone();
@@ -257,6 +269,29 @@ impl TypeInference {
                     then,
                     otherwise,
                     (expr.meta, ConstrainedType::new(None, constraints)),
+                ))
+            }
+            crate::expr::ExprBase::Bind(n) => {
+                if stack.len() < n {
+                    return Err(InferenceError::StackUnderflow);
+                }
+
+                let popped = stack.split_off(stack.len() - n);
+                let start = Self::env_get_num_idents(env);
+                popped
+                    .into_iter()
+                    .enumerate()
+                    .for_each(|(n, ty)| assert!(env.insert(Var::Ident(start + n), ty).is_none()));
+
+                Ok(Expr::bind(n, (expr.meta, ConstrainedType::new(None, []))))
+            }
+            crate::expr::ExprBase::Var(var) => {
+                let ty = env.get(&var).expect("vars should be resolveable");
+                stack.push(ty.clone());
+
+                Ok(Expr::var(
+                    var,
+                    (expr.meta, ConstrainedType::new(Some(ty.clone()), [])),
                 ))
             }
             crate::expr::ExprBase::Ext(_) => Err(InferenceError::ExtensionExpressionReached),
@@ -446,6 +481,20 @@ impl TypeInference {
 
                 (unbound, Expr::iff(sub_then, sub_otherwise, expr.meta))
             }
+            crate::expr::ExprBase::Bind(n) => (HashSet::new(), Expr::bind(n, expr.meta)),
+            crate::expr::ExprBase::Var(var) => {
+                let ty = expr
+                    .meta
+                    .1
+                    .var_ty
+                    .expect("vars should know what type they have been assigned to");
+                let (unbound, ty) = self.substitute_one(ty);
+
+                (
+                    unbound,
+                    Expr::var(var, (expr.meta.0, ConstrainedType::new(Some(ty), []))),
+                )
+            }
             crate::expr::ExprBase::Ext(_) => unreachable!(),
         }
     }
@@ -464,7 +513,9 @@ impl TypeInference {
             InferenceError::ExtensionExpressionReached => {
                 TypeCheckError::ExtensionExpressionReached
             }
-            InferenceError::ConditionalsDifferentStackLengths(_, _) => todo!(),
+            InferenceError::ConditionalsDifferentStackLengths(then, otherwise) => {
+                TypeCheckError::StacksDiffer(then, otherwise)
+            }
         })?;
 
         out.meta
@@ -499,5 +550,5 @@ pub enum TypeCheckError {
     StackUnderflow,
     ExtensionExpressionReached,
     TypesNotEqual(Type, Type),
-    StackLengthsDiffer,
+    StacksDiffer(Stack, Stack),
 }

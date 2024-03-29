@@ -205,7 +205,7 @@ impl<'src, M, E> Expr<'src, M, E> {
         fn_names: &'src HashMap<usize, String>,
     ) -> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
         let (mut stack, mut counter) = CVar::from_stack(stack);
-        self.get_var_ids(&mut stack, &mut counter, env, fn_names)
+        self.get_var_ids(&mut stack, &mut counter, env, fn_names, &mut HashMap::new())
     }
 
     fn get_var_ids(
@@ -214,6 +214,7 @@ impl<'src, M, E> Expr<'src, M, E> {
         counter: &mut usize,
         env: &HashMap<Var, Type>,
         fn_names: &'src HashMap<usize, String>,
+        bound: &mut HashMap<usize, CVar<'src>>,
     ) -> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
         match self.expr {
             crate::expr::ExprBase::Literal(lit) => {
@@ -244,7 +245,7 @@ impl<'src, M, E> Expr<'src, M, E> {
             crate::expr::ExprBase::Block(exprs) => {
                 let mut exprs: Vec<_> = exprs
                     .into_iter()
-                    .map(|e| e.get_var_ids(stack, counter, env, fn_names))
+                    .map(|e| e.get_var_ids(stack, counter, env, fn_names, bound))
                     .collect();
 
                 // we need to be able to "return" from a block, this means that we may need to
@@ -300,7 +301,7 @@ impl<'src, M, E> Expr<'src, M, E> {
                         },
                     )
                 }
-                BinOp::Eq => {
+                BinOp::Eq | BinOp::Ge | BinOp::Gt | BinOp::Le | BinOp::Lt | BinOp::Ne => {
                     let right = stack.pop().unwrap();
                     let left = stack.pop().unwrap();
                     let var: CVar = CVar::new(CType::Bool, counter);
@@ -313,7 +314,6 @@ impl<'src, M, E> Expr<'src, M, E> {
                         },
                     )
                 }
-                op => todo!("{op:?} isn't implemneted yet"),
             },
             crate::expr::ExprBase::Call(f) => {
                 let (input, output) = env
@@ -416,8 +416,9 @@ impl<'src, M, E> Expr<'src, M, E> {
                 assert!(condition.ty == CType::Bool);
                 let mut then_stack = stack.clone();
                 let mut otherwise_stack = stack.clone();
-                let then = then.get_var_ids(&mut then_stack, counter, env, fn_names);
-                let otherwise = otherwise.get_var_ids(&mut otherwise_stack, counter, env, fn_names);
+                let then = then.get_var_ids(&mut then_stack, counter, env, fn_names, bound);
+                let otherwise =
+                    otherwise.get_var_ids(&mut otherwise_stack, counter, env, fn_names, bound);
 
                 // collect the outputs into a vector (if any)
                 match (&then.meta.output, &otherwise.meta.output) {
@@ -492,6 +493,36 @@ impl<'src, M, E> Expr<'src, M, E> {
                     }
                 }
             }
+            crate::expr::ExprBase::Bind(n) => {
+                assert!(stack.len() <= n);
+
+                let popped = stack.split_off(stack.len() - n);
+                popped.into_iter().for_each(|var| {
+                    let id = bound.len();
+                    bound.insert(id, var);
+                });
+
+                Expr::bind(
+                    n,
+                    Assignment {
+                        input: None,
+                        output: None,
+                    },
+                )
+            }
+            crate::expr::ExprBase::Var(Var::Ident(id)) => {
+                let ref_var = bound.get(&id).expect("Bindings should be known");
+                let var: CVar = CVar::new(ref_var.ty.clone(), counter);
+                stack.push(var.clone());
+                Expr::var(
+                    Var::Ident(id),
+                    Assignment {
+                        input: Some(vec![ref_var.clone()]),
+                        output: Some(vec![var]),
+                    },
+                )
+            }
+            crate::expr::ExprBase::Var(Var::Func(_)) => unreachable!(),
             crate::expr::ExprBase::Ext(_) => todo!(),
         }
     }

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::{
     expr::{Expr, Literal},
     stmt::Function,
+    types::Var,
 };
 
 use super::{Assignment, CSsaExtension, CType};
@@ -176,6 +177,15 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
                 then.transpile(indentation, tab_size);
                 generate!(indentation, "else");
                 otherwise.transpile(indentation, tab_size);
+            }
+            crate::expr::ExprBase::Bind(_) => (),
+            crate::expr::ExprBase::Var(_) => {
+                generate!(
+                    indentation,
+                    "{:?} = {};",
+                    self.meta.output.as_ref().unwrap()[0],
+                    self.meta.input.as_ref().unwrap()[0]
+                );
             }
             crate::expr::ExprBase::Ext(_) => todo!(),
         }

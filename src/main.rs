@@ -24,88 +24,34 @@ fn example() -> Function<'static, (), LexExtension<'static>> {
         [],
         Expr::block(
             [
-                Expr::ext(LexExtension::Ident("two_ints"), ()),
-                Expr::ext(LexExtension::Ident("my_add"), ()),
-                Expr::print(()),
-                Expr::ext(LexExtension::Ident("hello"), ()),
-                Expr::literal(2u32, ()),
-                Expr::ext(LexExtension::Ident("even_odd"), ()),
-                Expr::print(()),
                 Expr::literal(0u32, ()),
-                Expr::ext(LexExtension::Ident("fib"), ()),
-                Expr::print(()),
-                Expr::literal(1u32, ()),
-                Expr::ext(LexExtension::Ident("fib"), ()),
-                Expr::print(()),
-                Expr::literal(2u32, ()),
-                Expr::ext(LexExtension::Ident("fib"), ()),
-                Expr::print(()),
-                Expr::literal(3u32, ()),
-                Expr::ext(LexExtension::Ident("fib"), ()),
-                Expr::print(()),
-                Expr::literal(4u32, ()),
-                Expr::ext(LexExtension::Ident("fib"), ()),
-                Expr::print(()),
-                Expr::literal(5u32, ()),
-                Expr::ext(LexExtension::Ident("fib"), ()),
-                Expr::print(()),
-                Expr::literal(6u32, ()),
-                Expr::ext(LexExtension::Ident("fib"), ()),
-                Expr::print(()),
-                Expr::literal(7u32, ()),
-                Expr::ext(LexExtension::Ident("fib"), ()),
-                Expr::print(()),
-                Expr::ext(LexExtension::Ident("bind_test"), ()),
-                Expr::ext(LexExtension::Ident("gen_call"), ()),
-                Expr::ext(LexExtension::Ident("test_while"), ()),
-            ],
-            (),
-        ),
-    )
-}
-
-fn my_add() -> Function<'static, (), LexExtension<'static>> {
-    Function::new(
-        "my_add",
-        [Type::U32, Type::U32],
-        [Type::U32],
-        Expr::binop(BinOp::Add, ()),
-    )
-}
-
-fn two_ints() -> Function<'static, (), LexExtension<'static>> {
-    Function::new(
-        "two_ints",
-        [],
-        [Type::U32, Type::U32],
-        Expr::block([Expr::literal(1u32, ()), Expr::literal(2u32, ())], ()),
-    )
-}
-
-fn hello_world() -> Function<'static, (), LexExtension<'static>> {
-    Function::new(
-        "hello",
-        [],
-        [],
-        Expr::block(
-            [Expr::literal("Hello World", ()), Expr::print_string(())],
-            (),
-        ),
-    )
-}
-
-fn even_odd() -> Function<'static, (), LexExtension<'static>> {
-    Function::new(
-        "even_odd",
-        [Type::U32],
-        [Type::U32],
-        Expr::block(
-            [
-                Expr::literal(2u32, ()),
-                Expr::binop(BinOp::Mod, ()),
-                Expr::literal(0u32, ()),
-                Expr::binop(BinOp::Eq, ()),
-                Expr::iff(Expr::literal(123u32, ()), Expr::literal(321u32, ()), ()),
+                Expr::wile(
+                    [
+                        Expr::ext(LexExtension::Ident("dup"), ()),
+                        Expr::literal(20u32, ()),
+                        Expr::binop(BinOp::Lt, ()),
+                    ],
+                    Expr::block(
+                        [
+                            Expr::ext(LexExtension::As(vec!["i"]), ()),
+                            Expr::ext(LexExtension::Ident("i"), ()),
+                            Expr::print(()),
+                            Expr::literal(": ", ()),
+                            Expr::print_string(()),
+                            Expr::ext(LexExtension::Ident("i"), ()),
+                            Expr::ext(LexExtension::Ident("fib"), ()),
+                            Expr::print(()),
+                            Expr::literal("\\n", ()),
+                            Expr::print_string(()),
+                            Expr::ext(LexExtension::Ident("i"), ()),
+                            Expr::literal(1u32, ()),
+                            Expr::binop(BinOp::Add, ())
+                        ],
+                        (),
+                    ),
+                    (),
+                ),
+                Expr::ext(LexExtension::Ident("drop"), ()),
             ],
             (),
         ),
@@ -132,7 +78,7 @@ fn fib() -> Function<'static, (), LexExtension<'static>> {
                 Expr::literal(2u32, ()),
                 Expr::binop(BinOp::Lt, ()),
                 Expr::iff(
-                    Expr::literal(1u32, ()),
+                    Expr::ext(LexExtension::Ident("n"), ()),
                     Expr::block(
                         [
                             Expr::ext(LexExtension::Ident("n"), ()),
@@ -149,43 +95,6 @@ fn fib() -> Function<'static, (), LexExtension<'static>> {
                     ),
                     (),
                 ),
-            ],
-            (),
-        ),
-    )
-}
-
-fn bind_test() -> Function<'static, (), LexExtension<'static>> {
-    // {
-    //     "outer" as [x]
-    //     x print
-    //     {
-    //          12345 as [x]
-    //          x print
-    //     }
-    //     x print
-    // }
-    Function::new(
-        "bind_test",
-        [],
-        [],
-        Expr::block(
-            [
-                Expr::literal("outer", ()),
-                Expr::ext(LexExtension::As(vec!["x"]), ()),
-                Expr::ext(LexExtension::Ident("x"), ()),
-                Expr::print_string(()),
-                Expr::block(
-                    [
-                        Expr::literal(12345u32, ()),
-                        Expr::ext(LexExtension::As(vec!["x"]), ()),
-                        Expr::ext(LexExtension::Ident("x"), ()),
-                        Expr::print(()),
-                    ],
-                    (),
-                ),
-                Expr::ext(LexExtension::Ident("x"), ()),
-                Expr::print_string(()),
             ],
             (),
         ),
@@ -210,27 +119,6 @@ fn dup(ctx: &mut TypeInference) -> Function<'static, (), LexExtension<'static>> 
     )
 }
 
-fn gen_call() -> Function<'static, (), LexExtension<'static>> {
-    Function::new(
-        "gen_call",
-        [],
-        [],
-        Expr::block(
-            [
-                Expr::literal("dupped", ()),
-                Expr::ext(LexExtension::Ident("dup"), ()),
-                Expr::print_string(()),
-                Expr::print_string(()),
-                Expr::literal(12345u32, ()),
-                Expr::ext(LexExtension::Ident("dup"), ()),
-                Expr::print(()),
-                Expr::print(()),
-            ],
-            (),
-        ),
-    )
-}
-
 fn haystack_drop(ctx: &mut TypeInference) -> Function<'static, (), LexExtension<'static>> {
     Function::new_generic(
         "drop",
@@ -242,54 +130,14 @@ fn haystack_drop(ctx: &mut TypeInference) -> Function<'static, (), LexExtension<
     )
 }
 
-fn wile() -> Function<'static, (), LexExtension<'static>> {
-    Function::new(
-        "test_while",
-        [],
-        [],
-        Expr::block(
-            [
-                Expr::literal(0u32, ()),
-                Expr::wile(
-                    [
-                        Expr::ext(LexExtension::Ident("dup"), ()),
-                        Expr::literal(10u32, ()),
-                        Expr::binop(BinOp::Lt, ()),
-                    ],
-                    Expr::block(
-                        [
-                            Expr::ext(LexExtension::As(vec!["i"]), ()),
-                            Expr::ext(LexExtension::Ident("i"), ()),
-                            Expr::print(()),
-                            Expr::ext(LexExtension::Ident("i"), ()),
-                            Expr::literal(1u32, ()),
-                            Expr::binop(BinOp::Add, ()),
-                        ],
-                        (),
-                    ),
-                    (),
-                ),
-                Expr::ext(LexExtension::Ident("drop"), ()),
-            ],
-            (),
-        ),
-    )
-}
 
 fn main() {
     let mut inference = TypeInference::new();
     let fns = vec![
         example(),
-        my_add(),
-        two_ints(),
-        hello_world(),
-        even_odd(),
         fib(),
-        bind_test(),
         dup(&mut inference),
-        gen_call(),
         haystack_drop(&mut inference),
-        wile(),
     ];
 
     let mut env = HashMap::new();
@@ -330,8 +178,10 @@ fn main() {
     generate!(0, "#include <stdbool.h>");
     generate!(0, "");
 
-    let mut types = HashMap::new();
-    fns.iter().for_each(|f| types.extend(f.body.get_ctypes()));
+    let mut types = HashMap::from([("Str".to_owned(), CType::string())]);
+    fns.iter().for_each(|f| {
+        eprintln!("{}", f.name);
+        types.extend(f.body.get_ctypes())});
 
     let types = CType::organize_dependencies(types.into_iter().map(|(_, v)| v)).unwrap();
 

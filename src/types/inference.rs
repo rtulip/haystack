@@ -227,15 +227,18 @@ impl TypeInference {
                 constraints.extend(body.meta.1.constriants.clone());
 
                 // Make sure that the stack lengths didn't change from before the while loop and after.
-                if stack_before.len() != stack.len()
-                {
-                    return Err(InferenceError::DifferentStackLengths(stack_before, stack.clone()))
+                if stack_before.len() != stack.len() {
+                    return Err(InferenceError::DifferentStackLengths(
+                        stack_before,
+                        stack.clone(),
+                    ));
                 }
 
                 // Make sure that each type on the stack is the same as before the loop
-                stack_before.into_iter().zip(stack.clone().into_iter()).for_each(|(t1, t2)| {
-                    constraints.push(Constraint::Equal(t1, t2))
-                });
+                stack_before
+                    .into_iter()
+                    .zip(stack.clone().into_iter())
+                    .for_each(|(t1, t2)| constraints.push(Constraint::Equal(t1, t2)));
 
                 Ok(Expr::wile(
                     condition,
@@ -528,12 +531,12 @@ impl TypeInference {
                         e
                     })
                     .collect::<Vec<_>>();
-                
+
                 let (ub, body) = self.substitute_expr(*body);
                 unbound.extend(ub);
 
                 (unbound, Expr::wile(condition, body, expr.meta))
-            },
+            }
             crate::expr::ExprBase::BinOp(_) => (HashSet::new(), expr),
             crate::expr::ExprBase::Call(Var::Func(f)) => {
                 let func = expr

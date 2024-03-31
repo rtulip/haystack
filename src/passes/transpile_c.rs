@@ -52,14 +52,14 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
             crate::expr::ExprBase::Print => {
                 generate!(
                     indentation,
-                    "printf(\"%u\\n\", {});",
+                    "printf(\"%u\", {});",
                     self.meta.input.as_ref().unwrap()[0]
                 )
             }
             crate::expr::ExprBase::PrintString => {
                 generate!(
                     indentation,
-                    "printf(\"%.*s\\n\", {}.size, {}.string);",
+                    "printf(\"%.*s\", {}.size, {}.string);",
                     self.meta.input.as_ref().unwrap()[0],
                     self.meta.input.as_ref().unwrap()[0]
                 )
@@ -189,14 +189,19 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
             }
             crate::expr::ExprBase::While { condition, body } => {
                 generate!(indentation, "while (1) {{");
-                condition.iter().for_each(|e| e.transpile(indentation + tab_size, tab_size));
+                condition
+                    .iter()
+                    .for_each(|e| e.transpile(indentation + tab_size, tab_size));
                 body.transpile(indentation + tab_size, tab_size);
                 generate!(indentation, "}}");
-                
-            },
+            }
             crate::expr::ExprBase::Ext(CSsaExtension::ExitLoop) => {
-                generate!(indentation, "if (!{}) break;", self.meta.input.as_ref().unwrap()[0])
-            },
+                generate!(
+                    indentation,
+                    "if (!{}) break;",
+                    self.meta.input.as_ref().unwrap()[0]
+                )
+            }
         }
     }
 
@@ -204,19 +209,41 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
         let mut types = HashMap::new();
 
         self.for_each_meta(|a| {
-            let empty = vec![];
-            match (&a.input, &a.output) {
-                (Some(input), Some(output)) => input.iter().chain(output.iter()),
-                (None, None) => empty.iter().chain(empty.iter()),
-                (None, Some(ts)) | (Some(ts), None) => ts.iter().chain(empty.iter()),
-            }
-            .for_each(|var| {
-                let t = &var.ty;
-                let k = format!("{t}");
-                if !types.contains_key(&k) {
-                    types.insert(k, t.clone());
+            match &a.input {
+                Some(input) => input.iter().for_each(|var| {
+                    let t = &var.ty;
+    
+                    eprintln!("  t: {t}");
+    
+                    let k = format!("{t}");
+                    if !types.contains_key(&k) {
+                        types.insert(k, t.clone());
+                    }
+                }),
+                None => (),
+            };
+            
+            match &a.output {
+                Some(single) if single.len() == 1 => {
+                    let var = &single[0];
+                    let t = &var.ty;
+
+                    let k = format!("  {t}");
+                    if !types.contains_key(&k) {
+                        types.insert(k, t.clone());
+                    }
                 }
-            })
+                Some(vars) => {
+                    
+                    let ty = CType::tuple(vars.iter().map(|var| var.ty.clone()).collect::<Vec<_>>());
+                    let k = format!("  {ty}"); 
+                    if !types.contains_key(&k) {
+                        types.insert(k, ty);
+                    }
+                }
+                None => ()
+            }
+
         });
 
         types

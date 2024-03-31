@@ -253,54 +253,24 @@ fn main() {
         assert!(env.insert(Var::Func(i), Type::from(func)).is_none());
     });
 
+    // Resolve identifiers into variables & function calls
     let fns = fns.into_iter().map(|f| f.resolve_names(&fn_idents));
 
+    // Type check all functions.
     let mut fns = fns
         .map(|f| f.type_check(&mut inference, &env))
         .collect::<Result<Vec<_>, _>>()
         .map_err(|(func, e)| format!("`{func}` failed to type check: {e:?}"))
         .unwrap();
 
-    let to_monomorphise = fns
-        .iter_mut()
-        .map(|f| f.find_monomorphizations(&env, &mut fn_idents, &mut fn_names))
-        .flatten()
-        .collect::<Vec<_>>();
+    // Monomorphize generic function calls
+    let fns = {
+        let to_monomorphize =
+            passes::find_monomorphizations(&mut fns, &env, &mut fn_names, &mut fn_idents);
+        passes::resolve_monomorphizations(to_monomorphize, fns, &mut env, &fn_names, &mut inference)
+    };
 
-    let monomorphized = to_monomorphise
-        .into_iter()
-        .map(|(var, new_idx, ty)| {
-            let idx = match var {
-                Var::Func(idx) => idx,
-                Var::Ident(_) => unreachable!(),
-            };
-
-            let fn_ty = ty.var_ty.unwrap().expect_function();
-
-            let body = fns.get(idx).unwrap().body.clone().map_meta(|(m, _)| m);
-
-            let new_f = Function::new(
-                fn_names.get(&new_idx).unwrap(),
-                fn_ty.input,
-                fn_ty.output,
-                body,
-            );
-
-            assert!(env.insert(Var::Func(new_idx), Type::from(&new_f)).is_none());
-            new_f
-        })
-        .collect::<Vec<_>>();
-
-    let monomorphized = monomorphized
-        .into_iter()
-        .map(|func| {
-            func.type_check(&mut inference, &env)
-                .expect("Monomorphized functions should type check")
-        })
-        .collect::<Vec<_>>();
-
-    fns.extend(monomorphized);
-
+    // Transpile to c
     let fns = fns
         .into_iter()
         .map(|func| func.into_ssa_form(&env, &fn_names))

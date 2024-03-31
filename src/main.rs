@@ -8,7 +8,7 @@ mod union_find;
 use std::collections::HashMap;
 
 use expr::{BinOp, Expr};
-use stmt::Function;
+use stmt::{Function, Stmt};
 use types::TypeVar;
 
 use crate::{
@@ -17,8 +17,8 @@ use crate::{
     types::{Type, TypeInference, Var},
 };
 
-fn example() -> Function<'static, (), LexExtension<'static>> {
-    Function::new(
+fn example() -> Stmt<'static, (), LexExtension<'static>> {
+    Stmt::function(Function::new(
         "main",
         [],
         [],
@@ -45,7 +45,7 @@ fn example() -> Function<'static, (), LexExtension<'static>> {
                             Expr::print_string(()),
                             Expr::ext(LexExtension::Ident("i"), ()),
                             Expr::literal(1u32, ()),
-                            Expr::binop(BinOp::Add, ())
+                            Expr::binop(BinOp::Add, ()),
                         ],
                         (),
                     ),
@@ -55,7 +55,7 @@ fn example() -> Function<'static, (), LexExtension<'static>> {
             ],
             (),
         ),
-    )
+    ))
 }
 
 /// fn fib(u64: n) -> [u64] {
@@ -66,8 +66,8 @@ fn example() -> Function<'static, (), LexExtension<'static>> {
 ///         n 2 - fib +
 ///     }
 /// }
-fn fib() -> Function<'static, (), LexExtension<'static>> {
-    Function::new(
+fn fib() -> Stmt<'static, (), LexExtension<'static>> {
+    Stmt::function(Function::new(
         "fib",
         [Type::U32],
         [Type::U32],
@@ -98,11 +98,11 @@ fn fib() -> Function<'static, (), LexExtension<'static>> {
             ],
             (),
         ),
-    )
+    ))
 }
 
-fn dup(ctx: &mut TypeInference) -> Function<'static, (), LexExtension<'static>> {
-    Function::new_generic(
+fn dup(ctx: &mut TypeInference) -> Stmt<'static, (), LexExtension<'static>> {
+    Stmt::function(Function::new_generic(
         "dup",
         [Type::Var(TypeVar(0))],
         [Type::Var(TypeVar(0)), Type::Var(TypeVar(0))],
@@ -116,29 +116,53 @@ fn dup(ctx: &mut TypeInference) -> Function<'static, (), LexExtension<'static>> 
         ),
         ["T"],
         ctx,
-    )
+    ))
 }
 
-fn haystack_drop(ctx: &mut TypeInference) -> Function<'static, (), LexExtension<'static>> {
-    Function::new_generic(
+fn haystack_drop(ctx: &mut TypeInference) -> Stmt<'static, (), LexExtension<'static>> {
+    Stmt::function(Function::new_generic(
         "drop",
         [Type::Var(TypeVar(1))],
         [],
         Expr::ext(LexExtension::As(vec!["_"]), ()),
         ["T"],
         ctx,
+    ))
+}
+
+fn string() -> Stmt<'static, (), LexExtension<'static>> {
+    Stmt::strukt(
+        "Str",
+        vec![("size", Type::U32), ("string", Type::pointer(Type::U8))],
     )
 }
 
-
 fn main() {
     let mut inference = TypeInference::new();
-    let fns = vec![
+
+    let stmts = vec![
+        string(),
         example(),
         fib(),
         dup(&mut inference),
         haystack_drop(&mut inference),
     ];
+
+    let (_types, fns) = stmts.into_iter().fold(
+        (HashMap::new(), Vec::new()),
+        |(mut types, mut fns), stmt| {
+            match stmt {
+                Stmt::Function(func) => fns.push(func),
+                Stmt::Type(ty) => {
+                    if types.insert(ty.name.to_owned(), ty).is_some() {
+                        todo!("name conflict error")
+                    }
+                }
+            }
+
+            (types, fns)
+        },
+    );
 
     let mut env = HashMap::new();
     let mut fn_names = HashMap::new();
@@ -181,7 +205,8 @@ fn main() {
     let mut types = HashMap::from([("Str".to_owned(), CType::string())]);
     fns.iter().for_each(|f| {
         eprintln!("{}", f.name);
-        types.extend(f.body.get_ctypes())});
+        types.extend(f.body.get_ctypes())
+    });
 
     let types = CType::organize_dependencies(types.into_iter().map(|(_, v)| v)).unwrap();
 

@@ -1,22 +1,38 @@
-use super::Function;
+use crate::types::Type;
 
-pub enum StmtBase<'src, M, E> {
+use super::{Function, TypeDeclaration};
+
+pub enum Stmt<'src, M, E> {
     Function(Function<'src, M, E>),
+    Type(TypeDeclaration<'src, Type>),
 }
 
-pub struct Stmt<'src, StmtMeta, ExprMeta, ExprExt> {
-    stmt: StmtBase<'src, ExprMeta, ExprExt>,
-    meta: StmtMeta,
-}
-
-impl<'src, M, EM, E> Stmt<'src, M, EM, E> {
-    pub fn function<F>(f: F, meta: M) -> Self
+impl<'src, M, E> Stmt<'src, M, E> {
+    pub fn function<F>(f: F) -> Self
     where
-        F: Into<Function<'src, EM, E>>,
+        F: Into<Function<'src, M, E>>,
     {
-        Stmt {
-            stmt: StmtBase::Function(f.into()),
-            meta,
-        }
+        Stmt::Function(f.into())
+    }
+
+    pub fn enumm<V>(name: &'src str, variants: V) -> Self
+    where
+        V: Into<Vec<&'src str>>,
+    {
+        Stmt::Type(TypeDeclaration::enumm(name, variants))
+    }
+
+    pub fn strukt<Members>(name: &'src str, members: Members) -> Self
+    where
+        Members: Into<Vec<(&'src str, Type)>>,
+    {
+        Stmt::Type(TypeDeclaration::strukt(name, members))
+    }
+
+    pub fn tagged_union<V>(name: &'src str, variants: V) -> Self
+    where
+        V: Into<Vec<(&'src str, Type)>>,
+    {
+        Stmt::Type(TypeDeclaration::tagged_union(name, variants))
     }
 }

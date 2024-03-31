@@ -64,6 +64,13 @@ impl Type {
             ty => panic!("Expected a function, but found `{ty:?}`"),
         }
     }
+
+    pub fn pointer(ty: Self) -> Self {
+        Type::Pointer {
+            ty: Box::new(ty),
+            mutable: Mutability::Constant,
+        }
+    }
 }
 
 pub type Stack = Vec<Type>;

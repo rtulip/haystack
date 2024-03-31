@@ -212,9 +212,9 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
             match &a.input {
                 Some(input) => input.iter().for_each(|var| {
                     let t = &var.ty;
-    
+
                     eprintln!("  t: {t}");
-    
+
                     let k = format!("{t}");
                     if !types.contains_key(&k) {
                         types.insert(k, t.clone());
@@ -222,7 +222,7 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
                 }),
                 None => (),
             };
-            
+
             match &a.output {
                 Some(single) if single.len() == 1 => {
                     let var = &single[0];
@@ -234,16 +234,15 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
                     }
                 }
                 Some(vars) => {
-                    
-                    let ty = CType::tuple(vars.iter().map(|var| var.ty.clone()).collect::<Vec<_>>());
-                    let k = format!("  {ty}"); 
+                    let ty =
+                        CType::tuple(vars.iter().map(|var| var.ty.clone()).collect::<Vec<_>>());
+                    let k = format!("  {ty}");
                     if !types.contains_key(&k) {
                         types.insert(k, ty);
                     }
                 }
-                None => ()
+                None => (),
             }
-
         });
 
         types

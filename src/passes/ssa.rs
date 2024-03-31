@@ -31,6 +31,9 @@ pub enum CType<'src> {
     },
     Tuple(Vec<CType<'src>>),
     Pointer(Box<CType<'src>>),
+
+    Int,
+    Variadic,
 }
 
 impl<'src> CType<'src> {
@@ -59,7 +62,13 @@ impl<'src> CType<'src> {
         match self {
             CType::Struct { .. } | CType::Tuple(_) => Some(self),
             CType::Pointer(t) => t.structs_referenced(),
-            CType::U32 | CType::Bool | CType::U8 | CType::Char | CType::Void => None,
+            CType::U32
+            | CType::Bool
+            | CType::U8
+            | CType::Char
+            | CType::Void
+            | CType::Int
+            | CType::Variadic => None,
         }
     }
 
@@ -70,6 +79,8 @@ impl<'src> CType<'src> {
             CType::U8 => vec![],
             CType::Char => vec![],
             CType::Void => vec![],
+            CType::Int => vec![],
+            CType::Variadic => vec![],
             CType::Struct { elements, .. } => elements
                 .iter()
                 .map(|(_, ty)| ty.structs_referenced())
@@ -189,7 +200,7 @@ impl<'src> Display for CType<'src> {
             CType::Char => write!(f, "char"),
             CType::Void => write!(f, "void"),
             CType::Struct { name, .. } => write!(f, "{name}"),
-            CType::Pointer(ty) => write!(f, "{ty}*"),
+            CType::Pointer(ty) => write!(f, "const {ty}*"),
             CType::Tuple(ts) => {
                 write!(f, "tuple_")?;
                 ts.iter()
@@ -197,6 +208,8 @@ impl<'src> Display for CType<'src> {
                     .collect::<Result<Vec<_>, _>>()?;
                 Ok(())
             }
+            CType::Int => write!(f, "int"),
+            CType::Variadic => write!(f, "..."),
         }
     }
 }

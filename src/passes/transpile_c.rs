@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    expr::{Expr, Literal},
-    stmt::Function,
-    types::Var,
+    expr::{Expr, Literal}, passes::CVar, stmt::{ExternDecl, Function}, types::Var
 };
 
 use super::{Assignment, CSsaExtension, CType};
@@ -249,6 +247,47 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
     }
 }
 
+impl<'src> Function<'src, Assignment<'src>, CSsaExtension<'src>> {
+    fn signature(&self, indentation: usize, tab_size: usize) {
+        let ty = CType::from(
+            self.output
+                .iter()
+                .map(|ty| CType::from(ty.clone()))
+                .collect::<Vec<_>>(),
+        );
+
+        generate!(indentation, "{ty} {}(", self.name);
+        CVar::from_stack(self.input.clone())
+            .0
+            .iter()
+            .enumerate()
+            .for_each(|(i, var)| {
+                generate!(
+                    indentation + tab_size,
+                    "{var:?}{}",
+                    if i != self.input.len() - 1 { "," } else { "" }
+                )
+            });
+        generate!(indentation, ")");
+    }
+
+    pub fn declare(&self, indentation: usize, tab_size: usize) {
+        self.signature(indentation, tab_size);
+        generate!(indentation, ";");
+        generate!(indentation, "");
+    }
+
+    pub fn transpile(&self, indentation: usize, tab_size: usize) {
+        self.signature(indentation, tab_size);
+
+        generate!(indentation, "{{");
+        self.body.transpile(indentation + tab_size, tab_size);
+        generate!(indentation, "}}");
+        generate!(indentation, "");
+    }
+}
+
+
 impl<'src> CType<'src> {
     pub fn transpile(&self, indentation: usize, tab_size: usize) {
         match self {
@@ -274,7 +313,9 @@ impl<'src> CType<'src> {
             | CType::U8
             | CType::Char
             | CType::Pointer(_)
-            | CType::Void => (),
+            | CType::Void
+            | CType::Int
+            | CType::Variadic => (),
         }
     }
 
@@ -291,7 +332,24 @@ impl<'src> CType<'src> {
             | CType::U8
             | CType::Char
             | CType::Pointer(_)
-            | CType::Void => (),
+            | CType::Void
+            | CType::Variadic
+            | CType::Int => (),
         }
+    }
+}
+
+impl<'src> ExternDecl<'src> {
+    pub fn declare(&self, indentation: usize, tab_size: usize) {
+        generate!(indentation, "{} {}(", self.output, self.name);
+        let len = self.input.len();
+        self.input.iter().enumerate().for_each(|(i, t)| {
+            generate!(
+                indentation + tab_size,
+                "{t}{}",
+                if i == len -1 { "" } else { "," }
+            )
+        });
+        generate!(indentation, ");");
     }
 }

@@ -1,10 +1,11 @@
-use crate::types::Type;
+use crate::{passes::CType, types::Type};
 
-use super::{Function, TypeDeclaration};
+use super::{ExternDecl, Function, TypeDeclaration};
 
 pub enum Stmt<'src, M, E> {
     Function(Function<'src, M, E>),
     Type(TypeDeclaration<'src, Type>),
+    Extern(ExternDecl<'src>),
 }
 
 impl<'src, M, E> Stmt<'src, M, E> {
@@ -34,5 +35,13 @@ impl<'src, M, E> Stmt<'src, M, E> {
         V: Into<Vec<(&'src str, Type)>>,
     {
         Stmt::Type(TypeDeclaration::tagged_union(name, variants))
+    }
+
+    pub fn xtern<In, Out>(name: &'src str, input: In, output: Out) -> Self
+    where
+        In: Into<Vec<CType<'src>>>,
+        Out: Into<CType<'src>>,
+    {
+        Stmt::Extern(ExternDecl::new(name, input, output))
     }
 }

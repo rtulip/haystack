@@ -8,7 +8,7 @@ mod union_find;
 use std::collections::HashMap;
 
 use expr::{BinOp, Expr};
-use stmt::{Function, Stmt};
+use stmt::{ExternDecl, Function, Stmt};
 use types::TypeVar;
 
 use crate::{
@@ -137,6 +137,15 @@ fn string() -> Stmt<'static, (), LexExtension<'static>> {
     )
 }
 
+fn printf() -> Stmt<'static, (), LexExtension<'static>> {
+    Stmt::xtern("printf", [CType::pointer(CType::Char), CType::Variadic], CType::Int)
+}
+
+fn foo() -> Stmt<'static, (), LexExtension<'static>>
+{
+    Stmt::xtern("foo", [], CType::Int)
+}
+
 fn main() {
     let mut inference = TypeInference::new();
 
@@ -146,8 +155,13 @@ fn main() {
         fib(),
         dup(&mut inference),
         haystack_drop(&mut inference),
+        printf(),
+        foo(),
     ];
-
+    let mut externs = HashMap::new();
+    let mut env = HashMap::new();
+    let mut fn_names = HashMap::new();
+    let mut fn_idents = HashMap::new();
     let (_types, fns) = stmts.into_iter().fold(
         (HashMap::new(), Vec::new()),
         |(mut types, mut fns), stmt| {
@@ -158,19 +172,20 @@ fn main() {
                         todo!("name conflict error")
                     }
                 }
+                Stmt::Extern(decl) => {
+                    assert!(externs.insert(externs.len(), decl).is_none());
+                }
             }
 
             (types, fns)
         },
     );
 
-    let mut env = HashMap::new();
-    let mut fn_names = HashMap::new();
-    let mut fn_idents = HashMap::new();
-    fns.iter().enumerate().for_each(|(i, func)| {
-        assert!(fn_names.insert(i, format!("{}", &func.name)).is_none());
-        assert!(fn_idents.insert(format!("{}", &func.name), i).is_none());
-        assert!(env.insert(Var::Func(i), Type::from(func)).is_none());
+    fns.iter().for_each(|func| {
+        let idx = env.len();
+        assert!(fn_names.insert(idx, format!("{}", &func.name)).is_none());
+        assert!(fn_idents.insert(format!("{}", &func.name), idx).is_none());
+        assert!(env.insert(Var::Func(idx), Type::from(func)).is_none());
     });
 
     // Resolve identifiers into variables & function calls
@@ -209,10 +224,15 @@ fn main() {
     });
 
     let types = CType::organize_dependencies(types.into_iter().map(|(_, v)| v)).unwrap();
-
-    types.iter().for_each(|ty| ty.declare(0));
-    generate!(0, "");
-    types.iter().for_each(|ty| ty.transpile(0, 4));
-    fns.iter().for_each(|f| f.declare(0, 4));
-    fns.iter().for_each(|f| f.transpile(0, 4));
+    
+    let indentation = 0;
+    let tab_size = 4;
+    types.iter().for_each(|ty| ty.declare(indentation));
+    generate!(indentation, "");
+    types.iter().for_each(|ty| ty.transpile(indentation, 4));
+    generate!(indentation, "");
+    externs.values().for_each(|decl| decl.declare(indentation, tab_size));
+    generate!(indentation, "");
+    fns.iter().for_each(|f| f.declare(indentation, tab_size));
+    fns.iter().for_each(|f| f.transpile(indentation, tab_size));
 }

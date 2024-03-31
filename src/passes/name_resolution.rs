@@ -26,6 +26,20 @@ impl<'src, M> Expr<'src, M, LexExtension<'src>> {
                     self.meta,
                 )
             }
+            crate::expr::ExprBase::While { condition, body } => {
+                // We can allow for vars to be made in the condition.
+                // These should _not_ be visilbe outside of the condition
+
+                let mut bound_in_condition = bound.clone();
+                Expr::wile(
+                    condition
+                        .into_iter()
+                        .map(|e| e.resolve_idents(fn_idents, &mut bound_in_condition))
+                        .collect::<Vec<_>>(),
+                    body.resolve_idents(fn_idents, bound),
+                    self.meta,
+                )
+            }
             crate::expr::ExprBase::BinOp(op) => Expr::binop(op, self.meta),
             crate::expr::ExprBase::Call(_) => todo!(),
             crate::expr::ExprBase::If { then, otherwise } => Expr::iff(

@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    expr::{BinOp, Expr, Literal},
+    expr::{BinOp, Expr, ExprBase, Literal},
     types::{Stack, Type, Var},
 };
 
@@ -566,6 +566,34 @@ impl<'src, M, E> Expr<'src, M, E> {
                     }
                 }
             }
+            crate::expr::ExprBase::While { condition, body } => {
+                
+                let before = stack.clone();
+
+                let mut condition: Vec<_> = condition.into_iter().map(|e| e.get_var_ids(stack, counter, env, fn_names, bound)).collect();
+
+                let var = stack.pop().unwrap();
+
+                condition.push(Expr::ext(CSsaExtension::ExitLoop, Assignment { input: Some(vec![var]), output: None }));
+                
+                let mut body = body.get_var_ids(stack, counter, env, fn_names, bound);
+
+
+                assert!(before.len() == stack.len()); 
+                match &mut body.expr {
+                    ExprBase::Block(ref mut exprs) => {    
+                        before.iter().zip(stack.iter()).for_each(|(before, after)| {
+                            assert!(before.ty == after.ty);
+                            exprs.push(Expr::ext(CSsaExtension::BackAssign { input: after.clone(), output: before.clone() }, Assignment { input: None, output: None }));
+                        });
+                    },
+                    _ => todo!(),
+                };
+
+                *stack = before;
+
+                Expr::wile(condition, body, Assignment { input: None, output: None})
+            },
             crate::expr::ExprBase::Bind(n) => {
                 assert!(stack.len() <= n);
 

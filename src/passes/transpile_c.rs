@@ -187,7 +187,16 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
                     self.meta.input.as_ref().unwrap()[0]
                 );
             }
-            crate::expr::ExprBase::Ext(_) => todo!(),
+            crate::expr::ExprBase::While { condition, body } => {
+                generate!(indentation, "while (1) {{");
+                condition.iter().for_each(|e| e.transpile(indentation + tab_size, tab_size));
+                body.transpile(indentation + tab_size, tab_size);
+                generate!(indentation, "}}");
+                
+            },
+            crate::expr::ExprBase::Ext(CSsaExtension::ExitLoop) => {
+                generate!(indentation, "if (!{}) break;", self.meta.input.as_ref().unwrap()[0])
+            },
         }
     }
 

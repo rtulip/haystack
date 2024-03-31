@@ -31,6 +31,10 @@ pub enum ExprBase<'src, M, E> {
         then: Box<Expr<'src, M, E>>,
         otherwise: Box<Expr<'src, M, E>>,
     },
+    While {
+        condition: Vec<Expr<'src, M, E>>,
+        body: Box<Expr<'src, M, E>>,
+    },
     Bind(usize),
     Var(Var),
     Ext(E),
@@ -141,6 +145,19 @@ impl<'src, M, E> Expr<'src, M, E> {
         }
     }
 
+    pub fn wile<C>(condition: C, body: Self, meta: M) -> Self
+    where
+        C: Into<Vec<Self>>,
+    {
+        Expr {
+            expr: ExprBase::While {
+                condition: condition.into(),
+                body: Box::new(body),
+            },
+            meta,
+        }
+    }
+
     pub fn for_each(&self, mut func: impl FnMut(&Self) -> ()) {
         fn helper<'a, M, E>(e: &Expr<'a, M, E>, f: &mut impl FnMut(&Expr<'a, M, E>) -> ()) {
             f(&e);
@@ -198,6 +215,14 @@ impl<'src, M, E> Expr<'src, M, E> {
                 ExprBase::Bind(n) => Expr::bind(n, f(e.meta)),
                 ExprBase::Var(var) => Expr::var(var, f(e.meta)),
                 ExprBase::Ext(ext) => Expr::ext(ext, f(e.meta)),
+                ExprBase::While { condition, body } => Expr::wile(
+                    condition
+                        .into_iter()
+                        .map(|e| helper(e, f))
+                        .collect::<Vec<_>>(),
+                    helper(*body, f),
+                    f(e.meta),
+                ),
             }
         }
 

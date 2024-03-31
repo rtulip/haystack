@@ -57,6 +57,7 @@ fn example() -> Function<'static, (), LexExtension<'static>> {
                 Expr::print(()),
                 Expr::ext(LexExtension::Ident("bind_test"), ()),
                 Expr::ext(LexExtension::Ident("gen_call"), ()),
+                Expr::ext(LexExtension::Ident("test_while"), ()),
             ],
             (),
         ),
@@ -230,6 +231,51 @@ fn gen_call() -> Function<'static, (), LexExtension<'static>> {
     )
 }
 
+fn haystack_drop(ctx: &mut TypeInference) -> Function<'static, (), LexExtension<'static>> {
+    Function::new_generic(
+        "drop",
+        [Type::Var(TypeVar(1))],
+        [],
+        Expr::ext(LexExtension::As(vec!["_"]), ()),
+        ["T"],
+        ctx,
+    )
+}
+
+fn wile() -> Function<'static, (), LexExtension<'static>> {
+    Function::new(
+        "test_while",
+        [],
+        [],
+        Expr::block(
+            [
+                Expr::literal(0u32, ()),
+                Expr::wile(
+                    [
+                        Expr::ext(LexExtension::Ident("dup"), ()),
+                        Expr::literal(10u32, ()),
+                        Expr::binop(BinOp::Lt, ()),
+                    ],
+                    Expr::block(
+                        [
+                            Expr::ext(LexExtension::As(vec!["i"]), ()),
+                            Expr::ext(LexExtension::Ident("i"), ()),
+                            Expr::print(()),
+                            Expr::ext(LexExtension::Ident("i"), ()),
+                            Expr::literal(1u32, ()),
+                            Expr::binop(BinOp::Add, ()),
+                        ],
+                        (),
+                    ),
+                    (),
+                ),
+                Expr::ext(LexExtension::Ident("drop"), ()),
+            ],
+            (),
+        ),
+    )
+}
+
 fn main() {
     let mut inference = TypeInference::new();
     let fns = vec![
@@ -242,6 +288,8 @@ fn main() {
         bind_test(),
         dup(&mut inference),
         gen_call(),
+        haystack_drop(&mut inference),
+        wile(),
     ];
 
     let mut env = HashMap::new();

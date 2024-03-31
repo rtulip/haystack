@@ -53,6 +53,10 @@ where
                         .flatten(),
                 );
             }
+            crate::expr::ExprBase::While { condition, body } => {
+                to_monomorphise.extend(condition.into_iter().map(|e| e.find_monomorphizations(env, fn_idents, fn_names)).flatten());
+                to_monomorphise.extend(body.find_monomorphizations(env, fn_idents, fn_names));
+            },
             crate::expr::ExprBase::Call(func) => {
                 // If the called function is free (i.e. has any free variables)
                 // and this call expression has been type-checked into a function

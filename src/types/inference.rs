@@ -49,7 +49,7 @@ pub enum Typing {
 enum InferenceError {
     StackUnderflow,
     ExtensionExpressionReached,
-    ConditionalsDifferentStackLengths(Stack, Stack),
+    DifferentStackLengths(Stack, Stack),
 }
 
 enum TypeUnificationError {
@@ -203,6 +203,46 @@ impl TypeInference {
                     (expr.meta, ConstrainedType::new(None, constraints)),
                 ))
             }
+            crate::expr::ExprBase::While { condition, body } => {
+                let stack_before = stack.clone();
+
+                let mut condition_env = env.clone();
+                let condition = condition
+                    .into_iter()
+                    .map(|e| self.infer(stack, &mut condition_env, e))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                // Pop a boolean off the top of the stack to see if body should be run.
+                let cond_t = stack.pop().ok_or_else(|| InferenceError::StackUnderflow)?;
+
+                let body = self.infer(stack, env, *body)?;
+
+                let mut constraints = vec![Constraint::Equal(cond_t, Type::Bool)];
+                condition.iter().for_each(|e| {
+                    e.for_each_meta(|(_, constrained_ty)| {
+                        constraints.extend(constrained_ty.constriants.clone())
+                    })
+                });
+
+                constraints.extend(body.meta.1.constriants.clone());
+
+                // Make sure that the stack lengths didn't change from before the while loop and after.
+                if stack_before.len() != stack.len()
+                {
+                    return Err(InferenceError::DifferentStackLengths(stack_before, stack.clone()))
+                }
+
+                // Make sure that each type on the stack is the same as before the loop
+                stack_before.into_iter().zip(stack.clone().into_iter()).for_each(|(t1, t2)| {
+                    constraints.push(Constraint::Equal(t1, t2))
+                });
+
+                Ok(Expr::wile(
+                    condition,
+                    body,
+                    (expr.meta, ConstrainedType::new(None, constraints)),
+                ))
+            }
             crate::expr::ExprBase::BinOp(op) => match op {
                 BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Mod => {
                     let right = stack.pop().ok_or_else(|| InferenceError::StackUnderflow)?;
@@ -280,7 +320,7 @@ impl TypeInference {
                 let otherwise = self.infer(&mut otherwise_stack, env, *otherwise)?;
 
                 if then_stack.len() != otherwise_stack.len() {
-                    return Err(InferenceError::ConditionalsDifferentStackLengths(
+                    return Err(InferenceError::DifferentStackLengths(
                         then_stack,
                         otherwise_stack,
                     ));
@@ -478,6 +518,22 @@ impl TypeInference {
 
                 (unbound, Expr::block(exprs, expr.meta))
             }
+            crate::expr::ExprBase::While { condition, body } => {
+                let mut unbound = HashSet::new();
+                let condition = condition
+                    .into_iter()
+                    .map(|e| self.substitute_expr(e))
+                    .map(|(ub, e)| {
+                        unbound.extend(ub);
+                        e
+                    })
+                    .collect::<Vec<_>>();
+                
+                let (ub, body) = self.substitute_expr(*body);
+                unbound.extend(ub);
+
+                (unbound, Expr::wile(condition, body, expr.meta))
+            },
             crate::expr::ExprBase::BinOp(_) => (HashSet::new(), expr),
             crate::expr::ExprBase::Call(Var::Func(f)) => {
                 let func = expr
@@ -554,7 +610,7 @@ impl TypeInference {
             InferenceError::ExtensionExpressionReached => {
                 TypeCheckError::ExtensionExpressionReached
             }
-            InferenceError::ConditionalsDifferentStackLengths(then, otherwise) => {
+            InferenceError::DifferentStackLengths(then, otherwise) => {
                 TypeCheckError::StacksDiffer(then, otherwise)
             }
         })?;

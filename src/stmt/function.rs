@@ -7,6 +7,8 @@ use crate::{
     types::{ConstrainedType, Stack, Type, TypeCheckError, TypeInference, TypeVar, Var},
 };
 
+use super::ExternDecl;
+
 #[derive(Debug, Clone)]
 pub struct TypeParameter<'src> {
     name: &'src str,
@@ -27,11 +29,13 @@ impl<'src, M> Function<'src, M, ()> {
         self,
         inference: &mut TypeInference,
         parent_env: &HashMap<Var, Type>,
+        extern_fns: &HashMap<usize, ExternDecl<'src>>,
     ) -> Result<Function<'src, (M, ConstrainedType), ()>, (&'src str, TypeCheckError)> {
         let (e, _scheme) = inference
             .type_check(
                 self.body,
                 parent_env,
+                extern_fns,
                 &mut self.input.clone(),
                 self.output.clone(),
                 self.type_vars.iter().map(|param| &param.tyvar).collect(),
@@ -100,13 +104,16 @@ impl<'src, M, E> Function<'src, M, E> {
     pub fn into_ssa_form(
         self,
         env: &HashMap<Var, Type>,
+        extern_fns: &HashMap<usize, ExternDecl<'src>>,
         fn_names: &'src HashMap<usize, String>,
     ) -> Option<Function<'src, Assignment<'src>, CSsaExtension<'src>>> {
         if !self.type_vars.is_empty() {
             return None;
         }
 
-        let mut body = self.body.into_ssa_form(self.input.clone(), env, fn_names);
+        let mut body = self
+            .body
+            .into_ssa_form(self.input.clone(), env, extern_fns, fn_names);
 
         if !self.output.is_empty() {
             let ty = CType::from(
@@ -136,4 +143,3 @@ impl<'src, M, E> Function<'src, M, E> {
         Some(Function::new(self.name, self.input, self.output, body))
     }
 }
-

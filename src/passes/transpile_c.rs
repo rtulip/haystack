@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 
 use crate::{
-    expr::{Expr, Literal}, passes::CVar, stmt::{ExternDecl, Function}, types::Var
+    expr::{Expr, Literal},
+    passes::CVar,
+    stmt::{ExternDecl, Function},
+    types::Var,
 };
 
 use super::{Assignment, CSsaExtension, CType};
@@ -193,6 +196,7 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
                 body.transpile(indentation + tab_size, tab_size);
                 generate!(indentation, "}}");
             }
+            crate::expr::ExprBase::ExternCall { extern_id, nargs } => todo!(),
             crate::expr::ExprBase::Ext(CSsaExtension::ExitLoop) => {
                 generate!(
                     indentation,
@@ -210,9 +214,6 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
             match &a.input {
                 Some(input) => input.iter().for_each(|var| {
                     let t = &var.ty;
-
-                    eprintln!("  t: {t}");
-
                     let k = format!("{t}");
                     if !types.contains_key(&k) {
                         types.insert(k, t.clone());
@@ -225,8 +226,7 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
                 Some(single) if single.len() == 1 => {
                     let var = &single[0];
                     let t = &var.ty;
-
-                    let k = format!("  {t}");
+                    let k = format!("{t}");
                     if !types.contains_key(&k) {
                         types.insert(k, t.clone());
                     }
@@ -234,7 +234,7 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
                 Some(vars) => {
                     let ty =
                         CType::tuple(vars.iter().map(|var| var.ty.clone()).collect::<Vec<_>>());
-                    let k = format!("  {ty}");
+                    let k = format!("{ty}");
                     if !types.contains_key(&k) {
                         types.insert(k, ty);
                     }
@@ -286,7 +286,6 @@ impl<'src> Function<'src, Assignment<'src>, CSsaExtension<'src>> {
         generate!(indentation, "");
     }
 }
-
 
 impl<'src> CType<'src> {
     pub fn transpile(&self, indentation: usize, tab_size: usize) {
@@ -347,7 +346,7 @@ impl<'src> ExternDecl<'src> {
             generate!(
                 indentation + tab_size,
                 "{t}{}",
-                if i == len -1 { "" } else { "," }
+                if i == len - 1 { "" } else { "," }
             )
         });
         generate!(indentation, ");");

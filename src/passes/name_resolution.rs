@@ -3,13 +3,18 @@ use std::collections::HashMap;
 use crate::{expr::Expr, lex::LexExtension, stmt::Function, types::Var};
 
 impl<'src, M> Expr<'src, M, LexExtension<'src>> {
-    pub fn resolve_names(self, fn_idents: &HashMap<String, usize>) -> Expr<'src, M, ()> {
-        self.resolve_idents(fn_idents, &mut vec![])
+    pub fn resolve_names(
+        self,
+        fn_idents: &HashMap<String, usize>,
+        extern_idents: &HashMap<String, usize>,
+    ) -> Expr<'src, M, ()> {
+        self.resolve_idents(fn_idents, extern_idents, &mut vec![])
     }
 
     fn resolve_idents(
         self,
         fn_idents: &HashMap<String, usize>,
+        extern_idents: &HashMap<String, usize>,
         bound: &mut Vec<&'src str>,
     ) -> Expr<'src, M, ()> {
         match self.expr {
@@ -21,7 +26,7 @@ impl<'src, M> Expr<'src, M, LexExtension<'src>> {
                 Expr::block(
                     exprs
                         .into_iter()
-                        .map(|e| e.resolve_idents(fn_idents, &mut inner_bound))
+                        .map(|e| e.resolve_idents(fn_idents, extern_idents, &mut inner_bound))
                         .collect::<Vec<_>>(),
                     self.meta,
                 )
@@ -34,17 +39,19 @@ impl<'src, M> Expr<'src, M, LexExtension<'src>> {
                 Expr::wile(
                     condition
                         .into_iter()
-                        .map(|e| e.resolve_idents(fn_idents, &mut bound_in_condition))
+                        .map(|e| {
+                            e.resolve_idents(fn_idents, extern_idents, &mut bound_in_condition)
+                        })
                         .collect::<Vec<_>>(),
-                    body.resolve_idents(fn_idents, bound),
+                    body.resolve_idents(fn_idents, extern_idents, bound),
                     self.meta,
                 )
             }
             crate::expr::ExprBase::BinOp(op) => Expr::binop(op, self.meta),
             crate::expr::ExprBase::Call(_) => todo!(),
             crate::expr::ExprBase::If { then, otherwise } => Expr::iff(
-                then.resolve_idents(fn_idents, bound),
-                otherwise.resolve_idents(fn_idents, bound),
+                then.resolve_idents(fn_idents, extern_idents, bound),
+                otherwise.resolve_idents(fn_idents, extern_idents, bound),
                 self.meta,
             ),
 
@@ -67,6 +74,14 @@ impl<'src, M> Expr<'src, M, LexExtension<'src>> {
 
                 Expr::bind(n, self.meta)
             }
+            crate::expr::ExprBase::Ext(LexExtension::Extern(ident, n)) => {
+                if let Some(id) = extern_idents.get(ident) {
+                    Expr::xtern(*id, n, self.meta)
+                } else {
+                    todo!("Error prop")
+                }
+            }
+            crate::expr::ExprBase::ExternCall { extern_id, nargs } => todo!(),
             crate::expr::ExprBase::Bind(_) => {
                 panic!("Bind Expressions shouldn't be used before identifier resolution")
             }
@@ -78,12 +93,16 @@ impl<'src, M> Expr<'src, M, LexExtension<'src>> {
 }
 
 impl<'src, M> Function<'src, M, LexExtension<'src>> {
-    pub fn resolve_names(self, fn_idents: &HashMap<String, usize>) -> Function<'src, M, ()> {
+    pub fn resolve_names(
+        self,
+        fn_idents: &HashMap<String, usize>,
+        extern_idents: &HashMap<String, usize>,
+    ) -> Function<'src, M, ()> {
         Function {
             name: self.name,
             input: self.input,
             output: self.output,
-            body: self.body.resolve_names(fn_idents),
+            body: self.body.resolve_names(fn_idents, extern_idents),
             type_vars: self.type_vars,
         }
     }

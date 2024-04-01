@@ -5,6 +5,7 @@ use std::{
 
 use crate::{
     expr::{BinOp, Expr, ExprBase, Literal},
+    stmt::ExternDecl,
     types::{Stack, Type, Var},
 };
 
@@ -286,10 +287,18 @@ impl<'src, M, E> Expr<'src, M, E> {
         self,
         stack: Stack,
         env: &HashMap<Var, Type>,
+        extern_fns: &HashMap<usize, ExternDecl<'src>>,
         fn_names: &'src HashMap<usize, String>,
     ) -> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
         let (mut stack, mut counter) = CVar::from_stack(stack);
-        self.get_var_ids(&mut stack, &mut counter, env, fn_names, &mut HashMap::new())
+        self.get_var_ids(
+            &mut stack,
+            &mut counter,
+            env,
+            extern_fns,
+            fn_names,
+            &mut HashMap::new(),
+        )
     }
 
     fn get_var_ids(
@@ -297,6 +306,7 @@ impl<'src, M, E> Expr<'src, M, E> {
         stack: &mut Vec<CVar<'src>>,
         counter: &mut usize,
         env: &HashMap<Var, Type>,
+        extern_fns: &HashMap<usize, ExternDecl<'src>>,
         fn_names: &'src HashMap<usize, String>,
         bound: &mut HashMap<usize, CVar<'src>>,
     ) -> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
@@ -329,7 +339,7 @@ impl<'src, M, E> Expr<'src, M, E> {
             crate::expr::ExprBase::Block(exprs) => {
                 let mut exprs: Vec<_> = exprs
                     .into_iter()
-                    .map(|e| e.get_var_ids(stack, counter, env, fn_names, bound))
+                    .map(|e| e.get_var_ids(stack, counter, env, extern_fns, fn_names, bound))
                     .collect();
 
                 // we need to be able to "return" from a block, this means that we may need to
@@ -497,14 +507,47 @@ impl<'src, M, E> Expr<'src, M, E> {
                     },
                 )
             }
+
+            crate::expr::ExprBase::ExternCall { extern_id, nargs } => {
+                let extern_fn = extern_fns
+                    .get(&extern_id)
+                    .expect("call vars should be resolveable");
+
+                let input = stack.split_off(stack.len() - nargs);
+
+                let output = match &extern_fn.output {
+                    CType::Variadic => unreachable!(),
+                    CType::Void => None,
+                    ty => {
+                        let var = CVar::new(ty.clone(), counter);
+                        stack.push(var.clone());
+                        Some(vec![var])
+                    }
+                };
+
+                Expr::ext(
+                    CSsaExtension::Call(extern_fn.name),
+                    Assignment {
+                        input: Some(input),
+                        output,
+                    },
+                )
+            }
             crate::expr::ExprBase::If { then, otherwise } => {
                 let condition = stack.pop().unwrap();
                 assert!(condition.ty == CType::Bool);
                 let mut then_stack = stack.clone();
                 let mut otherwise_stack = stack.clone();
-                let then = then.get_var_ids(&mut then_stack, counter, env, fn_names, bound);
-                let otherwise =
-                    otherwise.get_var_ids(&mut otherwise_stack, counter, env, fn_names, bound);
+                let then =
+                    then.get_var_ids(&mut then_stack, counter, env, extern_fns, fn_names, bound);
+                let otherwise = otherwise.get_var_ids(
+                    &mut otherwise_stack,
+                    counter,
+                    env,
+                    extern_fns,
+                    fn_names,
+                    bound,
+                );
 
                 // collect the outputs into a vector (if any)
                 match (&then.meta.output, &otherwise.meta.output) {
@@ -584,7 +627,7 @@ impl<'src, M, E> Expr<'src, M, E> {
 
                 let mut condition: Vec<_> = condition
                     .into_iter()
-                    .map(|e| e.get_var_ids(stack, counter, env, fn_names, bound))
+                    .map(|e| e.get_var_ids(stack, counter, env, extern_fns, fn_names, bound))
                     .collect();
 
                 let var = stack.pop().unwrap();
@@ -597,7 +640,7 @@ impl<'src, M, E> Expr<'src, M, E> {
                     },
                 ));
 
-                let mut body = body.get_var_ids(stack, counter, env, fn_names, bound);
+                let mut body = body.get_var_ids(stack, counter, env, extern_fns, fn_names, bound);
 
                 assert!(before.len() == stack.len());
                 match &mut body.expr {

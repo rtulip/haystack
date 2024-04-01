@@ -5,6 +5,7 @@ use std::{
 
 use crate::{
     expr::{BinOp, Expr, Literal},
+    stmt::ExternDecl,
     types::{constraint, FunctionType},
     union_find::{UnifiactionError, UnificationTable},
 };
@@ -138,6 +139,7 @@ impl TypeInference {
         &mut self,
         stack: &mut Stack,
         env: &mut HashMap<Var, Type>,
+        extern_fns: &HashMap<usize, ExternDecl<'a>>,
         expr: Expr<'a, M, ()>,
     ) -> Result<Expr<'a, (M, ConstrainedType), ()>, InferenceError> {
         match expr.expr {
@@ -188,7 +190,7 @@ impl TypeInference {
 
                 let exprs = exprs
                     .into_iter()
-                    .map(|e| self.infer(stack, &mut local_env, e))
+                    .map(|e| self.infer(stack, &mut local_env, extern_fns, e))
                     .collect::<Result<Vec<_>, _>>()?;
 
                 let mut constraints = vec![];
@@ -209,13 +211,13 @@ impl TypeInference {
                 let mut condition_env = env.clone();
                 let condition = condition
                     .into_iter()
-                    .map(|e| self.infer(stack, &mut condition_env, e))
+                    .map(|e| self.infer(stack, &mut condition_env, extern_fns, e))
                     .collect::<Result<Vec<_>, _>>()?;
 
                 // Pop a boolean off the top of the stack to see if body should be run.
                 let cond_t = stack.pop().ok_or_else(|| InferenceError::StackUnderflow)?;
 
-                let body = self.infer(stack, env, *body)?;
+                let body = self.infer(stack, env, extern_fns, *body)?;
 
                 let mut constraints = vec![Constraint::Equal(cond_t, Type::Bool)];
                 condition.iter().for_each(|e| {
@@ -319,8 +321,8 @@ impl TypeInference {
                 let mut then_stack = stack.clone();
                 let mut otherwise_stack = stack.clone();
 
-                let then = self.infer(&mut then_stack, env, *then)?;
-                let otherwise = self.infer(&mut otherwise_stack, env, *otherwise)?;
+                let then = self.infer(&mut then_stack, env, extern_fns, *then)?;
+                let otherwise = self.infer(&mut otherwise_stack, env, extern_fns, *otherwise)?;
 
                 if then_stack.len() != otherwise_stack.len() {
                     return Err(InferenceError::DifferentStackLengths(
@@ -366,6 +368,50 @@ impl TypeInference {
                 Ok(Expr::var(
                     var,
                     (expr.meta, ConstrainedType::new(Some(ty.clone()), [])),
+                ))
+            }
+            crate::expr::ExprBase::ExternCall { extern_id, nargs } => {
+                if stack.len() < nargs {
+                    return Err(InferenceError::StackUnderflow);
+                }
+
+                let decl = extern_fns
+                    .get(&extern_id)
+                    .expect("Extern functions should be resolvable");
+                let popped = stack.split_off(stack.len() - nargs);
+
+                let mut constraints = vec![];
+                for (i, ty) in decl.input.iter().enumerate() {
+                    match ty {
+                        crate::passes::CType::Variadic => {
+                            // Variadic arguments can take an arbitrary number
+                            // elements off of the stack, so we'll just stop
+                            // checking here.
+                            assert!(i == decl.input.len() - 1, "Variadic arguments can only be the last argument");
+                            break;
+                        },
+                        crate::passes::CType::Void => panic!("Can't accept a void type as argument"),
+                        c_ty => {
+                            if let Some(ty) = popped.get(i)
+                            {
+                                constraints.push(Constraint::Equal(c_ty.clone().into(), ty.clone()));
+                            } else {
+                                return Err(InferenceError::StackUnderflow)
+                            }
+                        }
+                    }
+                }
+
+                match &decl.output {
+                    crate::passes::CType::Void => (),
+                    crate::passes::CType::Variadic => unreachable!(),
+                    t => stack.push(t.clone().into()),
+                }
+
+                Ok(Expr::xtern(
+                    extern_id,
+                    nargs,
+                    (expr.meta, ConstrainedType::new(None, constraints)),
                 ))
             }
             crate::expr::ExprBase::Ext(_) => Err(InferenceError::ExtensionExpressionReached),
@@ -594,6 +640,14 @@ impl TypeInference {
                     Expr::var(var, (expr.meta.0, ConstrainedType::new(Some(ty), []))),
                 )
             }
+            crate::expr::ExprBase::ExternCall { extern_id, nargs } => (
+                HashSet::new(),
+                Expr::xtern(
+                    extern_id,
+                    nargs,
+                    (expr.meta.0, ConstrainedType::new(None, [])),
+                ),
+            ),
             crate::expr::ExprBase::Ext(_) => unreachable!(),
         }
     }
@@ -602,21 +656,24 @@ impl TypeInference {
         &mut self,
         expr: Expr<'a, M, ()>,
         parent_env: &HashMap<Var, Type>,
+        extern_fns: &HashMap<usize, ExternDecl<'a>>,
         stack: &mut Stack,
         target: Stack,
         ty_vars_in_scope: Vec<&TypeVar>,
     ) -> Result<(Expr<'a, (M, ConstrainedType), ()>, Scheme), TypeCheckError> {
         let (mut unbound, _) = self.substitute(stack.clone());
         let mut env = parent_env.clone();
-        let mut out = self.infer(stack, &mut env, expr).map_err(|e| match e {
-            InferenceError::StackUnderflow => TypeCheckError::StackUnderflow,
-            InferenceError::ExtensionExpressionReached => {
-                TypeCheckError::ExtensionExpressionReached
-            }
-            InferenceError::DifferentStackLengths(then, otherwise) => {
-                TypeCheckError::StacksDiffer(then, otherwise)
-            }
-        })?;
+        let mut out = self
+            .infer(stack, &mut env, extern_fns, expr)
+            .map_err(|e| match e {
+                InferenceError::StackUnderflow => TypeCheckError::StackUnderflow,
+                InferenceError::ExtensionExpressionReached => {
+                    TypeCheckError::ExtensionExpressionReached
+                }
+                InferenceError::DifferentStackLengths(then, otherwise) => {
+                    TypeCheckError::StacksDiffer(then, otherwise)
+                }
+            })?;
 
         out.meta
             .1

@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt::Debug};
 
 use crate::{
     expr::Expr,
-    stmt::Function,
+    stmt::{ExternDecl, Function},
     types::{ConstrainedType, Type, TypeInference, Var},
 };
 
@@ -32,7 +32,8 @@ where
             | crate::expr::ExprBase::Literal(_)
             | crate::expr::ExprBase::Print
             | crate::expr::ExprBase::PrintString
-            | crate::expr::ExprBase::Var(_) => {
+            | crate::expr::ExprBase::Var(_)
+            | crate::expr::ExprBase::ExternCall { .. } => {
                 // Non-function calls don't need any monomorphizations
             }
             crate::expr::ExprBase::Block(ref mut exprs) => {
@@ -118,7 +119,6 @@ where
                     }
                 }
             }
-
             crate::expr::ExprBase::Ext(_) => unreachable!(),
         };
 
@@ -162,6 +162,7 @@ pub fn resolve_monomorphizations<'src, M>(
     to_monomorphise: Vec<(Var, usize, ConstrainedType)>,
     mut fns: Vec<Function<'src, (M, ConstrainedType), ()>>,
     env: &mut HashMap<Var, Type>,
+    extern_fns: &HashMap<usize, ExternDecl<'src>>,
     fn_names: &'src HashMap<usize, String>,
     inference: &mut TypeInference,
 ) -> Vec<Function<'src, (M, ConstrainedType), ()>>
@@ -210,7 +211,7 @@ where
     let monomorphized = monomorphized
         .into_iter()
         .map(|func| {
-            func.type_check(inference, &env)
+            func.type_check(inference, &env, extern_fns)
                 .expect("Monomorphized functions should type check")
         })
         .collect::<Vec<_>>();

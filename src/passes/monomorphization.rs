@@ -31,10 +31,9 @@ where
             crate::expr::ExprBase::BinOp(_)
             | crate::expr::ExprBase::Bind(_)
             | crate::expr::ExprBase::Literal(_)
-            | crate::expr::ExprBase::Print
-            | crate::expr::ExprBase::PrintString
             | crate::expr::ExprBase::Var(_)
-            | crate::expr::ExprBase::ExternCall { .. } => {
+            | crate::expr::ExprBase::ExternCall { .. }
+            | crate::expr::ExprBase::VarAccessor(_, _) => {
                 // Non-function calls don't need any monomorphizations
             }
             crate::expr::ExprBase::Block(ref mut exprs) => {

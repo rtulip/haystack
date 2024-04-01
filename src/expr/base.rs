@@ -22,8 +22,6 @@ use super::BinOp;
 #[derive(Debug, Clone)]
 pub enum ExprBase<'src, M, E> {
     Literal(Literal<'src>),
-    Print,
-    PrintString,
     Block(Vec<Expr<'src, M, E>>),
     BinOp(BinOp),
     Call(Var),
@@ -39,6 +37,7 @@ pub enum ExprBase<'src, M, E> {
     Var(Var),
     Ext(E),
     ExternCall(usize),
+    VarAccessor(Var, Vec<&'src str>),
 }
 
 /// Expressions
@@ -74,20 +73,6 @@ impl<'src, M, E> Expr<'src, M, E> {
     {
         Expr {
             expr: ExprBase::<M, E>::Block(block.into()),
-            meta,
-        }
-    }
-
-    pub fn print(meta: M) -> Self {
-        Expr {
-            expr: ExprBase::<M, E>::Print,
-            meta,
-        }
-    }
-
-    pub fn print_string(meta: M) -> Self {
-        Expr {
-            expr: ExprBase::<M, E>::PrintString,
             meta,
         }
     }
@@ -142,6 +127,19 @@ impl<'src, M, E> Expr<'src, M, E> {
         assert!(matches!(var, Var::Ident(_)));
         Self {
             expr: ExprBase::Var(var),
+            meta,
+        }
+    }
+
+    pub fn accessors<Inner>(var: Var, inner: Inner, meta: M) -> Self
+    where
+        Inner: Into<Vec<&'src str>>,
+    {
+        let inner = inner.into();
+        assert!(inner.len() >= 1);
+
+        Self {
+            expr: ExprBase::VarAccessor(var, inner),
             meta,
         }
     }
@@ -209,8 +207,6 @@ impl<'src, M, E> Expr<'src, M, E> {
         ) -> Expr<'a, M2, E> {
             match e.expr {
                 ExprBase::Literal(lit) => Expr::literal(lit, f(e.meta)),
-                ExprBase::Print => Expr::print(f(e.meta)),
-                ExprBase::PrintString => Expr::print_string(f(e.meta)),
                 ExprBase::Block(exprs) => Expr::block(
                     exprs.into_iter().map(|e| helper(e, f)).collect::<Vec<_>>(),
                     f(e.meta),
@@ -222,6 +218,7 @@ impl<'src, M, E> Expr<'src, M, E> {
                 }
                 ExprBase::Bind(n) => Expr::bind(n, f(e.meta)),
                 ExprBase::Var(var) => Expr::var(var, f(e.meta)),
+                ExprBase::VarAccessor(var, accessors) => todo!(),
                 ExprBase::Ext(ext) => Expr::ext(ext, f(e.meta)),
                 ExprBase::While { condition, body } => Expr::wile(
                     condition

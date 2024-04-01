@@ -161,6 +161,25 @@ impl CType {
             _ => panic!("Expected a function!"),
         }
     }
+
+    pub fn access_inner(&self, inner: &[&str]) -> Result<&Self, ()> {
+        assert!(inner.len() >= 1);
+
+        match self {
+            CType::Struct { name, elements } => {
+                if let Some((_, ty)) = elements.iter().find(|(id, _)| id == inner[0]) {
+                    if inner.len() == 1 {
+                        Ok(ty)
+                    } else {
+                        ty.access_inner(&inner[1..])
+                    }
+                } else {
+                    Err(())
+                }
+            }
+            _ => Err(()),
+        }
+    }
 }
 
 impl<'src> From<Vec<CType>> for CType {

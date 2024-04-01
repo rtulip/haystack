@@ -18,55 +18,6 @@ use crate::{
     types::{Type, TypeInference, Var},
 };
 
-fn example() -> Stmt<'static, (), LexExtension<'static>> {
-    Stmt::function(Function::new(
-        "main",
-        [],
-        [],
-        Expr::block(
-            [
-                Expr::literal(0u32, ()),
-                Expr::wile(
-                    [
-                        Expr::ext(LexExtension::Ident("dup"), ()),
-                        Expr::literal(20u32, ()),
-                        Expr::binop(BinOp::Lt, ()),
-                    ],
-                    Expr::block(
-                        [
-                            Expr::ext(LexExtension::As(vec!["i"]), ()),
-                            Expr::ext(LexExtension::Ident("i"), ()),
-                            Expr::print(()),
-                            Expr::literal(": ", ()),
-                            Expr::print_string(()),
-                            Expr::ext(LexExtension::Ident("i"), ()),
-                            Expr::ext(LexExtension::Ident("fib"), ()),
-                            Expr::print(()),
-                            Expr::literal("\\n", ()),
-                            Expr::print_string(()),
-                            Expr::ext(LexExtension::Ident("i"), ()),
-                            Expr::literal(1u32, ()),
-                            Expr::binop(BinOp::Add, ()),
-                        ],
-                        (),
-                    ),
-                    (),
-                ),
-                Expr::ext(LexExtension::Ident("drop"), ()),
-            ],
-            (),
-        ),
-    ))
-}
-
-/// fn fib(u64: n) -> [u64] {
-///     n 2 < if {
-///         1
-///     } else {
-///         n 1 - fib
-///         n 2 - fib +
-///     }
-/// }
 fn fib() -> Stmt<'static, (), LexExtension<'static>> {
     Stmt::function(Function::new(
         "fib",
@@ -131,13 +82,6 @@ fn haystack_drop(ctx: &mut TypeInference) -> Stmt<'static, (), LexExtension<'sta
     ))
 }
 
-fn string() -> Stmt<'static, (), LexExtension<'static>> {
-    Stmt::strukt(
-        "Str",
-        vec![("size", Type::U32), ("string", Type::pointer(Type::U8))],
-    )
-}
-
 fn printf() -> Stmt<'static, (), LexExtension<'static>> {
     Stmt::xtern(
         "printf",
@@ -162,9 +106,7 @@ fn call_foo() -> Stmt<'static, (), LexExtension<'static>> {
         Expr::block(
             [
                 Expr::ext(LexExtension::Ident("foo"), ()),
-                Expr::print(()),
-                Expr::literal("\\n", ()),
-                Expr::print_string(()),
+                Expr::ext(LexExtension::Ident("hs_putlnu"), ()),
                 Expr::literal(5u32, ()),
                 Expr::ext(LexExtension::Ident("bar"), ()),
             ],
@@ -172,6 +114,78 @@ fn call_foo() -> Stmt<'static, (), LexExtension<'static>> {
         ),
     ))
 }
+
+fn hs_puts() -> Stmt<'static, (), LexExtension<'static>> {
+    Stmt::function(Function::new(
+        "hs_puts",
+        [Type::string()],
+        [],
+        Expr::block(
+            [
+                Expr::literal("%.*s", ()),
+                Expr::ext(LexExtension::As(vec!["s", "fmt"]), ()),
+                Expr::ext(LexExtension::IdentSeq(vec!["fmt", "data"]), ()),
+                Expr::ext(LexExtension::IdentSeq(vec!["s", "size"]), ()),
+                Expr::ext(LexExtension::IdentSeq(vec!["s", "data"]), ()),
+                Expr::ext(LexExtension::Ident("printf"), ()),
+                Expr::ext(LexExtension::Ident("drop"), ()),
+            ],
+            (),
+        ),
+    ))
+}
+
+fn hs_putlns() -> Stmt<'static, (), LexExtension<'static>> {
+    Stmt::function(Function::new(
+        "hs_putlns",
+        [Type::string()],
+        [],
+        Expr::block(
+            [
+                Expr::ext(LexExtension::Ident("hs_puts"), ()),
+                Expr::literal("\\n", ()),
+                Expr::ext(LexExtension::Ident("hs_puts"), ()),
+            ],
+            (),
+        ),
+    ))
+}
+
+fn hs_putu() -> Stmt<'static, (), LexExtension<'static>> {
+    Stmt::function(Function::new(
+        "hs_putu",
+        [Type::U32],
+        [],
+        Expr::block(
+            [
+                Expr::literal("%u", ()),
+                Expr::ext(LexExtension::As(vec!["n", "fmt"]), ()),
+                Expr::ext(LexExtension::IdentSeq(vec!["fmt", "data"]), ()),
+                Expr::ext(LexExtension::Ident("n"), ()),
+                Expr::ext(LexExtension::Ident("printf"), ()),
+                Expr::ext(LexExtension::Ident("drop"), ()),
+            ],
+            (),
+        ),
+    ))
+}
+
+fn hs_putlnu() -> Stmt<'static, (), LexExtension<'static>> {
+    Stmt::function(Function::new(
+        "hs_putlnu",
+        [Type::U32],
+        [],
+        Expr::block(
+            [
+                Expr::ext(LexExtension::Ident("hs_putu"), ()),
+                Expr::literal("\\n", ()),
+                Expr::ext(LexExtension::Ident("hs_puts"), ()),
+            ],
+            (),
+        ),
+    ))
+}
+
 fn main() {
     let mut inference = TypeInference::new();
 
@@ -185,6 +199,10 @@ fn main() {
         foo(),
         bar(),
         call_foo(),
+        hs_puts(),
+        hs_putlns(),
+        hs_putu(),
+        hs_putlnu(),
     ];
     let mut extern_fns = HashMap::new();
     let mut extern_names = HashMap::new();

@@ -19,8 +19,6 @@ impl<'src, M> Expr<'src, M, LexExtension<'src>> {
     ) -> Expr<'src, M, ()> {
         match self.expr {
             crate::expr::ExprBase::Literal(lit) => Expr::literal(lit, self.meta),
-            crate::expr::ExprBase::Print => Expr::print(self.meta),
-            crate::expr::ExprBase::PrintString => Expr::print_string(self.meta),
             crate::expr::ExprBase::Block(exprs) => {
                 let mut inner_bound = bound.clone();
                 Expr::block(
@@ -76,6 +74,20 @@ impl<'src, M> Expr<'src, M, LexExtension<'src>> {
 
                 Expr::bind(n, self.meta)
             }
+            crate::expr::ExprBase::Ext(LexExtension::IdentSeq(seq)) => {
+                assert!(seq.len() >= 2);
+
+                if let Some((idx, _)) = bound
+                    .iter()
+                    .enumerate()
+                    .rev()
+                    .find(|(_, id)| *id == &seq[0])
+                {
+                    Expr::accessors(Var::Ident(idx), &seq[1..], self.meta)
+                } else {
+                    todo!("Ident `{}` not found", &seq[0]);
+                }
+            }
             crate::expr::ExprBase::ExternCall(id) => todo!(),
             crate::expr::ExprBase::Bind(_) => {
                 panic!("Bind Expressions shouldn't be used before identifier resolution")
@@ -83,6 +95,7 @@ impl<'src, M> Expr<'src, M, LexExtension<'src>> {
             crate::expr::ExprBase::Var(_) => {
                 panic!("Var Expressions shouldn't be used before identifier resolution")
             }
+            crate::expr::ExprBase::VarAccessor(var, accessors) => todo!(),
         }
     }
 }

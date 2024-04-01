@@ -61,7 +61,9 @@ impl Type {
                 input.iter().chain(output.iter()).any(|ty| ty.is_free())
             }
             Type::U32 | Type::U8 | Type::Bool | Type::Never => false,
-            Type::Struct(_) => todo!(),
+            Type::Struct(strukt) => {
+                strukt.members.iter().any(|(_, ty)| ty.is_free())
+            },
         }
     }
 
@@ -87,6 +89,32 @@ impl Type {
                 ("data".into(), Type::pointer(Type::U8)),
             ],
         })
+    }
+
+    pub fn access_inner(&self, inners: &[&str]) -> Result<&Self, ()> {
+        assert!(!inners.is_empty());
+
+        match self {
+            Type::Struct(strukt) => {
+                if let Some((_, ty)) = strukt.members.iter().find(|(id, _)| id == inners[0]) {
+                    if inners.len() == 1 {
+                        dbg!(&self, inners, ty);
+                        Ok(ty)
+                    } else {
+                        ty.access_inner(&inners[1..])
+                    }
+                } else {
+                    Err(())
+                }
+            }
+            Type::Never
+            | Type::U32
+            | Type::U8
+            | Type::Bool
+            | Type::Var(_)
+            | Type::Pointer { .. }
+            | Type::Func(_) => Err(()),
+        }
     }
 }
 

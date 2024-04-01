@@ -168,20 +168,6 @@ impl TypeInference {
                     (expr.meta, ConstrainedType::new(None, [])),
                 ))
             }
-            crate::expr::ExprBase::Print => {
-                let t = stack.pop().ok_or_else(|| InferenceError::StackUnderflow)?;
-                Ok(Expr::print((
-                    expr.meta,
-                    ConstrainedType::new(None, [Constraint::Equal(t, Type::U32)]),
-                )))
-            }
-            crate::expr::ExprBase::PrintString => {
-                let t = stack.pop().ok_or_else(|| InferenceError::StackUnderflow)?;
-                Ok(Expr::print_string((
-                    expr.meta,
-                    ConstrainedType::new(None, [Constraint::Equal(t, Type::string())]),
-                )))
-            }
             crate::expr::ExprBase::Block(exprs) => {
                 let mut local_env = env.clone();
 
@@ -367,15 +353,31 @@ impl TypeInference {
                     (expr.meta, ConstrainedType::new(Some(ty.clone()), [])),
                 ))
             }
+            crate::expr::ExprBase::VarAccessor(var, accessors) => {
+                let ty = env.get(&var).expect("vars should be resolveable");
+                let ty = ty
+                    .access_inner(&accessors)
+                    .expect("TODO: Handle unknown inner value");
+
+                stack.push(ty.clone());
+
+                Ok(Expr::accessors(
+                    var,
+                    accessors,
+                    (expr.meta, ConstrainedType::new(Some(ty.clone()), [])),
+                ))
+            }
             crate::expr::ExprBase::ExternCall(id) => {
-                
                 let extern_fn = extern_fns
                     .get(&id)
                     .expect("Extern functions should be resolvable")
                     .expect_function();
 
+                dbg!(&extern_fn);
+
                 let popped = extern_fn.take_inputs_from_stack(stack);
-                
+
+                dbg!(&popped);
 
                 let mut constraints = vec![];
                 for (i, ty) in extern_fn.input.iter().enumerate() {
@@ -547,7 +549,26 @@ impl TypeInference {
                 //     )
                 // }
             }
-            Type::Struct(_) => todo!(),
+            Type::Struct(strukt) => {
+                let (subs, members) = strukt.members.into_iter().fold(
+                    (HashSet::new(), Vec::new()),
+                    |(mut substitutions, mut members), (id, ty)| {
+                        let (subs, ty) = self.substitute_one(ty);
+                        substitutions.extend(subs);
+
+                        members.push((id, ty));
+                        (substitutions, members)
+                    },
+                );
+
+                (
+                    subs,
+                    Type::Struct(StructType {
+                        name: strukt.name,
+                        members,
+                    }),
+                )
+            }
         }
     }
 
@@ -570,8 +591,6 @@ impl TypeInference {
     ) -> (HashSet<TypeVar>, Expr<'a, (M, ConstrainedType), ()>) {
         match expr.expr {
             crate::expr::ExprBase::Literal(_) => (HashSet::new(), expr),
-            crate::expr::ExprBase::Print => (HashSet::new(), expr),
-            crate::expr::ExprBase::PrintString => (HashSet::new(), expr),
             crate::expr::ExprBase::Block(exprs) => {
                 let mut unbound = HashSet::new();
                 let exprs = exprs
@@ -656,6 +675,23 @@ impl TypeInference {
                 (
                     unbound,
                     Expr::var(var, (expr.meta.0, ConstrainedType::new(Some(ty), []))),
+                )
+            }
+            crate::expr::ExprBase::VarAccessor(var, accessors) => {
+                let ty = expr
+                    .meta
+                    .1
+                    .var_ty
+                    .expect("vars should know what type they have been assigned to");
+                let (unbound, ty) = self.substitute_one(ty);
+
+                (
+                    unbound,
+                    Expr::accessors(
+                        var,
+                        accessors,
+                        (expr.meta.0, ConstrainedType::new(Some(ty), [])),
+                    ),
                 )
             }
             crate::expr::ExprBase::ExternCall(id) => (

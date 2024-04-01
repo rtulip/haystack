@@ -49,21 +49,6 @@ impl<'src> Expr<'src, Assignment, CSsaExtension<'src>> {
                     s
                 )
             }
-            crate::expr::ExprBase::Print => {
-                generate!(
-                    indentation,
-                    "printf(\"%u\", {});",
-                    self.meta.input.as_ref().unwrap()[0]
-                )
-            }
-            crate::expr::ExprBase::PrintString => {
-                generate!(
-                    indentation,
-                    "printf(\"%.*s\", {}.size, {}.data);",
-                    self.meta.input.as_ref().unwrap()[0],
-                    self.meta.input.as_ref().unwrap()[0]
-                )
-            }
             crate::expr::ExprBase::Block(exprs) => {
                 match &self.meta.output {
                     Some(output) => output
@@ -186,6 +171,19 @@ impl<'src> Expr<'src, Assignment, CSsaExtension<'src>> {
                     self.meta.output.as_ref().unwrap()[0],
                     self.meta.input.as_ref().unwrap()[0]
                 );
+            }
+            crate::expr::ExprBase::VarAccessor(_, accessors) => {
+                generate!(
+                    indentation,
+                    "{:?} = {}",
+                    self.meta.output.as_ref().unwrap()[0],
+                    self.meta.input.as_ref().unwrap()[0]
+                );
+
+                accessors
+                    .iter()
+                    .for_each(|inner| generate!(indentation + tab_size, ".{inner}"));
+                generate!(indentation + tab_size, ";");
             }
             crate::expr::ExprBase::While { condition, body } => {
                 generate!(indentation, "while (1) {{");
@@ -314,9 +312,13 @@ impl<'src> CType {
             | CType::Void
             | CType::Int
             | CType::Variadic => (),
-            CType::Function(CFunction { name, input, output}) => {
+            CType::Function(CFunction {
+                name,
+                input,
+                output,
+            }) => {
                 generate!(indentation, "{output} {name}(");
-                
+
                 input.iter().enumerate().for_each(|(i, var)| {
                     generate!(
                         indentation + tab_size,
@@ -326,8 +328,7 @@ impl<'src> CType {
                 });
 
                 generate!(indentation, ");")
-                
-            },
+            }
         }
     }
 

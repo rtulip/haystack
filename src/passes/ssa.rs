@@ -59,20 +59,6 @@ impl<'src, M, E> Expr<'src, M, E> {
                     },
                 )
             }
-            crate::expr::ExprBase::Print => {
-                let input = stack.pop().unwrap();
-                Expr::print(Assignment {
-                    input: Some(vec![input]),
-                    output: None,
-                })
-            }
-            crate::expr::ExprBase::PrintString => {
-                let input = stack.pop().unwrap();
-                Expr::print_string(Assignment {
-                    input: Some(vec![input]),
-                    output: None,
-                })
-            }
             crate::expr::ExprBase::Block(exprs) => {
                 let mut exprs: Vec<_> = exprs
                     .into_iter()
@@ -246,7 +232,6 @@ impl<'src, M, E> Expr<'src, M, E> {
             }
 
             crate::expr::ExprBase::ExternCall(id) => {
-                
                 let extern_fn = extern_fns
                     .get(&id)
                     .expect("call vars should be resolveable")
@@ -441,7 +426,25 @@ impl<'src, M, E> Expr<'src, M, E> {
                     },
                 )
             }
+
+            crate::expr::ExprBase::VarAccessor(Var::Ident(id), accessors) => {
+                let ref_var = bound.get(&id).expect("Bindings should be known");
+                let var: CVar = CVar::new(
+                    ref_var.ty.access_inner(&accessors).unwrap().clone(),
+                    counter,
+                );
+                stack.push(var.clone());
+                Expr::accessors(
+                    Var::Ident(id),
+                    accessors,
+                    Assignment {
+                        input: Some(vec![ref_var.clone()]),
+                        output: Some(vec![var]),
+                    },
+                )
+            }
             crate::expr::ExprBase::Var(Var::Func(_)) => unreachable!(),
+            crate::expr::ExprBase::VarAccessor(Var::Func(_), ..) => unreachable!(),
             crate::expr::ExprBase::Ext(_) => todo!(),
         }
     }

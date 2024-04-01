@@ -1,8 +1,9 @@
 use std::{collections::HashMap, fmt::Debug};
 
 use crate::{
+    c::CType,
     expr::Expr,
-    stmt::{ExternDecl, Function},
+    stmt::Function,
     types::{ConstrainedType, Type, TypeInference, Var},
 };
 
@@ -162,7 +163,7 @@ pub fn resolve_monomorphizations<'src, M>(
     to_monomorphise: Vec<(Var, usize, ConstrainedType)>,
     mut fns: Vec<Function<'src, (M, ConstrainedType), ()>>,
     env: &mut HashMap<Var, Type>,
-    extern_fns: &HashMap<usize, ExternDecl<'src>>,
+    extern_fns: &HashMap<usize, CType>,
     fn_names: &'src HashMap<usize, String>,
     inference: &mut TypeInference,
 ) -> Vec<Function<'src, (M, ConstrainedType), ()>>

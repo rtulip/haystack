@@ -1,8 +1,34 @@
-use std::{collections::VecDeque, fmt::{Debug, Display}};
+use std::{
+    collections::VecDeque,
+    fmt::{Debug, Display},
+};
 
-use crate::{expr::Literal, types::{Stack, Type}};
+use crate::{
+    expr::Literal,
+    types::{FunctionType, Stack, Type},
+};
 
 use super::var::CVar;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CFunction {
+    pub name: String,
+    pub input: Vec<CType>,
+    pub output: Box<CType>,
+}
+
+impl CFunction {
+    pub fn take_inputs_from_stack<T>(&self, stack: &mut Vec<T>) -> Vec<T> {
+        match self.input.last() {
+            Some(CType::Variadic) => stack.drain(..).collect::<Vec<_>>(),
+            Some(_) => {
+                assert!(!self.input.contains(&CType::Variadic));
+                stack.split_off(stack.len() - self.input.len())
+            }
+            None => vec![],
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CType {
@@ -18,11 +44,12 @@ pub enum CType {
     Tuple(Vec<CType>),
     Pointer(Box<CType>),
 
+    Function(CFunction),
     Int,
     Variadic,
 }
 
-impl<'src> CType {
+impl CType {
     pub fn pointer(ty: CType) -> Self {
         CType::Pointer(Box::new(ty))
     }
@@ -32,6 +59,19 @@ impl<'src> CType {
         Ts: Into<Vec<CType>>,
     {
         CType::Tuple(ts.into())
+    }
+
+    pub fn function<S, In, Out>(name: S, input: In, output: Out) -> Self
+    where
+        S: Into<String>,
+        In: Into<Vec<CType>>,
+        Out: Into<CType>,
+    {
+        CType::Function(CFunction {
+            name: name.into(),
+            input: input.into(),
+            output: Box::new(output.into()),
+        })
     }
 
     fn structs_referenced(&self) -> Option<&Self> {
@@ -45,6 +85,7 @@ impl<'src> CType {
             | CType::Void
             | CType::Int
             | CType::Variadic => None,
+            CType::Function { .. } => todo!(),
         }
     }
 
@@ -68,6 +109,7 @@ impl<'src> CType {
                 .flatten()
                 .collect(),
             CType::Pointer(ty) => ty.structs_referenced().into_iter().collect(),
+            CType::Function { .. } => todo!(),
         }
     }
 
@@ -112,6 +154,13 @@ impl<'src> CType {
 
         Ok(out)
     }
+
+    pub fn expect_function(&self) -> &CFunction {
+        match self {
+            CType::Function(f) => f,
+            _ => panic!("Expected a function!"),
+        }
+    }
 }
 
 impl<'src> From<Vec<CType>> for CType {
@@ -140,7 +189,7 @@ impl<'src> From<Type> for CType {
             Type::Pointer { ty, mutable } => {
                 // TODO: Handle ctype pointer mutability
                 CType::pointer(CType::from(*ty))
-            },
+            }
             Type::Func(_) => todo!(),
             Type::Struct(strukt) => CType::Struct {
                 name: strukt.name,
@@ -196,6 +245,7 @@ impl<'src> Display for CType {
             }
             CType::Int => write!(f, "int"),
             CType::Variadic => write!(f, "..."),
+            CType::Function { .. } => todo!(),
         }
     }
 }

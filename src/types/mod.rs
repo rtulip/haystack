@@ -1,9 +1,7 @@
 mod constraint;
 mod inference;
 mod scheme;
-use crate::{
-    c::CType, expr::Literal, stmt::{ExternDecl, Function}
-};
+use crate::{c::CType, expr::Literal, stmt::Function};
 
 pub use constraint::*;
 pub use inference::*;
@@ -119,16 +117,6 @@ impl<'src, M, E> From<&'_ Function<'src, M, E>> for Type {
     }
 }
 
-impl<'src> From<ExternDecl<'src>> for Type {
-    fn from(value: ExternDecl<'src>) -> Self {
-        Type::Func(FunctionType {
-            input: value.input.into_iter().map(|ty| ty.into()).collect(),
-            output: vec![value.output.into()],
-            params: vec![],
-        })
-    }
-}
-
 impl<'a> From<&'a TypeVar> for Type {
     fn from(value: &'a TypeVar) -> Self {
         Type::Var(value.clone())
@@ -148,6 +136,7 @@ impl<'src> From<CType> for Type {
             CType::Pointer(ty) => Type::pointer(Type::from(*ty)),
             CType::Int => Type::U32,
             CType::Variadic => Type::Never,
+            CType::Function { .. } => todo!(),
         }
     }
 }

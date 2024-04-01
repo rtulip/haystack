@@ -58,6 +58,8 @@ impl<'src, M> Expr<'src, M, LexExtension<'src>> {
             crate::expr::ExprBase::Ext(LexExtension::Ident(ident)) => {
                 if let Some(id) = fn_idents.get(ident) {
                     Expr::call(Var::Func(*id), self.meta)
+                } else if let Some(id) = extern_idents.get(ident) {
+                    Expr::xtern(*id, self.meta)
                 } else {
                     let (idx, _) = bound
                         .iter()
@@ -74,14 +76,7 @@ impl<'src, M> Expr<'src, M, LexExtension<'src>> {
 
                 Expr::bind(n, self.meta)
             }
-            crate::expr::ExprBase::Ext(LexExtension::Extern(ident, n)) => {
-                if let Some(id) = extern_idents.get(ident) {
-                    Expr::xtern(*id, n, self.meta)
-                } else {
-                    todo!("Error prop")
-                }
-            }
-            crate::expr::ExprBase::ExternCall { extern_id, nargs } => todo!(),
+            crate::expr::ExprBase::ExternCall(id) => todo!(),
             crate::expr::ExprBase::Bind(_) => {
                 panic!("Bind Expressions shouldn't be used before identifier resolution")
             }

@@ -1,16 +1,16 @@
+mod c;
 mod expr;
 mod lex;
 mod passes;
 mod stmt;
 mod types;
 mod union_find;
-mod c;
 
 use std::collections::HashMap;
 
 use c::CType;
 use expr::{BinOp, Expr};
-use stmt::{ExternDecl, Function, Stmt};
+use stmt::{Function, Stmt};
 use types::TypeVar;
 
 use crate::{
@@ -161,12 +161,12 @@ fn call_foo() -> Stmt<'static, (), LexExtension<'static>> {
         [],
         Expr::block(
             [
-                Expr::ext(LexExtension::Extern("foo", 0), ()),
+                Expr::ext(LexExtension::Ident("foo"), ()),
                 Expr::print(()),
                 Expr::literal("\\n", ()),
                 Expr::print_string(()),
                 Expr::literal(5u32, ()),
-                Expr::ext(LexExtension::Extern("bar", 1), ()),
+                Expr::ext(LexExtension::Ident("bar"), ()),
             ],
             (),
         ),
@@ -201,10 +201,13 @@ fn main() {
                         todo!("name conflict error")
                     }
                 }
-                Stmt::Extern(decl) => {
+                Stmt::Extern(func) => {
                     let id = extern_fns.len();
-                    assert!(extern_names.insert(decl.name.to_owned(), id).is_none());
-                    assert!(extern_fns.insert(id, decl).is_none());
+
+                    let name = func.expect_function().name.clone();
+
+                    assert!(extern_names.insert(name, id).is_none());
+                    assert!(extern_fns.insert(id, func).is_none());
                 }
             }
 
@@ -272,11 +275,13 @@ fn main() {
     let tab_size = 4;
     types.iter().for_each(|ty| ty.declare(indentation));
     generate!(indentation, "");
-    types.iter().for_each(|ty| ty.transpile(indentation, 4));
+    types
+        .iter()
+        .for_each(|ty| ty.transpile(indentation, tab_size));
     generate!(indentation, "");
     extern_fns
         .values()
-        .for_each(|decl| decl.declare(indentation, tab_size));
+        .for_each(|decl| decl.transpile(indentation, tab_size));
     generate!(indentation, "");
     fns.iter().for_each(|f| f.declare(indentation, tab_size));
     fns.iter().for_each(|f| f.transpile(indentation, tab_size));

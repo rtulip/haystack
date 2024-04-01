@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
-    c::{CType, CVar}, expr::{Expr, Literal}, stmt::{ExternDecl, Function}, types::Var
+    c::{CFunction, CType, CVar},
+    expr::{Expr, Literal},
+    stmt::Function,
 };
 
 use super::{Assignment, CSsaExtension};
@@ -193,7 +195,7 @@ impl<'src> Expr<'src, Assignment, CSsaExtension<'src>> {
                 body.transpile(indentation + tab_size, tab_size);
                 generate!(indentation, "}}");
             }
-            crate::expr::ExprBase::ExternCall { extern_id, nargs } => todo!(),
+            crate::expr::ExprBase::ExternCall(id) => todo!(),
             crate::expr::ExprBase::Ext(CSsaExtension::ExitLoop) => {
                 generate!(
                     indentation,
@@ -312,6 +314,20 @@ impl<'src> CType {
             | CType::Void
             | CType::Int
             | CType::Variadic => (),
+            CType::Function(CFunction { name, input, output}) => {
+                generate!(indentation, "{output} {name}(");
+                
+                input.iter().enumerate().for_each(|(i, var)| {
+                    generate!(
+                        indentation + tab_size,
+                        "{var}{}",
+                        if i != input.len() - 1 { "," } else { "" }
+                    )
+                });
+
+                generate!(indentation, ");")
+                
+            },
         }
     }
 
@@ -331,21 +347,7 @@ impl<'src> CType {
             | CType::Void
             | CType::Variadic
             | CType::Int => (),
+            CType::Function { .. } => todo!(),
         }
-    }
-}
-
-impl<'src> ExternDecl<'src> {
-    pub fn declare(&self, indentation: usize, tab_size: usize) {
-        generate!(indentation, "{} {}(", self.output, self.name);
-        let len = self.input.len();
-        self.input.iter().enumerate().for_each(|(i, t)| {
-            generate!(
-                indentation + tab_size,
-                "{t}{}",
-                if i == len - 1 { "" } else { "," }
-            )
-        });
-        generate!(indentation, ");");
     }
 }

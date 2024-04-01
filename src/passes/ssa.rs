@@ -1,10 +1,9 @@
-use std::{
-    collections::{HashMap, VecDeque},
-    fmt::{Debug, Display},
-};
+use std::{collections::HashMap, fmt::Debug};
 
 use crate::{
-    c::{CType, CVar}, expr::{BinOp, Expr, ExprBase, Literal}, stmt::ExternDecl, types::{Stack, Type, Var}
+    c::{CType, CVar},
+    expr::{BinOp, Expr, ExprBase},
+    types::{Stack, Type, Var},
 };
 
 pub enum CSsaExtension<'src> {
@@ -13,7 +12,6 @@ pub enum CSsaExtension<'src> {
     Return(CType),
     Call(&'src str),
 }
-
 
 #[derive(Debug, Clone)]
 pub struct Assignment {
@@ -26,7 +24,7 @@ impl<'src, M, E> Expr<'src, M, E> {
         self,
         stack: Stack,
         env: &HashMap<Var, Type>,
-        extern_fns: &HashMap<usize, ExternDecl<'src>>,
+        extern_fns: &'src HashMap<usize, CType>,
         fn_names: &'src HashMap<usize, String>,
     ) -> Expr<'src, Assignment, CSsaExtension<'src>> {
         let (mut stack, mut counter) = CVar::from_stack(stack);
@@ -45,7 +43,7 @@ impl<'src, M, E> Expr<'src, M, E> {
         stack: &mut Vec<CVar>,
         counter: &mut usize,
         env: &HashMap<Var, Type>,
-        extern_fns: &HashMap<usize, ExternDecl<'src>>,
+        extern_fns: &'src HashMap<usize, CType>,
         fn_names: &'src HashMap<usize, String>,
         bound: &mut HashMap<usize, CVar>,
     ) -> Expr<'src, Assignment, CSsaExtension<'src>> {
@@ -247,14 +245,16 @@ impl<'src, M, E> Expr<'src, M, E> {
                 )
             }
 
-            crate::expr::ExprBase::ExternCall { extern_id, nargs } => {
+            crate::expr::ExprBase::ExternCall(id) => {
+                
                 let extern_fn = extern_fns
-                    .get(&extern_id)
-                    .expect("call vars should be resolveable");
+                    .get(&id)
+                    .expect("call vars should be resolveable")
+                    .expect_function();
 
-                let input = stack.split_off(stack.len() - nargs);
+                let input = extern_fn.take_inputs_from_stack(stack);
 
-                let output = match &extern_fn.output {
+                let output = match &*extern_fn.output {
                     CType::Variadic => unreachable!(),
                     CType::Void => None,
                     ty => {
@@ -265,7 +265,7 @@ impl<'src, M, E> Expr<'src, M, E> {
                 };
 
                 Expr::ext(
-                    CSsaExtension::Call(extern_fn.name),
+                    CSsaExtension::Call(&extern_fn.name),
                     Assignment {
                         input: Some(input),
                         output,

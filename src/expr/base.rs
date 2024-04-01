@@ -38,10 +38,7 @@ pub enum ExprBase<'src, M, E> {
     Bind(usize),
     Var(Var),
     Ext(E),
-    ExternCall {
-        extern_id: usize,
-        nargs: usize,
-    },
+    ExternCall(usize),
 }
 
 /// Expressions
@@ -162,12 +159,9 @@ impl<'src, M, E> Expr<'src, M, E> {
         }
     }
 
-    pub fn xtern(idx: usize, nargs: usize, meta: M) -> Self {
+    pub fn xtern(id: usize, meta: M) -> Self {
         Expr {
-            expr: ExprBase::ExternCall {
-                extern_id: idx,
-                nargs,
-            },
+            expr: ExprBase::ExternCall(id),
             meta,
         }
     }
@@ -237,7 +231,7 @@ impl<'src, M, E> Expr<'src, M, E> {
                     helper(*body, f),
                     f(e.meta),
                 ),
-                crate::expr::ExprBase::ExternCall { extern_id, nargs } => todo!(),
+                crate::expr::ExprBase::ExternCall(id) => todo!(),
             }
         }
 

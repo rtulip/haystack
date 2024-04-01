@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 
 use crate::{
-    c::CType, expr::Expr, generate, passes::{Assignment, CSsaExtension}, types::{ConstrainedType, Stack, Type, TypeCheckError, TypeInference, TypeVar, Var}
+    c::CType,
+    expr::Expr,
+    generate,
+    passes::{Assignment, CSsaExtension},
+    types::{ConstrainedType, Stack, Type, TypeCheckError, TypeInference, TypeVar, Var},
 };
-
-use super::ExternDecl;
 
 #[derive(Debug, Clone)]
 pub struct TypeParameter<'src> {
@@ -26,7 +28,7 @@ impl<'src, M> Function<'src, M, ()> {
         self,
         inference: &mut TypeInference,
         parent_env: &HashMap<Var, Type>,
-        extern_fns: &HashMap<usize, ExternDecl<'src>>,
+        extern_fns: &HashMap<usize, CType>,
     ) -> Result<Function<'src, (M, ConstrainedType), ()>, (&'src str, TypeCheckError)> {
         let (e, _scheme) = inference
             .type_check(
@@ -101,7 +103,7 @@ impl<'src, M, E> Function<'src, M, E> {
     pub fn into_ssa_form(
         self,
         env: &HashMap<Var, Type>,
-        extern_fns: &HashMap<usize, ExternDecl<'src>>,
+        extern_fns: &'src HashMap<usize, CType>,
         fn_names: &'src HashMap<usize, String>,
     ) -> Option<Function<'src, Assignment, CSsaExtension<'src>>> {
         if !self.type_vars.is_empty() {

@@ -1,10 +1,10 @@
-use std::{
-    collections::{HashMap, HashSet},
-    hash::Hash,
-};
+use std::collections::{HashMap, HashSet};
 
 use crate::{
-    c::CType, expr::{BinOp, Expr, Literal}, stmt::ExternDecl, types::{constraint, FunctionType}, union_find::{UnifiactionError, UnificationTable}
+    c::CType,
+    expr::{BinOp, Expr, Literal},
+    types::FunctionType,
+    union_find::{UnifiactionError, UnificationTable},
 };
 
 use super::{constraint::Constraint, scheme::Scheme, Stack, StructType, Type, TypeVar, Var};
@@ -136,7 +136,7 @@ impl TypeInference {
         &mut self,
         stack: &mut Stack,
         env: &mut HashMap<Var, Type>,
-        extern_fns: &HashMap<usize, ExternDecl<'a>>,
+        extern_fns: &HashMap<usize, CType>,
         expr: Expr<'a, M, ()>,
     ) -> Result<Expr<'a, (M, ConstrainedType), ()>, InferenceError> {
         match expr.expr {
@@ -367,29 +367,20 @@ impl TypeInference {
                     (expr.meta, ConstrainedType::new(Some(ty.clone()), [])),
                 ))
             }
-            crate::expr::ExprBase::ExternCall { extern_id, nargs } => {
-                if stack.len() < nargs {
-                    return Err(InferenceError::StackUnderflow);
-                }
+            crate::expr::ExprBase::ExternCall(id) => {
+                
+                let extern_fn = extern_fns
+                    .get(&id)
+                    .expect("Extern functions should be resolvable")
+                    .expect_function();
 
-                let decl = extern_fns
-                    .get(&extern_id)
-                    .expect("Extern functions should be resolvable");
-                let popped = stack.split_off(stack.len() - nargs);
+                let popped = extern_fn.take_inputs_from_stack(stack);
+                
 
                 let mut constraints = vec![];
-                for (i, ty) in decl.input.iter().enumerate() {
+                for (i, ty) in extern_fn.input.iter().enumerate() {
                     match ty {
-                        CType::Variadic => {
-                            // Variadic arguments can take an arbitrary number
-                            // elements off of the stack, so we'll just stop
-                            // checking here.
-                            assert!(
-                                i == decl.input.len() - 1,
-                                "Variadic arguments can only be the last argument"
-                            );
-                            break;
-                        }
+                        CType::Variadic => break,
                         CType::Void => {
                             panic!("Can't accept a void type as argument")
                         }
@@ -404,15 +395,14 @@ impl TypeInference {
                     }
                 }
 
-                match &decl.output {
+                match &*extern_fn.output {
                     CType::Void => (),
                     CType::Variadic => unreachable!(),
                     t => stack.push(t.clone().into()),
                 }
 
                 Ok(Expr::xtern(
-                    extern_id,
-                    nargs,
+                    id,
                     (expr.meta, ConstrainedType::new(None, constraints)),
                 ))
             }
@@ -668,13 +658,9 @@ impl TypeInference {
                     Expr::var(var, (expr.meta.0, ConstrainedType::new(Some(ty), []))),
                 )
             }
-            crate::expr::ExprBase::ExternCall { extern_id, nargs } => (
+            crate::expr::ExprBase::ExternCall(id) => (
                 HashSet::new(),
-                Expr::xtern(
-                    extern_id,
-                    nargs,
-                    (expr.meta.0, ConstrainedType::new(None, [])),
-                ),
+                Expr::xtern(id, (expr.meta.0, ConstrainedType::new(None, []))),
             ),
             crate::expr::ExprBase::Ext(_) => unreachable!(),
         }
@@ -684,7 +670,7 @@ impl TypeInference {
         &mut self,
         expr: Expr<'a, M, ()>,
         parent_env: &HashMap<Var, Type>,
-        extern_fns: &HashMap<usize, ExternDecl<'a>>,
+        extern_fns: &HashMap<usize, CType>,
         stack: &mut Stack,
         target: Stack,
         ty_vars_in_scope: Vec<&TypeVar>,

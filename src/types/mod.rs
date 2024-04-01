@@ -2,9 +2,7 @@ mod constraint;
 mod inference;
 mod scheme;
 use crate::{
-    expr::Literal,
-    passes::CType,
-    stmt::{ExternDecl, Function},
+    c::CType, expr::Literal, stmt::{ExternDecl, Function}
 };
 
 pub use constraint::*;

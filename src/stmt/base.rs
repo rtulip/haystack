@@ -1,4 +1,4 @@
-use crate::{passes::CType, types::Type};
+use crate::{c::CType, types::Type};
 
 use super::{ExternDecl, Function, TypeDeclaration};
 

@@ -1,10 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    expr::Expr,
-    generate,
-    passes::{Assignment, CSsaExtension, CType, CVar},
-    types::{ConstrainedType, Stack, Type, TypeCheckError, TypeInference, TypeVar, Var},
+    c::CType, expr::Expr, generate, passes::{Assignment, CSsaExtension}, types::{ConstrainedType, Stack, Type, TypeCheckError, TypeInference, TypeVar, Var}
 };
 
 use super::ExternDecl;

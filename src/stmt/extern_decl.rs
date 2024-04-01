@@ -1,4 +1,4 @@
-use crate::passes::CType;
+use crate::c::CType;
 
 pub struct ExternDecl<'src> {
     pub name: &'src str,

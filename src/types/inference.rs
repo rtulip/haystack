@@ -4,10 +4,7 @@ use std::{
 };
 
 use crate::{
-    expr::{BinOp, Expr, Literal},
-    stmt::ExternDecl,
-    types::{constraint, FunctionType},
-    union_find::{UnifiactionError, UnificationTable},
+    c::CType, expr::{BinOp, Expr, Literal}, stmt::ExternDecl, types::{constraint, FunctionType}, union_find::{UnifiactionError, UnificationTable}
 };
 
 use super::{constraint::Constraint, scheme::Scheme, Stack, StructType, Type, TypeVar, Var};
@@ -383,7 +380,7 @@ impl TypeInference {
                 let mut constraints = vec![];
                 for (i, ty) in decl.input.iter().enumerate() {
                     match ty {
-                        crate::passes::CType::Variadic => {
+                        CType::Variadic => {
                             // Variadic arguments can take an arbitrary number
                             // elements off of the stack, so we'll just stop
                             // checking here.
@@ -393,7 +390,7 @@ impl TypeInference {
                             );
                             break;
                         }
-                        crate::passes::CType::Void => {
+                        CType::Void => {
                             panic!("Can't accept a void type as argument")
                         }
                         c_ty => {
@@ -408,8 +405,8 @@ impl TypeInference {
                 }
 
                 match &decl.output {
-                    crate::passes::CType::Void => (),
-                    crate::passes::CType::Variadic => unreachable!(),
+                    CType::Void => (),
+                    CType::Variadic => unreachable!(),
                     t => stack.push(t.clone().into()),
                 }
 

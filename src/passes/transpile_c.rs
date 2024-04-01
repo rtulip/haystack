@@ -1,13 +1,10 @@
 use std::collections::HashMap;
 
 use crate::{
-    expr::{Expr, Literal},
-    passes::CVar,
-    stmt::{ExternDecl, Function},
-    types::Var,
+    c::{CType, CVar}, expr::{Expr, Literal}, stmt::{ExternDecl, Function}, types::Var
 };
 
-use super::{Assignment, CSsaExtension, CType};
+use super::{Assignment, CSsaExtension};
 
 #[macro_export]
 macro_rules! generate {

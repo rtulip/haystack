@@ -4,16 +4,17 @@ mod passes;
 mod stmt;
 mod types;
 mod union_find;
+mod c;
 
 use std::collections::HashMap;
 
+use c::CType;
 use expr::{BinOp, Expr};
 use stmt::{ExternDecl, Function, Stmt};
 use types::TypeVar;
 
 use crate::{
     lex::LexExtension,
-    passes::CType,
     types::{Type, TypeInference, Var},
 };
 

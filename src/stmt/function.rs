@@ -106,7 +106,7 @@ impl<'src, M, E> Function<'src, M, E> {
         env: &HashMap<Var, Type>,
         extern_fns: &HashMap<usize, ExternDecl<'src>>,
         fn_names: &'src HashMap<usize, String>,
-    ) -> Option<Function<'src, Assignment<'src>, CSsaExtension<'src>>> {
+    ) -> Option<Function<'src, Assignment, CSsaExtension<'src>>> {
         if !self.type_vars.is_empty() {
             return None;
         }

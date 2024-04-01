@@ -39,8 +39,8 @@ impl<'src, M, E> Stmt<'src, M, E> {
 
     pub fn xtern<In, Out>(name: &'src str, input: In, output: Out) -> Self
     where
-        In: Into<Vec<CType<'src>>>,
-        Out: Into<CType<'src>>,
+        In: Into<Vec<CType>>,
+        Out: Into<CType>,
     {
         Stmt::Extern(ExternDecl::new(name, input, output))
     }

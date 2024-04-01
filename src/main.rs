@@ -256,7 +256,7 @@ fn main() {
     generate!(0, "#include <stdbool.h>");
     generate!(0, "");
 
-    let mut types = HashMap::from([("Str".to_owned(), CType::string())]);
+    let mut types = HashMap::from([("Str".to_owned(), CType::from(Type::string()))]);
     fns.iter().for_each(|f| {
         eprintln!("{}", f.name);
         dbg!(&types);

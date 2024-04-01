@@ -39,6 +39,12 @@ pub struct FunctionType {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StructType {
+    pub name: String,
+    pub members: Vec<(String, Type)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     U32,
     U8,
@@ -46,7 +52,7 @@ pub enum Type {
     Var(TypeVar),
     Pointer { ty: Box<Self>, mutable: Mutability },
     Func(FunctionType),
-    String,
+    Struct(StructType),
     Never,
 }
 
@@ -58,7 +64,8 @@ impl Type {
             Type::Func(FunctionType { input, output, .. }) => {
                 input.iter().chain(output.iter()).any(|ty| ty.is_free())
             }
-            Type::U32 | Type::U8 | Type::Bool | Type::String | Type::Never => false,
+            Type::U32 | Type::U8 | Type::Bool | Type::Never => false,
+            Type::Struct(_) => todo!(),
         }
     }
 
@@ -75,6 +82,16 @@ impl Type {
             mutable: Mutability::Constant,
         }
     }
+
+    pub fn string() -> Self {
+        Type::Struct(StructType {
+            name: "Str".into(),
+            members: vec![
+                ("size".into(), Type::U32),
+                ("data".into(), Type::pointer(Type::U8)),
+            ],
+        })
+    }
 }
 
 pub type Stack = Vec<Type>;
@@ -83,7 +100,7 @@ impl<'src> From<&'_ Literal<'src>> for Type {
     fn from(value: &Literal<'src>) -> Self {
         match value {
             Literal::U32(_) => Type::U32,
-            Literal::String(_) => Type::String,
+            Literal::String(_) => Type::string(),
             Literal::Bool(_) => Type::Bool,
             Literal::U8(_) => Type::U8,
         }
@@ -120,8 +137,8 @@ impl<'a> From<&'a TypeVar> for Type {
     }
 }
 
-impl<'src> From<CType<'src>> for Type {
-    fn from(value: CType<'src>) -> Self {
+impl<'src> From<CType> for Type {
+    fn from(value: CType) -> Self {
         match value {
             CType::U32 => Type::U32,
             CType::Bool => Type::Bool,

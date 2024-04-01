@@ -17,7 +17,7 @@ macro_rules! generate {
     }};
 }
 
-impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
+impl<'src> Expr<'src, Assignment, CSsaExtension<'src>> {
     pub fn transpile(&self, indentation: usize, tab_size: usize) {
         match &self.expr {
             crate::expr::ExprBase::Literal(Literal::Bool(b)) => {
@@ -44,7 +44,7 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
             crate::expr::ExprBase::Literal(Literal::String(s)) => {
                 generate!(
                     indentation,
-                    "{:?} = {{ .size = {}, .string = \"{}\" }};",
+                    "{:?} = {{ .size = {}, .data = (uint8_t*)\"{}\" }};",
                     self.meta.output.as_ref().unwrap()[0],
                     s.len(),
                     s
@@ -60,7 +60,7 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
             crate::expr::ExprBase::PrintString => {
                 generate!(
                     indentation,
-                    "printf(\"%.*s\", {}.size, {}.string);",
+                    "printf(\"%.*s\", {}.size, {}.data);",
                     self.meta.input.as_ref().unwrap()[0],
                     self.meta.input.as_ref().unwrap()[0]
                 )
@@ -207,7 +207,7 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
         }
     }
 
-    pub fn get_ctypes(&self) -> HashMap<String, CType<'src>> {
+    pub fn get_ctypes(&self) -> HashMap<String, CType> {
         let mut types = HashMap::new();
 
         self.for_each_meta(|a| {
@@ -247,7 +247,7 @@ impl<'src> Expr<'src, Assignment<'src>, CSsaExtension<'src>> {
     }
 }
 
-impl<'src> Function<'src, Assignment<'src>, CSsaExtension<'src>> {
+impl<'src> Function<'src, Assignment, CSsaExtension<'src>> {
     fn signature(&self, indentation: usize, tab_size: usize) {
         let ty = CType::from(
             self.output
@@ -287,7 +287,7 @@ impl<'src> Function<'src, Assignment<'src>, CSsaExtension<'src>> {
     }
 }
 
-impl<'src> CType<'src> {
+impl<'src> CType {
     pub fn transpile(&self, indentation: usize, tab_size: usize) {
         match self {
             CType::Struct { name, elements } => {

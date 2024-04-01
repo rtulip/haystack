@@ -10,7 +10,7 @@ use crate::{
     union_find::{UnifiactionError, UnificationTable},
 };
 
-use super::{constraint::Constraint, scheme::Scheme, Stack, Type, TypeVar, Var};
+use super::{constraint::Constraint, scheme::Scheme, Stack, StructType, Type, TypeVar, Var};
 
 #[derive(Debug, Clone)]
 pub struct ConstrainedType {
@@ -126,7 +126,7 @@ impl TypeInference {
                     params,
                 })
             }
-            Type::String => Type::String,
+            Type::Struct(_) => todo!(),
             Type::Never => Type::Never,
         }
     }
@@ -165,7 +165,7 @@ impl TypeInference {
                 ))
             }
             crate::expr::ExprBase::Literal(Literal::String(s)) => {
-                stack.push(Type::String);
+                stack.push(Type::string());
                 Ok(Expr::literal(
                     Literal::String(s),
                     (expr.meta, ConstrainedType::new(None, [])),
@@ -182,7 +182,7 @@ impl TypeInference {
                 let t = stack.pop().ok_or_else(|| InferenceError::StackUnderflow)?;
                 Ok(Expr::print_string((
                     expr.meta,
-                    ConstrainedType::new(None, [Constraint::Equal(t, Type::String)]),
+                    ConstrainedType::new(None, [Constraint::Equal(t, Type::string())]),
                 )))
             }
             crate::expr::ExprBase::Block(exprs) => {
@@ -387,16 +387,21 @@ impl TypeInference {
                             // Variadic arguments can take an arbitrary number
                             // elements off of the stack, so we'll just stop
                             // checking here.
-                            assert!(i == decl.input.len() - 1, "Variadic arguments can only be the last argument");
+                            assert!(
+                                i == decl.input.len() - 1,
+                                "Variadic arguments can only be the last argument"
+                            );
                             break;
-                        },
-                        crate::passes::CType::Void => panic!("Can't accept a void type as argument"),
+                        }
+                        crate::passes::CType::Void => {
+                            panic!("Can't accept a void type as argument")
+                        }
                         c_ty => {
-                            if let Some(ty) = popped.get(i)
-                            {
-                                constraints.push(Constraint::Equal(c_ty.clone().into(), ty.clone()));
+                            if let Some(ty) = popped.get(i) {
+                                constraints
+                                    .push(Constraint::Equal(c_ty.clone().into(), ty.clone()));
                             } else {
-                                return Err(InferenceError::StackUnderflow)
+                                return Err(InferenceError::StackUnderflow);
                             }
                         }
                     }
@@ -451,7 +456,14 @@ impl TypeInference {
                 // },
                 todo!()
             }
-            Type::String => Type::String,
+            Type::Struct(strukt) => Type::Struct(StructType {
+                name: strukt.name,
+                members: strukt
+                    .members
+                    .into_iter()
+                    .map(|(ident, ty)| (ident, self.normalize_ty(ty)))
+                    .collect(),
+            }),
             Type::Never => Type::Never,
         }
     }
@@ -491,8 +503,26 @@ impl TypeInference {
                     ty: right,
                     mutable: right_mut,
                 },
-            ) => todo!(),
-            (Type::String, Type::String) => Ok(()),
+            ) => {
+                // TODO: Handle variance for pointers
+                self.unify_ty_ty(*left, *right, typing)
+            }
+            (Type::Struct(left), Type::Struct(right)) => {
+                if left.name != right.name {
+                    return Err(TypeUnificationError::NotEqual(
+                        Type::Struct(left),
+                        Type::Struct(right),
+                    ));
+                }
+
+                left.members
+                    .into_iter()
+                    .zip(right.members.into_iter())
+                    .map(|((_, left), (_, right))| self.unify_ty_ty(left, right, typing))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                Ok(())
+            }
             (Type::Never, Type::Never) => Ok(()),
             (Type::Never, ty) | (ty, Type::Never) => {
                 Err(TypeUnificationError::NotEqual(Type::Never, ty))
@@ -503,7 +533,7 @@ impl TypeInference {
 
     fn substitute_one(&mut self, ty: Type) -> (HashSet<TypeVar>, Type) {
         match ty {
-            Type::Never | Type::String | Type::U32 | Type::U8 | Type::Bool => (HashSet::new(), ty),
+            Type::Never | Type::U32 | Type::U8 | Type::Bool => (HashSet::new(), ty),
             Type::Var(var) => match self.lookup.get(var) {
                 Some(ty) => self.substitute_one(ty.clone()),
                 None => (HashSet::from([var]), Type::Var(var)),
@@ -530,6 +560,7 @@ impl TypeInference {
                 //     )
                 // }
             }
+            Type::Struct(_) => todo!(),
         }
     }
 

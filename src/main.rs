@@ -18,7 +18,7 @@ use crate::{
     types::{Type, TypeInference, Var},
 };
 
-fn fib() -> Stmt<'static, (), LexExtension<'static>> {
+fn fib() -> Stmt<'static, Type, (), LexExtension<'static>> {
     Stmt::function(Function::new(
         "fib",
         [Type::U32],
@@ -53,7 +53,7 @@ fn fib() -> Stmt<'static, (), LexExtension<'static>> {
     ))
 }
 
-fn dup(ctx: &mut TypeInference) -> Stmt<'static, (), LexExtension<'static>> {
+fn dup(ctx: &mut TypeInference) -> Stmt<'static, Type, (), LexExtension<'static>> {
     Stmt::function(Function::new_generic(
         "dup",
         [Type::Var(TypeVar(0))],
@@ -71,7 +71,7 @@ fn dup(ctx: &mut TypeInference) -> Stmt<'static, (), LexExtension<'static>> {
     ))
 }
 
-fn haystack_drop(ctx: &mut TypeInference) -> Stmt<'static, (), LexExtension<'static>> {
+fn haystack_drop(ctx: &mut TypeInference) -> Stmt<'static, Type, (), LexExtension<'static>> {
     Stmt::function(Function::new_generic(
         "drop",
         [Type::Var(TypeVar(1))],
@@ -82,7 +82,7 @@ fn haystack_drop(ctx: &mut TypeInference) -> Stmt<'static, (), LexExtension<'sta
     ))
 }
 
-fn printf() -> Stmt<'static, (), LexExtension<'static>> {
+fn printf() -> Stmt<'static, Type, (), LexExtension<'static>> {
     Stmt::xtern(
         "printf",
         [CType::pointer(CType::Char), CType::Variadic],
@@ -90,15 +90,15 @@ fn printf() -> Stmt<'static, (), LexExtension<'static>> {
     )
 }
 
-fn foo() -> Stmt<'static, (), LexExtension<'static>> {
+fn foo() -> Stmt<'static, Type, (), LexExtension<'static>> {
     Stmt::xtern("foo", [], CType::Int)
 }
 
-fn bar() -> Stmt<'static, (), LexExtension<'static>> {
+fn bar() -> Stmt<'static, Type, (), LexExtension<'static>> {
     Stmt::xtern("bar", [CType::U32], CType::Void)
 }
 
-fn call_foo() -> Stmt<'static, (), LexExtension<'static>> {
+fn call_foo() -> Stmt<'static, Type, (), LexExtension<'static>> {
     Stmt::function(Function::new(
         "main",
         [],
@@ -115,7 +115,7 @@ fn call_foo() -> Stmt<'static, (), LexExtension<'static>> {
     ))
 }
 
-fn hs_puts() -> Stmt<'static, (), LexExtension<'static>> {
+fn hs_puts() -> Stmt<'static, Type, (), LexExtension<'static>> {
     Stmt::function(Function::new(
         "hs_puts",
         [Type::string()],
@@ -135,7 +135,7 @@ fn hs_puts() -> Stmt<'static, (), LexExtension<'static>> {
     ))
 }
 
-fn hs_putlns() -> Stmt<'static, (), LexExtension<'static>> {
+fn hs_putlns() -> Stmt<'static, Type, (), LexExtension<'static>> {
     Stmt::function(Function::new(
         "hs_putlns",
         [Type::string()],
@@ -151,7 +151,7 @@ fn hs_putlns() -> Stmt<'static, (), LexExtension<'static>> {
     ))
 }
 
-fn hs_putu() -> Stmt<'static, (), LexExtension<'static>> {
+fn hs_putu() -> Stmt<'static, Type, (), LexExtension<'static>> {
     Stmt::function(Function::new(
         "hs_putu",
         [Type::U32],
@@ -170,7 +170,7 @@ fn hs_putu() -> Stmt<'static, (), LexExtension<'static>> {
     ))
 }
 
-fn hs_putlnu() -> Stmt<'static, (), LexExtension<'static>> {
+fn hs_putlnu() -> Stmt<'static, Type, (), LexExtension<'static>> {
     Stmt::function(Function::new(
         "hs_putlnu",
         [Type::U32],
@@ -190,7 +190,10 @@ fn main() {
     let mut inference = TypeInference::new();
 
     let stmts = vec![
-        // string(),
+        Stmt::strukt(
+            "Str",
+            [("size", Type::U32), ("data", Type::pointer(Type::U8))],
+        ),
         // example(),
         fib(),
         dup(&mut inference),

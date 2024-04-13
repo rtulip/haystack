@@ -759,3 +759,6 @@ pub enum TypeCheckError {
     TypesNotEqual(Type, Type),
     StacksDiffer(Stack, Stack),
 }
+
+#[cfg(test)]
+mod inference_tests {}

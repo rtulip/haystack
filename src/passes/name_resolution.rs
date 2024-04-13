@@ -1,6 +1,11 @@
 use std::collections::HashMap;
 
-use crate::{expr::Expr, lex::LexExtension, stmt::Function, types::Var};
+use crate::{
+    expr::Expr,
+    lex::LexExtension,
+    stmt::Function,
+    types::{Type, Var},
+};
 
 impl<'src, M> Expr<'src, M, LexExtension<'src>> {
     pub fn resolve_names(
@@ -100,12 +105,12 @@ impl<'src, M> Expr<'src, M, LexExtension<'src>> {
     }
 }
 
-impl<'src, M> Function<'src, M, LexExtension<'src>> {
+impl<'src, M> Function<'src, Type, M, LexExtension<'src>> {
     pub fn resolve_names(
         self,
         fn_idents: &HashMap<String, usize>,
         extern_idents: &HashMap<String, usize>,
-    ) -> Function<'src, M, ()> {
+    ) -> Function<'src, Type, M, ()> {
         Function {
             name: self.name,
             input: self.input,

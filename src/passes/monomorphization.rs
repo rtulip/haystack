@@ -126,7 +126,7 @@ where
     }
 }
 
-impl<'src, M> Function<'src, (M, ConstrainedType), ()>
+impl<'src, M> Function<'src, Type, (M, ConstrainedType), ()>
 where
     M: Debug,
 {
@@ -141,7 +141,7 @@ where
 }
 
 pub fn find_monomorphizations<'a, 'src, M>(
-    fns: &mut Vec<Function<'src, (M, ConstrainedType), ()>>,
+    fns: &mut Vec<Function<'src, Type, (M, ConstrainedType), ()>>,
     env: &HashMap<Var, Type>,
     fn_names: &mut HashMap<usize, String>,
     fn_idents: &mut HashMap<String, usize>,
@@ -160,12 +160,12 @@ where
 
 pub fn resolve_monomorphizations<'src, M>(
     to_monomorphise: Vec<(Var, usize, ConstrainedType)>,
-    mut fns: Vec<Function<'src, (M, ConstrainedType), ()>>,
+    mut fns: Vec<Function<'src, Type, (M, ConstrainedType), ()>>,
     env: &mut HashMap<Var, Type>,
     extern_fns: &HashMap<usize, CType>,
     fn_names: &'src HashMap<usize, String>,
     inference: &mut TypeInference,
-) -> Vec<Function<'src, (M, ConstrainedType), ()>>
+) -> Vec<Function<'src, Type, (M, ConstrainedType), ()>>
 where
     M: Debug + Clone,
 {
@@ -188,7 +188,7 @@ where
             //
             // The type of this function comes from the ConstrainedType of the
             // original call site.
-            let new_f: Function<'src, M, ()> = Function::new(
+            let new_f = Function::new(
                 fn_names.get(&new_idx).expect(
                     "This function id should have been created in `find_monomorphizations`",
                 ),

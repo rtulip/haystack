@@ -4,6 +4,7 @@ use crate::{
     c::{CFunction, CType, CVar},
     expr::{Expr, Literal},
     stmt::Function,
+    types::Type,
 };
 
 use super::{Assignment, CSsaExtension};
@@ -244,7 +245,7 @@ impl<'src> Expr<'src, Assignment, CSsaExtension<'src>> {
     }
 }
 
-impl<'src> Function<'src, Assignment, CSsaExtension<'src>> {
+impl<'src> Function<'src, Type, Assignment, CSsaExtension<'src>> {
     fn signature(&self, indentation: usize, tab_size: usize) {
         let ty = CType::from(
             self.output

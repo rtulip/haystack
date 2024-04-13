@@ -61,9 +61,7 @@ impl Type {
                 input.iter().chain(output.iter()).any(|ty| ty.is_free())
             }
             Type::U32 | Type::U8 | Type::Bool | Type::Never => false,
-            Type::Struct(strukt) => {
-                strukt.members.iter().any(|(_, ty)| ty.is_free())
-            },
+            Type::Struct(strukt) => strukt.members.iter().any(|(_, ty)| ty.is_free()),
         }
     }
 
@@ -131,8 +129,8 @@ impl<'src> From<&'_ Literal<'src>> for Type {
     }
 }
 
-impl<'src, M, E> From<&'_ Function<'src, M, E>> for Type {
-    fn from(value: &'_ Function<'src, M, E>) -> Self {
+impl<'src, M, E> From<&'_ Function<'src, Type, M, E>> for Type {
+    fn from(value: &'_ Function<'src, Type, M, E>) -> Self {
         Type::Func(FunctionType {
             input: value.input.clone(),
             output: value.output.clone(),

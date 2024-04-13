@@ -2,16 +2,16 @@ use crate::{c::CType, types::Type};
 
 use super::{Function, TypeDeclaration};
 
-pub enum Stmt<'src, M, E> {
-    Function(Function<'src, M, E>),
-    Type(TypeDeclaration<'src, Type>),
+pub enum Stmt<'src, T, M, E> {
+    Function(Function<'src, T, M, E>),
+    Type(TypeDeclaration<'src, T>),
     Extern(CType),
 }
 
-impl<'src, M, E> Stmt<'src, M, E> {
+impl<'src, T, M, E> Stmt<'src, T, M, E> {
     pub fn function<F>(f: F) -> Self
     where
-        F: Into<Function<'src, M, E>>,
+        F: Into<Function<'src, T, M, E>>,
     {
         Stmt::Function(f.into())
     }
@@ -25,14 +25,14 @@ impl<'src, M, E> Stmt<'src, M, E> {
 
     pub fn strukt<Members>(name: &'src str, members: Members) -> Self
     where
-        Members: Into<Vec<(&'src str, Type)>>,
+        Members: Into<Vec<(&'src str, T)>>,
     {
         Stmt::Type(TypeDeclaration::strukt(name, members))
     }
 
     pub fn tagged_union<V>(name: &'src str, variants: V) -> Self
     where
-        V: Into<Vec<(&'src str, Type)>>,
+        V: Into<Vec<(&'src str, T)>>,
     {
         Stmt::Type(TypeDeclaration::tagged_union(name, variants))
     }

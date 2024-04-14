@@ -4,13 +4,14 @@ use crate::{
     c::CType,
     expr::Expr,
     generate,
+    lex::LexType,
     passes::{Assignment, CSsaExtension},
     types::{ConstrainedType, Stack, Type, TypeCheckError, TypeInference, TypeVar, Var},
 };
 
 #[derive(Debug, Clone)]
 pub struct TypeParameter<'src> {
-    name: &'src str,
+    pub name: &'src str,
     pub tyvar: TypeVar,
 }
 
@@ -139,6 +140,34 @@ impl<'src, T, M, E> Function<'src, T, M, E> {
             output: output.into(),
             body,
             type_vars,
+        }
+    }
+}
+
+impl<'src, M, E> Function<'src, LexType<'src>, M, E> {
+    pub fn to_concrete_typed(self, types: &HashMap<&'src str, Type>) -> Function<'src, Type, M, E> {
+        dbg!(&self.type_vars);
+
+        let free_vars = HashMap::from_iter(
+            self.type_vars
+                .iter()
+                .map(|param| (param.name, param.tyvar.clone())),
+        );
+
+        Function {
+            name: self.name,
+            input: self
+                .input
+                .into_iter()
+                .map(|lex_ty| lex_ty.into_type(types, &free_vars).unwrap())
+                .collect(),
+            output: self
+                .output
+                .into_iter()
+                .map(|lex_ty| lex_ty.into_type(types, &free_vars).unwrap())
+                .collect(),
+            body: self.body,
+            type_vars: self.type_vars,
         }
     }
 }

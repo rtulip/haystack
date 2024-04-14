@@ -10,19 +10,21 @@ use std::collections::HashMap;
 
 use c::CType;
 use expr::{BinOp, Expr};
+use lex::LexType;
 use stmt::{Function, Stmt};
 use types::TypeVar;
 
 use crate::{
     lex::LexExtension,
+    stmt::TypeDeclaration,
     types::{Type, TypeInference, Var},
 };
 
-fn fib() -> Stmt<'static, Type, (), LexExtension<'static>> {
+fn fib() -> Stmt<'static, LexType<'static>, (), LexExtension<'static>> {
     Stmt::function(Function::new(
         "fib",
-        [Type::U32],
-        [Type::U32],
+        [LexType::Ident("u32")],
+        [LexType::Ident("u32")],
         Expr::block(
             [
                 Expr::ext(LexExtension::As(vec!["n"]), ()),
@@ -53,11 +55,11 @@ fn fib() -> Stmt<'static, Type, (), LexExtension<'static>> {
     ))
 }
 
-fn dup(ctx: &mut TypeInference) -> Stmt<'static, Type, (), LexExtension<'static>> {
+fn dup(ctx: &mut TypeInference) -> Stmt<'static, LexType<'static>, (), LexExtension<'static>> {
     Stmt::function(Function::new_generic(
         "dup",
-        [Type::Var(TypeVar(0))],
-        [Type::Var(TypeVar(0)), Type::Var(TypeVar(0))],
+        [LexType::Ident("T")],
+        [LexType::Ident("T"), LexType::Ident("T")],
         Expr::block(
             [
                 Expr::ext(LexExtension::As(vec!["t"]), ()),
@@ -71,10 +73,12 @@ fn dup(ctx: &mut TypeInference) -> Stmt<'static, Type, (), LexExtension<'static>
     ))
 }
 
-fn haystack_drop(ctx: &mut TypeInference) -> Stmt<'static, Type, (), LexExtension<'static>> {
+fn haystack_drop(
+    ctx: &mut TypeInference,
+) -> Stmt<'static, LexType<'static>, (), LexExtension<'static>> {
     Stmt::function(Function::new_generic(
         "drop",
-        [Type::Var(TypeVar(1))],
+        [LexType::Ident("T")],
         [],
         Expr::ext(LexExtension::As(vec!["_"]), ()),
         ["T"],
@@ -82,7 +86,7 @@ fn haystack_drop(ctx: &mut TypeInference) -> Stmt<'static, Type, (), LexExtensio
     ))
 }
 
-fn printf() -> Stmt<'static, Type, (), LexExtension<'static>> {
+fn printf() -> Stmt<'static, LexType<'static>, (), LexExtension<'static>> {
     Stmt::xtern(
         "printf",
         [CType::pointer(CType::Char), CType::Variadic],
@@ -90,15 +94,15 @@ fn printf() -> Stmt<'static, Type, (), LexExtension<'static>> {
     )
 }
 
-fn foo() -> Stmt<'static, Type, (), LexExtension<'static>> {
+fn foo() -> Stmt<'static, LexType<'static>, (), LexExtension<'static>> {
     Stmt::xtern("foo", [], CType::Int)
 }
 
-fn bar() -> Stmt<'static, Type, (), LexExtension<'static>> {
+fn bar() -> Stmt<'static, LexType<'static>, (), LexExtension<'static>> {
     Stmt::xtern("bar", [CType::U32], CType::Void)
 }
 
-fn call_foo() -> Stmt<'static, Type, (), LexExtension<'static>> {
+fn call_foo() -> Stmt<'static, LexType<'static>, (), LexExtension<'static>> {
     Stmt::function(Function::new(
         "main",
         [],
@@ -115,10 +119,10 @@ fn call_foo() -> Stmt<'static, Type, (), LexExtension<'static>> {
     ))
 }
 
-fn hs_puts() -> Stmt<'static, Type, (), LexExtension<'static>> {
+fn hs_puts() -> Stmt<'static, LexType<'static>, (), LexExtension<'static>> {
     Stmt::function(Function::new(
         "hs_puts",
-        [Type::string()],
+        [LexType::Ident("Str")],
         [],
         Expr::block(
             [
@@ -135,10 +139,10 @@ fn hs_puts() -> Stmt<'static, Type, (), LexExtension<'static>> {
     ))
 }
 
-fn hs_putlns() -> Stmt<'static, Type, (), LexExtension<'static>> {
+fn hs_putlns() -> Stmt<'static, LexType<'static>, (), LexExtension<'static>> {
     Stmt::function(Function::new(
         "hs_putlns",
-        [Type::string()],
+        [LexType::Ident("Str")],
         [],
         Expr::block(
             [
@@ -151,10 +155,10 @@ fn hs_putlns() -> Stmt<'static, Type, (), LexExtension<'static>> {
     ))
 }
 
-fn hs_putu() -> Stmt<'static, Type, (), LexExtension<'static>> {
+fn hs_putu() -> Stmt<'static, LexType<'static>, (), LexExtension<'static>> {
     Stmt::function(Function::new(
         "hs_putu",
-        [Type::U32],
+        [LexType::Ident("u32")],
         [],
         Expr::block(
             [
@@ -170,10 +174,10 @@ fn hs_putu() -> Stmt<'static, Type, (), LexExtension<'static>> {
     ))
 }
 
-fn hs_putlnu() -> Stmt<'static, Type, (), LexExtension<'static>> {
+fn hs_putlnu() -> Stmt<'static, LexType<'static>, (), LexExtension<'static>> {
     Stmt::function(Function::new(
         "hs_putlnu",
-        [Type::U32],
+        [LexType::Ident("u32")],
         [],
         Expr::block(
             [
@@ -189,10 +193,13 @@ fn hs_putlnu() -> Stmt<'static, Type, (), LexExtension<'static>> {
 fn main() {
     let mut inference = TypeInference::new();
 
-    let stmts = vec![
+    let stmts: Vec<Stmt<'_, LexType<'_>, _, LexExtension<'_>>> = vec![
         Stmt::strukt(
             "Str",
-            [("size", Type::U32), ("data", Type::pointer(Type::U8))],
+            [
+                ("size", LexType::Ident("u32")),
+                ("data", LexType::pointer(LexType::Ident("u8"))),
+            ],
         ),
         // example(),
         fib(),
@@ -212,29 +219,32 @@ fn main() {
     let mut env = HashMap::new();
     let mut fn_names = HashMap::new();
     let mut fn_idents = HashMap::new();
-    let (_types, fns) = stmts.into_iter().fold(
-        (HashMap::new(), Vec::new()),
-        |(mut types, mut fns), stmt| {
-            match stmt {
-                Stmt::Function(func) => fns.push(func),
-                Stmt::Type(ty) => {
-                    if types.insert(ty.name.to_owned(), ty).is_some() {
-                        todo!("name conflict error")
+    let (type_decls, fns) =
+        stmts
+            .into_iter()
+            .fold((Vec::new(), Vec::new()), |(mut types, mut fns), stmt| {
+                match stmt {
+                    Stmt::Function(func) => fns.push(func),
+                    Stmt::Type(ty) => types.push(ty),
+                    Stmt::Extern(func) => {
+                        let id = extern_fns.len();
+
+                        let name = func.expect_function().name.clone();
+
+                        assert!(extern_names.insert(name, id).is_none());
+                        assert!(extern_fns.insert(id, func).is_none());
                     }
                 }
-                Stmt::Extern(func) => {
-                    let id = extern_fns.len();
 
-                    let name = func.expect_function().name.clone();
+                (types, fns)
+            });
 
-                    assert!(extern_names.insert(name, id).is_none());
-                    assert!(extern_fns.insert(id, func).is_none());
-                }
-            }
+    let types = TypeDeclaration::to_concrete(type_decls);
 
-            (types, fns)
-        },
-    );
+    let fns = fns
+        .into_iter()
+        .map(|f| f.to_concrete_typed(&types))
+        .collect::<Vec<_>>();
 
     fns.iter().for_each(|func| {
         let idx = env.len();
@@ -281,12 +291,9 @@ fn main() {
     generate!(0, "#include <stdbool.h>");
     generate!(0, "");
 
-    let mut types = HashMap::from([("Str".to_owned(), CType::from(Type::string()))]);
+    let mut types: HashMap<_, _> = types.into_iter().map(|(id, ty)| (id.to_string(), CType::from(ty))).collect();
     fns.iter().for_each(|f| {
-        eprintln!("{}", f.name);
-        dbg!(&types);
         let new_tys = f.body.get_ctypes();
-        dbg!(&new_tys);
         types.extend(new_tys)
     });
 

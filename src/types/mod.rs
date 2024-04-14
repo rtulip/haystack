@@ -1,7 +1,9 @@
 mod constraint;
 mod inference;
 mod scheme;
-use crate::{c::CType, expr::Literal, stmt::Function};
+use std::collections::HashMap;
+
+use crate::{c::CType, expr::Literal, lex::LexType, stmt::Function};
 
 pub use constraint::*;
 pub use inference::*;
@@ -53,6 +55,15 @@ pub enum Type {
 }
 
 impl Type {
+    pub fn builtins() -> HashMap<&'static str, Type> {
+        HashMap::from([
+            ("u32", Type::U32),
+            ("u8", Type::U8),
+            ("bool", Type::Bool),
+            ("!", Type::Never),
+        ])
+    }
+
     pub fn is_free(&self) -> bool {
         match self {
             Type::Var(_) => true,

@@ -1,3 +1,11 @@
+use std::collections::HashMap;
+
+use crate::{
+    lex::LexType,
+    types::{StructType, Type, TypeVar},
+};
+
+#[derive(Debug)]
 enum TypeKind<'src, T> {
     Enum { variants: Vec<&'src str> },
     Struct { members: Vec<(&'src str, T)> },
@@ -44,5 +52,61 @@ impl<'src, T> TypeDeclaration<'src, T> {
                 variants: variants.into(),
             },
         }
+    }
+}
+
+impl<'src> LexType<'src> {
+    pub fn into_type(
+        self,
+        types: &HashMap<&'src str, Type>,
+        free_vars: &HashMap<&'src str, TypeVar>,
+    ) -> Option<Type> {
+        match self {
+            LexType::Ident(id) => {
+                if let Some(ty) = types.get(id)
+                {
+                    Some(ty.clone())
+                } else if let Some(tyvar) = free_vars.get(id)
+                {
+                    Some(Type::Var(tyvar.clone()))
+                } else {
+                    None
+                }
+            },
+            LexType::Pointer(ty) => Some(Type::pointer(ty.into_type(types, free_vars)?)),
+        }
+    }
+}
+
+impl<'src> TypeDeclaration<'src, LexType<'src>> {
+    pub fn to_concrete(decls: Vec<Self>) -> HashMap<&'src str, Type> {
+        let mut types = Type::builtins();
+
+        for TypeDeclaration { name, kind } in decls {
+            match kind {
+                TypeKind::Enum { variants } => todo!(),
+                TypeKind::Struct { members } => {
+                    let members = members
+                        .into_iter()
+                        .map(|(id, ty)| {
+                            (
+                                id.to_string(),
+                                ty.into_type(&types, &HashMap::new()).unwrap(),
+                            )
+                        })
+                        .collect();
+
+                    let ty = Type::Struct(StructType {
+                        name: name.to_string(),
+                        members,
+                    });
+
+                    assert!(types.insert(name, ty).is_none());
+                }
+                TypeKind::TaggedUnion { variants } => todo!(),
+            }
+        }
+
+        types
     }
 }

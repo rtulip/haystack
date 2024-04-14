@@ -218,7 +218,7 @@ impl<'src> From<Type> for CType {
                     .map(|(id, ty)| (id, ty.into()))
                     .collect(),
             },
-            Type::Never => todo!(),
+            Type::Never => CType::Void,
         }
     }
 }

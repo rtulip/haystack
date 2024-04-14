@@ -296,6 +296,18 @@ impl<'src> CType {
                 generate!(indentation, "}} {name};");
                 generate!(indentation, "");
             }
+            CType::TaggedUnion { name, variants } => {
+                generate!(indentation, "typedef struct {name} {{");
+                generate!(indentation + tab_size, "enum {{");
+                variants.iter().for_each(|(id, _)| generate!(indentation + tab_size + tab_size, "{name}_tag_{id},"));
+                generate!(indentation + tab_size, "}} tag; ");
+                generate!(indentation + tab_size, "union {{");
+                variants.iter().for_each(|(id, ty)| generate!(indentation + tab_size + tab_size, "{ty} {id};"));
+                generate!(indentation + tab_size, "}} data; ");
+                generate!(indentation, "}} {name};");
+                generate!(indentation, "");
+
+            },
             CType::Tuple(elements) => {
                 generate!(indentation, "typedef struct {self} {{");
                 elements
@@ -338,6 +350,9 @@ impl<'src> CType {
             CType::Struct { name, .. } => {
                 generate!(indentation, "struct {name};")
             }
+            CType::TaggedUnion { name, .. } => {
+                generate!(indentation, "struct {name};")
+            },
             CType::Tuple(_) => {
                 generate!(indentation, "struct {self};")
             }

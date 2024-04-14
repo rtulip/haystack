@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     lex::LexType,
-    types::{StructType, Type, TypeVar},
+    types::{StructType, TaggedUnionType, Type, TypeVar},
 };
 
 #[derive(Debug)]
@@ -63,16 +63,14 @@ impl<'src> LexType<'src> {
     ) -> Option<Type> {
         match self {
             LexType::Ident(id) => {
-                if let Some(ty) = types.get(id)
-                {
+                if let Some(ty) = types.get(id) {
                     Some(ty.clone())
-                } else if let Some(tyvar) = free_vars.get(id)
-                {
+                } else if let Some(tyvar) = free_vars.get(id) {
                     Some(Type::Var(tyvar.clone()))
                 } else {
                     None
                 }
-            },
+            }
             LexType::Pointer(ty) => Some(Type::pointer(ty.into_type(types, free_vars)?)),
         }
     }
@@ -103,7 +101,24 @@ impl<'src> TypeDeclaration<'src, LexType<'src>> {
 
                     assert!(types.insert(name, ty).is_none());
                 }
-                TypeKind::TaggedUnion { variants } => todo!(),
+                TypeKind::TaggedUnion { variants } => {
+                    let variants = variants
+                        .into_iter()
+                        .map(|(id, ty)| {
+                            (
+                                id.to_string(),
+                                ty.into_type(&types, &HashMap::new()).unwrap(),
+                            )
+                        })
+                        .collect();
+
+                    let ty = Type::TaggedUnion(TaggedUnionType {
+                        name: name.to_string(),
+                        variants,
+                    });
+
+                    assert!(types.insert(name, ty).is_none());
+                }
             }
         }
 

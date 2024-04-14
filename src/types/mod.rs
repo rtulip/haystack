@@ -43,6 +43,12 @@ pub struct StructType {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TaggedUnionType {
+    pub name: String,
+    pub variants: Vec<(String, Type)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     U32,
     U8,
@@ -51,6 +57,7 @@ pub enum Type {
     Pointer { ty: Box<Self>, mutable: Mutability },
     Func(FunctionType),
     Struct(StructType),
+    TaggedUnion(TaggedUnionType),
     Never,
 }
 
@@ -73,6 +80,9 @@ impl Type {
             }
             Type::U32 | Type::U8 | Type::Bool | Type::Never => false,
             Type::Struct(strukt) => strukt.members.iter().any(|(_, ty)| ty.is_free()),
+            Type::TaggedUnion(tagged_union) => {
+                tagged_union.variants.iter().any(|(_, ty)| ty.is_free())
+            }
         }
     }
 
@@ -116,6 +126,7 @@ impl Type {
                     Err(())
                 }
             }
+            Type::TaggedUnion(_) => todo!(),
             Type::Never
             | Type::U32
             | Type::U8
@@ -169,6 +180,7 @@ impl<'src> From<CType> for Type {
             CType::Char => Type::U8,
             CType::Void => Type::Never,
             CType::Struct { .. } => todo!(),
+            CType::TaggedUnion { .. } => todo!(),
             CType::Tuple(_) => todo!(),
             CType::Pointer(ty) => Type::pointer(Type::from(*ty)),
             CType::Int => Type::U32,

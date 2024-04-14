@@ -12,7 +12,6 @@ use c::CType;
 use expr::{BinOp, Expr};
 use lex::LexType;
 use stmt::{Function, Stmt};
-use types::TypeVar;
 
 use crate::{
     lex::LexExtension,
@@ -201,7 +200,10 @@ fn main() {
                 ("data", LexType::pointer(LexType::Ident("u8"))),
             ],
         ),
-        // example(),
+        Stmt::tagged_union(
+            "StrOrU32",
+            [("n", LexType::Ident("u32")), ("s", LexType::Ident("u32"))],
+        ),
         fib(),
         dup(&mut inference),
         haystack_drop(&mut inference),
@@ -291,7 +293,10 @@ fn main() {
     generate!(0, "#include <stdbool.h>");
     generate!(0, "");
 
-    let mut types: HashMap<_, _> = types.into_iter().map(|(id, ty)| (id.to_string(), CType::from(ty))).collect();
+    let mut types: HashMap<_, _> = types
+        .into_iter()
+        .map(|(id, ty)| (id.to_string(), CType::from(ty)))
+        .collect();
     fns.iter().for_each(|f| {
         let new_tys = f.body.get_ctypes();
         types.extend(new_tys)

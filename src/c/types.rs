@@ -41,6 +41,10 @@ pub enum CType {
         name: String,
         elements: Vec<(String, CType)>,
     },
+    TaggedUnion {
+        name: String,
+        variants: Vec<(String, CType)>,
+    },
     Tuple(Vec<CType>),
     Pointer(Box<CType>),
 
@@ -76,7 +80,7 @@ impl CType {
 
     fn structs_referenced(&self) -> Option<&Self> {
         match self {
-            CType::Struct { .. } | CType::Tuple(_) => Some(self),
+            CType::Struct { .. } | CType::TaggedUnion { .. } | CType::Tuple(_) => Some(self),
             CType::Pointer(t) => t.structs_referenced(),
             CType::U32
             | CType::Bool
@@ -99,6 +103,11 @@ impl CType {
             CType::Int => vec![],
             CType::Variadic => vec![],
             CType::Struct { elements, .. } => elements
+                .iter()
+                .map(|(_, ty)| ty.structs_referenced())
+                .flatten()
+                .collect(),
+            CType::TaggedUnion { variants, .. } => variants
                 .iter()
                 .map(|(_, ty)| ty.structs_referenced())
                 .flatten()
@@ -218,6 +227,14 @@ impl<'src> From<Type> for CType {
                     .map(|(id, ty)| (id, ty.into()))
                     .collect(),
             },
+            Type::TaggedUnion(tu) => CType::TaggedUnion {
+                name: tu.name,
+                variants: tu
+                    .variants
+                    .into_iter()
+                    .map(|(id, ty)| (id, ty.into()))
+                    .collect(),
+            },
             Type::Never => CType::Void,
         }
     }
@@ -253,7 +270,7 @@ impl<'src> Display for CType {
             CType::U8 => write!(f, "uint8_t"),
             CType::Char => write!(f, "char"),
             CType::Void => write!(f, "void"),
-            CType::Struct { name, .. } => write!(f, "{name}"),
+            CType::Struct { name, .. } | CType::TaggedUnion { name, .. } => write!(f, "{name}"),
             CType::Pointer(ty) => write!(f, "const {ty}*"),
             CType::Tuple(ts) => {
                 write!(f, "tuple_")?;

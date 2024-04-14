@@ -124,6 +124,7 @@ impl TypeInference {
                 })
             }
             Type::Struct(_) => todo!(),
+            Type::TaggedUnion(tu) => todo!(),
             Type::Never => Type::Never,
         }
     }
@@ -453,6 +454,7 @@ impl TypeInference {
                     .map(|(ident, ty)| (ident, self.normalize_ty(ty)))
                     .collect(),
             }),
+            Type::TaggedUnion(tu) => todo!(),
             Type::Never => Type::Never,
         }
     }
@@ -569,6 +571,7 @@ impl TypeInference {
                     }),
                 )
             }
+            Type::TaggedUnion(tu) => todo!(),
         }
     }
 

@@ -1,6 +1,6 @@
-use crate::{c::CType, types::Type};
+use crate::{c::CType, types::{Type, TypeInference}};
 
-use super::{Function, TypeDeclaration};
+use super::{Function, TypeDeclaration, TypeParameter};
 
 pub enum Stmt<'src, T, M, E> {
     Function(Function<'src, T, M, E>),
@@ -27,7 +27,24 @@ impl<'src, T, M, E> Stmt<'src, T, M, E> {
     where
         Members: Into<Vec<(&'src str, T)>>,
     {
-        Stmt::Type(TypeDeclaration::strukt(name, members))
+        Stmt::Type(TypeDeclaration::strukt(name, members, vec![]))
+    }
+
+    pub fn generic_strukt<Members, Ts>(name: &'src str, members: Members, type_vars: Ts, ctx: &mut TypeInference) -> Self
+    where
+        Members: Into<Vec<(&'src str, T)>>,
+        Ts: Into<Vec<&'src str>>,
+    {
+        let type_vars = type_vars
+            .into()
+            .into_iter()
+            .map(|name| TypeParameter {
+                name,
+                tyvar: ctx.fresh_type_var(),
+            })
+            .collect();
+
+        Stmt::Type(TypeDeclaration::strukt(name, members, type_vars))
     }
 
     pub fn tagged_union<V>(name: &'src str, variants: V) -> Self

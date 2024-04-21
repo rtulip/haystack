@@ -5,10 +5,12 @@ use crate::{
     types::{StructType, TaggedUnionType, Type, TypeVar},
 };
 
+use super::TypeParameter;
+
 #[derive(Debug)]
 enum TypeKind<'src, T> {
     Enum { variants: Vec<&'src str> },
-    Struct { members: Vec<(&'src str, T)> },
+    Struct { members: Vec<(&'src str, T)>, type_vars: Vec<TypeParameter<'src>>, },
     TaggedUnion { variants: Vec<(&'src str, T)> },
 }
 
@@ -30,7 +32,7 @@ impl<'src, T> TypeDeclaration<'src, T> {
         }
     }
 
-    pub fn strukt<M>(name: &'src str, members: M) -> Self
+    pub fn strukt<M>(name: &'src str, members: M, type_vars: Vec<TypeParameter<'src>>) -> Self
     where
         M: Into<Vec<(&'src str, T)>>,
     {
@@ -38,6 +40,7 @@ impl<'src, T> TypeDeclaration<'src, T> {
             name,
             kind: TypeKind::Struct {
                 members: members.into(),
+                type_vars,
             },
         }
     }
@@ -83,13 +86,15 @@ impl<'src> TypeDeclaration<'src, LexType<'src>> {
         for TypeDeclaration { name, kind } in decls {
             match kind {
                 TypeKind::Enum { variants } => todo!(),
-                TypeKind::Struct { members } => {
+                TypeKind::Struct { members, type_vars } => {
+                    let free_vars = HashMap::from_iter(type_vars.into_iter().map(|param| (param.name, param.tyvar)));
+                    
                     let members = members
                         .into_iter()
                         .map(|(id, ty)| {
                             (
                                 id.to_string(),
-                                ty.into_type(&types, &HashMap::new()).unwrap(),
+                                ty.into_type(&types, &free_vars).unwrap(),
                             )
                         })
                         .collect();

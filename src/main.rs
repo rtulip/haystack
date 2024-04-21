@@ -200,9 +200,11 @@ fn main() {
                 ("data", LexType::pointer(LexType::Ident("u8"))),
             ],
         ),
-        Stmt::tagged_union(
-            "StrOrU32",
-            [("n", LexType::Ident("u32")), ("s", LexType::Ident("u32"))],
+        Stmt::generic_strukt(
+            "Pair",
+            [("left", LexType::Ident("T")), ("right", LexType::Ident("T"))],
+            ["T"],
+            &mut inference,
         ),
         fib(),
         dup(&mut inference),
@@ -295,6 +297,7 @@ fn main() {
 
     let mut types: HashMap<_, _> = types
         .into_iter()
+        .filter(|(_, t)| !t.is_free())
         .map(|(id, ty)| (id.to_string(), CType::from(ty)))
         .collect();
     fns.iter().for_each(|f| {

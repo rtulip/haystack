@@ -2,17 +2,17 @@ use std::collections::HashMap;
 
 use crate::{
     expr::Expr,
-    lex::LexExtension,
-    stmt::Function,
+    lex::{LexExtension, LexType},
+    stmt::{Function, TypeParameter},
     types::{Type, Var},
 };
 
-impl<'src, M> Expr<'src, M, LexExtension<'src>> {
+impl<'src, M, T> Expr<'src, M, LexExtension<'src>, T> {
     pub fn resolve_names(
         self,
         fn_idents: &HashMap<String, usize>,
         extern_idents: &HashMap<String, usize>,
-    ) -> Expr<'src, M, ()> {
+    ) -> Expr<'src, M, (), T> {
         self.resolve_idents(fn_idents, extern_idents, &mut vec![])
     }
 
@@ -21,7 +21,7 @@ impl<'src, M> Expr<'src, M, LexExtension<'src>> {
         fn_idents: &HashMap<String, usize>,
         extern_idents: &HashMap<String, usize>,
         bound: &mut Vec<&'src str>,
-    ) -> Expr<'src, M, ()> {
+    ) -> Expr<'src, M, (), T> {
         match self.expr {
             crate::expr::ExprBase::Literal(lit) => Expr::literal(lit, self.meta),
             crate::expr::ExprBase::Block(exprs) => {
@@ -69,7 +69,7 @@ impl<'src, M> Expr<'src, M, LexExtension<'src>> {
                         .enumerate()
                         .rev()
                         .find(|(_, id)| **id == ident)
-                        .expect("todo!(error prop)");
+                        .expect(&format!("todo!(error prop) -- {ident}"));
                     Expr::var(Var::Ident(idx), self.meta)
                 }
             }
@@ -101,6 +101,7 @@ impl<'src, M> Expr<'src, M, LexExtension<'src>> {
                 panic!("Var Expressions shouldn't be used before identifier resolution")
             }
             crate::expr::ExprBase::VarAccessor(var, accessors) => todo!(),
+            crate::expr::ExprBase::Cast(ty) => Expr::cast(ty, self.meta),
         }
     }
 }
@@ -117,6 +118,50 @@ impl<'src, M> Function<'src, Type, M, LexExtension<'src>> {
             output: self.output,
             body: self.body.resolve_names(fn_idents, extern_idents),
             type_vars: self.type_vars,
+        }
+    }
+}
+
+impl<'src, M, E> Expr<'src, M, E, LexType<'src>> {
+    pub fn to_concrete_typed(
+        self,
+        types: &HashMap<&'src str, (Type, Vec<TypeParameter<'src>>)>,
+        free_vars: &Vec<TypeParameter<'src>>,
+    ) -> Expr<'src, M, E, Type> {
+        match self.expr {
+            crate::expr::ExprBase::Literal(lit) => Expr::literal(lit, self.meta),
+            crate::expr::ExprBase::Block(block) => Expr::block(
+                block
+                    .into_iter()
+                    .map(|e| e.to_concrete_typed(types, free_vars))
+                    .collect::<Vec<_>>(),
+                self.meta,
+            ),
+            crate::expr::ExprBase::BinOp(binop) => Expr::binop(binop, self.meta),
+            crate::expr::ExprBase::Call(call) => Expr::call(call, self.meta),
+            crate::expr::ExprBase::If { then, otherwise } => Expr::iff(
+                then.to_concrete_typed(types, free_vars),
+                otherwise.to_concrete_typed(types, free_vars),
+                self.meta,
+            ),
+            crate::expr::ExprBase::While { condition, body } => Expr::wile(
+                condition
+                    .into_iter()
+                    .map(|e| e.to_concrete_typed(types, free_vars))
+                    .collect::<Vec<_>>(),
+                body.to_concrete_typed(types, free_vars),
+                self.meta,
+            ),
+            crate::expr::ExprBase::Bind(bind) => Expr::bind(bind, self.meta),
+            crate::expr::ExprBase::Var(var) => Expr::var(var, self.meta),
+            crate::expr::ExprBase::Ext(ext) => Expr::ext(ext, self.meta),
+            crate::expr::ExprBase::ExternCall(xtern_call) => Expr::xtern(xtern_call, self.meta),
+            crate::expr::ExprBase::VarAccessor(var, inner) => {
+                Expr::accessors(var, inner, self.meta)
+            }
+            crate::expr::ExprBase::Cast(t) => {
+                Expr::cast(t.into_type(types, free_vars).unwrap().0, self.meta)
+            }
         }
     }
 }

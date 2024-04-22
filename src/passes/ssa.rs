@@ -19,14 +19,14 @@ pub struct Assignment {
     pub output: Option<Vec<CVar>>,
 }
 
-impl<'src, M, E> Expr<'src, M, E> {
+impl<'src, M, E> Expr<'src, M, E, Type> {
     pub fn into_ssa_form(
         self,
         stack: Stack,
         env: &HashMap<Var, Type>,
         extern_fns: &'src HashMap<usize, CType>,
         fn_names: &'src HashMap<usize, String>,
-    ) -> Expr<'src, Assignment, CSsaExtension<'src>> {
+    ) -> Expr<'src, Assignment, CSsaExtension<'src>, Type> {
         let (mut stack, mut counter) = CVar::from_stack(stack);
         self.get_var_ids(
             &mut stack,
@@ -46,7 +46,7 @@ impl<'src, M, E> Expr<'src, M, E> {
         extern_fns: &'src HashMap<usize, CType>,
         fn_names: &'src HashMap<usize, String>,
         bound: &mut HashMap<usize, CVar>,
-    ) -> Expr<'src, Assignment, CSsaExtension<'src>> {
+    ) -> Expr<'src, Assignment, CSsaExtension<'src>, Type> {
         match self.expr {
             crate::expr::ExprBase::Literal(lit) => {
                 let var: CVar = CVar::new(lit.clone().into(), counter);
@@ -446,6 +446,36 @@ impl<'src, M, E> Expr<'src, M, E> {
             crate::expr::ExprBase::Var(Var::Func(_)) => unreachable!(),
             crate::expr::ExprBase::VarAccessor(Var::Func(_), ..) => unreachable!(),
             crate::expr::ExprBase::Ext(_) => todo!(),
+            crate::expr::ExprBase::Cast(ty) => {
+                let popped = match &ty {
+                    Type::U32 => todo!(),
+                    Type::U8 => todo!(),
+                    Type::Bool => todo!(),
+                    Type::Var(_) => todo!(),
+                    Type::Pointer { ty, mutable } => todo!(),
+                    Type::Func(_) => todo!(),
+                    Type::Struct(s) => {
+                        assert!(
+                            stack.len() >= s.members.len(),
+                            "There should be enogh elements on the stack at this point."
+                        );
+                        stack.split_off(stack.len() - s.members.len())
+                    }
+                    Type::TaggedUnion(_) => todo!(),
+                    Type::Never => todo!(),
+                };
+
+                let var = CVar::new(CType::from(ty.clone()), counter);
+                stack.push(var.clone());
+
+                Expr::cast(
+                    ty,
+                    Assignment {
+                        input: Some(popped),
+                        output: Some(vec![var]),
+                    },
+                )
+            }
         }
     }
 }

@@ -7,7 +7,7 @@ use crate::{
     types::{ConstrainedType, Type, TypeInference, Var},
 };
 
-impl<'src, M> Expr<'src, (M, ConstrainedType), ()>
+impl<'src, M> Expr<'src, (M, ConstrainedType), (), Type>
 where
     M: Debug,
 {
@@ -120,6 +120,7 @@ where
                 }
             }
             crate::expr::ExprBase::Ext(_) => unreachable!(),
+            crate::expr::ExprBase::Cast(_t) => (),
         };
 
         to_monomorphise

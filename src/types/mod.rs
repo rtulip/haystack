@@ -3,12 +3,17 @@ mod inference;
 mod scheme;
 use std::collections::HashMap;
 
-use crate::{c::CType, expr::Literal, lex::LexType, stmt::Function};
+use crate::{
+    c::CType,
+    expr::Literal,
+    lex::LexType,
+    stmt::{Function, TypeParameter},
+};
 
 pub use constraint::*;
 pub use inference::*;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct TypeVar(pub usize);
 
 impl From<usize> for TypeVar {
@@ -86,6 +91,30 @@ impl Type {
         }
     }
 
+    pub fn free_vars(&self) -> Vec<TypeVar> {
+        match self {
+            Type::U32 => vec![],
+            Type::U8 => vec![],
+            Type::Bool => vec![],
+            Type::Var(var) => vec![var.clone()],
+            Type::Pointer { ty, mutable } => ty.free_vars(),
+            Type::Func(_) => todo!(),
+            Type::Struct(st) => st
+                .members
+                .iter()
+                .map(|(_, ty)| ty.free_vars())
+                .flatten()
+                .collect(),
+            Type::TaggedUnion(tu) => tu
+                .variants
+                .iter()
+                .map(|(_, ty)| ty.free_vars())
+                .flatten()
+                .collect(),
+            Type::Never => vec![],
+        }
+    }
+
     pub fn expect_function(self) -> FunctionType {
         match self {
             Type::Func(f) => f,
@@ -117,7 +146,6 @@ impl Type {
             Type::Struct(strukt) => {
                 if let Some((_, ty)) = strukt.members.iter().find(|(id, _)| id == inners[0]) {
                     if inners.len() == 1 {
-                        dbg!(&self, inners, ty);
                         Ok(ty)
                     } else {
                         ty.access_inner(&inners[1..])
@@ -134,6 +162,44 @@ impl Type {
             | Type::Var(_)
             | Type::Pointer { .. }
             | Type::Func(_) => Err(()),
+        }
+    }
+
+    pub fn linear_substitution<'src>(
+        mut self,
+        free_vars: Vec<TypeParameter<'src>>,
+        params: Vec<Type>,
+    ) -> Result<Self, ()> {
+        if free_vars.len() != params.len() {
+            return Err(());
+        }
+
+        free_vars
+            .iter()
+            .zip(params.iter())
+            .for_each(|(var, replace)| self.var_replace(&var.tyvar, replace));
+        Ok(self)
+    }
+
+    fn var_replace(&mut self, var: &TypeVar, replace: &Self) {
+        match self {
+            Type::U32 | Type::U8 | Type::Bool => (),
+            Type::Var(v) => {
+                if v == var {
+                    *self = replace.clone();
+                }
+            }
+            Type::Pointer { ty, mutable } => ty.var_replace(var, replace),
+            Type::Func(_) => todo!(),
+            Type::Struct(s) => s
+                .members
+                .iter_mut()
+                .for_each(|(_, ty)| ty.var_replace(var, replace)),
+            Type::TaggedUnion(tu) => tu
+                .variants
+                .iter_mut()
+                .for_each(|(_, ty)| ty.var_replace(var, replace)),
+            Type::Never => todo!(),
         }
     }
 }
@@ -179,7 +245,13 @@ impl<'src> From<CType> for Type {
             CType::U8 => Type::U8,
             CType::Char => Type::U8,
             CType::Void => Type::Never,
-            CType::Struct { .. } => todo!(),
+            CType::Struct { name, elements } => Type::Struct(StructType {
+                name: name,
+                members: elements
+                    .into_iter()
+                    .map(|(id, ty)| (id, Type::from(ty)))
+                    .collect(),
+            }),
             CType::TaggedUnion { .. } => todo!(),
             CType::Tuple(_) => todo!(),
             CType::Pointer(ty) => Type::pointer(Type::from(*ty)),

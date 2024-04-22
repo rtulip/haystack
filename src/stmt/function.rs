@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Debug};
 
 use crate::{
     c::CType,
@@ -20,7 +20,7 @@ pub struct Function<'src, T, M, E> {
     pub name: &'src str,
     pub input: Vec<T>,
     pub output: Vec<T>,
-    pub body: Expr<'src, M, E>,
+    pub body: Expr<'src, M, E, T>,
     pub type_vars: Vec<TypeParameter<'src>>,
 }
 
@@ -30,7 +30,10 @@ impl<'src, M> Function<'src, Type, M, ()> {
         inference: &mut TypeInference,
         parent_env: &HashMap<Var, Type>,
         extern_fns: &HashMap<usize, CType>,
-    ) -> Result<Function<'src, Type, (M, ConstrainedType), ()>, (&'src str, TypeCheckError)> {
+    ) -> Result<Function<'src, Type, (M, ConstrainedType), ()>, (&'src str, TypeCheckError)>
+    where
+        M: Debug,
+    {
         let (e, _scheme) = inference
             .type_check(
                 self.body,
@@ -98,7 +101,7 @@ impl<'src, M> Function<'src, Type, M, ()> {
 }
 
 impl<'src, T, M, E> Function<'src, T, M, E> {
-    pub fn new<In, Out>(name: &'src str, input: In, output: Out, body: Expr<'src, M, E>) -> Self
+    pub fn new<In, Out>(name: &'src str, input: In, output: Out, body: Expr<'src, M, E, T>) -> Self
     where
         In: Into<Vec<T>>,
         Out: Into<Vec<T>>,
@@ -116,7 +119,7 @@ impl<'src, T, M, E> Function<'src, T, M, E> {
         name: &'src str,
         input: In,
         output: Out,
-        body: Expr<'src, M, E>,
+        body: Expr<'src, M, E, T>,
         type_vars: Ts,
         ctx: &mut TypeInference,
     ) -> Self
@@ -145,28 +148,23 @@ impl<'src, T, M, E> Function<'src, T, M, E> {
 }
 
 impl<'src, M, E> Function<'src, LexType<'src>, M, E> {
-    pub fn to_concrete_typed(self, types: &HashMap<&'src str, Type>) -> Function<'src, Type, M, E> {
-        dbg!(&self.type_vars);
-
-        let free_vars = HashMap::from_iter(
-            self.type_vars
-                .iter()
-                .map(|param| (param.name, param.tyvar.clone())),
-        );
-
+    pub fn to_concrete_typed(
+        self,
+        types: &HashMap<&'src str, (Type, Vec<TypeParameter<'src>>)>,
+    ) -> Function<'src, Type, M, E> {
         Function {
             name: self.name,
             input: self
                 .input
                 .into_iter()
-                .map(|lex_ty| lex_ty.into_type(types, &free_vars).unwrap())
+                .map(|lex_ty| lex_ty.into_type(types, &self.type_vars).unwrap().0)
                 .collect(),
             output: self
                 .output
                 .into_iter()
-                .map(|lex_ty| lex_ty.into_type(types, &free_vars).unwrap())
+                .map(|lex_ty| lex_ty.into_type(types, &self.type_vars).unwrap().0)
                 .collect(),
-            body: self.body,
+            body: self.body.to_concrete_typed(types, &self.type_vars),
             type_vars: self.type_vars,
         }
     }

@@ -202,7 +202,10 @@ fn main() {
         ),
         Stmt::generic_strukt(
             "Pair",
-            [("left", LexType::Ident("T")), ("right", LexType::Ident("T"))],
+            [
+                ("left", LexType::Ident("T")),
+                ("right", LexType::Ident("T")),
+            ],
             ["T"],
             &mut inference,
         ),
@@ -210,13 +213,39 @@ fn main() {
         dup(&mut inference),
         haystack_drop(&mut inference),
         printf(),
-        foo(),
-        bar(),
-        call_foo(),
+        // foo(),
+        // bar(),
+        // call_foo(),
         hs_puts(),
         hs_putlns(),
         hs_putu(),
         hs_putlnu(),
+        Stmt::Function(Function::new(
+            "main",
+            [],
+            [],
+            Expr::block(
+                [
+                    Expr::literal("Left Member", ()),
+                    Expr::literal("Right Member", ()),
+                    Expr::cast(LexType::Ident("Pair"), ()),
+                    Expr::ext(LexExtension::As(vec!["pair"]), ()),
+                    Expr::ext(LexExtension::IdentSeq(vec!["pair", "left"]), ()),
+                    Expr::ext(LexExtension::Ident("hs_putlns"), ()),
+                    Expr::ext(LexExtension::IdentSeq(vec!["pair", "right"]), ()),
+                    Expr::ext(LexExtension::Ident("hs_putlns"), ()),
+                    Expr::literal(12345u32, ()),
+                    Expr::literal(54321u32, ()),
+                    Expr::cast(LexType::Ident("Pair"), ()),
+                    Expr::ext(LexExtension::As(vec!["pair"]), ()),
+                    Expr::ext(LexExtension::IdentSeq(vec!["pair", "left"]), ()),
+                    Expr::ext(LexExtension::Ident("hs_putlnu"), ()),
+                    Expr::ext(LexExtension::IdentSeq(vec!["pair", "right"]), ()),
+                    Expr::ext(LexExtension::Ident("hs_putlnu"), ()),
+                ],
+                (),
+            ),
+        )),
     ];
     let mut extern_fns = HashMap::new();
     let mut extern_names = HashMap::new();
@@ -244,6 +273,8 @@ fn main() {
             });
 
     let types = TypeDeclaration::to_concrete(type_decls);
+
+    dbg!(&types);
 
     let fns = fns
         .into_iter()
@@ -284,7 +315,7 @@ fn main() {
     };
 
     // Transpile to c
-    let fns = fns
+    let mut fns = fns
         .into_iter()
         .map(|func| func.into_ssa_form(&env, &extern_fns, &fn_names))
         .flatten()
@@ -295,17 +326,21 @@ fn main() {
     generate!(0, "#include <stdbool.h>");
     generate!(0, "");
 
-    let mut types: HashMap<_, _> = types
-        .into_iter()
-        .filter(|(_, t)| !t.is_free())
-        .map(|(id, ty)| (id.to_string(), CType::from(ty)))
-        .collect();
-    fns.iter().for_each(|f| {
-        let new_tys = f.body.get_ctypes();
-        types.extend(new_tys)
+    let mut c_types = HashMap::new();
+    fns.iter_mut().for_each(|f| {
+        let new_tys = f.body.get_ctypes(&types);
+        c_types.extend(new_tys)
     });
 
-    let types = CType::organize_dependencies(types.into_iter().map(|(_, v)| v)).unwrap();
+    c_types.extend(
+        types
+            .into_iter()
+            .map(|(id, (ty, _))| (id.to_string(), ty))
+            .filter(|(_, t)| !t.is_free())
+            .map(|(id, ty)| (id, CType::from(ty))),
+    );
+
+    let types = CType::organize_dependencies(c_types.into_iter().map(|(_, v)| v)).unwrap();
 
     let indentation = 0;
     let tab_size = 4;

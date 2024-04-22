@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use crate::{
     c::{CFunction, CType, CVar},
     expr::{Expr, Literal},
-    stmt::Function,
-    types::Type,
+    stmt::{Function, TypeParameter},
+    types::{Type, TypeInference},
 };
 
 use super::{Assignment, CSsaExtension};
@@ -17,7 +17,7 @@ macro_rules! generate {
     }};
 }
 
-impl<'src> Expr<'src, Assignment, CSsaExtension<'src>> {
+impl<'src, T> Expr<'src, Assignment, CSsaExtension<'src>, T> {
     pub fn transpile(&self, indentation: usize, tab_size: usize) {
         match &self.expr {
             crate::expr::ExprBase::Literal(Literal::Bool(b)) => {
@@ -202,31 +202,146 @@ impl<'src> Expr<'src, Assignment, CSsaExtension<'src>> {
                     self.meta.input.as_ref().unwrap()[0]
                 )
             }
+            crate::expr::ExprBase::Cast(_) => match &self.meta.output.as_ref().unwrap()[0].ty {
+                CType::U32 => todo!(),
+                CType::Bool => todo!(),
+                CType::U8 => todo!(),
+                CType::Char => todo!(),
+                CType::Void => todo!(),
+                CType::Struct { name, elements } => {
+                    generate!(
+                        indentation,
+                        "{:?} = {{",
+                        self.meta.output.as_ref().unwrap()[0]
+                    );
+
+                    elements
+                        .iter()
+                        .map(|(id, _)| id)
+                        .zip(self.meta.input.as_ref().unwrap().iter())
+                        .for_each(|(id, var)| generate!(indentation + tab_size, ".{id} = {var},"));
+                    generate!(indentation, "}};");
+                }
+                CType::TaggedUnion { name, variants } => todo!(),
+                CType::Tuple(_) => todo!(),
+                CType::Pointer(_) => todo!(),
+                CType::Function(_) => todo!(),
+                CType::Int => todo!(),
+                CType::Variadic => todo!(),
+            },
         }
     }
 
-    pub fn get_ctypes(&self) -> HashMap<String, CType> {
+    pub fn get_ctypes(
+        &mut self,
+        declared_types: &HashMap<&'src str, (Type, Vec<TypeParameter<'src>>)>,
+    ) -> HashMap<String, CType> {
         let mut types = HashMap::new();
 
-        self.for_each_meta(|a| {
-            match &a.input {
-                Some(input) => input.iter().for_each(|var| {
-                    let t = &var.ty;
-                    let k = format!("{t}");
+        self.for_each_meta_mut(|a| {
+            match &mut a.input {
+                Some(input) => input.iter_mut().for_each(|var| {
+                    let mut k = format!("{}", var.ty);
+
+                    // See if we need to modify the 
+                    let params = match declared_types.get(&k.as_ref()) {
+                        Some((ty, params)) => {
+                            if ty.is_free() {
+                                let concrete_ty = Type::from(var.ty.clone());
+
+                                // We need to figure out exactly how to assign these params
+                                // 
+                                // To do this, we create a new `TypeInference` which we use
+                                // to type check an empty block with the free type on the stack
+                                // and the concrete type expected at the end.
+                                // 
+                                // This 
+                                let mut inference = TypeInference::new_from([&concrete_ty, ty]);
+                                inference
+                                    .type_check(
+                                        Expr::block([], ()),
+                                        &HashMap::new(),
+                                        &HashMap::new(),
+                                        &mut vec![concrete_ty.clone()],
+                                        vec![ty.clone()],
+                                        vec![],
+                                    )
+                                    .expect("These should be the same types and should always be resolveable");
+
+                                params.iter().map(|param| {
+                                    let ty = inference.normalize_ty(Type::Var(param.tyvar));
+                                    assert!(!ty.is_free());
+                                    CType::from(ty)
+                                } ).collect()
+                            } else {
+                                vec![]
+                            }
+                        }
+                        None => vec![],
+                    };
+
+                    params.into_iter().for_each(|ty| k.push_str(&format!("_{ty}")));
+
+                    var.ty.rename_struct(&k);
+
                     if !types.contains_key(&k) {
-                        types.insert(k, t.clone());
+                        types.insert(k, var.ty.clone());
+                    } else {
+                        eprintln!("Didn't insert {k} - {:?}", &var.ty);
                     }
                 }),
                 None => (),
             };
 
-            match &a.output {
+            match &mut a.output {
                 Some(single) if single.len() == 1 => {
-                    let var = &single[0];
-                    let t = &var.ty;
-                    let k = format!("{t}");
+                    let var = &mut single[0];
+                    let mut k = format!("{}", &var.ty);
+                    
+                    
+                    // See if we need to modify the 
+                    let params = match declared_types.get(&k.as_ref()) {
+                        Some((ty, params)) => {
+                            if ty.is_free() {
+                                let concrete_ty = Type::from(var.ty.clone());
+
+                                // We need to figure out exactly how to assign these params
+                                // 
+                                // To do this, we create a new `TypeInference` which we use
+                                // to type check an empty block with the free type on the stack
+                                // and the concrete type expected at the end.
+                                // 
+                                // This 
+                                let mut inference = TypeInference::new_from([&concrete_ty, ty]);
+                                inference
+                                    .type_check(
+                                        Expr::block([], ()),
+                                        &HashMap::new(),
+                                        &HashMap::new(),
+                                        &mut vec![concrete_ty.clone()],
+                                        vec![ty.clone()],
+                                        vec![],
+                                    )
+                                    .expect("These should be the same types and should always be resolveable");
+
+                                params.iter().map(|param| {
+                                    let ty = inference.normalize_ty(Type::Var(param.tyvar));
+                                    assert!(!ty.is_free());
+                                    CType::from(ty)
+                                } ).collect()
+                            } else {
+                                vec![]
+                            }
+                        }
+                        None => vec![],
+                    };
+
+                    params.into_iter().for_each(|ty| k.push_str(&format!("_{ty}")));
+
+                    var.ty.rename_struct(&k);
+                    
                     if !types.contains_key(&k) {
-                        types.insert(k, t.clone());
+                        types.insert(k, var.ty.clone());
                     }
                 }
                 Some(vars) => {
@@ -299,15 +414,18 @@ impl<'src> CType {
             CType::TaggedUnion { name, variants } => {
                 generate!(indentation, "typedef struct {name} {{");
                 generate!(indentation + tab_size, "enum {{");
-                variants.iter().for_each(|(id, _)| generate!(indentation + tab_size + tab_size, "{name}_tag_{id},"));
+                variants.iter().for_each(|(id, _)| {
+                    generate!(indentation + tab_size + tab_size, "{name}_tag_{id},")
+                });
                 generate!(indentation + tab_size, "}} tag; ");
                 generate!(indentation + tab_size, "union {{");
-                variants.iter().for_each(|(id, ty)| generate!(indentation + tab_size + tab_size, "{ty} {id};"));
+                variants.iter().for_each(|(id, ty)| {
+                    generate!(indentation + tab_size + tab_size, "{ty} {id};")
+                });
                 generate!(indentation + tab_size, "}} data; ");
                 generate!(indentation, "}} {name};");
                 generate!(indentation, "");
-
-            },
+            }
             CType::Tuple(elements) => {
                 generate!(indentation, "typedef struct {self} {{");
                 elements
@@ -352,7 +470,7 @@ impl<'src> CType {
             }
             CType::TaggedUnion { name, .. } => {
                 generate!(indentation, "struct {name};")
-            },
+            }
             CType::Tuple(_) => {
                 generate!(indentation, "struct {self};")
             }

@@ -189,6 +189,13 @@ impl CType {
             _ => Err(()),
         }
     }
+
+    pub fn rename_struct(&mut self, new_name: &String) {
+        match self {   
+            CType::Struct { name, .. } => *name = new_name.clone(),
+            _ => ()
+        }
+    }
 }
 
 impl<'src> From<Vec<CType>> for CType {
@@ -270,7 +277,10 @@ impl<'src> Display for CType {
             CType::U8 => write!(f, "uint8_t"),
             CType::Char => write!(f, "char"),
             CType::Void => write!(f, "void"),
-            CType::Struct { name, .. } | CType::TaggedUnion { name, .. } => write!(f, "{name}"),
+            CType::Struct { name, .. } => {
+                write!(f, "{name}")
+            }
+            CType::TaggedUnion { name, .. } => todo!(),
             CType::Pointer(ty) => write!(f, "const {ty}*"),
             CType::Tuple(ts) => {
                 write!(f, "tuple_")?;

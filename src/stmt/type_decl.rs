@@ -2,16 +2,23 @@ use std::collections::HashMap;
 
 use crate::{
     lex::LexType,
-    types::{StructType, TaggedUnionType, Type, TypeVar},
+    types::{StructType, TaggedUnionType, Type, TypeInference, TypeVar},
 };
 
 use super::TypeParameter;
 
 #[derive(Debug)]
 enum TypeKind<'src, T> {
-    Enum { variants: Vec<&'src str> },
-    Struct { members: Vec<(&'src str, T)>, type_vars: Vec<TypeParameter<'src>>, },
-    TaggedUnion { variants: Vec<(&'src str, T)> },
+    Enum {
+        variants: Vec<&'src str>,
+    },
+    Struct {
+        members: Vec<(&'src str, T)>,
+        type_vars: Vec<TypeParameter<'src>>,
+    },
+    TaggedUnion {
+        variants: Vec<(&'src str, T)>,
+    },
 }
 
 pub struct TypeDeclaration<'src, T> {
@@ -61,41 +68,53 @@ impl<'src, T> TypeDeclaration<'src, T> {
 impl<'src> LexType<'src> {
     pub fn into_type(
         self,
-        types: &HashMap<&'src str, Type>,
-        free_vars: &HashMap<&'src str, TypeVar>,
-    ) -> Option<Type> {
+        types: &HashMap<&'src str, (Type, Vec<TypeParameter<'src>>)>,
+        free_vars: &Vec<TypeParameter<'src>>,
+    ) -> Option<(Type, Vec<TypeParameter<'src>>)> {
         match self {
             LexType::Ident(id) => {
                 if let Some(ty) = types.get(id) {
                     Some(ty.clone())
-                } else if let Some(tyvar) = free_vars.get(id) {
-                    Some(Type::Var(tyvar.clone()))
+                } else if let Some(param) = free_vars.iter().find(|param| param.name == id) {
+                    Some((Type::Var(param.tyvar.clone()), vec![]))
                 } else {
                     None
                 }
             }
-            LexType::Pointer(ty) => Some(Type::pointer(ty.into_type(types, free_vars)?)),
+            LexType::Pointer(ty) => {
+                let (ty, params) = ty.into_type(types, free_vars)?;
+                Some((Type::pointer(ty), params))
+            }
+            LexType::Paramaterized(ty, params) => {
+                let (ty, ty_params) = ty.into_type(types, free_vars)?;
+
+                let params: Vec<_> = params
+                    .into_iter()
+                    .map(|ty| ty.into_type(types, free_vars).unwrap().0)
+                    .collect();
+
+                // TODO: This doesn't forward any still-generic types. That will bite us eventually.
+                Some((ty.linear_substitution(ty_params, params).ok()?, vec![]))
+            }
         }
     }
 }
 
 impl<'src> TypeDeclaration<'src, LexType<'src>> {
-    pub fn to_concrete(decls: Vec<Self>) -> HashMap<&'src str, Type> {
-        let mut types = Type::builtins();
+    pub fn to_concrete(decls: Vec<Self>) -> HashMap<&'src str, (Type, Vec<TypeParameter<'src>>)> {
+        let mut types = Type::builtins()
+            .into_iter()
+            .map(|(id, ty)| (id, (ty, vec![])))
+            .collect::<HashMap<&'_ str, (Type, Vec<TypeParameter<'_>>)>>();
 
         for TypeDeclaration { name, kind } in decls {
             match kind {
                 TypeKind::Enum { variants } => todo!(),
                 TypeKind::Struct { members, type_vars } => {
-                    let free_vars = HashMap::from_iter(type_vars.into_iter().map(|param| (param.name, param.tyvar)));
-                    
                     let members = members
                         .into_iter()
                         .map(|(id, ty)| {
-                            (
-                                id.to_string(),
-                                ty.into_type(&types, &free_vars).unwrap(),
-                            )
+                            (id.to_string(), ty.into_type(&types, &type_vars).unwrap().0)
                         })
                         .collect();
 
@@ -104,17 +123,12 @@ impl<'src> TypeDeclaration<'src, LexType<'src>> {
                         members,
                     });
 
-                    assert!(types.insert(name, ty).is_none());
+                    assert!(types.insert(name, (ty, type_vars)).is_none());
                 }
                 TypeKind::TaggedUnion { variants } => {
                     let variants = variants
                         .into_iter()
-                        .map(|(id, ty)| {
-                            (
-                                id.to_string(),
-                                ty.into_type(&types, &HashMap::new()).unwrap(),
-                            )
-                        })
+                        .map(|(id, ty)| (id.to_string(), ty.into_type(&types, &vec![]).unwrap().0))
                         .collect();
 
                     let ty = Type::TaggedUnion(TaggedUnionType {
@@ -122,7 +136,7 @@ impl<'src> TypeDeclaration<'src, LexType<'src>> {
                         variants,
                     });
 
-                    assert!(types.insert(name, ty).is_none());
+                    assert!(types.insert(name, (ty, vec![])).is_none());
                 }
             }
         }

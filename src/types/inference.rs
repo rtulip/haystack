@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+};
 
 use crate::{
     c::CType,
@@ -59,6 +62,32 @@ impl TypeInference {
         Self {
             lookup: UnificationTable::new(),
         }
+    }
+
+    pub fn new_from<'a, Ts>(ts: Ts) -> Self
+    where
+        Ts: IntoIterator<Item = &'a Type>,
+    {
+        let mut free_vars = ts
+            .into_iter()
+            .map(|ty| ty.free_vars())
+            .flatten()
+            .collect::<Vec<_>>();
+        free_vars.sort();
+
+        let mut inference = Self::new();
+        match free_vars.last() {
+            Some(TypeVar(n)) => {
+                // Make sure that type vars up to and includeing the largest
+                // type variable (if present) is known.
+                for _ in 0..=*n {
+                    inference.fresh_type_var();
+                }
+            }
+            None => (),
+        }
+
+        inference
     }
 
     fn env_get_num_idents(env: &HashMap<Var, Type>) -> usize {
@@ -123,7 +152,14 @@ impl TypeInference {
                     params,
                 })
             }
-            Type::Struct(_) => todo!(),
+            Type::Struct(s) => Type::Struct(StructType {
+                name: s.name,
+                members: s
+                    .members
+                    .into_iter()
+                    .map(|(id, ty)| (id, self.freshen(ty, fresh)))
+                    .collect(),
+            }),
             Type::TaggedUnion(tu) => todo!(),
             Type::Never => Type::Never,
         }
@@ -138,8 +174,11 @@ impl TypeInference {
         stack: &mut Stack,
         env: &mut HashMap<Var, Type>,
         extern_fns: &HashMap<usize, CType>,
-        expr: Expr<'a, M, ()>,
-    ) -> Result<Expr<'a, (M, ConstrainedType), ()>, InferenceError> {
+        expr: Expr<'a, M, (), Type>,
+    ) -> Result<Expr<'a, (M, ConstrainedType), (), Type>, InferenceError>
+    where
+        M: Debug,
+    {
         match expr.expr {
             crate::expr::ExprBase::Literal(Literal::Bool(b)) => {
                 stack.push(Type::Bool);
@@ -374,11 +413,7 @@ impl TypeInference {
                     .expect("Extern functions should be resolvable")
                     .expect_function();
 
-                dbg!(&extern_fn);
-
                 let popped = extern_fn.take_inputs_from_stack(stack);
-
-                dbg!(&popped);
 
                 let mut constraints = vec![];
                 for (i, ty) in extern_fn.input.iter().enumerate() {
@@ -410,6 +445,42 @@ impl TypeInference {
                 ))
             }
             crate::expr::ExprBase::Ext(_) => Err(InferenceError::ExtensionExpressionReached),
+            crate::expr::ExprBase::Cast(ty) => {
+                let target = self.freshen(ty, &mut HashMap::new());
+
+                match target {
+                    Type::U32 => todo!(),
+                    Type::U8 => todo!(),
+                    Type::Bool => todo!(),
+                    Type::Var(_) => todo!(),
+                    Type::Pointer { ty, mutable } => todo!(),
+                    Type::Func(_) => todo!(),
+                    Type::Struct(s) => {
+                        if stack.len() < s.members.len() {
+                            return Err(InferenceError::StackUnderflow);
+                        }
+
+                        let popped = stack.split_off(stack.len() - s.members.len());
+                        let constraints = s
+                            .members
+                            .clone()
+                            .into_iter()
+                            .zip(popped.into_iter())
+                            .map(|((_, expected), found)| Constraint::Equal(expected, found))
+                            .collect::<Vec<_>>();
+
+                        let t = Type::Struct(s);
+                        stack.push(t.clone());
+
+                        Ok(Expr::cast(
+                            t.clone(),
+                            (expr.meta, ConstrainedType::new(Some(t), constraints)),
+                        ))
+                    }
+                    Type::TaggedUnion(_) => todo!(),
+                    Type::Never => todo!(),
+                }
+            }
         }
     }
 
@@ -426,7 +497,7 @@ impl TypeInference {
         Ok(())
     }
 
-    fn normalize_ty(&mut self, ty: Type) -> Type {
+    pub fn normalize_ty(&mut self, ty: Type) -> Type {
         match ty {
             Type::U32 => Type::U32,
             Type::U8 => Type::U8,
@@ -590,8 +661,8 @@ impl TypeInference {
 
     fn substitute_expr<'a, M>(
         &mut self,
-        expr: Expr<'a, (M, ConstrainedType), ()>,
-    ) -> (HashSet<TypeVar>, Expr<'a, (M, ConstrainedType), ()>) {
+        expr: Expr<'a, (M, ConstrainedType), (), Type>,
+    ) -> (HashSet<TypeVar>, Expr<'a, (M, ConstrainedType), (), Type>) {
         match expr.expr {
             crate::expr::ExprBase::Literal(_) => (HashSet::new(), expr),
             crate::expr::ExprBase::Block(exprs) => {
@@ -702,18 +773,25 @@ impl TypeInference {
                 Expr::xtern(id, (expr.meta.0, ConstrainedType::new(None, []))),
             ),
             crate::expr::ExprBase::Ext(_) => unreachable!(),
+            crate::expr::ExprBase::Cast(ty) => {
+                let (unbound, ty) = self.substitute_one(ty);
+                (unbound, Expr::cast(ty, expr.meta))
+            }
         }
     }
 
     pub fn type_check<'a, M>(
         &mut self,
-        expr: Expr<'a, M, ()>,
+        expr: Expr<'a, M, (), Type>,
         parent_env: &HashMap<Var, Type>,
         extern_fns: &HashMap<usize, CType>,
         stack: &mut Stack,
         target: Stack,
         ty_vars_in_scope: Vec<&TypeVar>,
-    ) -> Result<(Expr<'a, (M, ConstrainedType), ()>, Scheme), TypeCheckError> {
+    ) -> Result<(Expr<'a, (M, ConstrainedType), (), Type>, Scheme), TypeCheckError>
+    where
+        M: Debug,
+    {
         let (mut unbound, _) = self.substitute(stack.clone());
         let mut env = parent_env.clone();
         let mut out = self

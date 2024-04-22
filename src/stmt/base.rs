@@ -1,4 +1,7 @@
-use crate::{c::CType, types::{Type, TypeInference}};
+use crate::{
+    c::CType,
+    types::{Type, TypeInference},
+};
 
 use super::{Function, TypeDeclaration, TypeParameter};
 
@@ -30,7 +33,12 @@ impl<'src, T, M, E> Stmt<'src, T, M, E> {
         Stmt::Type(TypeDeclaration::strukt(name, members, vec![]))
     }
 
-    pub fn generic_strukt<Members, Ts>(name: &'src str, members: Members, type_vars: Ts, ctx: &mut TypeInference) -> Self
+    pub fn generic_strukt<Members, Ts>(
+        name: &'src str,
+        members: Members,
+        type_vars: Ts,
+        ctx: &mut TypeInference,
+    ) -> Self
     where
         Members: Into<Vec<(&'src str, T)>>,
         Ts: Into<Vec<&'src str>>,

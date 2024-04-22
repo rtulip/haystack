@@ -20,24 +20,25 @@ use super::BinOp;
 /// custom operations to be representable within the same structure. This will
 /// make it easier to reuse the same base.
 #[derive(Debug, Clone)]
-pub enum ExprBase<'src, M, E> {
+pub enum ExprBase<'src, M, E, T> {
     Literal(Literal<'src>),
-    Block(Vec<Expr<'src, M, E>>),
+    Block(Vec<Expr<'src, M, E, T>>),
     BinOp(BinOp),
     Call(Var),
     If {
-        then: Box<Expr<'src, M, E>>,
-        otherwise: Box<Expr<'src, M, E>>,
+        then: Box<Expr<'src, M, E, T>>,
+        otherwise: Box<Expr<'src, M, E, T>>,
     },
     While {
-        condition: Vec<Expr<'src, M, E>>,
-        body: Box<Expr<'src, M, E>>,
+        condition: Vec<Expr<'src, M, E, T>>,
+        body: Box<Expr<'src, M, E, T>>,
     },
     Bind(usize),
     Var(Var),
     Ext(E),
     ExternCall(usize),
     VarAccessor(Var, Vec<&'src str>),
+    Cast(T),
 }
 
 /// Expressions
@@ -47,13 +48,13 @@ pub enum ExprBase<'src, M, E> {
 /// types information, etc...
 ///
 #[derive(Debug, Clone)]
-pub struct Expr<'src, Meta, Ext> {
-    pub expr: ExprBase<'src, Meta, Ext>,
+pub struct Expr<'src, Meta, Ext, Ty> {
+    pub expr: ExprBase<'src, Meta, Ext, Ty>,
     pub meta: Meta,
 }
 
-impl<'src, M, E> Expr<'src, M, E> {
-    pub fn new(meta: M, expr: ExprBase<'src, M, E>) -> Self {
+impl<'src, M, E, T> Expr<'src, M, E, T> {
+    pub fn new(meta: M, expr: ExprBase<'src, M, E, T>) -> Self {
         Expr { expr, meta }
     }
 
@@ -62,7 +63,7 @@ impl<'src, M, E> Expr<'src, M, E> {
         L: Into<Literal<'src>>,
     {
         Expr {
-            expr: ExprBase::<M, E>::Literal(lit.into()),
+            expr: ExprBase::<M, E, T>::Literal(lit.into()),
             meta,
         }
     }
@@ -72,7 +73,7 @@ impl<'src, M, E> Expr<'src, M, E> {
         B: Into<Vec<Self>>,
     {
         Expr {
-            expr: ExprBase::<M, E>::Block(block.into()),
+            expr: ExprBase::<M, E, T>::Block(block.into()),
             meta,
         }
     }
@@ -82,7 +83,7 @@ impl<'src, M, E> Expr<'src, M, E> {
         Ext: Into<E>,
     {
         Expr {
-            expr: ExprBase::<M, E>::Ext(ext.into()),
+            expr: ExprBase::<M, E, T>::Ext(ext.into()),
             meta,
         }
     }
@@ -164,8 +165,18 @@ impl<'src, M, E> Expr<'src, M, E> {
         }
     }
 
+    pub fn cast(ty: T, meta: M) -> Self {
+        Expr {
+            expr: ExprBase::Cast(ty),
+            meta,
+        }
+    }
+
     pub fn for_each(&self, mut func: impl FnMut(&Self) -> ()) {
-        fn helper<'a, M, E>(e: &Expr<'a, M, E>, f: &mut impl FnMut(&Expr<'a, M, E>) -> ()) {
+        fn helper<'a, M, E, T>(
+            e: &Expr<'a, M, E, T>,
+            f: &mut impl FnMut(&Expr<'a, M, E, T>) -> (),
+        ) {
             f(&e);
             match &e.expr {
                 ExprBase::Block(exprs) => {
@@ -183,7 +194,7 @@ impl<'src, M, E> Expr<'src, M, E> {
     }
 
     pub fn for_each_meta(&self, mut func: impl FnMut(&M) -> ()) {
-        fn helper<'a, M, E>(e: &Expr<'a, M, E>, f: &mut impl FnMut(&M) -> ()) {
+        fn helper<'a, M, E, T>(e: &Expr<'a, M, E, T>, f: &mut impl FnMut(&M) -> ()) {
             f(&e.meta);
             match &e.expr {
                 ExprBase::Block(exprs) => {
@@ -200,11 +211,29 @@ impl<'src, M, E> Expr<'src, M, E> {
         helper(&self, &mut func);
     }
 
-    pub fn map_meta<M2>(self, mut func: impl FnMut(M) -> M2) -> Expr<'src, M2, E> {
-        fn helper<'a, M1, M2, E>(
-            e: Expr<'a, M1, E>,
+    pub fn for_each_meta_mut(&mut self, mut func: impl FnMut(&mut M) -> ()) {
+        fn helper<'a, M, E, T>(e: &mut Expr<'a, M, E, T>, f: &mut impl FnMut(&mut M) -> ()) {
+            f(&mut e.meta);
+            match &mut e.expr {
+                ExprBase::Block(exprs) => {
+                    exprs.iter_mut().for_each(|e| helper(e, f));
+                }
+                ExprBase::If { then, otherwise } => {
+                    helper(then, f);
+                    helper(otherwise, f);
+                }
+                _ => (),
+            }
+        }
+
+        helper(self, &mut func);
+    }
+
+    pub fn map_meta<M2>(self, mut func: impl FnMut(M) -> M2) -> Expr<'src, M2, E, T> {
+        fn helper<'a, M1, M2, E, T>(
+            e: Expr<'a, M1, E, T>,
             f: &mut impl FnMut(M1) -> M2,
-        ) -> Expr<'a, M2, E> {
+        ) -> Expr<'a, M2, E, T> {
             match e.expr {
                 ExprBase::Literal(lit) => Expr::literal(lit, f(e.meta)),
                 ExprBase::Block(exprs) => Expr::block(
@@ -228,7 +257,8 @@ impl<'src, M, E> Expr<'src, M, E> {
                     helper(*body, f),
                     f(e.meta),
                 ),
-                crate::expr::ExprBase::ExternCall(id) => todo!(),
+                ExprBase::ExternCall(id) => todo!(),
+                ExprBase::Cast(ty) => Expr::cast(ty, f(e.meta)),
             }
         }
 

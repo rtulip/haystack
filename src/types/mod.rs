@@ -63,6 +63,7 @@ pub enum Type {
     Func(FunctionType),
     Struct(StructType),
     TaggedUnion(TaggedUnionType),
+    Tuple(Vec<Self>),
     Never,
 }
 
@@ -88,6 +89,7 @@ impl Type {
             Type::TaggedUnion(tagged_union) => {
                 tagged_union.variants.iter().any(|(_, ty)| ty.is_free())
             }
+            Type::Tuple(tys) => tys.iter().any(|ty| ty.is_free()),
         }
     }
 
@@ -111,6 +113,7 @@ impl Type {
                 .map(|(_, ty)| ty.free_vars())
                 .flatten()
                 .collect(),
+            Type::Tuple(_) => todo!(),
             Type::Never => vec![],
         }
     }
@@ -155,6 +158,7 @@ impl Type {
                 }
             }
             Type::TaggedUnion(_) => todo!(),
+            Type::Tuple(_) => todo!(),
             Type::Never
             | Type::U32
             | Type::U8
@@ -199,6 +203,7 @@ impl Type {
                 .variants
                 .iter_mut()
                 .for_each(|(_, ty)| ty.var_replace(var, replace)),
+            Type::Tuple(_) => todo!(),
             Type::Never => todo!(),
         }
     }

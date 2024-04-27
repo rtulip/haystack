@@ -21,7 +21,8 @@ impl<'src, T, M, E> Stmt<'src, T, M, E> {
 
     pub fn enumm<V>(name: &'src str, variants: V) -> Self
     where
-        V: Into<Vec<&'src str>>,
+        V: IntoIterator<Item = &'src str>,
+        T: Default,
     {
         Stmt::Type(TypeDeclaration::enumm(name, variants))
     }

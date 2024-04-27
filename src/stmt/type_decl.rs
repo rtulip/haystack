@@ -9,9 +9,6 @@ use super::TypeParameter;
 
 #[derive(Debug)]
 enum TypeKind<'src, T> {
-    Enum {
-        variants: Vec<&'src str>,
-    },
     Struct {
         members: Vec<(&'src str, T)>,
         type_vars: Vec<TypeParameter<'src>>,
@@ -29,12 +26,13 @@ pub struct TypeDeclaration<'src, T> {
 impl<'src, T> TypeDeclaration<'src, T> {
     pub fn enumm<V>(name: &'src str, variants: V) -> Self
     where
-        V: Into<Vec<&'src str>>,
+        V: IntoIterator<Item = &'src str>,
+        T: Default,
     {
         TypeDeclaration {
             name,
-            kind: TypeKind::Enum {
-                variants: variants.into(),
+            kind: TypeKind::TaggedUnion {
+                variants: variants.into_iter().map(|s| (s, T::default())).collect(),
             },
         }
     }
@@ -96,6 +94,15 @@ impl<'src> LexType<'src> {
                 // TODO: This doesn't forward any still-generic types. That will bite us eventually.
                 Some((ty.linear_substitution(ty_params, params).ok()?, vec![]))
             }
+            LexType::Tuple(ts) => {
+                let ts = ts
+                    .into_iter()
+                    .map(|ty| ty.into_type(types, free_vars).unwrap().0)
+                    .collect::<Vec<_>>();
+
+                // TODO: This doesn't forward any still-generic types. That will bite us eventually.
+                Some((Type::Tuple(ts), vec![]))
+            }
         }
     }
 }
@@ -109,7 +116,6 @@ impl<'src> TypeDeclaration<'src, LexType<'src>> {
 
         for TypeDeclaration { name, kind } in decls {
             match kind {
-                TypeKind::Enum { variants } => todo!(),
                 TypeKind::Struct { members, type_vars } => {
                     let members = members
                         .into_iter()

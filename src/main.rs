@@ -209,6 +209,14 @@ fn main() {
             ["T"],
             &mut inference,
         ),
+        Stmt::enumm("Foo", ["Bar", "Baz"]),
+        Stmt::tagged_union(
+            "Option_U32",
+            [
+                ("None", LexType::tuple([])),
+                ("Some", LexType::Ident("u32")),
+            ],
+        ),
         fib(),
         dup(&mut inference),
         haystack_drop(&mut inference),

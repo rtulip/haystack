@@ -9,6 +9,7 @@ pub enum LexType<'src> {
     Ident(&'src str),
     Pointer(Box<Self>),
     Paramaterized(Box<Self>, Vec<Self>),
+    Tuple(Vec<Self>),
 }
 
 impl<'src> LexType<'src> {
@@ -21,5 +22,18 @@ impl<'src> LexType<'src> {
         Ts: Into<Vec<Self>>,
     {
         LexType::Paramaterized(Box::new(ty), params.into())
+    }
+
+    pub fn tuple<Ts>(ts: Ts) -> Self
+    where
+        Ts: Into<Vec<Self>>,
+    {
+        LexType::Tuple(ts.into())
+    }
+}
+
+impl<'src> Default for LexType<'src> {
+    fn default() -> Self {
+        LexType::tuple([])
     }
 }

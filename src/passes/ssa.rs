@@ -462,6 +462,7 @@ impl<'src, M, E> Expr<'src, M, E, Type> {
                         stack.split_off(stack.len() - s.members.len())
                     }
                     Type::TaggedUnion(_) => todo!(),
+                    Type::Tuple(_) => todo!(),
                     Type::Never => todo!(),
                 };
 

@@ -191,9 +191,9 @@ impl CType {
     }
 
     pub fn rename_struct(&mut self, new_name: &String) {
-        match self {   
+        match self {
             CType::Struct { name, .. } => *name = new_name.clone(),
-            _ => ()
+            _ => (),
         }
     }
 }
@@ -242,6 +242,7 @@ impl<'src> From<Type> for CType {
                     .map(|(id, ty)| (id, ty.into()))
                     .collect(),
             },
+            Type::Tuple(tys) => CType::Tuple(tys.into_iter().map(|ty| CType::from(ty)).collect()),
             Type::Never => CType::Void,
         }
     }
@@ -280,7 +281,9 @@ impl<'src> Display for CType {
             CType::Struct { name, .. } => {
                 write!(f, "{name}")
             }
-            CType::TaggedUnion { name, .. } => todo!(),
+            CType::TaggedUnion { name, .. } => {
+                write!(f, "{name}")
+            }
             CType::Pointer(ty) => write!(f, "const {ty}*"),
             CType::Tuple(ts) => {
                 write!(f, "tuple_")?;

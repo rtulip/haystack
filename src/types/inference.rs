@@ -161,6 +161,7 @@ impl TypeInference {
                     .collect(),
             }),
             Type::TaggedUnion(tu) => todo!(),
+            Type::Tuple(_) => todo!(),
             Type::Never => Type::Never,
         }
     }
@@ -478,6 +479,7 @@ impl TypeInference {
                         ))
                     }
                     Type::TaggedUnion(_) => todo!(),
+                    Type::Tuple(_) => todo!(),
                     Type::Never => todo!(),
                 }
             }
@@ -526,6 +528,7 @@ impl TypeInference {
                     .collect(),
             }),
             Type::TaggedUnion(tu) => todo!(),
+            Type::Tuple(_) => todo!(),
             Type::Never => Type::Never,
         }
     }
@@ -643,6 +646,7 @@ impl TypeInference {
                 )
             }
             Type::TaggedUnion(tu) => todo!(),
+            Type::Tuple(_) => todo!(),
         }
     }
 

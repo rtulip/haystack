@@ -254,6 +254,15 @@ fn main() {
                 (),
             ),
         )),
+        Stmt::Function(Function::new(
+            "OptionSome",
+            [LexType::Ident("u32")],
+            [LexType::Ident("Option_U32")],
+            Expr::cast(
+                LexType::variant(LexType::Ident("Option_U32"), LexType::Ident("Some")),
+                (),
+            ),
+        )),
     ];
     let mut extern_fns = HashMap::new();
     let mut extern_names = HashMap::new();

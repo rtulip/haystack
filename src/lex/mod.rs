@@ -9,6 +9,7 @@ pub enum LexType<'src> {
     Ident(&'src str),
     Pointer(Box<Self>),
     Paramaterized(Box<Self>, Vec<Self>),
+    Variant(Box<Self>, Box<Self>),
     Tuple(Vec<Self>),
 }
 
@@ -29,6 +30,10 @@ impl<'src> LexType<'src> {
         Ts: Into<Vec<Self>>,
     {
         LexType::Tuple(ts.into())
+    }
+
+    pub fn variant(ty: Self, variant: Self) -> Self {
+        LexType::Variant(Box::new(ty), Box::new(variant))
     }
 }
 

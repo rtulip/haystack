@@ -103,6 +103,7 @@ impl<'src> LexType<'src> {
                 // TODO: This doesn't forward any still-generic types. That will bite us eventually.
                 Some((Type::Tuple(ts), vec![]))
             }
+            LexType::Variant(_, _) => todo!(),
         }
     }
 }

@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_bad_block_open.hay:2:8] Error: Expected `{` to open a block, but found `bool` instead\n"
-}

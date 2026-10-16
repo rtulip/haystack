@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/variant_resolve_bad_variant.hay:7:14] Error: Cannot resolve variant `A_::a1` from `A_::a2`\n"
-}

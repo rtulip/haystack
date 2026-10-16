@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/stmt/missing_interface_impls.hay:5:6] Error: Missing interface function implementations.\n    [Note]: The following functions were not implemented for interface `Foo`:\n    [Note]:  * fn foo\n"
-}

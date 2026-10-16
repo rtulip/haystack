@@ -1,5 +1,0 @@
-enum struct Foo<T> { T: Bar }
-
-fn main() {
-    Foo::Bar
-}

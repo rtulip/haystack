@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/associated_types.hay:2:4] Error: Type Error: Function `main` doesn't produce the correct outputs\n    [Note]: Expected final stack: []\n    [Note]: Function produced:    [u64]\n"
-}

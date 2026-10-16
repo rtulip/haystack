@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_bad_interface_associated_type_name.hay:2:8] Error: Expected an identifier after `:`, but found `u64` instead\n"
-}

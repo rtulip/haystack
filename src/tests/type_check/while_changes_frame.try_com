@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/while_changes_frame.hay:2:5] Error: Type Error: Frame cannot change within the while loop condition.\n    [Note]: Frame Before: []\n    [Note]: Frame After : [b: bool]\n"
-}

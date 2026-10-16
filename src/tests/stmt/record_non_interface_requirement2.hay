@@ -1,4 +1,0 @@
-union Foo<T>
-requires: [Arr<T>] {
-    T: t
-}

@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/match_empty.hay:7:14] Error: Empty match block handles no cases of enum-struct `Foo`\n    [Note]: The following cases were not handled:\n    [Note]:  - Foo::Bar\n    [Note]:  - Foo::Baz\n"
-}

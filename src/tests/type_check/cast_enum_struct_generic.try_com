@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/cast_enum_struct_generic.hay:6:5] Error: Cannot cast to enum struct base: `Foo`\n    [Note]: Cast to one of the following variants instead:\n    [Note]:  - Foo::Bar\n"
-}

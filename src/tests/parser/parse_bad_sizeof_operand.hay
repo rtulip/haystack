@@ -1,5 +1,0 @@
-fn main() {
-
-    sizeOf(1) drop
-
-}

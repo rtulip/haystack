@@ -1,5 +1,0 @@
-fn main() {
-
-    foo::bar::<a b c>
-
-}

@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_bad_array_var_size.hay:2:9] Error: Expected array size after `[`, but found `Str`\n"
-}

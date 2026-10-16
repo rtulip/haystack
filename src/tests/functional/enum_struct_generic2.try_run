@@ -1,5 +1,0 @@
-{
-  "exit_code": 0,
-  "stdout": "None\nNone\nSome(1)\nSome(Hello World)\nOk(this is an ok str)\nErr(This is an err str)\n",
-  "stderr": ""
-}

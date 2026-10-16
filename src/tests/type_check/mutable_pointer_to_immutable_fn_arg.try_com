@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/mutable_pointer_to_immutable_fn_arg.hay:2:7] Error: Type Error: Cannot take mutable reference to immutable ident: `n`\n    [src/tests/type_check/mutable_pointer_to_immutable_fn_arg.hay:1:8]: Consider adding `mut` in binding of `n`\n"
-}

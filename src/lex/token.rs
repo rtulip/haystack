@@ -1,5 +1,4 @@
 use crate::error::HayError;
-use crate::types::{Function, GenericFunction, Type, TypeId, TypeMap, UncheckedFunction};
 use std::collections::HashMap;
 use std::ops::Range;
 
@@ -256,103 +255,6 @@ pub enum Literal {
     U64(u64),
 }
 
-#[derive(Debug, Clone)]
-pub enum TypeToken {
-    Array {
-        base: Box<TypeToken>,
-        size: usize,
-    },
-    Associated {
-        base: Box<TypeToken>,
-        typ: String,
-    },
-    Base(String),
-    Parameterized {
-        base: String,
-        inner: Vec<TypeToken>,
-    },
-    Pointer {
-        inner: Box<TypeToken>,
-        mutable: bool,
-    },
-    Tuple {
-        inner: Vec<Token>,
-        idents: Option<Vec<Token>>,
-    },
-}
-
-impl std::fmt::Display for TypeToken {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TypeToken::Array { base, size } => write!(f, "{base}[{size}]"),
-            TypeToken::Associated { base, typ } => match &**base {
-                TypeToken::Parameterized { base, inner } => {
-                    write!(f, "{base}<")?;
-                    for inner_t in inner.iter().take(inner.len() - 1) {
-                        write!(f, "{inner_t} ")?;
-                    }
-                    write!(f, "{}>", inner.last().unwrap())?;
-                    write!(f, "::{typ}")
-                }
-                TypeToken::Base(base) => {
-                    write!(f, "{base}::{typ}")
-                }
-                other => panic!(
-                    "Expected one of TypeToken::Parameterized or TypeToken::Base. Found {other:?}"
-                ),
-            },
-            TypeToken::Base(s) => write!(f, "{s}"),
-            TypeToken::Parameterized { base, inner } => {
-                write!(f, "{base}<")?;
-                for inner_t in inner.iter().take(inner.len() - 1) {
-                    write!(f, "{inner_t} ")?;
-                }
-                write!(f, "{}>", inner.last().unwrap())
-            }
-            TypeToken::Pointer { inner: p, mutable } => {
-                if *mutable {
-                    write!(f, "*{p}")
-                } else {
-                    write!(f, "&{p}")
-                }
-            }
-            TypeToken::Tuple {
-                inner,
-                idents: None,
-            } => {
-                write!(f, "[")?;
-                if !inner.is_empty() {
-                    for inner_t in inner.iter().take(inner.len() - 1) {
-                        write!(f, "{} ", inner_t.lexeme)?;
-                    }
-                }
-
-                if let Some(last) = inner.last() {
-                    write!(f, "{}", last.lexeme)?;
-                }
-                write!(f, "]")
-            }
-            TypeToken::Tuple {
-                inner,
-                idents: Some(idents),
-            } => {
-                assert_eq!(inner.len(), idents.len());
-                write!(f, "{{")?;
-                if !inner.is_empty() {
-                    for (inner_t, ident) in inner.iter().zip(idents.iter()).take(inner.len() - 1) {
-                        write!(f, "{}: {} ", inner_t.lexeme, ident.lexeme)?;
-                    }
-                }
-
-                if let (Some(last_t), Some(last_id)) = (inner.last(), idents.last()) {
-                    write!(f, "{}: {}", last_t.lexeme, last_id.lexeme)?;
-                }
-                write!(f, "}}")
-            }
-        }
-    }
-}
-
 #[derive(Debug, Clone, Default)]
 pub enum TokenKind {
     Ident(String),
@@ -361,7 +263,6 @@ pub enum TokenKind {
     Keyword(Keyword),
     Literal(Literal),
     Syscall(usize),
-    Type(TypeToken),
     #[default]
     EoF,
 }
@@ -396,7 +297,6 @@ impl std::fmt::Display for TokenKind {
             TokenKind::Ident(id) => write!(f, "an identifier ({id})"),
             TokenKind::EoF => write!(f, "end of file"),
             TokenKind::Syscall(_) => write!(f, "{self:?}"),
-            TokenKind::Type(t) => write!(f, "{t}"),
         }
     }
 }
@@ -493,16 +393,6 @@ impl Token {
         }
     }
 
-    pub fn typ(&self) -> Result<TypeToken, HayError> {
-        match &self.kind {
-            TokenKind::Type(t) => Ok(t.clone()),
-            _ => Err(HayError::new(
-                format!("Failed to destructure {} into Type", self.kind),
-                self.loc.clone(),
-            )),
-        }
-    }
-
     pub fn ident(&self) -> Result<String, HayError> {
         match &self.kind {
             TokenKind::Ident(s) => Ok(s.clone()),
@@ -552,41 +442,6 @@ impl Token {
             )),
         }
     }
-
-    pub fn dimension(&self) -> Result<Option<(usize, TypeToken)>, HayError> {
-        match &self.kind {
-            TokenKind::Type(typ) => match typ {
-                TypeToken::Array { size, base } => Ok(Some((*size, *base.clone()))),
-                _ => Ok(None),
-            },
-            _ => Err(HayError::new(
-                "Can't get a dimension from a non-type token.",
-                self.loc.clone(),
-            )),
-        }
-    }
-
-    pub fn fn_name<'a>(
-        &self,
-        types: &'a mut TypeMap,
-        local_types: &Vec<TypeId>,
-    ) -> Option<&'a Token> {
-        let tid = TypeId::from_token(self, types, local_types).ok()?;
-        match types.get(&tid) {
-            Some(
-                Type::Function {
-                    func: Function { name, .. },
-                }
-                | Type::GenericFunction {
-                    func: GenericFunction { name, .. },
-                }
-                | Type::UncheckedFunction {
-                    func: UncheckedFunction { name, .. },
-                },
-            ) => Some(name),
-            Some(_) | None => None,
-        }
-    }
 }
 
 impl std::fmt::Display for Token {
@@ -606,7 +461,6 @@ impl std::fmt::Display for Token {
             TokenKind::Marker(m) => write!(f, "{m}"),
             TokenKind::Operator(op) => write!(f, "{op}"),
             TokenKind::Syscall(n) => write!(f, "syscall({n})"),
-            TokenKind::Type(t) => write!(f, "{t}"),
         }
     }
 }
@@ -697,8 +551,6 @@ mod tests {
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: `+`"));
         tok.kind = TokenKind::Syscall(1);
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: syscall(1)"));
-        tok.kind = TokenKind::Type(TypeToken::Base(String::from("T")));
-        assert_eq!(format!("{}", tok), String::from("[file:1:1]: T"));
     }
 
     #[test]

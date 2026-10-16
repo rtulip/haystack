@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/scanner/scan_bad_number_literal.hay:1:1] Error: Failed to parse number from 18446744073709551616\n"
-}

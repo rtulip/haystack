@@ -1,5 +1,0 @@
-struct Foo:
-struct Foo {
-    Foo: bar
-}
-

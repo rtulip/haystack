@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_function_without_name.hay:1:4] Error: Expected function name after `fn`, but found `u64`\n"
-}

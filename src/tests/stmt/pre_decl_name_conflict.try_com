@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/stmt/pre_decl_name_conflict.hay:5:8] Error: Name conflict: `Foo` defined elsewhere.\n"
-}

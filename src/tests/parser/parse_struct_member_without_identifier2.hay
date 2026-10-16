@@ -1,3 +1,0 @@
-struct foo {
-    pub u64 : 1234
-}

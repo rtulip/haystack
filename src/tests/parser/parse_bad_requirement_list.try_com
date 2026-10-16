@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_bad_requirement_list.hay:2:1] Error: Interface requirement list should not be empty.\n    [Note]: Consider removing the `requires` list.\n"
-}

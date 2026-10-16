@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/associated_types_no_impl.hay:1:8] Error: Failed to find associated type Output for Add<Str u64>\n    [Note]: Interface Add is not implemented for Add<Str u64>\n"
-}

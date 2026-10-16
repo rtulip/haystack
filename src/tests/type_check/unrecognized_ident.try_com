@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/unrecognized_ident.hay:2:5] Error: Type Error: Unrecognized word `foo`\n"
-}

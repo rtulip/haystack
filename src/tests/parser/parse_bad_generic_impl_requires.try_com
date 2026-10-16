@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_bad_generic_impl_requires.hay:2:12] Error: Cannot have a requires block on a non-generic interface implementation.\n"
-}

@@ -1,5 +1,0 @@
-fn main() {
-    "Hello World" as [str]
-    &str::size @ str::size == println
-    &str::data @ str::data == println
-}

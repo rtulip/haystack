@@ -1,7 +1,0 @@
-fn foo() {}
-
-fn main() {
-
-    foo::<u64>
-
-}

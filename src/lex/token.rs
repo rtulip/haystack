@@ -2,14 +2,20 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::ops::Range;
 
-#[derive(Debug, Clone, Default)]
-pub struct Loc<S> {
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Loc<S>
+where
+    S: PartialEq + Eq,
+{
     pub file: S,
     pub line: usize,
     pub span: Range<usize>,
 }
 
-impl<S> Loc<S> {
+impl<S> Loc<S>
+where
+    S: PartialEq + Eq,
+{
     pub fn new(file: S, line: usize, start: usize, end: usize) -> Self {
         Loc {
             file,
@@ -21,7 +27,7 @@ impl<S> Loc<S> {
 
 impl<S> std::fmt::Display for Loc<S>
 where
-    S: Display,
+    S: Display + PartialEq + Eq,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{}:{}", self.file, self.line, self.span.start)
@@ -61,7 +67,7 @@ impl std::fmt::Display for Marker {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq)]
 pub enum Operator {
     Plus,
     Minus,
@@ -235,7 +241,7 @@ impl Keyword {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Literal<'src> {
     Bool(bool),
     Char(char),
@@ -244,7 +250,7 @@ pub enum Literal<'src> {
     U64(u64),
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Eq)]
 pub enum TokenKind<'src> {
     Ident(&'src str),
     Marker(Marker),
@@ -312,7 +318,7 @@ impl<'src> std::cmp::PartialEq for TokenKind<'src> {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Token<'src> {
     pub kind: TokenKind<'src>,
     pub lexeme: &'src str,
@@ -406,7 +412,6 @@ mod tests {
             format!("{}", TokenKind::Literal(Literal::U8(0))),
             format!("`u8`")
         );
-
     }
 
     #[test]

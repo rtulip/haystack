@@ -11,7 +11,18 @@ impl std::fmt::Display for ErrorKind {
     }
 }
 
-#[derive(Clone, Debug)]
+impl std::fmt::Debug for HayError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&format!("[{}] {}: {}", self.loc, self.kind, self.message))?;
+        for (note, hint) in &self.hints {
+            f.write_str(&format!("    [{note}]: {hint}"))?;
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
 pub struct HayError {
     message: String,
     kind: ErrorKind,
@@ -23,7 +34,7 @@ impl HayError {
     pub fn new<M, L>(message: M, loc: Loc<L>) -> Self
     where
         M: Into<String>,
-        L: Into<String>,
+        L: Into<String> + PartialEq + Eq,
     {
         HayError {
             message: message.into(),
@@ -44,7 +55,7 @@ impl HayError {
     pub fn new_type_err<S, L>(message: S, loc: Loc<L>) -> Self
     where
         S: Into<String>,
-        L: Into<String>,
+        L: Into<String> + PartialEq + Eq,
     {
         HayError {
             message: format!("Type Error: {}", message.into()),
@@ -95,13 +106,6 @@ impl HayError {
             kind: self.kind,
             loc: self.loc,
             hints,
-        }
-    }
-
-    pub fn report(&self) {
-        eprintln!("[{}] {}: {}", self.loc, self.kind, self.message);
-        for (note, hint) in &self.hints {
-            eprintln!("    [{note}]: {hint}");
         }
     }
 }

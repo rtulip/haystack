@@ -161,6 +161,7 @@ impl TypeStore {
             Type::RigidTypeVar(type_var) => write!(w, "RV({})", type_var.0),
             Type::Builtin(builtin_type) => match builtin_type {
                 BuiltinType::U8 => write!(w, "u8"),
+                BuiltinType::U64 => write!(w, "u64"),
                 BuiltinType::Bool => write!(w, "bool"),
             },
             Type::Function(function_type) => {
@@ -437,8 +438,9 @@ impl TypeStore {
         let (mut unbound, expr_tid) = self.substitute_one(expr.meta.1);
 
         match expr.expr {
-            ExprKind::U8
-            | ExprKind::Bool
+            ExprKind::U8(_)
+            | ExprKind::U64(_)
+            | ExprKind::Bool(_)
             | ExprKind::Bind(_)
             | ExprKind::Call
             | ExprKind::UncheckedCast
@@ -922,24 +924,34 @@ impl TypeStore {
         M: Debug + Clone + PartialEq + Eq,
     {
         let e = match expr.expr {
-            ExprKind::U8 => {
+            ExprKind::U8(val) => {
                 let u8_tid = self.intern(Type::u8());
                 let func = FunctionType {
                     input: vec![],
                     output: vec![u8_tid],
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta)?;
-                let e = Expr::u8((expr.meta.clone(), self.function(func)));
+                let e = Expr::u8(val, (expr.meta.clone(), self.function(func)));
                 Ok((e, constraints))
             }
-            ExprKind::Bool => {
+            ExprKind::U64(val) => {
+                let u8_tid = self.intern(Type::u64());
+                let func = FunctionType {
+                    input: vec![],
+                    output: vec![u8_tid],
+                };
+                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta)?;
+                let e = Expr::u64(val, (expr.meta.clone(), self.function(func)));
+                Ok((e, constraints))
+            }
+            ExprKind::Bool(val) => {
                 let bool_tid = self.intern(Type::bool());
                 let func = FunctionType {
                     input: vec![],
                     output: vec![bool_tid],
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta)?;
-                let e = Expr::u8((expr.meta, self.function(func)));
+                let e = Expr::bool(val, (expr.meta, self.function(func)));
                 Ok((e, constraints))
             }
             ExprKind::Bind(vars) => {

@@ -1,8 +1,14 @@
 use std::unreachable;
 
 use crate::{
-    error::HayError, lex::token::{Keyword, Marker, Operator, Token, TokenKind}, parser::{
-        argument::Argument, expr::{ParseExpr, ParseExprKind}, signature::Signature, statement::{FunctionDefinition, Statememt}, typ::ParseType,
+    error::HayError,
+    lex::token::{Keyword, Marker, Operator, Token, TokenKind},
+    parser::{
+        argument::Argument,
+        expr::{ParseExpr, ParseExprKind},
+        signature::Signature,
+        statement::{FunctionDefinition, Statememt},
+        typ::ParseType,
     },
 };
 
@@ -230,9 +236,11 @@ impl<'src> Parser<'src> {
             exprs.push(self.parse_expr()?);
             self.strip_whitespace();
         }
-        
-        Ok(ParseExpr { kind: ParseExprKind::Block(exprs), token: start })
 
+        Ok(ParseExpr {
+            kind: ParseExprKind::Block(exprs),
+            token: start,
+        })
     }
 
     fn parse_literal_expr(&mut self) -> ParseExpr<'src> {
@@ -281,7 +289,7 @@ impl<'src> Parser<'src> {
     fn parse_function(&mut self, start: Token<'src>) -> Result<Statememt<'src>, HayError> {
         assert!(start.kind == TokenKind::Keyword(Keyword::Function));
         self.strip_whitespace();
-        let fn_name = self.matches(TokenKind::ident()).map_err(|tok| {
+        let name = self.matches(TokenKind::ident()).map_err(|tok| {
             HayError::new(
                 format!(
                     "Expected function name after {}, but found {}",
@@ -290,33 +298,22 @@ impl<'src> Parser<'src> {
                 ),
                 tok.loc,
             )
-        });
+        })?;
 
         let params = self.parse_function_params()?;
-        for p in &params {
-            println!("Param: {p:?}");
-        }
-
         let signature = self.parse_function_signature()?;
-        for i in &signature.input {
-            println!("Input: {i:?}")
-        }
-
-        for o in &signature.output {
-            println!("output: {o:?}")
-        }
-
         let expr = self.parse_expr()?;
 
         Ok(Statememt::FunctionDefinition(FunctionDefinition {
+            name,
             params,
             signature,
             expr,
         }))
-        
     }
 
     fn parse_declaration(&mut self) -> Result<Statememt<'src>, HayError> {
+        self.strip_whitespace();
         let token = self.tokens.pop().unwrap();
         match &token.kind {
             TokenKind::Keyword(Keyword::Function) => self.parse_function(token),

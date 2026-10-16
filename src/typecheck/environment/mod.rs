@@ -115,6 +115,7 @@ pub struct Environment {
     pub typeclasses: Vec<Interface>,
     pub impls: HashMap<TypeClassId, Vec<InterfaceImpl>>,
     pub idents: HashMap<Var, Scheme>,
+    next_var: usize,
 }
 
 impl Environment {
@@ -123,7 +124,14 @@ impl Environment {
             typeclasses: vec![],
             impls: HashMap::new(),
             idents: HashMap::new(),
+            next_var: 0,
         }
+    }
+
+    pub fn fresh_var(&mut self) -> Var {
+        let v = self.next_var;
+        self.next_var += 1;
+        Var(v)
     }
 
     pub fn add_typeclass(&mut self, iface: Interface) -> TypeClassId {

@@ -1,3 +1,25 @@
+use std::collections::HashMap;
+
+use crate::{
+    error::HayError,
+    lex::token::{Literal, Token},
+    parser::{
+        expr::{ParseExpr, ParseExprKind},
+        statement::{FunctionDefinition, Statememt},
+        typ::ParseType,
+    },
+    typecheck::{
+        environment::{Environment, Scheme},
+        expr::{Expr, ExprKind, Var},
+        func::Function,
+        typ::{
+            typ::{FunctionType, Type},
+            type_id::TypeId,
+        },
+        typestore::TypeStore,
+    },
+};
+
 pub mod constraint;
 pub mod environment;
 pub mod expr;
@@ -6,10 +28,185 @@ pub mod typ;
 pub mod typestore;
 pub mod union_find;
 
+pub struct TypeCheck;
+type TypeLookup<'src> = HashMap<String, (TypeId, Option<Token<'src>>)>;
+type VarLookup<'src> = HashMap<&'src str, (Var, Token<'src>)>;
+
+impl TypeCheck {
+    fn convert_expr<'src>(
+        expr: &ParseExpr<'src>,
+        var_names: &VarLookup<'src>,
+    ) -> Result<Expr<Token<'src>>, HayError> {
+        match &expr.kind {
+            ParseExprKind::Ident(id) => {
+                let Some((var, _)) = var_names.get(id) else {
+                    return Err(HayError::new(
+                        format!("Unknown identifier `{id}`"),
+                        expr.token.loc.clone(),
+                    ));
+                };
+
+                Ok(Expr::ident(*var, expr.token.clone()))
+            }
+            ParseExprKind::Literal(literal) => match literal {
+                Literal::Bool(_) => todo!(),
+                Literal::Char(_) => todo!(),
+                Literal::String(_) => todo!(),
+                Literal::U8(_) => todo!(),
+                Literal::U64(val) => Ok(Expr::u64(*val, expr.token.clone())),
+            },
+            ParseExprKind::Block(parse_exprs) => {
+                let mut exprs = vec![];
+                for expr in parse_exprs {
+                    exprs.push(TypeCheck::convert_expr(expr, var_names)?);
+                }
+
+                Ok(Expr::block(exprs, expr.token.clone()))
+            }
+        }
+    }
+
+    fn insert_var<'src>(
+        token: &Token<'src>,
+        env: &mut Environment,
+        var_names: &mut VarLookup<'src>,
+    ) -> Result<Var, HayError> {
+        let var = env.fresh_var();
+        if let Some((_, tok)) = var_names.insert(token.lexeme, (var, token.clone())) {
+            return Err(HayError::new(
+                format!("`{}` already defined", token.lexeme),
+                token.loc.clone(),
+            )
+            .with_hint(format!(
+                "`{}` was previously defined here: {}",
+                token.lexeme, tok.loc
+            )));
+        }
+
+        Ok(var)
+    }
+
+    fn bind_function_def<'src>(
+        func: &FunctionDefinition<'src>,
+        env: &mut Environment,
+        typestore: &mut TypeStore,
+        type_names: &TypeLookup<'src>,
+        var_names: &mut VarLookup<'src>,
+    ) -> Result<(), HayError> {
+        TypeCheck::insert_var(&func.name, env, var_names)?;
+        let mut type_names = type_names.clone();
+        let mut vars = vec![];
+        for ty in &func.params {
+            let ty_name = ty.common_form();
+
+            if let Some((_, tok)) = type_names.get(&ty_name) {
+                let mut e = HayError::new(
+                    format!("Type `{}` is already defined", ty.common_form()),
+                    ty.token().loc,
+                );
+                if let Some(tok) = tok {
+                    e = e.with_hint(format!("`{ty}` was previously defined here: {}", tok.loc));
+                }
+                return Err(e);
+            }
+
+            let tyvar = typestore.fresh_type_var();
+            let tid = typestore.intern(Type::TypeVar(tyvar));
+            assert!(type_names
+                .insert(ty_name, (tid, Some(ty.token())))
+                .is_none());
+            vars.push(tyvar);
+        }
+
+        let mut binds = vec![];
+        let mut input = vec![];
+        for arg in &func.signature.input {
+            let ty_name = arg.typ.common_form();
+            let (tid, _) = type_names.get(&ty_name).ok_or_else(|| {
+                HayError::new(format!("Unknown Type `{ty_name}`"), arg.typ.token().loc)
+            })?;
+            input.push(*tid);
+
+            if let Some(ident) = &arg.ident {
+                binds.push(ident);
+            }
+        }
+
+        let mut output = vec![];
+        for ty in &func.signature.output {
+            let ty_name = ty.common_form();
+            let (tid, _) = type_names.get(&ty_name).ok_or_else(|| {
+                HayError::new(format!("Unknown Type `{ty_name}`"), ty.token().loc)
+            })?;
+            output.push(*tid);
+        }
+
+        let tid = typestore.function(FunctionType {
+            input: input.clone(),
+            output: output.clone(),
+        });
+        let scheme = Scheme::new(vars.clone(), tid, vec![]);
+
+        let var = env.fresh_var();
+        assert!(env.bind_scheme(var, scheme).is_none());
+        var_names.insert(func.name.lexeme, (var, func.name.clone()));
+
+        let expr = if !binds.is_empty() {
+            let bind_expr = Expr::bind(
+                binds
+                    .into_iter()
+                    .map(|token| TypeCheck::insert_var(token, env, var_names))
+                    .collect::<Result<Vec<_>, _>>()?,
+                func.name.clone(),
+            );
+            Expr::block(
+                [bind_expr, TypeCheck::convert_expr(&func.expr, var_names)?],
+                func.expr.token.clone(),
+            )
+        } else {
+            TypeCheck::convert_expr(&func.expr, var_names)?
+        };
+
+        let f = Function::new(input, output, vars, vec![], expr);
+        f.type_check(typestore, env).map_err(|e| todo!("{e:?}"))?;
+
+        Ok(())
+    }
+
+    pub fn build_world<'src>(mut statements: Vec<Statememt<'src>>) -> Result<(), HayError> {
+        let mut env = Environment::new();
+        let mut typestore = TypeStore::new();
+
+        let mut type_names = TypeLookup::from([
+            ("u8".to_owned(), (typestore.intern(Type::u8()), None)),
+            ("bool".to_owned(), (typestore.intern(Type::bool()), None)),
+        ]);
+
+        let mut var_names = VarLookup::new();
+
+        for statement in &statements {
+            match statement {
+                Statememt::FunctionDefinition(func) => TypeCheck::bind_function_def(
+                    &func,
+                    &mut env,
+                    &mut typestore,
+                    &type_names,
+                    &mut var_names,
+                )?,
+            }
+        }
+
+        while let Some(statement) = statements.pop() {}
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
-        typecheck::environment::{Coherence, Environment, Interface, InterfaceImpl, Scheme, TypePredicate},
+        typecheck::environment::{
+            Coherence, Environment, Interface, InterfaceImpl, Scheme, TypePredicate,
+        },
         typecheck::expr::{Expr, MatchCase, MatchExpr, MatchPattern, Var},
         typecheck::func::Function,
         typecheck::typ::typ::{EnumDef, FunctionType, Mutability, PointerType, StructDef, Type},
@@ -68,7 +265,7 @@ mod tests {
             [tid, tid],
             [typevar],
             [],
-            Expr::block([Expr::bind(t, ()), Expr::ident(t, ()), Expr::u8(())], ()),
+            Expr::block([Expr::bind(t, ()), Expr::ident(t, ()), Expr::u8(0, ())], ()),
         );
 
         let f = bad_dup.type_check(&mut typestore, &env);
@@ -116,7 +313,7 @@ mod tests {
             [u8_tid, u8_tid],
             [],
             [],
-            Expr::block([Expr::u8(()), Expr::ident(dup, ())], ()),
+            Expr::block([Expr::u8(0, ()), Expr::ident(dup, ())], ()),
         );
 
         let f = test.type_check(&mut typestore, &env);
@@ -149,7 +346,7 @@ mod tests {
         env.bind_scheme(gt, gt_scheme);
 
         // Manually create the body of the expression.
-        let expr = Expr::block([Expr::u8(()), Expr::u8(()), Expr::ident(gt, ())], ());
+        let expr = Expr::block([Expr::u8(0, ()), Expr::u8(0, ()), Expr::ident(gt, ())], ());
 
         let stack = vec![];
         let target = vec![bool_tid];
@@ -343,9 +540,9 @@ mod tests {
             [],
             Expr::block(
                 [
-                    Expr::u8(()),
+                    Expr::u8(0, ()),
                     Expr::ident(dup, ()),
-                    Expr::bool(()),
+                    Expr::bool(true, ()),
                     Expr::ident(dup, ()),
                 ],
                 (),
@@ -361,7 +558,7 @@ mod tests {
 
         let u8_tid = typestore.intern(Type::u8());
         let bool_tid = typestore.intern(Type::bool());
-        let test = Function::new([], [u8_tid], [], [], Expr::bool(()));
+        let test = Function::new([], [u8_tid], [], [], Expr::bool(true, ()));
 
         assert_eq!(
             test.type_check(&mut typestore, &env),
@@ -421,7 +618,7 @@ mod tests {
             [],
             Expr::block(
                 [
-                    Expr::u8(()),
+                    Expr::u8(0, ()),
                     Expr::take_ref(dup, Mutability::Const, ()),
                     Expr::call(()),
                 ],
@@ -497,7 +694,7 @@ mod tests {
             [],
             Expr::block(
                 [
-                    Expr::bool(()),
+                    Expr::bool(true, ()),
                     Expr::take_ref(f, Mutability::Const, ()),
                     Expr::call(()),
                 ],
@@ -663,7 +860,7 @@ mod tests {
             [u8_t_tid],
             [],
             [],
-            Expr::block([Expr::u8(()), Expr::ident(type_of, ())], ()),
+            Expr::block([Expr::u8(0, ()), Expr::ident(type_of, ())], ()),
         );
 
         assert!(call_type_of.type_check(&mut typestore, &env).is_ok());
@@ -1076,7 +1273,11 @@ mod tests {
                 args: vec![t_tid],
             }],
             Expr::block(
-                [Expr::ident(print, ()), Expr::u8(()), Expr::ident(print, ())],
+                [
+                    Expr::ident(print, ()),
+                    Expr::u8(0, ()),
+                    Expr::ident(print, ()),
+                ],
                 (),
             ),
         );
@@ -1150,7 +1351,11 @@ mod tests {
                 args: vec![t_tid],
             }],
             Expr::block(
-                [Expr::ident(print, ()), Expr::u8(()), Expr::ident(print, ())],
+                [
+                    Expr::ident(print, ()),
+                    Expr::u8(0, ()),
+                    Expr::ident(print, ()),
+                ],
                 (),
             ),
         );
@@ -1217,8 +1422,8 @@ mod tests {
             [],
             Expr::block(
                 [
-                    Expr::bool(()),
-                    Expr::bool(()),
+                    Expr::bool(true, ()),
+                    Expr::bool(true, ()),
                     Expr::typ(typestore.metatype(pair_tid, None, &META).unwrap(), ()),
                     Expr::pack(()),
                 ],
@@ -1235,8 +1440,8 @@ mod tests {
             [],
             Expr::block(
                 [
-                    Expr::u8(()),
-                    Expr::bool(()),
+                    Expr::u8(0, ()),
+                    Expr::bool(true, ()),
                     Expr::typ(typestore.metatype(pair_tid, None, &META).unwrap(), ()),
                     Expr::pack(()),
                 ],
@@ -1547,7 +1752,7 @@ mod tests {
                             None,
                             Expr::block(
                                 [
-                                    Expr::u8(()),
+                                    Expr::u8(0, ()),
                                     Expr::typ(option_some_ty_tid, ()),
                                     Expr::pack(()),
                                 ],
@@ -1712,7 +1917,7 @@ mod tests {
                             None,
                             Expr::block(
                                 [
-                                    Expr::u8(()),
+                                    Expr::u8(0, ()),
                                     Expr::typ(typestore.metatype(some, None, &META).unwrap(), ()),
                                     Expr::pack(()),
                                     Expr::typ(typestore.metatype(some, None, &META).unwrap(), ()),

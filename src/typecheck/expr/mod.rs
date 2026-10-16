@@ -51,8 +51,9 @@ impl<Meta> MatchExpr<Meta> {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ExprKind<Meta> {
-    U8,
-    Bool,
+    U8(u8),
+    U64(u64),
+    Bool(bool),
     Ident(Var),
     Ref { var: Var, mutability: Mutability },
     Block(Vec<Expr<Meta>>),
@@ -72,16 +73,23 @@ pub struct Expr<Meta> {
 }
 
 impl<Meta> Expr<Meta> {
-    pub fn u8(meta: Meta) -> Expr<Meta> {
+    pub fn u8(val: u8, meta: Meta) -> Expr<Meta> {
         Expr {
-            expr: ExprKind::U8,
+            expr: ExprKind::U8(val),
             meta,
         }
     }
 
-    pub fn bool(meta: Meta) -> Expr<Meta> {
+    pub fn u64(val: u64, meta: Meta) -> Expr<Meta> {
         Expr {
-            expr: ExprKind::Bool,
+            expr: ExprKind::U64(val),
+            meta,
+        }
+    }
+
+    pub fn bool(b: bool, meta: Meta) -> Expr<Meta> {
+        Expr {
+            expr: ExprKind::Bool(b),
             meta,
         }
     }

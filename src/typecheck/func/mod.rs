@@ -74,8 +74,6 @@ where
         let (expr, unbound) =
             typestore.type_check(self.expr, &self.ty.input, &self.ty.output, &mut env)?;
 
-        dbg!(&unbound);
-
         if !unbound.is_empty() {
             let mut vars: Vec<_> = unbound.into_iter().collect();
             vars.sort();

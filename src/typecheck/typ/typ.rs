@@ -12,6 +12,7 @@ use crate::{
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BuiltinType {
     U8,
+    U64,
     Bool,
 }
 
@@ -151,5 +152,9 @@ impl Type {
 
     pub fn u8() -> Type {
         Type::Builtin(BuiltinType::U8)
+    }
+
+    pub fn u64() -> Type {
+        Type::Builtin(BuiltinType::U64)
     }
 }

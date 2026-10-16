@@ -28,7 +28,11 @@ impl HayError {
         HayError {
             message: message.into(),
             kind: ErrorKind::Error,
-            loc: Loc { file: loc.file.into(), line: loc.line, span: loc.span },
+            loc: Loc {
+                file: loc.file.into(),
+                line: loc.line,
+                span: loc.span,
+            },
             hints: vec![],
         }
     }
@@ -40,12 +44,16 @@ impl HayError {
     pub fn new_type_err<S, L>(message: S, loc: Loc<L>) -> Self
     where
         S: Into<String>,
-        L: Into<String>
+        L: Into<String>,
     {
         HayError {
             message: format!("Type Error: {}", message.into()),
             kind: ErrorKind::Error,
-            loc: Loc { file: loc.file.into(), line: loc.line, span: loc.span },
+            loc: Loc {
+                file: loc.file.into(),
+                line: loc.line,
+                span: loc.span,
+            },
             hints: vec![],
         }
     }

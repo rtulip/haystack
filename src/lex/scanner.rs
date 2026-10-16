@@ -15,8 +15,7 @@ pub struct Scanner<'src> {
 }
 
 impl<'src> Scanner<'src> {
-    pub fn new(file: &'src str, source: &'src str) -> Self
-    {
+    pub fn new(file: &'src str, source: &'src str) -> Self {
         Scanner {
             file,
             source,
@@ -129,9 +128,7 @@ impl<'src> Scanner<'src> {
                     self.add_token(TokenKind::Operator(Operator::Minus))
                 }
             }
-            '*' => {
-                self.add_token(TokenKind::Operator(Operator::Star))
-            }
+            '*' => self.add_token(TokenKind::Operator(Operator::Star)),
             '/' => {
                 if self.matches('/') {
                     // skip the comment
@@ -179,9 +176,7 @@ impl<'src> Scanner<'src> {
                 }
             }
             '@' => self.add_token(TokenKind::Operator(Operator::Read)),
-            '&' => {
-                self.add_token(TokenKind::Operator(Operator::Ampersand))
-            }
+            '&' => self.add_token(TokenKind::Operator(Operator::Ampersand)),
             '|' => self.add_token(TokenKind::Operator(Operator::Pipe)),
             '^' => self.add_token(TokenKind::Operator(Operator::Caret)),
             ' ' | '\t' | '\r' => self.add_token(TokenKind::Whitespace),
@@ -323,7 +318,6 @@ impl<'src> Scanner<'src> {
 
         Ok(())
     }
-
 }
 
 mod tests {

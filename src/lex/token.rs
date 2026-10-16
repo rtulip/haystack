@@ -10,8 +10,7 @@ pub struct Loc<S> {
 }
 
 impl<S> Loc<S> {
-    pub fn new(file: S, line: usize, start: usize, end: usize) -> Self
-    {
+    pub fn new(file: S, line: usize, start: usize, end: usize) -> Self {
         Loc {
             file,
             line,
@@ -21,7 +20,9 @@ impl<S> Loc<S> {
 }
 
 impl<S> std::fmt::Display for Loc<S>
-where S: Display {
+where
+    S: Display,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{}:{}", self.file, self.line, self.span.start)
     }
@@ -214,7 +215,10 @@ impl Keyword {
         map.insert("do", TokenKind::Keyword(Keyword::Do));
         map.insert("struct", TokenKind::Keyword(Keyword::Struct));
         map.insert("enum", TokenKind::Keyword(Keyword::Enum));
-        map.insert("__unchecked_cast", TokenKind::Keyword(Keyword::UncheckedCast));
+        map.insert(
+            "__unchecked_cast",
+            TokenKind::Keyword(Keyword::UncheckedCast),
+        );
         map.insert("include", TokenKind::Keyword(Keyword::Include));
         map.insert("sizeof", TokenKind::Keyword(Keyword::SizeOf));
         map.insert("impl", TokenKind::Keyword(Keyword::Impl));
@@ -281,7 +285,7 @@ impl<'src> std::fmt::Display for TokenKind<'src> {
             },
             TokenKind::Ident(id) => write!(f, "an identifier ({id})"),
             TokenKind::EoF => write!(f, "end of file"),
-            TokenKind::Whitespace => Ok(()),
+            TokenKind::Whitespace => write!(f, "` `"),
         }
     }
 }
@@ -302,6 +306,7 @@ impl<'src> std::cmp::PartialEq for TokenKind<'src> {
                     | (Literal::U8(_), Literal::U8(_))
             ),
             (TokenKind::EoF, TokenKind::EoF) => true,
+            (TokenKind::Whitespace, TokenKind::Whitespace) => true,
             _ => false,
         }
     }
@@ -322,8 +327,7 @@ impl<'src> Token<'src> {
         line: usize,
         start: usize,
         end: usize,
-    ) -> Token<'src>
-    {
+    ) -> Token<'src> {
         Token {
             kind,
             lexeme,

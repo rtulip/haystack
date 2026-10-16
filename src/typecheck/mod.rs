@@ -16,7 +16,10 @@ use crate::{
             typ::{FunctionType, Type},
             type_id::TypeId,
         },
-        typestore::TypeStore,
+        typestore::{
+            inference::{InferenceError, InferenceErrorKind},
+            TypeStore,
+        },
     },
 };
 
@@ -33,6 +36,75 @@ type TypeLookup<'src> = HashMap<String, (TypeId, Option<Token<'src>>)>;
 type VarLookup<'src> = HashMap<&'src str, (Var, Token<'src>)>;
 
 impl TypeCheck {
+    fn format_tid<'src>(
+        tid: TypeId,
+        typestore: &mut TypeStore,
+        type_names: &TypeLookup<'src>,
+    ) -> String {
+        for (s, (t, _)) in type_names {
+            if tid == *t {
+                return s.clone();
+            }
+        }
+
+        match typestore.get(tid).expect("TypeIds should be resolvable") {
+            Type::TypeVar(type_var) => todo!(),
+            Type::RigidTypeVar(type_var) => {
+                let tid = typestore.intern(Type::TypeVar(*type_var));
+                TypeCheck::format_tid(tid, typestore, type_names)
+            },
+            Type::Builtin(builtin_type) => todo!(),
+            Type::Function(function_type) => todo!(),
+            Type::Pointer(pointer_type) => todo!(),
+            Type::Struct(struct_type) => todo!(),
+            Type::Enum(enum_type) => todo!(),
+            Type::Variant(variant_type) => todo!(),
+            Type::Type(type_id) => todo!(),
+        }
+    }
+
+    fn format_stack<'src>(
+        stack: Vec<TypeId>,
+        typestore: &mut TypeStore,
+        type_names: &TypeLookup<'src>,
+    ) -> String {
+        let mut s = String::from("[");
+        for tid in stack {
+            s = format!("{s} {}", TypeCheck::format_tid(tid, typestore, type_names));
+        }
+
+        s = format!("{s} ]");
+
+        s
+    }
+
+    fn map_inference_error<'src>(
+        e: InferenceError<Token<'src>>,
+        typestore: &mut TypeStore,
+        type_names: &TypeLookup<'src>,
+    ) -> HayError {
+        match e.kind {
+            InferenceErrorKind::NotEnoughArgs { .. } => todo!(),
+            InferenceErrorKind::StacksDiffer { expected, found } => {
+                HayError::new("Stacks differ", e.meta.loc)
+                    .with_hint_and_custom_note(
+                        TypeCheck::format_stack(found, typestore, type_names),
+                        "Found   ",
+                    )
+                    .with_hint_and_custom_note(
+                        TypeCheck::format_stack(expected, typestore, type_names),
+                        "Expected",
+                    )
+            }
+            InferenceErrorKind::TypeParameterConstrained { .. } => todo!(),
+            InferenceErrorKind::UnboundVar(_) => todo!(),
+            InferenceErrorKind::TypesIncompatible { .. } => todo!(),
+            InferenceErrorKind::MutableRefToFunction(_) => todo!(),
+            InferenceErrorKind::PredicateNotMet { .. } => todo!(),
+            InferenceErrorKind::ConflictingImpls { .. } => todo!(),
+        }
+    }
+
     fn convert_expr<'src>(
         expr: &ParseExpr<'src>,
         var_names: &VarLookup<'src>,
@@ -168,19 +240,25 @@ impl TypeCheck {
         };
 
         let f = Function::new(input, output, vars, vec![], expr);
-        f.type_check(typestore, env).map_err(|e| todo!("{e:?}"))?;
+        f.type_check(typestore, env)
+            .map_err(|e| TypeCheck::map_inference_error(e, typestore, &type_names))?;
 
         Ok(())
+    }
+
+    fn builtin_types<'src>(typestore: &mut TypeStore) -> TypeLookup<'src> {
+        TypeLookup::from([
+            ("u8".to_owned(), (typestore.intern(Type::u8()), None)),
+            ("u64".to_owned(), (typestore.intern(Type::u64()), None)),
+            ("bool".to_owned(), (typestore.intern(Type::bool()), None)),
+        ])
     }
 
     pub fn build_world<'src>(mut statements: Vec<Statememt<'src>>) -> Result<(), HayError> {
         let mut env = Environment::new();
         let mut typestore = TypeStore::new();
 
-        let mut type_names = TypeLookup::from([
-            ("u8".to_owned(), (typestore.intern(Type::u8()), None)),
-            ("bool".to_owned(), (typestore.intern(Type::bool()), None)),
-        ]);
+        let mut type_names = TypeCheck::builtin_types(&mut typestore);
 
         let mut var_names = VarLookup::new();
 
@@ -196,7 +274,6 @@ impl TypeCheck {
             }
         }
 
-        while let Some(statement) = statements.pop() {}
         Ok(())
     }
 }

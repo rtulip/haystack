@@ -17,8 +17,7 @@ fn main() -> Result<(), HayError> {
         HayError::new("Failed to open file", Loc::new(file, 1, 0, 0)).with_hint(format!("{e}"))
     })?;
 
-    let mut scanner = Scanner::new(file, &source);
-    let tokens = scanner.scan_tokens()?;
+    let tokens = Scanner::new(file, &source).scan_tokens()?;
     let statements = Parser::parse(tokens)?;
 
     TypeCheck::build_world(statements)?;

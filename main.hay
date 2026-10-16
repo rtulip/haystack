@@ -1,4 +1,4 @@
-fn drop<T>(T: _) {}
+fn drop<T>(T: _) { }
 
 fn main() {
     12345 drop

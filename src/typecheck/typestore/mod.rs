@@ -332,7 +332,7 @@ impl TypeStore {
     ///
     /// Returns any TypeVars not yet bound through this substitution as well as
     /// the substituted TypeId.
-    fn substitute_one(&mut self, tid: TypeId) -> (HashSet<TypeVar>, TypeId) {
+    pub fn substitute_one(&mut self, tid: TypeId) -> (HashSet<TypeVar>, TypeId) {
         match self
             .get(tid)
             .expect("All TypeIds must be present in typestore")

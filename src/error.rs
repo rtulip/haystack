@@ -15,7 +15,7 @@ impl std::fmt::Debug for HayError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&format!("[{}] {}: {}", self.loc, self.kind, self.message))?;
         for (note, hint) in &self.hints {
-            f.write_str(&format!("    [{note}]: {hint}"))?;
+            f.write_str(&format!("\n    [{note}]: {hint}"))?;
         }
 
         Ok(())

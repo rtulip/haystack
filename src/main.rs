@@ -3,6 +3,7 @@ use crate::{error::HayError, lex::scanner::Scanner, parser::parser::Parser};
 mod error;
 mod lex;
 mod parser;
+mod typecheck;
 
 fn main() -> Result<(), HayError> {
     let source = "     fn main() { 12345 println }";

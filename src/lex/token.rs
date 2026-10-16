@@ -387,7 +387,6 @@ mod tests {
     fn test_keyword_display() {
         assert_eq!(format!("{}", Keyword::Else), format!("`else`"));
         assert_eq!(format!("{}", Keyword::While), format!("`while`"));
-        assert_eq!(format!("{}", Keyword::Union), format!("`union`"));
         assert_eq!(format!("{}", Keyword::Include), format!("`include`"));
     }
 
@@ -408,18 +407,6 @@ mod tests {
             format!("`u8`")
         );
 
-        assert_eq!(format!("{}", TokenKind::Syscall(1)), format!("Syscall(1)"));
-    }
-
-    #[test]
-    fn test_bad_token_destructure() {
-        let tok = Token::new(TokenKind::EoF, "", "", 0, 0, 0);
-
-        assert!(tok.string().is_err());
-        assert!(tok.typ().is_err());
-        assert!(tok.ident().is_err());
-        assert!(tok.u64().is_err());
-        assert!(tok.keyword().is_err());
     }
 
     #[test]
@@ -427,13 +414,13 @@ mod tests {
         let mut tok = Token::new(TokenKind::EoF, "lexeme", "file", 1, 1, 2);
 
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: EOF"));
-        tok.kind = TokenKind::Ident(String::from("ident"));
+        tok.kind = TokenKind::Ident("ident");
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: ident"));
         tok.kind = TokenKind::Keyword(Keyword::While);
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: lexeme"));
         tok.kind = TokenKind::Literal(Literal::Bool(true));
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: true"));
-        tok.kind = TokenKind::Literal(Literal::String(String::new()));
+        tok.kind = TokenKind::Literal(Literal::String(""));
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: lexeme"));
         tok.kind = TokenKind::Literal(Literal::Char(' '));
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: lexeme"));
@@ -445,19 +432,5 @@ mod tests {
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: `->`"));
         tok.kind = TokenKind::Operator(Operator::Plus);
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: `+`"));
-        tok.kind = TokenKind::Syscall(1);
-        assert_eq!(format!("{}", tok), String::from("[file:1:1]: syscall(1)"));
-    }
-
-    #[test]
-    fn test_syscall_partial_eq() {
-        assert_eq!(TokenKind::Syscall(1), TokenKind::Syscall(2));
-    }
-
-    #[test]
-    fn test_dimension_error() {
-        assert!(Token::new(TokenKind::EoF, "lexeme", "file", 0, 0, 0)
-            .dimension()
-            .is_err());
     }
 }

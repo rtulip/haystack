@@ -15,19 +15,20 @@ impl std::fmt::Display for ErrorKind {
 pub struct HayError {
     message: String,
     kind: ErrorKind,
-    loc: Loc,
+    loc: Loc<String>,
     hints: Vec<(String, String)>,
 }
 
 impl HayError {
-    pub fn new<S>(message: S, loc: Loc) -> Self
+    pub fn new<M, L>(message: M, loc: Loc<L>) -> Self
     where
-        S: Into<String>,
+        M: Into<String>,
+        L: Into<String>,
     {
         HayError {
             message: message.into(),
             kind: ErrorKind::Error,
-            loc,
+            loc: Loc { file: loc.file.into(), line: loc.line, span: loc.span },
             hints: vec![],
         }
     }
@@ -36,14 +37,15 @@ impl HayError {
         self.message
     }
 
-    pub fn new_type_err<S>(message: S, loc: Loc) -> Self
+    pub fn new_type_err<S, L>(message: S, loc: Loc<L>) -> Self
     where
         S: Into<String>,
+        L: Into<String>
     {
         HayError {
             message: format!("Type Error: {}", message.into()),
             kind: ErrorKind::Error,
-            loc,
+            loc: Loc { file: loc.file.into(), line: loc.line, span: loc.span },
             hints: vec![],
         }
     }

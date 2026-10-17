@@ -1,5 +1,8 @@
 fn drop<T>(T: _) { }
+fn dup<T>(T: t) -> [T T] { t t }
+fn typeof<T>(T: _) -> [Type<T>] #T
+fn hint<T>(T Type<T>) -> [T] drop
 
 fn main() {
-    12345 drop
+    12345 typeof dup drop drop
 }

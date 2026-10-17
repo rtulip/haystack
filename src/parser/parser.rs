@@ -85,17 +85,51 @@ impl<'src> Parser<'src> {
         Ok(types)
     }
 
+    fn parse_paramatarized_type(&mut self, base: Token<'src>) -> Result<ParseType<'src>, HayError> {
+        assert!(self
+            .matches(TokenKind::Operator(Operator::LessThan))
+            .is_ok());
+
+        let mut params = vec![];
+        while let Some(ty) = self.parse_type()? {
+            params.push(ty)
+        }
+
+        self.strip_whitespace();
+        self.matches(TokenKind::Operator(Operator::GreaterThan))
+            .map_err(|tok| {
+                HayError::new(
+                    format!(
+                        "Expected {}, but found {} instead",
+                        Operator::GreaterThan,
+                        tok.kind
+                    ),
+                    tok.loc,
+                )
+            })?;
+
+        Ok(ParseType::Paramatarized { base, params })
+    }
+
     fn parse_type(&mut self) -> Result<Option<ParseType<'src>>, HayError> {
         self.strip_whitespace();
 
         match &self.peek().kind {
-            TokenKind::Ident(_) => Ok(Some(ParseType::Simple(self.tokens.pop().unwrap()))),
+            TokenKind::Ident(_) => {
+                let token = self.tokens.pop().unwrap();
+                match &self.peek().kind {
+                    TokenKind::Operator(Operator::LessThan) => {
+                        Ok(Some(self.parse_paramatarized_type(token)?))
+                    }
+                    _ => Ok(Some(ParseType::Simple(token))),
+                }
+            }
             TokenKind::Marker(Marker::RightBrace) => Ok(None),
             TokenKind::Marker(Marker::RightParen) => Ok(None),
             TokenKind::Marker(Marker::RightBracket) => Ok(None),
             TokenKind::Marker(m) => todo!("Parse Type from {m}"),
             TokenKind::Operator(Operator::GreaterThan) => Ok(None),
-            TokenKind::Operator(o) => todo!("Parse type from {o}"),
+            TokenKind::Operator(o) => todo!("Parse type from {o}: "),
             TokenKind::Keyword(_) => todo!(),
             TokenKind::Literal(_) => todo!(),
             TokenKind::Whitespace => todo!(),
@@ -271,11 +305,40 @@ impl<'src> Parser<'src> {
         }
     }
 
+    fn parse_type_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
+        let Ok(hash) = self.matches(TokenKind::Marker(Marker::Hash)) else {
+            unreachable!("Should have checked for `#` before calling")
+        };
+
+        if let Ok(tok) = self.matches(TokenKind::Whitespace) {
+            return Err(HayError::new(
+                format!(
+                    "Expected a type after {}, but found whitespace instead.",
+                    Marker::Hash
+                ),
+                tok.loc,
+            ));
+        }
+
+        let Some(ty) = self.parse_type()? else {
+            return Err(HayError::new(
+                format!("Expected a type after {}", Marker::Hash),
+                hash.loc,
+            ));
+        };
+
+        Ok(ParseExpr {
+            kind: ParseExprKind::Type(ty),
+            token: hash,
+        })
+    }
+
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
         self.strip_whitespace();
         match &self.peek().kind {
             TokenKind::Ident(_) => Ok(self.parse_ident_expr()),
             TokenKind::Marker(Marker::LeftBrace) => self.parse_block(),
+            TokenKind::Marker(Marker::Hash) => self.parse_type_expr(),
             TokenKind::Marker(m) => todo!("Parse Expr from {m}"),
             TokenKind::Operator(_) => todo!(),
             TokenKind::Keyword(_) => todo!(),

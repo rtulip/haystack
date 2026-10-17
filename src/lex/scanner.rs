@@ -183,6 +183,7 @@ impl<'src> Scanner<'src> {
             '\n' => self.newline(),
             '"' => self.string()?,
             '\'' => self.char()?,
+            '#' => self.add_token(TokenKind::Marker(Marker::Hash)),
             c => {
                 if c.is_ascii_digit() {
                     self.number()?

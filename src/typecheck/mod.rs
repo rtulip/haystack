@@ -41,6 +41,8 @@ impl TypeCheck {
         typestore: &mut TypeStore,
         type_names: &TypeLookup<'src>,
     ) -> String {
+        let tid = typestore.substitute_one(tid).1;
+        
         for (s, (t, _)) in type_names {
             if tid == *t {
                 return s.clone();
@@ -52,7 +54,7 @@ impl TypeCheck {
             Type::RigidTypeVar(type_var) => {
                 let tid = typestore.intern(Type::TypeVar(*type_var));
                 TypeCheck::format_tid(tid, typestore, type_names)
-            },
+            }
             Type::Builtin(builtin_type) => todo!(),
             Type::Function(function_type) => todo!(),
             Type::Pointer(pointer_type) => todo!(),
@@ -107,7 +109,9 @@ impl TypeCheck {
 
     fn convert_expr<'src>(
         expr: &ParseExpr<'src>,
+        typestore: &mut TypeStore,
         var_names: &VarLookup<'src>,
+        type_names: &TypeLookup,
     ) -> Result<Expr<Token<'src>>, HayError> {
         match &expr.kind {
             ParseExprKind::Ident(id) => {
@@ -130,10 +134,17 @@ impl TypeCheck {
             ParseExprKind::Block(parse_exprs) => {
                 let mut exprs = vec![];
                 for expr in parse_exprs {
-                    exprs.push(TypeCheck::convert_expr(expr, var_names)?);
+                    exprs.push(TypeCheck::convert_expr(
+                        expr, typestore, var_names, type_names,
+                    )?);
                 }
 
                 Ok(Expr::block(exprs, expr.token.clone()))
+            }
+            ParseExprKind::Type(ty) => {
+                let tid = TypeCheck::get_tid(ty, &type_names, typestore)?;
+                let tid = typestore.intern(Type::Type(tid));
+                Ok(Expr::typ(tid, expr.token.clone()))
             }
         }
     }
@@ -158,6 +169,44 @@ impl TypeCheck {
         Ok(var)
     }
 
+    fn get_tid<'src>(
+        ty: &ParseType<'src>,
+        type_names: &TypeLookup<'src>,
+        typestore: &mut TypeStore,
+    ) -> Result<TypeId, HayError> {
+        match ty {
+            ParseType::Simple(_) => {
+                let name = ty.common_form();
+                type_names
+                    .get(&name)
+                    .map(|(tid, _)| *tid)
+                    .ok_or(HayError::new("Unknown type {name}", ty.token().loc))
+            }
+            ParseType::Paramatarized { base, params } => {
+                if base.lexeme == "Type" {
+                    if params.len() != 1 {
+                        return Err(HayError::new("Metatypes expect exactly one type parameter", base.loc.clone()));
+                    }
+                    
+                    let inner_tid = TypeCheck::get_tid(&params[0], type_names, typestore)?;
+                    let tid = typestore.intern(Type::Type(inner_tid));
+                    return Ok(tid)
+                }
+
+                let base_tid = TypeCheck::get_tid(ty, type_names, typestore)?;
+                let params = params
+                    .iter()
+                    .map(|ty| TypeCheck::get_tid(ty, type_names, typestore))
+                    .collect::<Result<Vec<_>, HayError>>()?;
+
+                let tid = typestore
+                    .type_instance(base_tid, Some(params), base)
+                    .map_err(|e| todo!())?;
+                Ok(tid)
+            }
+        }
+    }
+
     fn bind_function_def<'src>(
         func: &FunctionDefinition<'src>,
         env: &mut Environment,
@@ -165,7 +214,8 @@ impl TypeCheck {
         type_names: &TypeLookup<'src>,
         var_names: &mut VarLookup<'src>,
     ) -> Result<(), HayError> {
-        TypeCheck::insert_var(&func.name, env, var_names)?;
+        let var = TypeCheck::insert_var(&func.name, env, var_names)?;
+        let mut var_names = var_names.clone();
         let mut type_names = type_names.clone();
         let mut vars = vec![];
         for ty in &func.params {
@@ -193,11 +243,8 @@ impl TypeCheck {
         let mut binds = vec![];
         let mut input = vec![];
         for arg in &func.signature.input {
-            let ty_name = arg.typ.common_form();
-            let (tid, _) = type_names.get(&ty_name).ok_or_else(|| {
-                HayError::new(format!("Unknown Type `{ty_name}`"), arg.typ.token().loc)
-            })?;
-            input.push(*tid);
+            let tid = TypeCheck::get_tid(&arg.typ, &type_names, typestore)?;
+            input.push(tid);
 
             if let Some(ident) = &arg.ident {
                 binds.push(ident);
@@ -206,11 +253,8 @@ impl TypeCheck {
 
         let mut output = vec![];
         for ty in &func.signature.output {
-            let ty_name = ty.common_form();
-            let (tid, _) = type_names.get(&ty_name).ok_or_else(|| {
-                HayError::new(format!("Unknown Type `{ty_name}`"), ty.token().loc)
-            })?;
-            output.push(*tid);
+            let tid = TypeCheck::get_tid(ty, &type_names, typestore)?;
+            output.push(tid);
         }
 
         let tid = typestore.function(FunctionType {
@@ -219,7 +263,6 @@ impl TypeCheck {
         });
         let scheme = Scheme::new(vars.clone(), tid, vec![]);
 
-        let var = env.fresh_var();
         assert!(env.bind_scheme(var, scheme).is_none());
         var_names.insert(func.name.lexeme, (var, func.name.clone()));
 
@@ -227,21 +270,26 @@ impl TypeCheck {
             let bind_expr = Expr::bind(
                 binds
                     .into_iter()
-                    .map(|token| TypeCheck::insert_var(token, env, var_names))
+                    .map(|token| TypeCheck::insert_var(token, env, &mut var_names))
                     .collect::<Result<Vec<_>, _>>()?,
                 func.name.clone(),
             );
             Expr::block(
-                [bind_expr, TypeCheck::convert_expr(&func.expr, var_names)?],
+                [
+                    bind_expr,
+                    TypeCheck::convert_expr(&func.expr, typestore, &var_names, &type_names)?,
+                ],
                 func.expr.token.clone(),
             )
         } else {
-            TypeCheck::convert_expr(&func.expr, var_names)?
+            TypeCheck::convert_expr(&func.expr, typestore, &var_names, &type_names)?
         };
 
         let f = Function::new(input, output, vars, vec![], expr);
         f.type_check(typestore, env)
             .map_err(|e| TypeCheck::map_inference_error(e, typestore, &type_names))?;
+
+        println!("Type checked {} successfully", func.name);
 
         Ok(())
     }
@@ -263,6 +311,10 @@ impl TypeCheck {
         let mut var_names = VarLookup::new();
 
         for statement in &statements {
+            for (name, (var, _)) in &var_names {
+                println!("{name} -> {var:?} -> {:?}", env.idents.get(var));
+            }
+            
             match statement {
                 Statememt::FunctionDefinition(func) => TypeCheck::bind_function_def(
                     &func,

@@ -5,18 +5,31 @@ use crate::lex::token::Token;
 #[derive(Debug)]
 pub enum ParseType<'src> {
     Simple(Token<'src>),
+    Paramatarized {
+        base: Token<'src>,
+        params: Vec<Self>,
+    },
 }
 
 impl<'src> ParseType<'src> {
     pub fn common_form(&self) -> String {
         match self {
             ParseType::Simple(token) => String::from(token.lexeme),
+            ParseType::Paramatarized { base, params } => {
+                let mut s = format!("{}<", base.lexeme);
+                for t in params {
+                    s = format!("{s} {}", t.common_form());
+                }
+                s = format!("{s} >");
+                s
+            }
         }
     }
 
     pub fn token(&self) -> Token<'src> {
         match self {
             ParseType::Simple(token) => token.clone(),
+            ParseType::Paramatarized { base, params } => base.clone(),
         }
     }
 }

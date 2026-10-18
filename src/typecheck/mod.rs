@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, todo};
 
 use crate::{
     error::HayError,
@@ -15,6 +15,7 @@ use crate::{
         typ::{
             typ::{FunctionType, Type},
             type_id::TypeId,
+            type_var::TypeVar,
         },
         typestore::{
             inference::{InferenceError, InferenceErrorKind},
@@ -31,131 +32,155 @@ pub mod typ;
 pub mod typestore;
 pub mod union_find;
 
-pub struct TypeCheck;
-type TypeLookup<'src> = HashMap<String, (TypeId, Option<Token<'src>>)>;
-type VarLookup<'src> = HashMap<&'src str, (Var, Token<'src>)>;
+pub struct TypeCheck<'src> {
+    typestore: TypeStore,
+    env: Environment,
+    symbols: SymbolTable<'src>,
+    scope: Scope<'src>,
+}
 
-impl TypeCheck {
-    fn format_tid<'src>(
+struct TypeInfo<'src> {
+    name: String,
+    token: Option<Token<'src>>,
+}
+
+struct VarInfo<'src> {
+    name: &'src str,
+    token: Token<'src>,
+}
+
+struct SymbolTable<'src> {
+    types: HashMap<TypeId, TypeInfo<'src>>,
+    vars: HashMap<Var, VarInfo<'src>>,
+}
+
+impl<'src> SymbolTable<'src> {
+    pub fn new(typestore: &mut TypeStore) -> Self {
+        let types = HashMap::from([
+            (
+                typestore.intern(Type::u8()),
+                TypeInfo {
+                    name: "u8".to_owned(),
+                    token: None,
+                },
+            ),
+            (
+                typestore.intern(Type::u64()),
+                TypeInfo {
+                    name: "u64".to_owned(),
+                    token: None,
+                },
+            ),
+            (
+                typestore.intern(Type::bool()),
+                TypeInfo {
+                    name: "bool".to_owned(),
+                    token: None,
+                },
+            ),
+        ]);
+        SymbolTable {
+            types,
+            vars: HashMap::new(),
+        }
+    }
+
+    pub fn insert_tid(&mut self, tid: TypeId, info: TypeInfo<'src>) -> Option<TypeInfo<'src>> {
+        self.types.insert(tid, info)
+    }
+
+    pub fn insert_var(&mut self, var: Var, info: VarInfo<'src>) -> Option<VarInfo<'src>> {
+        self.vars.insert(var, info)
+    }
+}
+
+struct ScopeLayer<'src> {
+    types: HashMap<String, (TypeId, Option<Token<'src>>)>,
+    vars: HashMap<&'src str, (Var, Token<'src>)>,
+}
+
+struct Scope<'src> {
+    scopes: Vec<ScopeLayer<'src>>,
+}
+
+impl<'src> Scope<'src> {
+    pub fn new(typestore: &mut TypeStore) -> Self {
+        let types = HashMap::from([
+            ("u8".to_owned(), (typestore.intern(Type::u8()), None)),
+            ("u64".to_owned(), (typestore.intern(Type::u64()), None)),
+            ("bool".to_owned(), (typestore.intern(Type::bool()), None)),
+        ]);
+
+        Scope {
+            scopes: vec![ScopeLayer {
+                types,
+                vars: HashMap::new(),
+            }],
+        }
+    }
+
+    fn get_tid(&self, name: &String) -> Option<(TypeId, Option<Token<'src>>)> {
+        self.scopes
+            .iter()
+            .rev()
+            .find(|scope| scope.types.contains_key(name))
+            .map(|scope| scope.types.get(name).unwrap().clone())
+    }
+
+    fn get_var(&self, name: &str) -> Option<(Var, Token<'src>)> {
+        self.scopes
+            .iter()
+            .rev()
+            .find(|scope| scope.vars.contains_key(name))
+            .map(|scope| scope.vars.get(name).unwrap().clone())
+    }
+
+    fn insert_tid(
+        &mut self,
+        name: String,
         tid: TypeId,
-        typestore: &mut TypeStore,
-        type_names: &TypeLookup<'src>,
-    ) -> String {
-        let tid = typestore.substitute_one(tid).1;
-        
-        for (s, (t, _)) in type_names {
-            if tid == *t {
-                return s.clone();
-            }
-        }
-
-        match typestore.get(tid).expect("TypeIds should be resolvable") {
-            Type::TypeVar(type_var) => todo!(),
-            Type::RigidTypeVar(type_var) => {
-                let tid = typestore.intern(Type::TypeVar(*type_var));
-                TypeCheck::format_tid(tid, typestore, type_names)
-            }
-            Type::Builtin(builtin_type) => todo!(),
-            Type::Function(function_type) => todo!(),
-            Type::Pointer(pointer_type) => todo!(),
-            Type::Struct(struct_type) => todo!(),
-            Type::Enum(enum_type) => todo!(),
-            Type::Variant(variant_type) => todo!(),
-            Type::Type(type_id) => todo!(),
-        }
+        token: Token<'src>,
+    ) -> Option<(TypeId, Option<Token<'src>>)> {
+        self.scopes
+            .last_mut()
+            .unwrap()
+            .types
+            .insert(name, (tid, Some(token)))
     }
 
-    fn format_stack<'src>(
-        stack: Vec<TypeId>,
-        typestore: &mut TypeStore,
-        type_names: &TypeLookup<'src>,
-    ) -> String {
-        let mut s = String::from("[");
-        for tid in stack {
-            s = format!("{s} {}", TypeCheck::format_tid(tid, typestore, type_names));
-        }
-
-        s = format!("{s} ]");
-
-        s
+    fn insert_var(
+        &mut self,
+        name: &'src str,
+        var: Var,
+        token: Token<'src>,
+    ) -> Option<(Var, Token<'src>)> {
+        self.scopes
+            .last_mut()
+            .unwrap()
+            .vars
+            .insert(name, (var, token))
     }
 
-    fn map_inference_error<'src>(
-        e: InferenceError<Token<'src>>,
-        typestore: &mut TypeStore,
-        type_names: &TypeLookup<'src>,
-    ) -> HayError {
-        match e.kind {
-            InferenceErrorKind::NotEnoughArgs { .. } => todo!(),
-            InferenceErrorKind::StacksDiffer { expected, found } => {
-                HayError::new("Stacks differ", e.meta.loc)
-                    .with_hint_and_custom_note(
-                        TypeCheck::format_stack(found, typestore, type_names),
-                        "Found   ",
-                    )
-                    .with_hint_and_custom_note(
-                        TypeCheck::format_stack(expected, typestore, type_names),
-                        "Expected",
-                    )
-            }
-            InferenceErrorKind::TypeParameterConstrained { .. } => todo!(),
-            InferenceErrorKind::UnboundVar(_) => todo!(),
-            InferenceErrorKind::TypesIncompatible { .. } => todo!(),
-            InferenceErrorKind::MutableRefToFunction(_) => todo!(),
-            InferenceErrorKind::PredicateNotMet { .. } => todo!(),
-            InferenceErrorKind::ConflictingImpls { .. } => todo!(),
-        }
+    fn new_scope(&mut self) {
+        self.scopes.push(ScopeLayer {
+            types: HashMap::new(),
+            vars: HashMap::new(),
+        })
     }
 
-    fn convert_expr<'src>(
-        expr: &ParseExpr<'src>,
-        typestore: &mut TypeStore,
-        var_names: &VarLookup<'src>,
-        type_names: &TypeLookup,
-    ) -> Result<Expr<Token<'src>>, HayError> {
-        match &expr.kind {
-            ParseExprKind::Ident(id) => {
-                let Some((var, _)) = var_names.get(id) else {
-                    return Err(HayError::new(
-                        format!("Unknown identifier `{id}`"),
-                        expr.token.loc.clone(),
-                    ));
-                };
-
-                Ok(Expr::ident(*var, expr.token.clone()))
-            }
-            ParseExprKind::Literal(literal) => match literal {
-                Literal::Bool(_) => todo!(),
-                Literal::Char(_) => todo!(),
-                Literal::String(_) => todo!(),
-                Literal::U8(_) => todo!(),
-                Literal::U64(val) => Ok(Expr::u64(*val, expr.token.clone())),
-            },
-            ParseExprKind::Block(parse_exprs) => {
-                let mut exprs = vec![];
-                for expr in parse_exprs {
-                    exprs.push(TypeCheck::convert_expr(
-                        expr, typestore, var_names, type_names,
-                    )?);
-                }
-
-                Ok(Expr::block(exprs, expr.token.clone()))
-            }
-            ParseExprKind::Type(ty) => {
-                let tid = TypeCheck::get_tid(ty, &type_names, typestore)?;
-                let tid = typestore.intern(Type::Type(tid));
-                Ok(Expr::typ(tid, expr.token.clone()))
-            }
-        }
+    fn end_scope(&mut self) {
+        assert!(self.scopes.len() > 1);
+        self.scopes.pop();
     }
+}
 
-    fn insert_var<'src>(
-        token: &Token<'src>,
-        env: &mut Environment,
-        var_names: &mut VarLookup<'src>,
-    ) -> Result<Var, HayError> {
-        let var = env.fresh_var();
-        if let Some((_, tok)) = var_names.insert(token.lexeme, (var, token.clone())) {
+impl<'src> TypeCheck<'src> {
+    fn insert_var(&mut self, token: &Token<'src>) -> Result<Var, HayError> {
+        let var = self.env.fresh_var();
+        if let Some((var, tok)) = self
+            .scope
+            .insert_var(token.lexeme, var, token.clone())
+        {
             return Err(HayError::new(
                 format!("`{}` already defined", token.lexeme),
                 token.loc.clone(),
@@ -166,163 +191,192 @@ impl TypeCheck {
             )));
         }
 
+        assert!(self
+            .symbols
+            .insert_var(
+                var,
+                VarInfo {
+                    name: token.lexeme,
+                    token: token.clone()
+                }
+            )
+            .is_none());
         Ok(var)
     }
 
-    fn get_tid<'src>(
-        ty: &ParseType<'src>,
-        type_names: &TypeLookup<'src>,
-        typestore: &mut TypeStore,
-    ) -> Result<TypeId, HayError> {
+    fn insert_param_ty(&mut self, ty: &ParseType<'src>) -> Result<TypeVar, HayError> {
+        let tyvar = self.typestore.fresh_type_var();
+        let tid = self.typestore.intern(Type::TypeVar(tyvar));
+        let token = ty.token();
+        if let Some((tid, tok)) = self
+            .scope
+            .insert_tid(token.lexeme.into(), tid, token.clone())
+        {
+            let mut e = HayError::new(
+                format!("Type `{}` already defined", token.lexeme),
+                token.loc.clone(),
+            );
+            if let Some(tok) = tok {
+                e = e.with_hint(format!(
+                    "Type `{}` was previously defined here: {}",
+                    token.lexeme, tok.loc
+                ));
+            }
+
+            return Err(e);
+        }
+        assert!(self
+            .symbols
+            .insert_tid(
+                tid,
+                TypeInfo {
+                    name: token.lexeme.into(),
+                    token: Some(token)
+                }
+            )
+            .is_none());
+        Ok(tyvar)
+    }
+
+    fn get_tid(&mut self, ty: &ParseType<'src>) -> Result<TypeId, HayError> {
         match ty {
-            ParseType::Simple(_) => {
-                let name = ty.common_form();
-                type_names
-                    .get(&name)
-                    .map(|(tid, _)| *tid)
-                    .ok_or(HayError::new("Unknown type {name}", ty.token().loc))
+            ParseType::Simple(token) => {
+                if let Some((tid, _)) = self.scope.get_tid(&token.lexeme.into()) {
+                    Ok(tid)
+                } else {
+                    todo!("Unknown type {token}");
+                }
             }
             ParseType::Paramatarized { base, params } => {
                 if base.lexeme == "Type" {
                     if params.len() != 1 {
-                        return Err(HayError::new("Metatypes expect exactly one type parameter", base.loc.clone()));
+                        todo!("Wrong number of params for `Type`");
                     }
-                    
-                    let inner_tid = TypeCheck::get_tid(&params[0], type_names, typestore)?;
-                    let tid = typestore.intern(Type::Type(inner_tid));
-                    return Ok(tid)
+                    let inner_tid = self.get_tid(&params[0])?;
+                    let tid = self
+                        .typestore
+                        .metatype(inner_tid, None, base)
+                        .map_err(|_| todo!())?;
+                    return Ok(tid);
                 }
 
-                let base_tid = TypeCheck::get_tid(ty, type_names, typestore)?;
-                let params = params
-                    .iter()
-                    .map(|ty| TypeCheck::get_tid(ty, type_names, typestore))
-                    .collect::<Result<Vec<_>, HayError>>()?;
+                let Some((base_tid, _)) = self.scope.get_tid(&base.lexeme.into()) else {
+                    todo!("Unknown type {base}");
+                };
 
-                let tid = typestore
-                    .type_instance(base_tid, Some(params), base)
-                    .map_err(|e| todo!())?;
-                Ok(tid)
+                todo!()
             }
         }
     }
 
-    fn bind_function_def<'src>(
-        func: &FunctionDefinition<'src>,
-        env: &mut Environment,
-        typestore: &mut TypeStore,
-        type_names: &TypeLookup<'src>,
-        var_names: &mut VarLookup<'src>,
-    ) -> Result<(), HayError> {
-        let var = TypeCheck::insert_var(&func.name, env, var_names)?;
-        let mut var_names = var_names.clone();
-        let mut type_names = type_names.clone();
-        let mut vars = vec![];
-        for ty in &func.params {
-            let ty_name = ty.common_form();
-
-            if let Some((_, tok)) = type_names.get(&ty_name) {
-                let mut e = HayError::new(
-                    format!("Type `{}` is already defined", ty.common_form()),
-                    ty.token().loc,
-                );
-                if let Some(tok) = tok {
-                    e = e.with_hint(format!("`{ty}` was previously defined here: {}", tok.loc));
+    fn lower_expr(&mut self, expr: &ParseExpr<'src>) -> Result<Expr<Token<'src>>, HayError> {
+        match &expr.kind {
+            ParseExprKind::Ident(ident) => {
+                let Some((var, _)) = self.scope.get_var(ident) else {
+                    todo!()
+                };
+                Ok(Expr::ident(var, expr.token.clone()))
+            },
+            ParseExprKind::Literal(literal) => {
+                match literal {
+                    Literal::Bool(_) => todo!(),
+                    Literal::Char(_) => todo!(),
+                    Literal::String(_) => todo!(),
+                    Literal::U8(_) => todo!(),
+                    Literal::U64(n) => Ok(Expr::u64(*n,  expr.token.clone())),
                 }
-                return Err(e);
+            },
+            ParseExprKind::Block(parse_exprs) => {
+                let mut exprs = vec![];
+                for expr in parse_exprs {
+                    exprs.push(self.lower_expr(expr)?);
+                }
+
+                Ok(Expr::block(exprs, expr.token.clone()))
+            }
+            ParseExprKind::Type(ty) => {
+                let tid = self.get_tid(ty)?;
+                let tid = self.typestore.metatype(tid, None, &expr.token).map_err(|e| todo!("{e:?}"))?;
+                Ok(Expr::typ(tid, expr.token.clone()))
+            },
+        }
+    }
+
+    fn bind_function_def(&mut self, func: &FunctionDefinition<'src>) -> Result<(), HayError> {
+        // insert this function into the global scope
+        let var = self.insert_var(&func.name)?;
+
+        // create a new scope for types and identifiers
+        self.scope.new_scope();
+        {
+            let mut params = vec![];
+            for ty in &func.params {
+                params.push(self.insert_param_ty(ty)?);
             }
 
-            let tyvar = typestore.fresh_type_var();
-            let tid = typestore.intern(Type::TypeVar(tyvar));
-            assert!(type_names
-                .insert(ty_name, (tid, Some(ty.token())))
-                .is_none());
-            vars.push(tyvar);
-        }
+            let mut binds = vec![];
+            let mut input = vec![];
+            for arg in &func.signature.input {
+                let tid = self.get_tid(&arg.typ)?;
+                input.push(tid);
 
-        let mut binds = vec![];
-        let mut input = vec![];
-        for arg in &func.signature.input {
-            let tid = TypeCheck::get_tid(&arg.typ, &type_names, typestore)?;
-            input.push(tid);
-
-            if let Some(ident) = &arg.ident {
-                binds.push(ident);
+                if let Some(ident) = &arg.ident {
+                    let var = self.insert_var(ident)?;
+                    binds.push(var);
+                }
             }
+
+            let mut output = vec![];
+            for ty in &func.signature.output {
+                let tid = self.get_tid(&ty)?;
+                output.push(tid);
+            }
+
+            let tid = self.typestore.function(FunctionType { input: input.clone(), output: output.clone() });
+            let scheme = Scheme::new(params.clone(), tid, vec![]);
+            assert!(self.env.bind_scheme(var, scheme).is_none());
+
+            let mut expr = self.lower_expr(&func.expr)?;
+
+            if binds.len() != 0 {
+                expr = Expr::block(
+                    [Expr::bind(binds, func.expr.token.clone()), expr],
+                    func.expr.token.clone(),
+                );
+            }
+
+            let f = Function::new(input, output, params, vec![], expr);
+            let f = f
+                .type_check(&mut self.typestore, &self.env)
+                .map_err(|e| todo!("{e:?}"));
+            
+            println!("{} type checked successfully", func.name);
+
         }
-
-        let mut output = vec![];
-        for ty in &func.signature.output {
-            let tid = TypeCheck::get_tid(ty, &type_names, typestore)?;
-            output.push(tid);
-        }
-
-        let tid = typestore.function(FunctionType {
-            input: input.clone(),
-            output: output.clone(),
-        });
-        let scheme = Scheme::new(vars.clone(), tid, vec![]);
-
-        assert!(env.bind_scheme(var, scheme).is_none());
-        var_names.insert(func.name.lexeme, (var, func.name.clone()));
-
-        let expr = if !binds.is_empty() {
-            let bind_expr = Expr::bind(
-                binds
-                    .into_iter()
-                    .map(|token| TypeCheck::insert_var(token, env, &mut var_names))
-                    .collect::<Result<Vec<_>, _>>()?,
-                func.name.clone(),
-            );
-            Expr::block(
-                [
-                    bind_expr,
-                    TypeCheck::convert_expr(&func.expr, typestore, &var_names, &type_names)?,
-                ],
-                func.expr.token.clone(),
-            )
-        } else {
-            TypeCheck::convert_expr(&func.expr, typestore, &var_names, &type_names)?
-        };
-
-        let f = Function::new(input, output, vars, vec![], expr);
-        f.type_check(typestore, env)
-            .map_err(|e| TypeCheck::map_inference_error(e, typestore, &type_names))?;
-
-        println!("Type checked {} successfully", func.name);
-
+        self.scope.end_scope();
         Ok(())
     }
 
-    fn builtin_types<'src>(typestore: &mut TypeStore) -> TypeLookup<'src> {
-        TypeLookup::from([
-            ("u8".to_owned(), (typestore.intern(Type::u8()), None)),
-            ("u64".to_owned(), (typestore.intern(Type::u64()), None)),
-            ("bool".to_owned(), (typestore.intern(Type::bool()), None)),
-        ])
+    fn new() -> Self {
+        let mut typestore = TypeStore::new();
+        let symbols = SymbolTable::new(&mut typestore);
+        let scope = Scope::new(&mut typestore);
+        let env = Environment::new();
+
+        Self {
+            typestore,
+            env,
+            symbols,
+            scope,
+        }
     }
 
-    pub fn build_world<'src>(mut statements: Vec<Statememt<'src>>) -> Result<(), HayError> {
-        let mut env = Environment::new();
-        let mut typestore = TypeStore::new();
-
-        let mut type_names = TypeCheck::builtin_types(&mut typestore);
-
-        let mut var_names = VarLookup::new();
+    pub fn build_world(mut statements: Vec<Statememt<'src>>) -> Result<(), HayError> {
+        let mut tc = TypeCheck::new();
 
         for statement in &statements {
-            for (name, (var, _)) in &var_names {
-                println!("{name} -> {var:?} -> {:?}", env.idents.get(var));
-            }
-            
             match statement {
-                Statememt::FunctionDefinition(func) => TypeCheck::bind_function_def(
-                    &func,
-                    &mut env,
-                    &mut typestore,
-                    &type_names,
-                    &mut var_names,
-                )?,
+                Statememt::FunctionDefinition(func) => tc.bind_function_def(&func)?,
             }
         }
 

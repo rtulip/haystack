@@ -177,10 +177,7 @@ impl<'src> Scope<'src> {
 impl<'src> TypeCheck<'src> {
     fn insert_var(&mut self, token: &Token<'src>) -> Result<Var, HayError> {
         let var = self.env.fresh_var();
-        if let Some((var, tok)) = self
-            .scope
-            .insert_var(token.lexeme, var, token.clone())
-        {
+        if let Some((var, tok)) = self.scope.insert_var(token.lexeme, var, token.clone()) {
             return Err(HayError::new(
                 format!("`{}` already defined", token.lexeme),
                 token.loc.clone(),
@@ -276,15 +273,13 @@ impl<'src> TypeCheck<'src> {
                     todo!()
                 };
                 Ok(Expr::ident(var, expr.token.clone()))
-            },
-            ParseExprKind::Literal(literal) => {
-                match literal {
-                    Literal::Bool(_) => todo!(),
-                    Literal::Char(_) => todo!(),
-                    Literal::String(_) => todo!(),
-                    Literal::U8(_) => todo!(),
-                    Literal::U64(n) => Ok(Expr::u64(*n,  expr.token.clone())),
-                }
+            }
+            ParseExprKind::Literal(literal) => match literal {
+                Literal::Bool(_) => todo!(),
+                Literal::Char(_) => todo!(),
+                Literal::String(_) => todo!(),
+                Literal::U8(_) => todo!(),
+                Literal::U64(n) => Ok(Expr::u64(*n, expr.token.clone())),
             },
             ParseExprKind::Block(parse_exprs) => {
                 let mut exprs = vec![];
@@ -296,9 +291,77 @@ impl<'src> TypeCheck<'src> {
             }
             ParseExprKind::Type(ty) => {
                 let tid = self.get_tid(ty)?;
-                let tid = self.typestore.metatype(tid, None, &expr.token).map_err(|e| todo!("{e:?}"))?;
+                let tid = self
+                    .typestore
+                    .metatype(tid, None, &expr.token)
+                    .map_err(|e| todo!("{e:?}"))?;
                 Ok(Expr::typ(tid, expr.token.clone()))
+            }
+        }
+    }
+
+    fn format_tid_from_type(&mut self, tid: TypeId) -> String {
+        match self.typestore.get(tid).expect("TypeIds should be resolvable").clone() {
+            Type::TypeVar(_) => todo!(),
+            Type::RigidTypeVar(tyvar) => {
+                let tid = self.typestore.intern(Type::TypeVar(tyvar));
+                self.format_tid(tid)
             },
+            Type::Builtin(_) => todo!(),
+            Type::Function(_) => todo!(),
+            Type::Pointer(_) => todo!(),
+            Type::Struct(_) => todo!(),
+            Type::Enum(_) => todo!(),
+            Type::Variant(_) => todo!(),
+            Type::Type(tid) => {
+                format!("Type<{}>", self.format_tid(tid))
+            },
+        }
+
+    }
+
+    fn format_tid(&mut self, tid: TypeId) -> String {
+
+        let tid = self.typestore.substitute_one(tid).1;
+
+        if let Some(info) = self.symbols.types.get(&tid) {
+            info.name.clone()
+        } else {
+            if let Some(origin) = self.typestore.tyvar_origin.get(&tid) {
+                eprintln!("{} <- {}", self.typestore.fmt(tid), self.typestore.fmt(*origin));
+                return self.format_tid(*origin);
+            }
+            
+            self.format_tid_from_type(tid)
+
+        }
+
+    }
+
+    fn format_stack(&mut self, stack: &Vec<TypeId>) -> String {
+
+        let mut s = format!("["); 
+        for tid in stack {
+            s = format!("{s} {}", self.format_tid(*tid));
+        }
+        s += " ]";
+        s
+    }
+
+    fn map_inference_err(&mut self, e: InferenceError<Token<'src>>) -> HayError {
+        match e.kind {
+            InferenceErrorKind::NotEnoughArgs { .. } => todo!(),
+            InferenceErrorKind::StacksDiffer { expected, found } => {
+                HayError::new("Stacks Different", e.meta.loc.clone())
+                    .with_hint(format!("Expected: {}", self.format_stack(&expected)))
+                    .with_hint(format!("Found   : {}", self.format_stack(&found)))
+            }
+            InferenceErrorKind::TypeParameterConstrained { .. } => todo!(),
+            InferenceErrorKind::UnboundVar(..) => todo!(),
+            InferenceErrorKind::TypesIncompatible { .. } => todo!(),
+            InferenceErrorKind::MutableRefToFunction(..) => todo!(),
+            InferenceErrorKind::PredicateNotMet { .. } => todo!(),
+            InferenceErrorKind::ConflictingImpls { .. } => todo!(),
         }
     }
 
@@ -332,7 +395,10 @@ impl<'src> TypeCheck<'src> {
                 output.push(tid);
             }
 
-            let tid = self.typestore.function(FunctionType { input: input.clone(), output: output.clone() });
+            let tid = self.typestore.function(FunctionType {
+                input: input.clone(),
+                output: output.clone(),
+            });
             let scheme = Scheme::new(params.clone(), tid, vec![]);
             assert!(self.env.bind_scheme(var, scheme).is_none());
 
@@ -348,10 +414,9 @@ impl<'src> TypeCheck<'src> {
             let f = Function::new(input, output, params, vec![], expr);
             let f = f
                 .type_check(&mut self.typestore, &self.env)
-                .map_err(|e| todo!("{e:?}"));
-            
-            println!("{} type checked successfully", func.name);
+                .map_err(|e| self.map_inference_err(e))?;
 
+            println!("{} type checked successfully", func.name);
         }
         self.scope.end_scope();
         Ok(())
@@ -641,8 +706,8 @@ mod tests {
             Err(InferenceError {
                 kind: InferenceErrorKind::TypeParameterConstrained { var, .. },
                 ..
-            }) if var == b_typevar => assert!(true),
-            _ => assert!(false),
+            }) if var == a_typevar => assert!(true),
+            e => todo!("{e:?}"),
         }
     }
 

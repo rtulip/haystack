@@ -41,6 +41,7 @@ pub struct TypeStore {
     interned: HashMap<Type, TypeId>,
 
     lookup: UnificationTable<TypeVar, TypeId>,
+    pub tyvar_origin: HashMap<TypeId, TypeId>,
 }
 
 impl TypeStore {
@@ -62,6 +63,7 @@ impl TypeStore {
                     .map(|(idx, ty)| (ty, TypeId(idx))),
             ),
             lookup: UnificationTable::new(),
+            tyvar_origin: HashMap::new(),
         }
     }
 
@@ -167,22 +169,17 @@ impl TypeStore {
             Type::Function(function_type) => {
                 let mut s = String::from("fn (");
                 for tid in &function_type.input {
+                    s += " ";
                     self.pretty_print(*tid, &mut s)?;
                 }
-
-                if !function_type.input.is_empty() {
-                    s.pop();
-                }
-                s += ") -> [";
+                s += " ) -> [";
 
                 for tid in &function_type.output {
+                    s += " ";
                     self.pretty_print(*tid, &mut s)?;
                 }
 
-                if !function_type.output.is_empty() {
-                    s.pop();
-                }
-                s += "]";
+                s += " ]";
 
                 write!(w, "{s}")
             }
@@ -507,8 +504,10 @@ impl TypeStore {
         if let Some(tid) = fresh.get(&var) {
             *tid
         } else {
-            let ty = Type::TypeVar(self.fresh_type_var());
-            let tid = self.intern(ty);
+            let tyvar = self.fresh_type_var();
+            let tid = self.intern(Type::TypeVar(tyvar));
+            let origin_tid = self.intern(Type::TypeVar(var));
+            assert!(self.tyvar_origin.insert(tid, origin_tid).is_none());
             assert!(fresh.insert(var, tid).is_none());
             tid
         }
@@ -744,6 +743,8 @@ impl TypeStore {
     {
         let scheme = env.get_var(&var).expect("Vars should be resolvable");
         let inst = self.freshen(scheme);
+        eprintln!("    {var:?}");
+        eprintln!("    QualifiedType: {}", self.fmt(inst.tid));
 
         let (tid, constraints) = if let Some(func) = self.get_func(&inst.tid).cloned() {
             (
@@ -766,6 +767,10 @@ impl TypeStore {
         };
 
         let e = Expr::ident(var, (meta, tid));
+        for c in &constraints {
+            eprintln!("    {c:?}");
+        }
+
         Ok((e, constraints))
     }
 
@@ -923,6 +928,8 @@ impl TypeStore {
     where
         M: Debug + Clone + PartialEq + Eq,
     {
+        eprintln!("Inferring from {expr:?}");
+            
         let e = match expr.expr {
             ExprKind::U8(val) => {
                 let u8_tid = self.intern(Type::u8());
@@ -941,6 +948,9 @@ impl TypeStore {
                     output: vec![u8_tid],
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta)?;
+                for c in &constraints {
+                    eprintln!("    {c:?}");
+                }
                 let e = Expr::u64(val, (expr.meta.clone(), self.function(func)));
                 Ok((e, constraints))
             }
@@ -1831,6 +1841,15 @@ impl TypeStore {
                     self.check_join(*output, inputs, &c.meta)?
                 }
                 ConstraintType::Predicate(pred) => self.check_predicate(env, pred, &c.meta)?,
+                ConstraintType::Arity { expected, found } => {
+                    if expected.len() != found.len() {
+                        return Err(InferenceError::stacks_differ(
+                            expected.clone(),
+                            found.clone(),
+                            &c.meta,
+                        ));
+                    }
+                }
             }
         }
 
@@ -1858,7 +1877,7 @@ impl TypeStore {
             target,
             &stack,
             &out_expr.meta.0,
-        )?);
+        ));
 
         // Make sure that constraints can be resolved.
         self.check_constraints(&env, &mut constraints)?;

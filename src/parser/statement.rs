@@ -10,6 +10,13 @@ pub struct FunctionDefinition<'src> {
     pub expr: ParseExpr<'src>,
 }
 
+pub struct StructDefinition<'src> {
+    pub name: Token<'src>,
+    pub params: Vec<ParseType<'src>>,
+    pub members: Vec<(ParseType<'src>, Token<'src>)>,
+}
+
 pub enum Statememt<'src> {
     FunctionDefinition(FunctionDefinition<'src>),
+    StructDefinition(StructDefinition<'src>),
 }

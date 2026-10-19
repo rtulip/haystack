@@ -1,25 +1,15 @@
 use std::{collections::HashMap, todo};
 
 use crate::{
-    error::HayError,
-    lex::token::{Literal, Token},
-    parser::{
+    error::HayError, lex::token::{Literal, Token}, parser::{
         expr::{ParseExpr, ParseExprKind},
-        statement::{FunctionDefinition, Statememt},
+        statement::{FunctionDefinition, Statememt, StructDefinition},
         typ::ParseType,
-    },
-    typecheck::{
-        environment::{Environment, Scheme},
-        expr::{Expr, ExprKind, Var},
-        func::Function,
-        typ::{
-            typ::{FunctionType, Type},
-            type_id::TypeId,
-            type_var::TypeVar,
-        },
-        typestore::{
-            inference::{InferenceError, InferenceErrorKind},
-            TypeStore,
+    }, typecheck::{
+        environment::{Environment, Scheme}, expr::{Expr, ExprKind, Var}, func::Function, typ::{
+            typ::{FunctionType, Mutability, StructDef, Type}, type_id::TypeId, type_var::TypeVar,
+        }, typestore::{
+            TypeStore, inference::{InferenceError, InferenceErrorKind},
         },
     },
 };
@@ -263,6 +253,18 @@ impl<'src> TypeCheck<'src> {
 
                 todo!()
             }
+            ParseType::Pointer { inner, mutable } => {
+
+                let inner = self.get_tid(inner)?;
+                let tid = self.typestore.pointer(inner, if *mutable {
+                    Mutability::Mutable
+                } else {
+                    Mutability::Const
+                });
+
+                Ok(tid)
+
+            },
         }
     }
 
@@ -446,12 +448,36 @@ impl<'src> TypeCheck<'src> {
         }
     }
 
+    fn bind_struct_def(&mut self, s: &StructDefinition<'src>) -> Result<(), HayError> {
+        
+        // Only have the vars known within the scope of the member definition.
+        self.scope.new_scope(); 
+        
+        let vars = s.params.iter().map(|ty| self.insert_param_ty(ty)).collect::<Result<Vec<_>, _>>()?;
+        let members = s.members.iter().map(|(ty, _)| self.get_tid(ty)).collect::<Result<Vec<_>, _>>()?;
+        let def = StructDef::new(&self.typestore, vars, members, &s.name).map_err(|e| self.map_inference_err(e))?;
+        let tid = self.typestore.add_struct(def);
+
+        self.scope.end_scope();
+
+        // Add the struct to the global scope.
+        if let Some(_) = self.scope.insert_tid(s.name.lexeme.into(), tid, s.name.clone()) {
+            todo!("Error type already defined")
+        }
+        if let Some(_) = self.symbols.insert_tid(tid, TypeInfo { name: s.name.lexeme.into(), token: Some(s.name.clone()) }) {
+            todo!()
+        }
+
+        Ok(())
+    }
+
     pub fn build_world(mut statements: Vec<Statememt<'src>>) -> Result<(), HayError> {
         let mut tc = TypeCheck::new();
 
         for statement in &statements {
             match statement {
-                Statememt::FunctionDefinition(func) => tc.bind_function_def(&func)?,
+                Statememt::StructDefinition(s) => tc.bind_struct_def(s)?,
+                Statememt::FunctionDefinition(func) => tc.bind_function_def(func)?,
             }
         }
 

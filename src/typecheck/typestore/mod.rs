@@ -695,22 +695,34 @@ impl TypeStore {
         predicates: Vec<TypePredicate>,
         stack: &mut Stack,
         meta: &M,
-    ) -> Result<Vec<Constraint<M>>, InferenceError<M>>
+    ) -> Vec<Constraint<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
-        if stack.len() < func.input.len() {
-            return Err(InferenceError::not_enough_args(
-                func.input.clone(),
-                stack.clone(),
-                meta,
-            ));
-        }
+        // We're going to defer the check for enough arguments to get as
+        // much typing information as possible. So if we don't have enough
+        // args, just consume the stack. The error will be reported during
+        // constraint checking.
+        let argument_constraint = Constraint::new(
+            ConstraintType::HasEnoughArgs {
+                expected: func.input.clone(),
+                found: stack.clone(),
+            },
+            meta,
+        );
+        let split = if stack.len() < func.input.len() {
+            stack.split_off(0)
+        } else {
+            stack.split_off(stack.len() - func.input.len())
+        };
+        eprintln!("Constraints from: {meta:?}");
+        eprintln!("Split: {}", self.fmt_many(&split));
+        eprintln!("Input: {}", self.fmt_many(&func.input));
 
-        let split = stack.split_off(stack.len() - func.input.len());
         let constraints = split
             .into_iter()
-            .zip(func.input.iter())
+            .rev()
+            .zip(func.input.iter().rev())
             .map(|(found, expected)| {
                 Constraint::new(
                     ConstraintType::Subtype {
@@ -724,11 +736,16 @@ impl TypeStore {
                 predicates
                     .into_iter()
                     .map(|pred| Constraint::new(ConstraintType::Predicate(pred), meta)),
-            );
+            )
+            .chain([argument_constraint]);
+
+        for c in constraints.clone() {
+            dbg!(c);
+        }
 
         stack.extend(func.output.clone());
 
-        Ok(constraints.collect())
+        constraints.collect()
     }
 
     fn infer_ident<M>(
@@ -743,13 +760,11 @@ impl TypeStore {
     {
         let scheme = env.get_var(&var).expect("Vars should be resolvable");
         let inst = self.freshen(scheme);
-        eprintln!("    {var:?}");
-        eprintln!("    QualifiedType: {}", self.fmt(inst.tid));
 
         let (tid, constraints) = if let Some(func) = self.get_func(&inst.tid).cloned() {
             (
                 inst.tid,
-                self.infer_fn_call(&func, inst.predicates, stack, &meta)?,
+                self.infer_fn_call(&func, inst.predicates, stack, &meta),
             )
         } else {
             // If an identifier _isn't_ a funciton, then add the value to the stack.
@@ -767,9 +782,6 @@ impl TypeStore {
         };
 
         let e = Expr::ident(var, (meta, tid));
-        for c in &constraints {
-            eprintln!("    {c:?}");
-        }
 
         Ok((e, constraints))
     }
@@ -928,8 +940,6 @@ impl TypeStore {
     where
         M: Debug + Clone + PartialEq + Eq,
     {
-        eprintln!("Inferring from {expr:?}");
-            
         let e = match expr.expr {
             ExprKind::U8(val) => {
                 let u8_tid = self.intern(Type::u8());
@@ -937,7 +947,7 @@ impl TypeStore {
                     input: vec![],
                     output: vec![u8_tid],
                 };
-                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta)?;
+                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::u8(val, (expr.meta.clone(), self.function(func)));
                 Ok((e, constraints))
             }
@@ -947,10 +957,7 @@ impl TypeStore {
                     input: vec![],
                     output: vec![u8_tid],
                 };
-                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta)?;
-                for c in &constraints {
-                    eprintln!("    {c:?}");
-                }
+                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::u64(val, (expr.meta.clone(), self.function(func)));
                 Ok((e, constraints))
             }
@@ -960,7 +967,7 @@ impl TypeStore {
                     input: vec![],
                     output: vec![bool_tid],
                 };
-                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta)?;
+                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::bool(val, (expr.meta, self.function(func)));
                 Ok((e, constraints))
             }
@@ -1035,7 +1042,7 @@ impl TypeStore {
 
                 let tid = stack.pop().unwrap();
                 if let Some(Type::Function(mut func)) = self.get(tid).cloned() {
-                    let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta)?;
+                    let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                     func.input.push(tid);
                     let expr_tid = self.function(func);
                     let e = Expr::call((expr.meta, expr_tid));
@@ -1057,7 +1064,7 @@ impl TypeStore {
             }
             ExprKind::UncheckedCast => {
                 let func = self.uncheckec_cast_fn();
-                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta)?;
+                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let expr_tid = self.function(func);
                 let e = Expr::unchecked_cast((expr.meta, expr_tid));
                 Ok((e, constraints))
@@ -1070,8 +1077,7 @@ impl TypeStore {
                 let ty_tid = stack.pop().unwrap();
                 if let Some(Type::Type(tid)) = self.get(ty_tid).cloned() {
                     let mut constructor = self.generate_constructor(tid)?;
-                    let constraints =
-                        self.infer_fn_call(&constructor, vec![], stack, &expr.meta)?;
+                    let constraints = self.infer_fn_call(&constructor, vec![], stack, &expr.meta);
 
                     constructor.input.push(ty_tid);
                     let expr_tid = self.function(constructor);
@@ -1338,13 +1344,16 @@ impl TypeStore {
                 left_tid, right_tid, meta,
             )),
             (Type::RigidTypeVar(left), Type::RigidTypeVar(right)) if left == right => Ok(()),
-            (Type::Type(left), Type::Type(right)) => self.unify_ty_ty(left, right, meta),
             (Type::TypeVar(left), Type::TypeVar(right)) => self
                 .lookup
                 .unify_keys(left, right)
                 .map_err(|UnifiactionError(_, _)| todo!()),
             (Type::TypeVar(var), _) => self.unify_typevar(var, right_tid),
             (_, Type::TypeVar(var)) => self.unify_typevar(var, left_tid),
+            (Type::Type(left), Type::Type(right)) => self.unify_ty_ty(left, right, meta),
+            (Type::Type(_), _) | (_, Type::Type(_)) => Err(InferenceError::types_incompatible(
+                left_tid, right_tid, meta,
+            )),
             (Type::RigidTypeVar(var), _) => {
                 Err(InferenceError::type_param_constrained(var, right_tid, meta))
             }
@@ -1844,6 +1853,15 @@ impl TypeStore {
                 ConstraintType::Arity { expected, found } => {
                     if expected.len() != found.len() {
                         return Err(InferenceError::stacks_differ(
+                            expected.clone(),
+                            found.clone(),
+                            &c.meta,
+                        ));
+                    }
+                }
+                ConstraintType::HasEnoughArgs { expected, found } => {
+                    if expected.len() > found.len() {
+                        return Err(InferenceError::not_enough_args(
                             expected.clone(),
                             found.clone(),
                             &c.meta,

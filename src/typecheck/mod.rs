@@ -1710,7 +1710,7 @@ mod tests {
         let u8_tid = typestore.intern(Type::u8());
         assert_eq!(
             bad_pack.type_check(&mut typestore, &env),
-            Err(InferenceError::types_incompatible(u8_tid, bool_tid, &META))
+            Err(InferenceError::types_incompatible(bool_tid, u8_tid, &META))
         );
     }
 

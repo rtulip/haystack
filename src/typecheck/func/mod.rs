@@ -8,14 +8,14 @@ use crate::{
 };
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct Function<Meta> {
+pub struct Function<'src, Meta> {
     pub ty: FunctionType,
     pub params: Vec<TypeVar>,
     pub predicates: Vec<TypePredicate>,
-    pub expr: Expr<Meta>,
+    pub expr: Expr<'src, Meta>,
 }
 
-impl<Meta> Function<Meta>
+impl<'src, Meta> Function<'src, Meta>
 where
     Meta: std::fmt::Debug + Clone,
 {
@@ -24,7 +24,7 @@ where
         output: Output,
         params: Vars,
         predicates: Preds,
-        expr: Expr<Meta>,
+        expr: Expr<'src, Meta>,
     ) -> Self
     where
         Input: Into<Vec<TypeId>>,
@@ -47,7 +47,7 @@ where
         self,
         typestore: &mut TypeStore,
         env: &Environment,
-    ) -> Result<Function<(Meta, TypeId)>, InferenceError<Meta>>
+    ) -> Result<Function<'src, (Meta, TypeId)>, InferenceError<Meta>>
     where
         Meta: Debug + Clone + PartialEq + Eq,
     {

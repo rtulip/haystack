@@ -143,7 +143,10 @@ impl<'src> Parser<'src> {
             ));
         };
 
-        Ok(Some(ParseType::Pointer { inner: Box::new(inner), mutable }))
+        Ok(Some(ParseType::Pointer {
+            inner: Box::new(inner),
+            mutable,
+        }))
     }
 
     fn parse_type(&mut self) -> Result<Option<ParseType<'src>>, HayError> {

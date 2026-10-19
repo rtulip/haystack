@@ -15,14 +15,14 @@ pub enum MatchPattern {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct MatchCase<Meta> {
+pub struct MatchCase<'src, Meta> {
     pub pattern: MatchPattern,
     pub binding: Option<Var>,
-    pub expr: Box<Expr<Meta>>,
+    pub expr: Box<Expr<'src, Meta>>,
 }
 
-impl<Meta> MatchCase<Meta> {
-    pub fn new(pattern: MatchPattern, binding: Option<Var>, expr: Expr<Meta>) -> Self {
+impl<'src, Meta> MatchCase<'src, Meta> {
+    pub fn new(pattern: MatchPattern, binding: Option<Var>, expr: Expr<'src, Meta>) -> Self {
         Self {
             pattern,
             binding,
@@ -32,15 +32,15 @@ impl<Meta> MatchCase<Meta> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct MatchExpr<Meta> {
-    pub cases: Vec<MatchCase<Meta>>,
-    pub finally: Option<Box<Expr<Meta>>>,
+pub struct MatchExpr<'src, Meta> {
+    pub cases: Vec<MatchCase<'src, Meta>>,
+    pub finally: Option<Box<Expr<'src, Meta>>>,
 }
 
-impl<Meta> MatchExpr<Meta> {
-    pub fn new<Cases>(cases: Cases, finally: Option<Expr<Meta>>) -> Self
+impl<'src, Meta> MatchExpr<'src, Meta> {
+    pub fn new<Cases>(cases: Cases, finally: Option<Expr<'src, Meta>>) -> Self
     where
-        Cases: Into<Vec<MatchCase<Meta>>>,
+        Cases: Into<Vec<MatchCase<'src, Meta>>>,
     {
         Self {
             cases: cases.into(),
@@ -50,60 +50,68 @@ impl<Meta> MatchExpr<Meta> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum ExprKind<Meta> {
+pub enum ExprKind<'src, Meta> {
     U8(u8),
     U64(u64),
     Bool(bool),
+    String(&'src str),
     Ident(Var),
     Ref { var: Var, mutability: Mutability },
-    Block(Vec<Expr<Meta>>),
+    Block(Vec<Expr<'src, Meta>>),
     Bind(Vec<Var>),
     Call,
     Type(TypeId),
     UncheckedCast,
     Pack,
     MemberAccess { var: Var, member: usize },
-    Match(MatchExpr<Meta>),
+    Match(MatchExpr<'src, Meta>),
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct Expr<Meta> {
-    pub expr: ExprKind<Meta>,
+pub struct Expr<'src, Meta> {
+    pub expr: ExprKind<'src, Meta>,
     pub meta: Meta,
 }
 
-impl<Meta> Expr<Meta> {
-    pub fn u8(val: u8, meta: Meta) -> Expr<Meta> {
+impl<'src, Meta> Expr<'src, Meta> {
+    pub fn u8(val: u8, meta: Meta) -> Expr<'src, Meta> {
         Expr {
             expr: ExprKind::U8(val),
             meta,
         }
     }
 
-    pub fn u64(val: u64, meta: Meta) -> Expr<Meta> {
+    pub fn u64(val: u64, meta: Meta) -> Expr<'src, Meta> {
         Expr {
             expr: ExprKind::U64(val),
             meta,
         }
     }
 
-    pub fn bool(b: bool, meta: Meta) -> Expr<Meta> {
+    pub fn bool(b: bool, meta: Meta) -> Expr<'src, Meta> {
         Expr {
             expr: ExprKind::Bool(b),
             meta,
         }
     }
 
-    pub fn ident(var: Var, meta: Meta) -> Expr<Meta> {
+    pub fn string(s: &'src str, meta: Meta) -> Expr<'src, Meta> {
+        Expr {
+            expr: ExprKind::String(s),
+            meta,
+        }
+    }
+
+    pub fn ident(var: Var, meta: Meta) -> Expr<'src, Meta> {
         Expr {
             expr: ExprKind::Ident(var),
             meta,
         }
     }
 
-    pub fn block<Exprs>(exprs: Exprs, meta: Meta) -> Expr<Meta>
+    pub fn block<Exprs>(exprs: Exprs, meta: Meta) -> Expr<'src, Meta>
     where
-        Exprs: Into<Vec<Expr<Meta>>>,
+        Exprs: Into<Vec<Expr<'src, Meta>>>,
     {
         Expr {
             expr: ExprKind::Block(exprs.into()),
@@ -111,7 +119,7 @@ impl<Meta> Expr<Meta> {
         }
     }
 
-    pub fn bind<Vars>(vars: Vars, meta: Meta) -> Expr<Meta>
+    pub fn bind<Vars>(vars: Vars, meta: Meta) -> Expr<'src, Meta>
     where
         Vars: Into<Vec<Var>>,
     {
@@ -121,21 +129,21 @@ impl<Meta> Expr<Meta> {
         }
     }
 
-    pub fn take_ref(var: Var, mutability: Mutability, meta: Meta) -> Expr<Meta> {
+    pub fn take_ref(var: Var, mutability: Mutability, meta: Meta) -> Expr<'src, Meta> {
         Expr {
             expr: ExprKind::Ref { var, mutability },
             meta,
         }
     }
 
-    pub fn call(meta: Meta) -> Expr<Meta> {
+    pub fn call(meta: Meta) -> Expr<'src, Meta> {
         Expr {
             expr: ExprKind::Call,
             meta,
         }
     }
 
-    pub fn typ(tid: TypeId, meta: Meta) -> Expr<Meta> {
+    pub fn typ(tid: TypeId, meta: Meta) -> Expr<'src, Meta> {
         Expr {
             expr: ExprKind::Type(tid),
             meta,
@@ -163,7 +171,7 @@ impl<Meta> Expr<Meta> {
         }
     }
 
-    pub fn match_(m: MatchExpr<Meta>, meta: Meta) -> Self {
+    pub fn match_(m: MatchExpr<'src, Meta>, meta: Meta) -> Self {
         Expr {
             expr: ExprKind::Match(m),
             meta,
@@ -171,8 +179,8 @@ impl<Meta> Expr<Meta> {
     }
 }
 
-impl<Meta> Into<Vec<Expr<Meta>>> for Expr<Meta> {
-    fn into(self) -> Vec<Expr<Meta>> {
+impl<'src, Meta> Into<Vec<Expr<'src, Meta>>> for Expr<'src, Meta> {
+    fn into(self) -> Vec<Expr<'src, Meta>> {
         vec![self]
     }
 }

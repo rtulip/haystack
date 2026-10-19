@@ -3,6 +3,11 @@ fn dup<T>(T: t) -> [T T] { t t }
 fn typeof<T>(T: _) -> [Type<T>] #T
 fn hint<T>(T Type<T>) -> [T] drop
 
+struct Str {
+    &u8: data
+    u64: len
+}
+
 fn main() {
-    12345 typeof dup dup
+    "Hello World"
 }

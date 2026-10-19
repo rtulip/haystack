@@ -1,15 +1,25 @@
 use std::{collections::HashMap, todo};
 
 use crate::{
-    error::HayError, lex::token::{Literal, Token}, parser::{
+    error::HayError,
+    lex::token::{Literal, Token},
+    parser::{
         expr::{ParseExpr, ParseExprKind},
         statement::{FunctionDefinition, Statememt, StructDefinition},
         typ::ParseType,
-    }, typecheck::{
-        environment::{Environment, Scheme}, expr::{Expr, ExprKind, Var}, func::Function, typ::{
-            typ::{FunctionType, Mutability, StructDef, Type}, type_id::TypeId, type_var::TypeVar,
-        }, typestore::{
-            TypeStore, inference::{InferenceError, InferenceErrorKind},
+    },
+    typecheck::{
+        environment::{Environment, Scheme},
+        expr::{Expr, ExprKind, Var},
+        func::Function,
+        typ::{
+            typ::{FunctionType, Mutability, StructDef, Type},
+            type_id::TypeId,
+            type_var::TypeVar,
+        },
+        typestore::{
+            inference::{InferenceError, InferenceErrorKind},
+            TypeStore,
         },
     },
 };
@@ -254,21 +264,22 @@ impl<'src> TypeCheck<'src> {
                 todo!()
             }
             ParseType::Pointer { inner, mutable } => {
-
                 let inner = self.get_tid(inner)?;
-                let tid = self.typestore.pointer(inner, if *mutable {
-                    Mutability::Mutable
-                } else {
-                    Mutability::Const
-                });
+                let tid = self.typestore.pointer(
+                    inner,
+                    if *mutable {
+                        Mutability::Mutable
+                    } else {
+                        Mutability::Const
+                    },
+                );
 
                 Ok(tid)
-
-            },
+            }
         }
     }
 
-    fn lower_expr(&mut self, expr: &ParseExpr<'src>) -> Result<Expr<Token<'src>>, HayError> {
+    fn lower_expr(&mut self, expr: &ParseExpr<'src>) -> Result<Expr<'src, Token<'src>>, HayError> {
         match &expr.kind {
             ParseExprKind::Ident(ident) => {
                 let Some((var, _)) = self.scope.get_var(ident) else {
@@ -279,7 +290,7 @@ impl<'src> TypeCheck<'src> {
             ParseExprKind::Literal(literal) => match literal {
                 Literal::Bool(b) => Ok(Expr::bool(*b, expr.token.clone())),
                 Literal::Char(_) => todo!(),
-                Literal::String(_) => todo!(),
+                Literal::String(s) => Ok(Expr::string(s, expr.token.clone())),
                 Literal::U8(_) => todo!(),
                 Literal::U64(n) => Ok(Expr::u64(*n, expr.token.clone())),
             },
@@ -449,22 +460,43 @@ impl<'src> TypeCheck<'src> {
     }
 
     fn bind_struct_def(&mut self, s: &StructDefinition<'src>) -> Result<(), HayError> {
-        
         // Only have the vars known within the scope of the member definition.
-        self.scope.new_scope(); 
-        
-        let vars = s.params.iter().map(|ty| self.insert_param_ty(ty)).collect::<Result<Vec<_>, _>>()?;
-        let members = s.members.iter().map(|(ty, _)| self.get_tid(ty)).collect::<Result<Vec<_>, _>>()?;
-        let def = StructDef::new(&self.typestore, vars, members, &s.name).map_err(|e| self.map_inference_err(e))?;
+        self.scope.new_scope();
+
+        let vars = s
+            .params
+            .iter()
+            .map(|ty| self.insert_param_ty(ty))
+            .collect::<Result<Vec<_>, _>>()?;
+        let members = s
+            .members
+            .iter()
+            .map(|(ty, _)| self.get_tid(ty))
+            .collect::<Result<Vec<_>, _>>()?;
+        let def = StructDef::new(&self.typestore, vars, members, &s.name)
+            .map_err(|e| self.map_inference_err(e))?;
         let tid = self.typestore.add_struct(def);
+
+        if s.name.lexeme == "Str" {
+            self.typestore.set_str_tid(tid);
+        }
 
         self.scope.end_scope();
 
         // Add the struct to the global scope.
-        if let Some(_) = self.scope.insert_tid(s.name.lexeme.into(), tid, s.name.clone()) {
+        if let Some(_) = self
+            .scope
+            .insert_tid(s.name.lexeme.into(), tid, s.name.clone())
+        {
             todo!("Error type already defined")
         }
-        if let Some(_) = self.symbols.insert_tid(tid, TypeInfo { name: s.name.lexeme.into(), token: Some(s.name.clone()) }) {
+        if let Some(_) = self.symbols.insert_tid(
+            tid,
+            TypeInfo {
+                name: s.name.lexeme.into(),
+                token: Some(s.name.clone()),
+            },
+        ) {
             todo!()
         }
 

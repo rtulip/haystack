@@ -42,6 +42,7 @@ pub struct TypeStore {
 
     lookup: UnificationTable<TypeVar, TypeId>,
     pub tyvar_origin: HashMap<TypeId, TypeId>,
+    str_tid: Option<TypeId>,
 }
 
 impl TypeStore {
@@ -49,6 +50,7 @@ impl TypeStore {
     pub fn new() -> Self {
         let builtins = [
             Type::Builtin(BuiltinType::U8),
+            Type::Builtin(BuiltinType::U64),
             Type::Builtin(BuiltinType::Bool),
         ];
 
@@ -64,7 +66,13 @@ impl TypeStore {
             ),
             lookup: UnificationTable::new(),
             tyvar_origin: HashMap::new(),
+            str_tid: None,
         }
+    }
+
+    pub fn set_str_tid(&mut self, tid: TypeId) {
+        assert!(self.str_tid == None);
+        self.str_tid = Some(tid);
     }
 
     pub fn get_struct_def(&self, sid: StructId) -> &StructDef {
@@ -425,10 +433,10 @@ impl TypeStore {
     }
 
     /// Substitute all types referenced in an Expression into common form.
-    fn substitute_expr<M>(
+    fn substitute_expr<'src, M>(
         &mut self,
-        expr: Expr<(M, TypeId)>,
-    ) -> (HashSet<TypeVar>, Expr<(M, TypeId)>)
+        expr: Expr<'src, (M, TypeId)>,
+    ) -> (HashSet<TypeVar>, Expr<'src, (M, TypeId)>)
     where
         M: Debug,
     {
@@ -438,6 +446,7 @@ impl TypeStore {
             ExprKind::U8(_)
             | ExprKind::U64(_)
             | ExprKind::Bool(_)
+            | ExprKind::String(_)
             | ExprKind::Bind(_)
             | ExprKind::Call
             | ExprKind::UncheckedCast
@@ -748,13 +757,13 @@ impl TypeStore {
         constraints.collect()
     }
 
-    fn infer_ident<M>(
+    fn infer_ident<'src, M>(
         &mut self,
         var: Var,
         meta: M,
         stack: &mut Stack,
         env: &mut Environment,
-    ) -> Result<(Expr<(M, TypeId)>, Vec<Constraint<M>>), InferenceError<M>>
+    ) -> Result<(Expr<'src, (M, TypeId)>, Vec<Constraint<M>>), InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
@@ -931,12 +940,12 @@ impl TypeStore {
     ///
     /// Expressions are also marked with all their constraints in addition to
     /// whatever metadata they had beforehand.
-    fn infer<M>(
+    fn infer<'src, M>(
         &mut self,
-        expr: Expr<M>,
+        expr: Expr<'src, M>,
         stack: &mut Stack,
         env: &mut Environment,
-    ) -> Result<(Expr<(M, TypeId)>, Vec<Constraint<M>>), InferenceError<M>>
+    ) -> Result<(Expr<'src, (M, TypeId)>, Vec<Constraint<M>>), InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
@@ -971,6 +980,17 @@ impl TypeStore {
                 let e = Expr::bool(val, (expr.meta, self.function(func)));
                 Ok((e, constraints))
             }
+            ExprKind::String(s) => {
+                
+                let str_tid = self.str_tid.expect("Str tid must be provided");
+                let func = FunctionType {
+                    input: vec![],
+                    output: vec![str_tid],
+                };
+                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
+                let e = Expr::string(s, (expr.meta, self.function(func)));
+                Ok((e, constraints))
+            },
             ExprKind::Bind(vars) => {
                 if stack.len() < vars.len() {
                     todo!("Too few elements to bind")
@@ -1874,13 +1894,13 @@ impl TypeStore {
         Ok(())
     }
 
-    pub fn type_check<M>(
+    pub fn type_check<'src, M>(
         &mut self,
-        expr: Expr<M>,
+        expr: Expr<'src, M>,
         stack: &Stack,
         target: &Stack,
         env: &mut Environment,
-    ) -> Result<(Expr<(M, TypeId)>, HashSet<TypeVar>), InferenceError<M>>
+    ) -> Result<(Expr<'src, (M, TypeId)>, HashSet<TypeVar>), InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
     {

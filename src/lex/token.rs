@@ -234,6 +234,7 @@ impl Keyword {
         map.insert("interface", TokenKind::Keyword(Keyword::Interface));
         map.insert("requires", TokenKind::Keyword(Keyword::Requires));
         map.insert("match", TokenKind::Keyword(Keyword::Match));
+        map.insert("pack", TokenKind::Keyword(Keyword::Pack));
         map.insert("unpack", TokenKind::Keyword(Keyword::Unpack));
 
         map.insert("true", TokenKind::Literal(Literal::Bool(true)));

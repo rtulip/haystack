@@ -280,7 +280,7 @@ impl<'src> Parser<'src> {
         Ok(Signature { input, output })
     }
 
-    fn parse_block(&mut self) -> Result<ParseExpr<'src>, HayError> {
+    fn parse_block_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
         let start = self.matches(TokenKind::Marker(Marker::LeftBrace)).unwrap();
         let mut exprs = vec![];
 
@@ -362,12 +362,21 @@ impl<'src> Parser<'src> {
         })
     }
 
+    fn parse_pack_expr(&mut self) -> ParseExpr<'src> {
+        let token = self
+            .matches(TokenKind::Keyword(Keyword::Pack))
+            .expect("Should have seen pack keyword before calling");
+
+        ParseExpr { kind: ParseExprKind::Pack, token }
+    }
+
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
         self.strip_whitespace();
         match &self.peek().kind {
             TokenKind::Ident(_) => Ok(self.parse_ident_expr()),
-            TokenKind::Marker(Marker::LeftBrace) => self.parse_block(),
+            TokenKind::Marker(Marker::LeftBrace) => self.parse_block_expr(),
             TokenKind::Marker(Marker::Hash) => self.parse_type_expr(),
+            TokenKind::Keyword(Keyword::Pack) => Ok(self.parse_pack_expr()),
             TokenKind::Marker(m) => todo!("Parse Expr from {m}"),
             TokenKind::Operator(_) => todo!(),
             TokenKind::Keyword(_) => todo!(),

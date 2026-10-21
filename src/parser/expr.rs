@@ -8,6 +8,7 @@ pub enum ParseExprKind<'src> {
     Literal(Literal<'src>),
     Block(Vec<ParseExpr<'src>>),
     Type(ParseType<'src>),
+    Pack,
 }
 
 pub struct ParseExpr<'src> {

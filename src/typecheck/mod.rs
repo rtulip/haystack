@@ -1,4 +1,4 @@
-use std::{assert_eq, collections::HashMap, todo};
+use std::{assert_eq, collections::HashMap, format, todo};
 
 use crate::{
     error::HayError,
@@ -456,6 +456,11 @@ impl<'src> TypeCheck<'src> {
                     .map_err(|e| todo!("{e:?}"))?;
                 Ok(Expr::typ(tid, expr.token.clone()))
             }
+            ParseExprKind::Pack => {
+
+                Ok(Expr::pack(expr.token.clone()))
+
+            },
         }
     }
 
@@ -477,7 +482,13 @@ impl<'src> TypeCheck<'src> {
             }
             Type::Builtin(_) => todo!(),
             Type::Function(_) => todo!(),
-            Type::Pointer(_) => todo!(),
+            Type::Pointer(p) => {
+                if p.mutability == Mutability::Const {
+                    format!("&{}", self.format_tid(p.tid))
+                } else {
+                    format!("&mut {}", self.format_tid(p.tid))
+                }
+            },
             Type::Struct(_) => todo!(),
             Type::Enum(e) => {
                 let base_enum_def = self.typestore.get_enum_def(e.eid).clone();
@@ -702,7 +713,7 @@ impl<'src> TypeCheck<'src> {
             };
             variants.push(v)
         }
-        
+
         let def = EnumDef::new(&self.typestore, vars, variants, &e.name)
             .map_err(|e| self.map_inference_err(e))?;
         let (tid, eid) = self.typestore.add_enum(def);

@@ -16,7 +16,14 @@ pub struct StructDefinition<'src> {
     pub members: Vec<(ParseType<'src>, Token<'src>)>,
 }
 
+pub struct EnumDefinition<'src> {
+    pub name: Token<'src>,
+    pub params: Vec<ParseType<'src>>,
+    pub variants: Vec<(Option<ParseType<'src>>, Token<'src>)>,
+}
+
 pub enum Statememt<'src> {
     FunctionDefinition(FunctionDefinition<'src>),
     StructDefinition(StructDefinition<'src>),
+    EnumDefinition(EnumDefinition<'src>),
 }

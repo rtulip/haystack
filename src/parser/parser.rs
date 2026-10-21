@@ -7,8 +7,8 @@ use crate::{
         argument::Argument,
         expr::{ParseExpr, ParseExprKind},
         signature::Signature,
-        statement::{FunctionDefinition, Statememt, StructDefinition},
-        typ::ParseType,
+        statement::{EnumDefinition, FunctionDefinition, Statememt, StructDefinition},
+        typ::{ParamatarizedIdent, ParseType, ParseTypePath},
     },
 };
 
@@ -85,32 +85,6 @@ impl<'src> Parser<'src> {
         Ok(types)
     }
 
-    fn parse_paramatarized_type(&mut self, base: Token<'src>) -> Result<ParseType<'src>, HayError> {
-        assert!(self
-            .matches(TokenKind::Operator(Operator::LessThan))
-            .is_ok());
-
-        let mut params = vec![];
-        while let Some(ty) = self.parse_type()? {
-            params.push(ty)
-        }
-
-        self.strip_whitespace();
-        self.matches(TokenKind::Operator(Operator::GreaterThan))
-            .map_err(|tok| {
-                HayError::new(
-                    format!(
-                        "Expected {}, but found {} instead",
-                        Operator::GreaterThan,
-                        tok.kind
-                    ),
-                    tok.loc,
-                )
-            })?;
-
-        Ok(ParseType::Paramatarized { base, params })
-    }
-
     fn parse_pointer_type(&mut self) -> Result<Option<ParseType<'src>>, HayError> {
         assert!(self
             .matches(TokenKind::Operator(Operator::Ampersand))
@@ -149,19 +123,35 @@ impl<'src> Parser<'src> {
         }))
     }
 
+    fn parse_type_path(&mut self) -> Result<ParseType<'src>, HayError> {
+        let mut path = vec![];
+        loop {
+            let base = self.matches(TokenKind::ident()).map_err(|token| {
+                HayError::new(
+                    format!("Expected a type identifier, but found {} instead", token),
+                    token.loc,
+                )
+            })?;
+            let params = self.parse_type_param_list()?;
+            match self.matches(TokenKind::Marker(Marker::DoubleColon)) {
+                Ok(dc) => path.push(ParamatarizedIdent { base, params }),
+                Err(_) => {
+                    if path.is_empty() {
+                        return Ok(ParseType::Simple(ParamatarizedIdent { base, params }));
+                    } else {
+                        path.push(ParamatarizedIdent { base, params });
+                        return Ok(ParseType::Path(ParseTypePath { path }));
+                    }
+                }
+            }
+        }
+    }
+
     fn parse_type(&mut self) -> Result<Option<ParseType<'src>>, HayError> {
         self.strip_whitespace();
 
         match &self.peek().kind {
-            TokenKind::Ident(_) => {
-                let token = self.tokens.pop().unwrap();
-                match &self.peek().kind {
-                    TokenKind::Operator(Operator::LessThan) => {
-                        Ok(Some(self.parse_paramatarized_type(token)?))
-                    }
-                    _ => Ok(Some(ParseType::Simple(token))),
-                }
-            }
+            TokenKind::Ident(_) => Ok(Some(self.parse_type_path()?)),
             TokenKind::Marker(Marker::RightBrace) => Ok(None),
             TokenKind::Marker(Marker::RightParen) => Ok(None),
             TokenKind::Marker(Marker::RightBracket) => Ok(None),
@@ -497,12 +487,104 @@ impl<'src> Parser<'src> {
         }))
     }
 
+    fn parse_enum(&mut self, start: Token<'src>) -> Result<Statememt<'src>, HayError> {
+        self.strip_whitespace();
+        let name = self.matches(TokenKind::ident()).map_err(|token| {
+            HayError::new(
+                format!(
+                    "Expected {} after {}, but found {} instead.",
+                    Marker::LeftBrace,
+                    TokenKind::ident(),
+                    token.kind
+                ),
+                token.loc,
+            )
+        })?;
+
+        let params = self.parse_type_param_list()?;
+
+        self.strip_whitespace();
+        let open = self
+            .matches(TokenKind::Marker(Marker::LeftBrace))
+            .map_err(|token| {
+                HayError::new(
+                    format!(
+                        "Expected {} after {}, but found {} instead.",
+                        Marker::LeftBrace,
+                        Keyword::Struct,
+                        token.kind
+                    ),
+                    token.loc,
+                )
+            })?;
+
+        let mut variants = vec![];
+        while let Some(ty) = self.parse_type()? {
+            // ty could be either an identifier or a type. If it's a type, expect a `:` followed by the name,
+            // if it's an identifier, ty should be exactly ParseType::Simple(ident) and no colon is needed
+            self.strip_whitespace();
+            let (variant_name, ty) = match self.matches(TokenKind::Marker(Marker::Colon)) {
+                Ok(_) => {
+                    self.strip_whitespace();
+                    let id = self.matches(TokenKind::ident()).map_err(|token| {
+                        HayError::new(
+                            format!(
+                                "Expected {} after {}, but found {} instead.",
+                                TokenKind::ident(),
+                                Marker::Colon,
+                                token.kind
+                            ),
+                            token.loc,
+                        )
+                    })?;
+                    (id, Some(ty))
+                }
+                Err(token) => match ty {
+                    ParseType::Simple(token) => (token.base, None),
+                    _ => {
+                        return Err(HayError::new(
+                            format!(
+                                "Expected {} after {}, but found {} instead.",
+                                Marker::Colon,
+                                ty.token(),
+                                token.kind
+                            ),
+                            token.loc,
+                        ))
+                    }
+                },
+            };
+
+            variants.push((ty, variant_name))
+        }
+
+        self.strip_whitespace();
+        self.matches(TokenKind::Marker(Marker::RightBrace))
+            .map_err(|token| {
+                HayError::new(
+                    format!(
+                        "Expected {} after enum variants, but found {} instead.",
+                        Marker::RightBrace,
+                        token.kind
+                    ),
+                    token.loc,
+                )
+            })?;
+
+        Ok(Statememt::EnumDefinition(EnumDefinition {
+            name,
+            params,
+            variants,
+        }))
+    }
+
     fn parse_declaration(&mut self) -> Result<Statememt<'src>, HayError> {
         self.strip_whitespace();
         let token = self.tokens.pop().unwrap();
         match &token.kind {
             TokenKind::Keyword(Keyword::Function) => self.parse_function(token),
             TokenKind::Keyword(Keyword::Struct) => self.parse_struct(token),
+            TokenKind::Keyword(Keyword::Enum) => self.parse_enum(token),
             kind => Err(HayError::new(
                 format!("Unexpected token: {kind}"),
                 token.loc,

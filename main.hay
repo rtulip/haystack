@@ -8,6 +8,31 @@ struct Str {
     u64: len
 }
 
+// SymbolTable
+//    * TID(Option) -> Token<Option>
+//    * (Option.eid, 0) -> Token("Some")
+//    * (Option.eid, 1) -> Token("None")
+//    * (Str.sid, 0) -> Token("data")
+//    * (Str.sid, 1) -> Token("len")
+// Scope
+//    * "Option" -> Tid(Option)
+//    * (Option.eid "Some") -> 0
+//    * "None" -> (Option.eid, 1)
+
+enum Option<T> {
+    T: Some
+    None
+}
+
+fn Some<T>(T) -> [Option<T>] {
+    #Option::Some pack
+}
+
+enum Result<T E> {
+    T: Ok
+    E: Err
+}
+
 fn main() {
     "Hello World"
 }

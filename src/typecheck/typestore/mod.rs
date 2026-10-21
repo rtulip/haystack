@@ -83,7 +83,7 @@ impl TypeStore {
         &self.enums[eid.0]
     }
 
-    pub fn add_struct(&mut self, def: StructDef) -> TypeId {
+    pub fn add_struct(&mut self, def: StructDef) -> (TypeId, StructId) {
         let sid = StructId(self.structs.len());
         let s = StructType {
             sid,
@@ -96,10 +96,10 @@ impl TypeStore {
         let tid = self.intern(Type::Struct(s));
 
         self.structs.push(def);
-        tid
+        (tid, sid)
     }
 
-    pub fn add_enum(&mut self, def: EnumDef) -> TypeId {
+    pub fn add_enum(&mut self, def: EnumDef) -> (TypeId, EnumId) {
         let eid = EnumId(self.enums.len());
         let e = EnumType {
             eid,
@@ -125,7 +125,7 @@ impl TypeStore {
         }
 
         self.enums.push(def);
-        tid
+        (tid, eid)
     }
 
     pub fn intern(&mut self, ty: Type) -> TypeId {
@@ -724,10 +724,6 @@ impl TypeStore {
         } else {
             stack.split_off(stack.len() - func.input.len())
         };
-        eprintln!("Constraints from: {meta:?}");
-        eprintln!("Split: {}", self.fmt_many(&split));
-        eprintln!("Input: {}", self.fmt_many(&func.input));
-
         let constraints = split
             .into_iter()
             .rev()
@@ -747,10 +743,6 @@ impl TypeStore {
                     .map(|pred| Constraint::new(ConstraintType::Predicate(pred), meta)),
             )
             .chain([argument_constraint]);
-
-        for c in constraints.clone() {
-            dbg!(c);
-        }
 
         stack.extend(func.output.clone());
 
@@ -981,7 +973,6 @@ impl TypeStore {
                 Ok((e, constraints))
             }
             ExprKind::String(s) => {
-                
                 let str_tid = self.str_tid.expect("Str tid must be provided");
                 let func = FunctionType {
                     input: vec![],
@@ -990,7 +981,7 @@ impl TypeStore {
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::string(s, (expr.meta, self.function(func)));
                 Ok((e, constraints))
-            },
+            }
             ExprKind::Bind(vars) => {
                 if stack.len() < vars.len() {
                     todo!("Too few elements to bind")

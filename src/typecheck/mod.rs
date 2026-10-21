@@ -1,20 +1,20 @@
-use std::{collections::HashMap, todo};
+use std::{assert_eq, collections::HashMap, todo};
 
 use crate::{
     error::HayError,
     lex::token::{Literal, Token},
     parser::{
         expr::{ParseExpr, ParseExprKind},
-        statement::{FunctionDefinition, Statememt, StructDefinition},
-        typ::ParseType,
+        statement::{EnumDefinition, FunctionDefinition, Statememt, StructDefinition},
+        typ::{ParamatarizedIdent, ParseType, ParseTypePath},
     },
     typecheck::{
         environment::{Environment, Scheme},
         expr::{Expr, ExprKind, Var},
         func::Function,
         typ::{
-            typ::{FunctionType, Mutability, StructDef, Type},
-            type_id::TypeId,
+            typ::{EnumDef, EnumType, FunctionType, Mutability, StructDef, Type},
+            type_id::{EnumId, StructId, TypeId},
             type_var::TypeVar,
         },
         typestore::{
@@ -52,6 +52,8 @@ struct VarInfo<'src> {
 struct SymbolTable<'src> {
     types: HashMap<TypeId, TypeInfo<'src>>,
     vars: HashMap<Var, VarInfo<'src>>,
+    variants: HashMap<(EnumId, usize), Token<'src>>,
+    members: HashMap<(StructId, usize), Token<'src>>,
 }
 
 impl<'src> SymbolTable<'src> {
@@ -82,11 +84,31 @@ impl<'src> SymbolTable<'src> {
         SymbolTable {
             types,
             vars: HashMap::new(),
+            variants: HashMap::new(),
+            members: HashMap::new(),
         }
     }
 
     pub fn insert_tid(&mut self, tid: TypeId, info: TypeInfo<'src>) -> Option<TypeInfo<'src>> {
         self.types.insert(tid, info)
+    }
+
+    pub fn insert_variant(
+        &mut self,
+        eid: EnumId,
+        variant: usize,
+        token: Token<'src>,
+    ) -> Option<Token<'src>> {
+        self.variants.insert((eid, variant), token)
+    }
+
+    pub fn insert_member(
+        &mut self,
+        sid: StructId,
+        member: usize,
+        token: Token<'src>,
+    ) -> Option<Token<'src>> {
+        self.members.insert((sid, member), token)
     }
 
     pub fn insert_var(&mut self, var: Var, info: VarInfo<'src>) -> Option<VarInfo<'src>> {
@@ -97,6 +119,8 @@ impl<'src> SymbolTable<'src> {
 struct ScopeLayer<'src> {
     types: HashMap<String, (TypeId, Option<Token<'src>>)>,
     vars: HashMap<&'src str, (Var, Token<'src>)>,
+    variants: HashMap<(EnumId, &'src str), usize>,
+    members: HashMap<(StructId, &'src str), usize>,
 }
 
 struct Scope<'src> {
@@ -115,6 +139,8 @@ impl<'src> Scope<'src> {
             scopes: vec![ScopeLayer {
                 types,
                 vars: HashMap::new(),
+                variants: HashMap::new(),
+                members: HashMap::new(),
             }],
         }
     }
@@ -148,6 +174,38 @@ impl<'src> Scope<'src> {
             .insert(name, (tid, Some(token)))
     }
 
+    fn insert_variant(&mut self, eid: EnumId, name: &'src str, variant: usize) -> Option<usize> {
+        self.scopes
+            .last_mut()
+            .unwrap()
+            .variants
+            .insert((eid, name), variant)
+    }
+
+    fn insert_member(&mut self, sid: StructId, name: &'src str, member: usize) -> Option<usize> {
+        self.scopes
+            .last_mut()
+            .unwrap()
+            .members
+            .insert((sid, name), member)
+    }
+
+    fn get_variant(&mut self, eid: EnumId, name: &'src str) -> Option<usize> {
+        self.scopes
+            .iter()
+            .rev()
+            .find(|scope| scope.variants.contains_key(&(eid, name)))
+            .map(|scope| *scope.variants.get(&(eid, name)).unwrap())
+    }
+
+    fn get_member(&mut self, sid: StructId, name: &'src str) -> Option<usize> {
+        self.scopes
+            .iter()
+            .rev()
+            .find(|scope| scope.members.contains_key(&(sid, name)))
+            .map(|scope| *scope.members.get(&(sid, name)).unwrap())
+    }
+
     fn insert_var(
         &mut self,
         name: &'src str,
@@ -165,6 +223,8 @@ impl<'src> Scope<'src> {
         self.scopes.push(ScopeLayer {
             types: HashMap::new(),
             vars: HashMap::new(),
+            variants: HashMap::new(),
+            members: HashMap::new(),
         })
     }
 
@@ -235,33 +295,119 @@ impl<'src> TypeCheck<'src> {
         Ok(tyvar)
     }
 
+    fn get_metatype_tid(&mut self, ident: &ParamatarizedIdent<'src>) -> Result<TypeId, HayError> {
+        assert_eq!(ident.base.lexeme, "Type");
+
+        if ident.params.len() != 1 {
+            todo!("Wrong number of params for `Type`");
+        }
+
+        let inner_tid = self.get_tid(&ident.params[0])?;
+        let tid = self
+            .typestore
+            .metatype(inner_tid, None, &ident.base)
+            .map_err(|_| todo!())?;
+
+        return Ok(tid);
+    }
+
+    fn get_paramatarized_ident_tid(
+        &mut self,
+        ident: &ParamatarizedIdent<'src>,
+    ) -> Result<TypeId, HayError> {
+        if ident.base.lexeme == "Type" {
+            return self.get_metatype_tid(ident);
+        }
+
+        let (base_tid, _) = self
+            .scope
+            .get_tid(&ident.base.lexeme.into())
+            .ok_or(HayError::new(
+                format!("Unknown type `{}`", ident.base.lexeme),
+                ident.base.loc.clone(),
+            ))?;
+
+        let mut params = vec![];
+        for param in &ident.params {
+            params.push(self.get_tid(param)?);
+        }
+
+        let args = if params.len() == 0 {
+            None
+        } else {
+            Some(params)
+        };
+
+        let tid = self
+            .typestore
+            .type_instance(base_tid, args, &ident.base)
+            .map_err(|e| self.map_inference_err(e))?;
+        Ok(tid)
+    }
+
+    fn get_enum_variant(
+        &mut self,
+        enum_tid: TypeId,
+        eid: EnumId,
+        ident: &ParamatarizedIdent<'src>,
+    ) -> Result<TypeId, HayError> {
+        let variant_id = match self.scope.get_variant(eid, ident.base.lexeme) {
+            Some(variant_id) => variant_id,
+            None => todo!(),
+        };
+
+        let tid = self
+            .typestore
+            .get_enum_variant(enum_tid, variant_id, &ident.base)
+            .map_err(|e| self.map_inference_err(e))?;
+        Ok(tid)
+    }
+
+    fn get_next_tid(
+        &mut self,
+        tid: TypeId,
+        ident: &ParamatarizedIdent<'src>,
+    ) -> Result<TypeId, HayError> {
+        match self
+            .typestore
+            .get(tid)
+            .expect("TypeIds should be resolvable")
+        {
+            Type::Enum(e) => self.get_enum_variant(tid, e.eid, ident),
+            _ => Err(HayError::new(
+                format!(
+                    "Type `{}` doesn't have an inner type `{}`",
+                    self.format_tid(tid),
+                    ident.base.lexeme
+                ),
+                ident.base.loc.clone(),
+            )),
+        }
+    }
+
+    fn get_type_path_tid(&mut self, path: &ParseTypePath<'src>) -> Result<TypeId, HayError> {
+        assert!(path.path.len() >= 2);
+
+        let mut tid = self.get_paramatarized_ident_tid(&path.path[0])?;
+
+        for ident in &path.path[1..] {
+            tid = self.get_next_tid(tid, ident)?;
+        }
+
+        Ok(tid)
+    }
+
     fn get_tid(&mut self, ty: &ParseType<'src>) -> Result<TypeId, HayError> {
         match ty {
-            ParseType::Simple(token) => {
-                if let Some((tid, _)) = self.scope.get_tid(&token.lexeme.into()) {
-                    Ok(tid)
-                } else {
-                    todo!("Unknown type {token}");
-                }
-            }
-            ParseType::Paramatarized { base, params } => {
-                if base.lexeme == "Type" {
-                    if params.len() != 1 {
-                        todo!("Wrong number of params for `Type`");
-                    }
-                    let inner_tid = self.get_tid(&params[0])?;
-                    let tid = self
-                        .typestore
-                        .metatype(inner_tid, None, base)
-                        .map_err(|_| todo!())?;
-                    return Ok(tid);
-                }
+            ParseType::Simple(ident) => Ok(self.get_paramatarized_ident_tid(ident)?),
+            ParseType::Path(path) => {
+                self.get_type_path_tid(path)
 
-                let Some((base_tid, _)) = self.scope.get_tid(&base.lexeme.into()) else {
-                    todo!("Unknown type {base}");
-                };
+                // let Some((base_tid, _)) = self.scope.get_tid(&base.lexeme.into()) else {
+                //     todo!("Unknown type {base}");
+                // };
 
-                todo!()
+                // todo!()
             }
             ParseType::Pointer { inner, mutable } => {
                 let inner = self.get_tid(inner)?;
@@ -283,7 +429,7 @@ impl<'src> TypeCheck<'src> {
         match &expr.kind {
             ParseExprKind::Ident(ident) => {
                 let Some((var, _)) = self.scope.get_var(ident) else {
-                    todo!()
+                    todo!("No var found for `{ident}`")
                 };
                 Ok(Expr::ident(var, expr.token.clone()))
             }
@@ -333,7 +479,26 @@ impl<'src> TypeCheck<'src> {
             Type::Function(_) => todo!(),
             Type::Pointer(_) => todo!(),
             Type::Struct(_) => todo!(),
-            Type::Enum(_) => todo!(),
+            Type::Enum(e) => {
+                let base_enum_def = self.typestore.get_enum_def(e.eid).clone();
+                let base_enum_ty = EnumType {
+                    eid: e.eid,
+                    args: base_enum_def
+                        .vars
+                        .iter()
+                        .map(|tid| self.typestore.intern(Type::TypeVar(*tid)))
+                        .collect(),
+                };
+                let tid = self.typestore.intern(Type::Enum(base_enum_ty));
+
+                let mut s = self.format_tid(tid);
+
+                if e.args.len() > 0 {
+                    s = format!("{s}{}", self.format_stack(&e.args, '<', '>'))
+                }
+
+                s
+            }
             Type::Variant(_) => todo!(),
             Type::Type(tid) => {
                 format!("Type<{}>", self.format_tid(tid))
@@ -355,12 +520,12 @@ impl<'src> TypeCheck<'src> {
         }
     }
 
-    fn format_stack(&mut self, stack: &Vec<TypeId>) -> String {
-        let mut s = format!("[");
+    fn format_stack(&mut self, stack: &Vec<TypeId>, open: char, close: char) -> String {
+        let mut s = format!("{open}");
         for tid in stack {
             s = format!("{s} {}", self.format_tid(*tid));
         }
-        s += " ]";
+        s = format!("{s} {close}");
         s
     }
 
@@ -368,13 +533,19 @@ impl<'src> TypeCheck<'src> {
         match e.kind {
             InferenceErrorKind::NotEnoughArgs { expected, stack } => {
                 HayError::new("Too few arguments on the stack", e.meta.loc.clone())
-                    .with_hint(format!("Expected: {}", self.format_stack(&expected)))
-                    .with_hint(format!("Found   : {}", self.format_stack(&stack)))
+                    .with_hint(format!(
+                        "Expected: {}",
+                        self.format_stack(&expected, '[', ']')
+                    ))
+                    .with_hint(format!("Found   : {}", self.format_stack(&stack, '[', ']')))
             }
             InferenceErrorKind::StacksDiffer { expected, found } => {
                 HayError::new("Stacks Different", e.meta.loc.clone())
-                    .with_hint(format!("Expected: {}", self.format_stack(&expected)))
-                    .with_hint(format!("Found   : {}", self.format_stack(&found)))
+                    .with_hint(format!(
+                        "Expected: {}",
+                        self.format_stack(&expected, '[', ']')
+                    ))
+                    .with_hint(format!("Found   : {}", self.format_stack(&found, '[', ']')))
             }
             InferenceErrorKind::TypeParameterConstrained { .. } => todo!(),
             InferenceErrorKind::UnboundVar(..) => todo!(),
@@ -475,7 +646,7 @@ impl<'src> TypeCheck<'src> {
             .collect::<Result<Vec<_>, _>>()?;
         let def = StructDef::new(&self.typestore, vars, members, &s.name)
             .map_err(|e| self.map_inference_err(e))?;
-        let tid = self.typestore.add_struct(def);
+        let (tid, sid) = self.typestore.add_struct(def);
 
         if s.name.lexeme == "Str" {
             self.typestore.set_str_tid(tid);
@@ -500,6 +671,71 @@ impl<'src> TypeCheck<'src> {
             todo!()
         }
 
+        for (i, (_, ident)) in s.members.iter().enumerate() {
+            if let Some(_) = self.scope.insert_member(sid, ident.lexeme, i) {
+                todo!("Duplicate member idents")
+            }
+            if let Some(_) = self.symbols.insert_member(sid, i, ident.clone()) {
+                todo!("Duplicate member idents")
+            }
+        }
+
+        Ok(())
+    }
+
+    fn bind_enum_def(&mut self, e: &EnumDefinition<'src>) -> Result<(), HayError> {
+        // Only have the vars known within the scope of the member definition.
+        self.scope.new_scope();
+
+        let vars = e
+            .params
+            .iter()
+            .map(|ty| self.insert_param_ty(ty))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let mut variants = vec![];
+        for (ty, _) in &e.variants {
+            let v = if let Some(ty) = ty {
+                Some(self.get_tid(ty)?)
+            } else {
+                None
+            };
+            variants.push(v)
+        }
+        
+        let def = EnumDef::new(&self.typestore, vars, variants, &e.name)
+            .map_err(|e| self.map_inference_err(e))?;
+        let (tid, eid) = self.typestore.add_enum(def);
+
+        self.scope.end_scope();
+
+        // Add the struct to the global scope.
+        if let Some(_) = self
+            .scope
+            .insert_tid(e.name.lexeme.into(), tid, e.name.clone())
+        {
+            todo!("Error type already defined")
+        }
+
+        if let Some(_) = self.symbols.insert_tid(
+            tid,
+            TypeInfo {
+                name: e.name.lexeme.into(),
+                token: Some(e.name.clone()),
+            },
+        ) {
+            todo!()
+        }
+
+        for (i, (_, ident)) in e.variants.iter().enumerate() {
+            if let Some(_) = self.scope.insert_variant(eid, ident.lexeme, i) {
+                todo!("Duplicate variant idents")
+            }
+            if let Some(_) = self.symbols.insert_variant(eid, i, ident.clone()) {
+                todo!("Duplicate variant idents")
+            }
+        }
+
         Ok(())
     }
 
@@ -509,6 +745,7 @@ impl<'src> TypeCheck<'src> {
         for statement in &statements {
             match statement {
                 Statememt::StructDefinition(s) => tc.bind_struct_def(s)?,
+                Statememt::EnumDefinition(e) => tc.bind_enum_def(e)?,
                 Statememt::FunctionDefinition(func) => tc.bind_function_def(func)?,
             }
         }

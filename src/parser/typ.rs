@@ -1,25 +1,28 @@
 use std::fmt::Display;
 
 use crate::lex::token::Token;
+#[derive(Debug)]
+pub struct ParamatarizedIdent<'src> {
+    pub base: Token<'src>,
+    pub params: Vec<ParseType<'src>>,
+}
+#[derive(Debug)]
+pub struct ParseTypePath<'src> {
+    pub path: Vec<ParamatarizedIdent<'src>>,
+}
 
 #[derive(Debug)]
 pub enum ParseType<'src> {
-    Simple(Token<'src>),
-    Paramatarized {
-        base: Token<'src>,
-        params: Vec<Self>,
-    },
-    Pointer {
-        inner: Box<Self>,
-        mutable: bool,
-    },
+    Simple(ParamatarizedIdent<'src>),
+    Pointer { inner: Box<Self>, mutable: bool },
+    Path(ParseTypePath<'src>),
 }
 
 impl<'src> ParseType<'src> {
     pub fn token(&self) -> Token<'src> {
         match self {
-            ParseType::Simple(token) => token.clone(),
-            ParseType::Paramatarized { base, params } => base.clone(),
+            ParseType::Simple(ident) => ident.base.clone(),
+            ParseType::Path(p) => p.path[0].base.clone(),
             ParseType::Pointer { inner, mutable } => todo!(),
         }
     }

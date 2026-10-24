@@ -16,6 +16,7 @@ pub enum ParseType<'src> {
     Simple(ParamatarizedIdent<'src>),
     Pointer { inner: Box<Self>, mutable: bool },
     Path(ParseTypePath<'src>),
+    Tuple(Vec<Self>),
 }
 
 impl<'src> ParseType<'src> {
@@ -24,6 +25,7 @@ impl<'src> ParseType<'src> {
             ParseType::Simple(ident) => ident.base.clone(),
             ParseType::Path(p) => p.path[0].base.clone(),
             ParseType::Pointer { inner, mutable } => todo!(),
+            ParseType::Tuple(_) => todo!(),
         }
     }
 }

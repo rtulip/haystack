@@ -2,7 +2,11 @@ use std::{todo, unreachable};
 
 use crate::{
     error::HayError,
-    lex::token::{Keyword, Marker, Operator, Token, TokenKind},
+    lex::token::{
+        Keyword,
+        Marker::{self, LeftParen},
+        Operator, Token, TokenKind,
+    },
     parser::{
         argument::Argument,
         expr::{ParseExpr, ParseExprKind},
@@ -147,6 +151,21 @@ impl<'src> Parser<'src> {
         }
     }
 
+    fn parse_tuple_type(&mut self) -> Result<ParseType<'src>, HayError> {
+        let start = self.matches(TokenKind::Marker(Marker::LeftParen)).unwrap();
+
+        let mut types = vec![];
+        while let Some(ty) = self.parse_type()? {
+            types.push(ty)
+        }
+
+        self.strip_whitespace();
+        self.matches(TokenKind::Marker(Marker::RightParen))
+            .map_err(|e| todo!())?;
+
+        Ok(ParseType::Tuple(types))
+    }
+
     fn parse_type(&mut self) -> Result<Option<ParseType<'src>>, HayError> {
         self.strip_whitespace();
 
@@ -155,6 +174,7 @@ impl<'src> Parser<'src> {
             TokenKind::Marker(Marker::RightBrace) => Ok(None),
             TokenKind::Marker(Marker::RightParen) => Ok(None),
             TokenKind::Marker(Marker::RightBracket) => Ok(None),
+            TokenKind::Marker(Marker::LeftParen) => Ok(Some(self.parse_tuple_type()?)),
             TokenKind::Marker(m) => todo!("Parse Type from {m}"),
             TokenKind::Operator(Operator::GreaterThan) => Ok(None),
             TokenKind::Operator(Operator::Ampersand) => self.parse_pointer_type(),
@@ -367,11 +387,13 @@ impl<'src> Parser<'src> {
             .matches(TokenKind::Keyword(Keyword::Pack))
             .expect("Should have seen pack keyword before calling");
 
-        ParseExpr { kind: ParseExprKind::Pack, token }
+        ParseExpr {
+            kind: ParseExprKind::Pack,
+            token,
+        }
     }
 
     fn parse_tuple_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
-
         let token = self
             .matches(TokenKind::Marker(Marker::LeftParen))
             .expect("Should have seen pack keyword before calling");
@@ -384,13 +406,15 @@ impl<'src> Parser<'src> {
             }
 
             if self.matches(TokenKind::Marker(Marker::RightParen)).is_ok() {
-                return Ok(ParseExpr { kind: ParseExprKind::Tuple(exprs), token })
+                return Ok(ParseExpr {
+                    kind: ParseExprKind::Tuple(exprs),
+                    token,
+                });
             }
 
             let e = self.parse_expr()?;
             exprs.push(e)
         }
-
     }
 
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {

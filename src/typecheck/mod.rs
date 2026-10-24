@@ -422,6 +422,15 @@ impl<'src> TypeCheck<'src> {
 
                 Ok(tid)
             }
+            ParseType::Tuple(tys) => {
+                let mut tids = vec![];
+                for ty in tys {
+                    tids.push(self.get_tid(ty)?);
+                }
+
+                let tid = self.typestore.tuple(tids);
+                Ok(tid)
+            }
         }
     }
 
@@ -456,9 +465,7 @@ impl<'src> TypeCheck<'src> {
                     .map_err(|e| todo!("{e:?}"))?;
                 Ok(Expr::typ(tid, expr.token.clone()))
             }
-            ParseExprKind::Pack => {
-                Ok(Expr::pack(expr.token.clone()))
-            },
+            ParseExprKind::Pack => Ok(Expr::pack(expr.token.clone())),
             ParseExprKind::Tuple(parse_exprs) => {
                 let mut exprs = vec![];
                 for expr in parse_exprs {
@@ -466,7 +473,7 @@ impl<'src> TypeCheck<'src> {
                 }
 
                 Ok(Expr::tuple(exprs, expr.token.clone()))
-            },
+            }
         }
     }
 
@@ -494,7 +501,7 @@ impl<'src> TypeCheck<'src> {
                 } else {
                     format!("&mut {}", self.format_tid(p.tid))
                 }
-            },
+            }
             Type::Struct(_) => todo!(),
             Type::Enum(e) => {
                 let base_enum_def = self.typestore.get_enum_def(e.eid).clone();
@@ -516,9 +523,7 @@ impl<'src> TypeCheck<'src> {
 
                 s
             }
-            Type::Tuple(tids) => {
-                self.format_stack(&tids, '(', ')')
-            },
+            Type::Tuple(tids) => self.format_stack(&tids, '(', ')'),
             Type::Variant(_) => todo!(),
             Type::Type(tid) => {
                 format!("Type<{}>", self.format_tid(tid))

@@ -457,9 +457,15 @@ impl<'src> TypeCheck<'src> {
                 Ok(Expr::typ(tid, expr.token.clone()))
             }
             ParseExprKind::Pack => {
-
                 Ok(Expr::pack(expr.token.clone()))
+            },
+            ParseExprKind::Tuple(parse_exprs) => {
+                let mut exprs = vec![];
+                for expr in parse_exprs {
+                    exprs.push(self.lower_expr(expr)?);
+                }
 
+                Ok(Expr::tuple(exprs, expr.token.clone()))
             },
         }
     }
@@ -510,6 +516,9 @@ impl<'src> TypeCheck<'src> {
 
                 s
             }
+            Type::Tuple(tids) => {
+                self.format_stack(&tids, '(', ')')
+            },
             Type::Variant(_) => todo!(),
             Type::Type(tid) => {
                 format!("Type<{}>", self.format_tid(tid))

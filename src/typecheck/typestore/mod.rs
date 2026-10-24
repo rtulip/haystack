@@ -160,6 +160,12 @@ impl TypeStore {
         self.intern(Type::Function(func))
     }
 
+    pub fn tuple(&mut self, tids: Vec<TypeId>) -> TypeId {
+
+        self.intern(Type::Tuple(tids))
+
+    }
+
     fn pretty_print<W: std::fmt::Write>(
         &self,
         tid: TypeId,
@@ -209,6 +215,7 @@ impl TypeStore {
                 v.variant,
                 self.fmt_many(&v.args)
             ),
+            Type::Tuple(_) => todo!(),
         }
     }
 
@@ -301,6 +308,7 @@ impl TypeStore {
                 todo!()
             }
             Type::Type(tid) => self.get_variance(*tid, tyvar).map(|_| Variance::Invariant),
+            Type::Tuple(_) => todo!(),
         }
     }
 
@@ -401,6 +409,12 @@ impl TypeStore {
                 let tid = self.intern(Type::Variant(v));
                 (unbound, tid)
             }
+            Type::Tuple(tids) => {
+                let tids = tids.clone();
+                let (unbound, tids) = self.substitute(&tids);
+                let tid = self.tuple(tids);
+                (unbound, tid)
+            },
         }
     }
 
@@ -498,6 +512,7 @@ impl TypeStore {
                     Expr::match_(MatchExpr::new(cases, finally), (expr.meta.0, expr_tid)),
                 )
             }
+            ExprKind::Tuple(_) => todo!(),
         }
     }
 
@@ -639,6 +654,7 @@ impl TypeStore {
                 };
                 self.intern(Type::Variant(v))
             }
+            Type::Tuple(_) => todo!(),
         }
     }
 
@@ -847,6 +863,7 @@ impl TypeStore {
             }
             Type::Enum(_) => todo!(),
             Type::Variant(_) => todo!(),
+            Type::Tuple(_) => todo!(),
         }
     }
 
@@ -915,6 +932,7 @@ impl TypeStore {
         match self.get(tid).expect("TypeIds should be resolvable") {
             Type::Struct(_) => self.generate_struct_constructor(tid),
             Type::Variant(_) => self.generate_variant_constructor(tid),
+            Type::Tuple(_) => todo!(),
             Type::Enum(_)
             | Type::TypeVar(_)
             | Type::RigidTypeVar(_)
@@ -1250,6 +1268,32 @@ impl TypeStore {
 
                 Ok((e, constraints))
             }
+            ExprKind::Tuple(exprs) => {
+                let mut inner_stack = vec![];
+
+                let mut local_env = env.clone();
+                let (exprs, constraints) = exprs
+                    .into_iter()
+                    .map(|e| self.infer(e, &mut inner_stack, &mut local_env))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter()
+                    .fold(
+                        (vec![], vec![]),
+                        |(mut exprs, mut constraints), (e, cons)| {
+                            exprs.push(e);
+                            constraints.extend(cons);
+                            (exprs, constraints)
+                        },
+                    );
+
+                let tuple_tid = self.tuple(inner_stack);
+
+                stack.push(tuple_tid);
+
+                let tid = self.function(FunctionType { input: vec![], output:  vec![tuple_tid]});
+                let e = Expr::block(exprs, (expr.meta, tid));
+                Ok((e, constraints))
+            },
         };
 
         e
@@ -1327,6 +1371,13 @@ impl TypeStore {
 
                 (ty, tid)
             }
+            Type::Tuple(tids) => {
+                let tids = tids.clone();
+                let tids = tids.iter().map(|tid| self.normalize_ty(*tid).1).collect();
+                let ty = Type::Tuple(tids);
+                let tid = self.intern(ty.clone());
+                (ty, tid)
+            },
         }
     }
 
@@ -1948,6 +1999,7 @@ impl TypeStore {
             | Type::Builtin(_)
             | Type::Function(_)
             | Type::Pointer(_)
+            | Type::Tuple(_) 
             | Type::Type(_) => {
                 if args.is_some() {
                     todo!("Passed args to type which didn't expect args ");
@@ -2010,6 +2062,7 @@ impl TypeStore {
                     variant: variant_id,
                 }
             }
+            
             Type::TypeVar(_)
             | Type::RigidTypeVar(_)
             | Type::Builtin(_)
@@ -2017,7 +2070,8 @@ impl TypeStore {
             | Type::Pointer(_)
             | Type::Struct(_)
             | Type::Variant(_)
-            | Type::Type(_) => todo!("{} is not an enum", self.fmt(enum_tid)),
+            | Type::Type(_)
+            | Type::Tuple(_)  => todo!("{} is not an enum", self.fmt(enum_tid)),
         };
 
         Ok(self.intern(Type::Variant(variant)))

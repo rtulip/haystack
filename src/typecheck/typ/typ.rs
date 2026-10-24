@@ -141,6 +141,7 @@ pub enum Type {
     Pointer(PointerType),
     Struct(StructType),
     Enum(EnumType),
+    Tuple(Vec<TypeId>),
     Variant(VariantType),
     Type(TypeId),
 }

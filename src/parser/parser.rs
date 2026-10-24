@@ -370,12 +370,36 @@ impl<'src> Parser<'src> {
         ParseExpr { kind: ParseExprKind::Pack, token }
     }
 
+    fn parse_tuple_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
+
+        let token = self
+            .matches(TokenKind::Marker(Marker::LeftParen))
+            .expect("Should have seen pack keyword before calling");
+
+        let mut exprs = vec![];
+        loop {
+            self.strip_whitespace();
+            if self.is_at_end() {
+                todo!("Didn't find matching `)`");
+            }
+
+            if self.matches(TokenKind::Marker(Marker::RightParen)).is_ok() {
+                return Ok(ParseExpr { kind: ParseExprKind::Tuple(exprs), token })
+            }
+
+            let e = self.parse_expr()?;
+            exprs.push(e)
+        }
+
+    }
+
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
         self.strip_whitespace();
         match &self.peek().kind {
             TokenKind::Ident(_) => Ok(self.parse_ident_expr()),
             TokenKind::Marker(Marker::LeftBrace) => self.parse_block_expr(),
             TokenKind::Marker(Marker::Hash) => self.parse_type_expr(),
+            TokenKind::Marker(Marker::LeftParen) => self.parse_tuple_expr(),
             TokenKind::Keyword(Keyword::Pack) => Ok(self.parse_pack_expr()),
             TokenKind::Marker(m) => todo!("Parse Expr from {m}"),
             TokenKind::Operator(_) => todo!(),

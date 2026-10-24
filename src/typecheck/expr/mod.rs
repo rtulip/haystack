@@ -58,6 +58,7 @@ pub enum ExprKind<'src, Meta> {
     Ident(Var),
     Ref { var: Var, mutability: Mutability },
     Block(Vec<Expr<'src, Meta>>),
+    Tuple(Vec<Expr<'src, Meta>>),
     Bind(Vec<Var>),
     Call,
     Type(TypeId),
@@ -115,6 +116,16 @@ impl<'src, Meta> Expr<'src, Meta> {
     {
         Expr {
             expr: ExprKind::Block(exprs.into()),
+            meta,
+        }
+    }
+
+    pub fn tuple<Exprs>(exprs: Exprs, meta: Meta) -> Expr<'src, Meta>
+    where
+        Exprs: Into<Vec<Expr<'src, Meta>>>,
+    {
+        Expr {
+            expr: ExprKind::Tuple(exprs.into()),
             meta,
         }
     }

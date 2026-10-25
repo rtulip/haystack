@@ -33,7 +33,7 @@ enum Result<T E> {
     E: Err
 }
 
-fn example((&Option<u64> bool)) drop
+fn example((&mut Option<u64> bool)) drop
 
 fn main() {
     

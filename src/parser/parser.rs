@@ -418,48 +418,74 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_as_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
-
         let token = self.matches(TokenKind::Keyword(Keyword::As)).unwrap();
 
         self.strip_whitespace();
 
-        self.matches(TokenKind::Marker(Marker::LeftBracket)).map_err(|token| 
-            HayError::new(format!("Expected {}, but found {}", Marker::LeftBracket, token.kind), token.loc))?;
-        
+        self.matches(TokenKind::Marker(Marker::LeftBracket))
+            .map_err(|token| {
+                HayError::new(
+                    format!("Expected {}, but found {}", Marker::LeftBracket, token.kind),
+                    token.loc,
+                )
+            })?;
+
         let mut idents = vec![];
         loop {
             self.strip_whitespace();
-            
-            if self.matches(TokenKind::Marker(Marker::RightBracket)).is_ok() {
+
+            if self
+                .matches(TokenKind::Marker(Marker::RightBracket))
+                .is_ok()
+            {
                 break;
             }
 
-            let ident = self.matches(TokenKind::ident()).map_err(|token| 
-            HayError::new(format!("Expected {}, but found {} instead", TokenKind::ident(), token.kind), token.loc))?;
+            let ident = self.matches(TokenKind::ident()).map_err(|token| {
+                HayError::new(
+                    format!(
+                        "Expected {}, but found {} instead",
+                        TokenKind::ident(),
+                        token.kind
+                    ),
+                    token.loc,
+                )
+            })?;
             idents.push(ident)
-        };
+        }
 
         Ok(ParseExpr {
             kind: ParseExprKind::As(idents),
             token,
         })
-
     }
 
     fn parse_take_ref_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
-
-        let start = self.matches(TokenKind::Operator(Operator::Ampersand)).unwrap();
+        let start = self
+            .matches(TokenKind::Operator(Operator::Ampersand))
+            .unwrap();
 
         let mutable = self.matches(TokenKind::Keyword(Keyword::Mut)).is_ok();
         if mutable {
             self.strip_whitespace();
-        }        
+        }
 
-        let ident = self.matches(TokenKind::ident()).map_err(|token| 
-        HayError::new(format!("Expected {}, but found {} instead", TokenKind::ident(), token.kind), token.loc))?;
-        
+        let ident = self.matches(TokenKind::ident()).map_err(|token| {
+            HayError::new(
+                format!(
+                    "Expected {}, but found {} instead",
+                    TokenKind::ident(),
+                    token.kind
+                ),
+                token.loc,
+            )
+        })?;
+
         Ok(ParseExpr {
-            kind: ParseExprKind::TakeRef { mutable, ident: ident.lexeme },
+            kind: ParseExprKind::TakeRef {
+                mutable,
+                ident: ident.lexeme,
+            },
             token: start,
         })
     }

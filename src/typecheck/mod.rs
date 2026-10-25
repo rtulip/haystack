@@ -475,23 +475,23 @@ impl<'src> TypeCheck<'src> {
                 Ok(Expr::tuple(exprs, expr.token.clone()))
             }
             ParseExprKind::As(idents) => {
-
                 let mut vars = vec![];
                 for ident in idents {
                     let var = self.env.fresh_var();
                     self.scope.insert_var(ident.lexeme, var, ident.clone());
-                    self.symbols.insert_var(var, VarInfo { name: ident.lexeme, token: ident.clone() });
+                    self.symbols.insert_var(
+                        var,
+                        VarInfo {
+                            name: ident.lexeme,
+                            token: ident.clone(),
+                        },
+                    );
                     vars.push(var);
                 }
 
                 Ok(Expr::bind(vars, expr.token.clone()))
-
-            },
-            ParseExprKind::TakeRef { 
-                mutable,
-                ident
-            } => {
-
+            }
+            ParseExprKind::TakeRef { mutable, ident } => {
                 let Some((var, _)) = self.scope.get_var(*ident) else {
                     todo!("Unknown var `{ident}");
                 };
@@ -503,7 +503,7 @@ impl<'src> TypeCheck<'src> {
                 };
 
                 Ok(Expr::take_ref(var, mutability, expr.token.clone()))
-            },
+            }
         }
     }
 
@@ -526,7 +526,11 @@ impl<'src> TypeCheck<'src> {
         }
 
         if let Some(variant) = variant {
-            let token = self.symbols.variants.get(&(eid, variant)).expect("Variant should have already been checked");
+            let token = self
+                .symbols
+                .variants
+                .get(&(eid, variant))
+                .expect("Variant should have already been checked");
             s = format!("{s}::{}", token.lexeme);
         }
 
@@ -559,13 +563,9 @@ impl<'src> TypeCheck<'src> {
                 }
             }
             Type::Struct(_) => todo!(),
-            Type::Enum(e) => {
-                self.format_enum(e.eid, e.args, None)
-            }
+            Type::Enum(e) => self.format_enum(e.eid, e.args, None),
             Type::Tuple(tids) => self.format_stack(&tids, '(', ')'),
-            Type::Variant(v) => {
-                self.format_enum(v.eid, v.args, Some(v.variant))
-            },
+            Type::Variant(v) => self.format_enum(v.eid, v.args, Some(v.variant)),
             Type::Type(tid) => {
                 format!("Type<{}>", self.format_tid(tid))
             }

@@ -162,10 +162,9 @@ impl TypeStore {
     }
 
     pub fn tuple(&mut self, tids: Vec<TypeId>) -> TypeId {
-        
         match tids.len() {
             1 => tids[0],
-            _ => self.intern(Type::Tuple(tids))
+            _ => self.intern(Type::Tuple(tids)),
         }
     }
 
@@ -226,7 +225,7 @@ impl TypeStore {
                 }
                 s += " )";
                 write!(w, "{s}")
-            },
+            }
         }
     }
 
@@ -319,14 +318,9 @@ impl TypeStore {
                 todo!()
             }
             Type::Type(tid) => self.get_variance(*tid, tyvar).map(|_| Variance::Invariant),
-            Type::Tuple(tids) => {
-                tids.iter().fold(None, |result, tid| {
-                    Variance::combine(
-                        result,
-                        self.get_variance(*tid, tyvar),
-                    )
-                })
-            },
+            Type::Tuple(tids) => tids.iter().fold(None, |result, tid| {
+                Variance::combine(result, self.get_variance(*tid, tyvar))
+            }),
         }
     }
 
@@ -676,7 +670,7 @@ impl TypeStore {
                 let tids = tids.clone();
                 let tids = self.freshen_many_tids(&tids, fresh);
                 self.tuple(tids)
-            },
+            }
         }
     }
 
@@ -888,7 +882,7 @@ impl TypeStore {
             Type::Tuple(tids) => {
                 let tids = self.instantiate_tids(&tids, bindings);
                 self.tuple(tids)
-            },
+            }
         }
     }
 
@@ -1632,6 +1626,13 @@ impl TypeStore {
                 let variances = self.get_struct_def(sub_s.sid).variances.clone();
                 self.check_subtype_args(&variances, &sub_s.args, &super_s.args, meta)
             }
+            (Type::Tuple(sub), Type::Tuple(sup)) if sub.len() == sup.len() => {
+                for (sub, sup) in sub.into_iter().zip(sup.into_iter()) {
+                    self.check_subtype(sub, sup, meta)?;
+                }
+
+                Ok(())
+            }
             (_, _) => self.unify_ty_ty(superty_tid, subty_tid, meta),
         }
     }
@@ -1915,18 +1916,16 @@ impl TypeStore {
             (Type::Tuple(left), Type::Tuple(right)) if left.len() == right.len() => {
                 if left.len() != right.len() {
                     return Err(InferenceError::types_incompatible(
-                        left_tid,
-                        right_tid,
-                        meta,
+                        left_tid, right_tid, meta,
                     ));
                 }
-            
+
                 let tids = left
                     .into_iter()
                     .zip(right.into_iter())
                     .map(|(left, right)| self.join_ty_ty(left, right, meta))
                     .collect::<Result<Vec<_>, _>>()?;
-            
+
                 Ok(self.tuple(tids))
             }
             (_, _) => {

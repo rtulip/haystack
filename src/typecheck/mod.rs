@@ -466,6 +466,7 @@ impl<'src> TypeCheck<'src> {
                 Ok(Expr::typ(tid, expr.token.clone()))
             }
             ParseExprKind::Pack => Ok(Expr::pack(expr.token.clone())),
+            ParseExprKind::Call => Ok(Expr::call(expr.token.clone())),
             ParseExprKind::Tuple(parse_exprs) => {
                 let mut exprs = vec![];
                 for expr in parse_exprs {
@@ -554,7 +555,16 @@ impl<'src> TypeCheck<'src> {
                 }
             }
             Type::Builtin(_) => todo!(),
-            Type::Function(_) => todo!(),
+            Type::Function(func) => {
+                
+                let mut s = format!("fn{}", self.format_stack(&func.input, '(', ')'));
+                if !func.output.is_empty() {
+                    s = format!("{s} -> {}", self.format_stack(&func.output, '[', ']'));
+                }
+
+                s
+
+            },
             Type::Pointer(p) => {
                 if p.mutability == Mutability::Const {
                     format!("&{}", self.format_tid(p.tid))
@@ -587,12 +597,19 @@ impl<'src> TypeCheck<'src> {
     }
 
     fn format_stack(&mut self, stack: &Vec<TypeId>, open: char, close: char) -> String {
-        let mut s = format!("{open}");
-        for tid in stack {
-            s = format!("{s} {}", self.format_tid(*tid));
+        if stack.is_empty() {
+            format!("{open}{close}")
+        } else if stack.len() == 1 {
+            format!("{open}{}{close}", self.format_tid(stack[0]))
+        } else {
+            let mut s = format!("{open}{}", self.format_tid(stack[0]));
+            for tid in &stack[1..]{
+                s = format!("{s} {}", self.format_tid(*tid));
+            }
+            s = format!("{s}{close}");
+            s
         }
-        s = format!("{s} {close}");
-        s
+
     }
 
     fn map_inference_err(&mut self, e: InferenceError<Token<'src>>) -> HayError {

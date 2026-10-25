@@ -490,6 +490,14 @@ impl<'src> Parser<'src> {
         })
     }
 
+    fn parse_call_expr(&mut self) -> ParseExpr<'src> {
+
+        let token = self.matches(TokenKind::Keyword(Keyword::Call)).unwrap();
+        ParseExpr { kind: ParseExprKind::Call, token }
+
+
+    }
+
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
         self.strip_whitespace();
         match &self.peek().kind {
@@ -502,6 +510,7 @@ impl<'src> Parser<'src> {
             TokenKind::Operator(Operator::Ampersand) => self.parse_take_ref_expr(),
             TokenKind::Operator(_) => todo!(),
             TokenKind::Keyword(Keyword::As) => self.parse_as_expr(),
+            TokenKind::Keyword(Keyword::Call) => Ok(self.parse_call_expr()),
             TokenKind::Keyword(kw) => todo!("Parse "),
             TokenKind::Literal(_) => Ok(self.parse_literal_expr()),
             TokenKind::Whitespace => todo!(),

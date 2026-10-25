@@ -10,6 +10,7 @@ pub enum ParseExprKind<'src> {
     Type(ParseType<'src>),
     Tuple(Vec<ParseExpr<'src>>),
     Pack,
+    Call,
     As(Vec<Token<'src>>),
     TakeRef { mutable: bool, ident: &'src str },
 }

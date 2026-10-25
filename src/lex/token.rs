@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::fmt::Display;
+use std::fmt::{Display, write};
 use std::ops::Range;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -182,6 +182,7 @@ pub enum Keyword {
     Pack,
     Unpack,
     Extern,
+    Call,
 }
 
 impl std::fmt::Display for Keyword {
@@ -207,6 +208,7 @@ impl std::fmt::Display for Keyword {
             Keyword::Pack => write!(f, "pack")?,
             Keyword::Unpack => write!(f, "unpack")?,
             Keyword::Extern => write!(f, "extern")?,
+            Keyword::Call => write!(f, "call")?,
         }
         write!(f, "`")
     }
@@ -236,6 +238,7 @@ impl Keyword {
         map.insert("match", TokenKind::Keyword(Keyword::Match));
         map.insert("pack", TokenKind::Keyword(Keyword::Pack));
         map.insert("unpack", TokenKind::Keyword(Keyword::Unpack));
+        map.insert("call", TokenKind::Keyword(Keyword::Call));
 
         map.insert("true", TokenKind::Literal(Literal::Bool(true)));
         map.insert("false", TokenKind::Literal(Literal::Bool(false)));

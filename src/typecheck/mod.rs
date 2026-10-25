@@ -487,6 +487,23 @@ impl<'src> TypeCheck<'src> {
                 Ok(Expr::bind(vars, expr.token.clone()))
 
             },
+            ParseExprKind::TakeRef { 
+                mutable,
+                ident
+            } => {
+
+                let Some((var, _)) = self.scope.get_var(*ident) else {
+                    todo!("Unknown var `{ident}");
+                };
+
+                let mutability = if *mutable {
+                    Mutability::Mutable
+                } else {
+                    Mutability::Const
+                };
+
+                Ok(Expr::take_ref(var, mutability, expr.token.clone()))
+            },
         }
     }
 

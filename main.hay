@@ -24,7 +24,7 @@ enum Option<T> {
     None
 }
 
-fn Some<T>(T) -> [Option<T>] {
+fn Some<T>(T) -> [Option<T>::Some] {
     #Option::Some pack
 }
 
@@ -33,6 +33,11 @@ enum Result<T E> {
     E: Err
 }
 
+fn example((&Option<u64> bool)) drop
+
 fn main() {
-    "Hello World"
+    
+    123 Some as [x]
+    (&x true) example
+
 }

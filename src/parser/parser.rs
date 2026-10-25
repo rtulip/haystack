@@ -446,6 +446,24 @@ impl<'src> Parser<'src> {
 
     }
 
+    fn parse_take_ref_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
+
+        let start = self.matches(TokenKind::Operator(Operator::Ampersand)).unwrap();
+
+        let mutable = self.matches(TokenKind::Keyword(Keyword::Mut)).is_ok();
+        if mutable {
+            self.strip_whitespace();
+        }        
+
+        let ident = self.matches(TokenKind::ident()).map_err(|token| 
+        HayError::new(format!("Expected {}, but found {} instead", TokenKind::ident(), token.kind), token.loc))?;
+        
+        Ok(ParseExpr {
+            kind: ParseExprKind::TakeRef { mutable, ident: ident.lexeme },
+            token: start,
+        })
+    }
+
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
         self.strip_whitespace();
         match &self.peek().kind {
@@ -455,6 +473,7 @@ impl<'src> Parser<'src> {
             TokenKind::Marker(Marker::LeftParen) => self.parse_tuple_expr(),
             TokenKind::Keyword(Keyword::Pack) => Ok(self.parse_pack_expr()),
             TokenKind::Marker(m) => todo!("Parse Expr from {m}"),
+            TokenKind::Operator(Operator::Ampersand) => self.parse_take_ref_expr(),
             TokenKind::Operator(_) => todo!(),
             TokenKind::Keyword(Keyword::As) => self.parse_as_expr(),
             TokenKind::Keyword(kw) => todo!("Parse "),

@@ -162,7 +162,11 @@ impl TypeStore {
     }
 
     pub fn tuple(&mut self, tids: Vec<TypeId>) -> TypeId {
-        self.intern(Type::Tuple(tids))
+        
+        match tids.len() {
+            1 => tids[0],
+            _ => self.intern(Type::Tuple(tids))
+        }
     }
 
     fn pretty_print<W: std::fmt::Write>(
@@ -214,7 +218,15 @@ impl TypeStore {
                 v.variant,
                 self.fmt_many(&v.args)
             ),
-            Type::Tuple(_) => todo!(),
+            Type::Tuple(tids) => {
+                let mut s = String::from("(");
+                for tid in tids {
+                    s += " ";
+                    self.pretty_print(*tid, &mut s)?;
+                }
+                s += " )";
+                write!(w, "{s}")
+            },
         }
     }
 
@@ -307,7 +319,14 @@ impl TypeStore {
                 todo!()
             }
             Type::Type(tid) => self.get_variance(*tid, tyvar).map(|_| Variance::Invariant),
-            Type::Tuple(_) => todo!(),
+            Type::Tuple(tids) => {
+                tids.iter().fold(None, |result, tid| {
+                    Variance::combine(
+                        result,
+                        self.get_variance(*tid, tyvar),
+                    )
+                })
+            },
         }
     }
 
@@ -653,7 +672,11 @@ impl TypeStore {
                 };
                 self.intern(Type::Variant(v))
             }
-            Type::Tuple(_) => todo!(),
+            Type::Tuple(tids) => {
+                let tids = tids.clone();
+                let tids = self.freshen_many_tids(&tids, fresh);
+                self.tuple(tids)
+            },
         }
     }
 
@@ -862,7 +885,10 @@ impl TypeStore {
             }
             Type::Enum(_) => todo!(),
             Type::Variant(_) => todo!(),
-            Type::Tuple(_) => todo!(),
+            Type::Tuple(tids) => {
+                let tids = self.instantiate_tids(&tids, bindings);
+                self.tuple(tids)
+            },
         }
     }
 
@@ -1503,6 +1529,22 @@ impl TypeStore {
 
                 Ok(())
             }
+            (Type::Tuple(left), Type::Tuple(right)) => {
+                if left.len() != right.len() {
+                    return Err(InferenceError::types_incompatible(
+                        left_tid, right_tid, meta,
+                    ));
+                }
+
+                for (left, right) in left.into_iter().zip(right.into_iter()) {
+                    self.unify_ty_ty(left, right, meta)?;
+                }
+
+                Ok(())
+            }
+            (Type::Tuple(_), _) | (_, Type::Tuple(_)) => Err(InferenceError::types_incompatible(
+                left_tid, right_tid, meta,
+            )),
             (_, _) => todo!("Unify {}, {}", self.fmt(left_tid), self.fmt(right_tid)),
         }
     }
@@ -1869,6 +1911,23 @@ impl TypeStore {
                     sid: left.sid,
                     args,
                 })))
+            }
+            (Type::Tuple(left), Type::Tuple(right)) if left.len() == right.len() => {
+                if left.len() != right.len() {
+                    return Err(InferenceError::types_incompatible(
+                        left_tid,
+                        right_tid,
+                        meta,
+                    ));
+                }
+            
+                let tids = left
+                    .into_iter()
+                    .zip(right.into_iter())
+                    .map(|(left, right)| self.join_ty_ty(left, right, meta))
+                    .collect::<Result<Vec<_>, _>>()?;
+            
+                Ok(self.tuple(tids))
             }
             (_, _) => {
                 self.unify_ty_ty(left_tid, right_tid, meta)?;

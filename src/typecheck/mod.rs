@@ -474,7 +474,46 @@ impl<'src> TypeCheck<'src> {
 
                 Ok(Expr::tuple(exprs, expr.token.clone()))
             }
+            ParseExprKind::As(idents) => {
+
+                let mut vars = vec![];
+                for ident in idents {
+                    let var = self.env.fresh_var();
+                    self.scope.insert_var(ident.lexeme, var, ident.clone());
+                    self.symbols.insert_var(var, VarInfo { name: ident.lexeme, token: ident.clone() });
+                    vars.push(var);
+                }
+
+                Ok(Expr::bind(vars, expr.token.clone()))
+
+            },
         }
+    }
+
+    fn format_enum(&mut self, eid: EnumId, args: Vec<TypeId>, variant: Option<usize>) -> String {
+        let base_enum_def = self.typestore.get_enum_def(eid).clone();
+        let base_enum_ty = EnumType {
+            eid,
+            args: base_enum_def
+                .vars
+                .iter()
+                .map(|tid| self.typestore.intern(Type::TypeVar(*tid)))
+                .collect(),
+        };
+        let tid = self.typestore.intern(Type::Enum(base_enum_ty));
+
+        let mut s = self.format_tid(tid);
+
+        if args.len() > 0 {
+            s = format!("{s}{}", self.format_stack(&args, '<', '>'))
+        }
+
+        if let Some(variant) = variant {
+            let token = self.symbols.variants.get(&(eid, variant)).expect("Variant should have already been checked");
+            s = format!("{s}::{}", token.lexeme);
+        }
+
+        s
     }
 
     fn format_tid_from_type(&mut self, tid: TypeId) -> String {
@@ -504,27 +543,12 @@ impl<'src> TypeCheck<'src> {
             }
             Type::Struct(_) => todo!(),
             Type::Enum(e) => {
-                let base_enum_def = self.typestore.get_enum_def(e.eid).clone();
-                let base_enum_ty = EnumType {
-                    eid: e.eid,
-                    args: base_enum_def
-                        .vars
-                        .iter()
-                        .map(|tid| self.typestore.intern(Type::TypeVar(*tid)))
-                        .collect(),
-                };
-                let tid = self.typestore.intern(Type::Enum(base_enum_ty));
-
-                let mut s = self.format_tid(tid);
-
-                if e.args.len() > 0 {
-                    s = format!("{s}{}", self.format_stack(&e.args, '<', '>'))
-                }
-
-                s
+                self.format_enum(e.eid, e.args, None)
             }
             Type::Tuple(tids) => self.format_stack(&tids, '(', ')'),
-            Type::Variant(_) => todo!(),
+            Type::Variant(v) => {
+                self.format_enum(v.eid, v.args, Some(v.variant))
+            },
             Type::Type(tid) => {
                 format!("Type<{}>", self.format_tid(tid))
             }

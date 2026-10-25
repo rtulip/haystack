@@ -417,6 +417,35 @@ impl<'src> Parser<'src> {
         }
     }
 
+    fn parse_as_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
+
+        let token = self.matches(TokenKind::Keyword(Keyword::As)).unwrap();
+
+        self.strip_whitespace();
+
+        self.matches(TokenKind::Marker(Marker::LeftBracket)).map_err(|token| 
+            HayError::new(format!("Expected {}, but found {}", Marker::LeftBracket, token.kind), token.loc))?;
+        
+        let mut idents = vec![];
+        loop {
+            self.strip_whitespace();
+            
+            if self.matches(TokenKind::Marker(Marker::RightBracket)).is_ok() {
+                break;
+            }
+
+            let ident = self.matches(TokenKind::ident()).map_err(|token| 
+            HayError::new(format!("Expected {}, but found {} instead", TokenKind::ident(), token.kind), token.loc))?;
+            idents.push(ident)
+        };
+
+        Ok(ParseExpr {
+            kind: ParseExprKind::As(idents),
+            token,
+        })
+
+    }
+
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
         self.strip_whitespace();
         match &self.peek().kind {
@@ -427,7 +456,8 @@ impl<'src> Parser<'src> {
             TokenKind::Keyword(Keyword::Pack) => Ok(self.parse_pack_expr()),
             TokenKind::Marker(m) => todo!("Parse Expr from {m}"),
             TokenKind::Operator(_) => todo!(),
-            TokenKind::Keyword(_) => todo!(),
+            TokenKind::Keyword(Keyword::As) => self.parse_as_expr(),
+            TokenKind::Keyword(kw) => todo!("Parse "),
             TokenKind::Literal(_) => Ok(self.parse_literal_expr()),
             TokenKind::Whitespace => todo!(),
             TokenKind::EoF => todo!(),

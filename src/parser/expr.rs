@@ -10,6 +10,7 @@ pub enum ParseExprKind<'src> {
     Type(ParseType<'src>),
     Tuple(Vec<ParseExpr<'src>>),
     Pack,
+    As(Vec<Token<'src>>),
 }
 
 pub struct ParseExpr<'src> {

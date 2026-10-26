@@ -10,7 +10,7 @@ use crate::{
     },
     typecheck::{
         environment::{Environment, Scheme},
-        expr::{Var, Expr},
+        expr::{Expr, Var},
         func::Function,
         typ::{
             typ::{EnumDef, EnumType, FunctionType, Mutability, StructDef, Type},
@@ -556,15 +556,13 @@ impl<'src> TypeCheck<'src> {
             }
             Type::Builtin(_) => todo!(),
             Type::Function(func) => {
-                
                 let mut s = format!("fn{}", self.format_stack(&func.input, '(', ')'));
                 if !func.output.is_empty() {
                     s = format!("{s} -> {}", self.format_stack(&func.output, '[', ']'));
                 }
 
                 s
-
-            },
+            }
             Type::Pointer(p) => {
                 if p.mutability == Mutability::Const {
                     format!("&{}", self.format_tid(p.tid))
@@ -603,13 +601,12 @@ impl<'src> TypeCheck<'src> {
             format!("{open}{}{close}", self.format_tid(stack[0]))
         } else {
             let mut s = format!("{open}{}", self.format_tid(stack[0]));
-            for tid in &stack[1..]{
+            for tid in &stack[1..] {
                 s = format!("{s} {}", self.format_tid(*tid));
             }
             s = format!("{s}{close}");
             s
         }
-
     }
 
     fn map_inference_err(&mut self, e: InferenceError<Token<'src>>) -> HayError {
@@ -4934,7 +4931,7 @@ mod variance_tests {
         )
         .unwrap();
 
-        let (mixed,_) = typestore.add_enum(def);
+        let (mixed, _) = typestore.add_enum(def);
 
         let (animal_tid, dog_tid) = animal_def(&mut typestore);
 

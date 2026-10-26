@@ -491,11 +491,11 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_call_expr(&mut self) -> ParseExpr<'src> {
-
         let token = self.matches(TokenKind::Keyword(Keyword::Call)).unwrap();
-        ParseExpr { kind: ParseExprKind::Call, token }
-
-
+        ParseExpr {
+            kind: ParseExprKind::Call,
+            token,
+        }
     }
 
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {

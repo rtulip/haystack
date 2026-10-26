@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::fmt::{Display, write};
+use std::fmt::{write, Display};
 use std::ops::Range;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

@@ -1,18 +1,12 @@
 use std::{format, todo, unreachable};
 
 use crate::{
-    error::HayError,
-    lex::token::{
+    error::HayError, lex::token::{
         Keyword,
         Marker::{self, LeftParen},
         Operator, Token, TokenKind,
-    },
-    parser::{
-        argument::Argument,
-        expr::{ParseExpr, ParseExprKind},
-        signature::Signature,
-        statement::{EnumDefinition, FunctionDefinition, Statememt, StructDefinition},
-        typ::{ParamatarizedIdent, ParseType, ParseTypePath},
+    }, parser::{
+        argument::Argument, expr::{ParseExpr, ParseExprKind}, signature::Signature, statement::{EnumDefinition, FunctionDefinition, InterfaceDefinition, InterfaceFunctionDefinition, Statememt, StructDefinition}, typ::{ParamatarizedIdent, ParseType, ParseTypePath},
     },
 };
 
@@ -420,6 +414,32 @@ impl<'src> Parser<'src> {
         }
     }
 
+    fn parse_unchecked_cast_expr(&mut self) -> ParseExpr<'src> {
+
+        let token = self.expect(TokenKind::Keyword(Keyword::UncheckedCast)).unwrap();
+        ParseExpr { kind: ParseExprKind::UncheckedCast, token }
+
+    }
+
+    fn parse_expr_if_available(&mut self) -> Result<Option<ParseExpr<'src>>, HayError> {
+
+        self.strip_whitespace();
+        match &self.peek().kind {
+            TokenKind::Ident(_) 
+            | TokenKind::Marker(Marker::LeftBrace)
+            | TokenKind::Marker(Marker::Hash) 
+            | TokenKind::Marker(Marker::LeftParen)
+            | TokenKind::Keyword(Keyword::Pack)
+            | TokenKind::Keyword(Keyword::As)
+            | TokenKind::Keyword(Keyword::Call) 
+            | TokenKind::Keyword(Keyword::UncheckedCast)
+            | TokenKind::Operator(Operator::Ampersand) 
+            | TokenKind::Literal(_) => Ok(Some(self.parse_expr()?)),
+            kind => todo!("Not sure if we can parse an expr from {kind}")
+        }
+
+    }
+
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
         self.strip_whitespace();
         match &self.peek().kind {
@@ -429,25 +449,32 @@ impl<'src> Parser<'src> {
             TokenKind::Marker(Marker::LeftParen) => self.parse_tuple_expr(),
             TokenKind::Keyword(Keyword::Pack) => Ok(self.parse_pack_expr()),
             TokenKind::Marker(m) => todo!("Parse Expr from {m}"),
-            TokenKind::Operator(Operator::Ampersand) => self.parse_take_ref_expr(),
-            TokenKind::Operator(_) => todo!(),
             TokenKind::Keyword(Keyword::As) => self.parse_as_expr(),
             TokenKind::Keyword(Keyword::Call) => Ok(self.parse_call_expr()),
-            TokenKind::Keyword(kw) => todo!("Parse "),
+            TokenKind::Keyword(Keyword::UncheckedCast) => Ok(self.parse_unchecked_cast_expr()),
+            TokenKind::Keyword(kw) => todo!("Parse {kw} expr"),
+            TokenKind::Operator(Operator::Ampersand) => self.parse_take_ref_expr(),
+            TokenKind::Operator(_) => todo!(),
             TokenKind::Literal(_) => Ok(self.parse_literal_expr()),
             TokenKind::Whitespace => todo!(),
             TokenKind::EoF => todo!(),
         }
     }
 
-    // fn <ident> <params>? <signature> <expr>
-    fn parse_function(&mut self, start: Token<'src>) -> Result<Statememt<'src>, HayError> {
+    fn parse_function_def(&mut self, start: Token<'src>) -> Result<(Token<'src>, Vec<ParseType<'src>>, Signature<'src>), HayError> {
         assert!(start.kind == TokenKind::Keyword(Keyword::Function));
         self.strip_whitespace();
         let name = self.expect(TokenKind::ident())?;
 
         let params = self.parse_type_param_list()?;
         let signature = self.parse_function_signature()?;
+        Ok((name, params, signature))
+    }
+
+    // fn <ident> <params>? <signature> <expr>
+    fn parse_function(&mut self, start: Token<'src>) -> Result<Statememt<'src>, HayError> {
+        
+        let (name, params, signature) = self.parse_function_def(start)?;
         let expr = self.parse_expr()?;
 
         Ok(Statememt::FunctionDefinition(FunctionDefinition {
@@ -542,7 +569,40 @@ impl<'src> Parser<'src> {
     fn parse_interface(&mut self, start: Token<'src>) -> Result<Statememt<'src>, HayError> {
         self.strip_whitespace();
 
-        todo!()
+        let name = self.expect(TokenKind::ident())?;
+        let params = self.parse_type_param_list()?;
+        self.strip_whitespace();
+        self.expect(TokenKind::Marker(Marker::LeftBrace))?;
+        
+
+        let mut funcs = vec![];
+
+        loop {
+            
+            self.strip_whitespace();
+            let Ok(start) = self.matches(TokenKind::Keyword(Keyword::Function)) else {
+                break;
+            };
+            
+            let (name, params, signature) = self.parse_function_def(start)?;
+            let expr = self.parse_expr_if_available()?;
+
+            funcs.push(InterfaceFunctionDefinition {
+                name,
+                params,
+                signature,
+                expr,
+            })
+
+        }
+
+        self.expect(TokenKind::Marker(Marker::RightBrace))?;
+
+        Ok(Statememt::InterfaceDefinition(InterfaceDefinition {
+            name,
+            params,
+            funcs,
+        }))
     }
 
     fn parse_declaration(&mut self) -> Result<Statememt<'src>, HayError> {

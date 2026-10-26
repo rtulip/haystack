@@ -10,6 +10,13 @@ pub struct FunctionDefinition<'src> {
     pub expr: ParseExpr<'src>,
 }
 
+pub struct InterfaceFunctionDefinition<'src> {
+    pub name: Token<'src>,
+    pub params: Vec<ParseType<'src>>,
+    pub signature: Signature<'src>,
+    pub expr: Option<ParseExpr<'src>>,
+}
+
 pub struct StructDefinition<'src> {
     pub name: Token<'src>,
     pub params: Vec<ParseType<'src>>,
@@ -22,8 +29,15 @@ pub struct EnumDefinition<'src> {
     pub variants: Vec<(Option<ParseType<'src>>, Token<'src>)>,
 }
 
+pub struct InterfaceDefinition<'src> {
+    pub name: Token<'src>,
+    pub params: Vec<ParseType<'src>>,
+    pub funcs: Vec<InterfaceFunctionDefinition<'src>>
+}
+
 pub enum Statememt<'src> {
     FunctionDefinition(FunctionDefinition<'src>),
     StructDefinition(StructDefinition<'src>),
     EnumDefinition(EnumDefinition<'src>),
+    InterfaceDefinition(InterfaceDefinition<'src>)
 }

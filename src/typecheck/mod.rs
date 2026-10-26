@@ -1,26 +1,15 @@
 use std::{assert_eq, collections::HashMap, format, todo};
 
 use crate::{
-    error::HayError,
-    lex::token::{Literal, Token},
-    parser::{
-        expr::{ParseExpr, ParseExprKind},
-        statement::{EnumDefinition, FunctionDefinition, Statememt, StructDefinition},
-        typ::{ParamatarizedIdent, ParseType, ParseTypePath},
-    },
-    typecheck::{
-        constraint::ConstraintOrigin,
-        environment::{Environment, Scheme},
-        expr::{Expr, Var},
-        func::Function,
-        typ::{
+    error::HayError, lex::token::{Literal, Token}, parser::{
+        expr::{ParseExpr, ParseExprKind}, statement::{EnumDefinition, FunctionDefinition, InterfaceDefinition, InterfaceFunctionDefinition, Statememt, StructDefinition}, typ::{ParamatarizedIdent, ParseType, ParseTypePath},
+    }, typecheck::{
+        constraint::ConstraintOrigin, environment::{Coherence, Environment, Interface, Scheme, TypePredicate}, expr::{Expr, Var}, func::Function, typ::{
             typ::{EnumDef, EnumType, FunctionType, Mutability, StructDef, Type},
             type_id::{EnumId, StructId, TypeId},
             type_var::TypeVar,
-        },
-        typestore::{
-            inference::{InferenceError, InferenceErrorKind},
-            TypeStore,
+        }, typestore::{
+            TypeStore, inference::{InferenceError, InferenceErrorKind},
         },
     },
 };
@@ -468,6 +457,7 @@ impl<'src> TypeCheck<'src> {
             }
             ParseExprKind::Pack => Ok(Expr::pack(expr.token.clone())),
             ParseExprKind::Call => Ok(Expr::call(expr.token.clone())),
+            ParseExprKind::UncheckedCast => Ok(Expr::unchecked_cast(expr.token.clone())),
             ParseExprKind::Tuple(parse_exprs) => {
                 let mut exprs = vec![];
                 for expr in parse_exprs {
@@ -905,6 +895,102 @@ impl<'src> TypeCheck<'src> {
         Ok(())
     }
 
+    fn bind_interface_function_def(&mut self, func: &InterfaceFunctionDefinition<'src>, predicate: &TypePredicate) -> Result<(), HayError> {
+        // insert this function into the global scope
+        let var = self.insert_var(&func.name)?;
+
+        // create a new scope for types and identifiers
+        self.scope.new_scope();
+        {
+            let mut params = vec![];
+            for ty in &func.params {
+                params.push(self.insert_param_ty(ty)?);
+            }
+
+            let mut binds = vec![];
+            let mut input = vec![];
+            for arg in &func.signature.input {
+                let tid = self.get_tid(&arg.typ)?;
+                input.push(tid);
+
+                if let Some(ident) = &arg.ident {
+                    let var = self.insert_var(ident)?;
+                    binds.push(var);
+                }
+            }
+
+            let mut output = vec![];
+            for ty in &func.signature.output {
+                let tid = self.get_tid(&ty)?;
+                output.push(tid);
+            }
+
+            let tid = self.typestore.function(FunctionType {
+                input: input.clone(),
+                output: output.clone(),
+            });
+            let scheme = Scheme::new(params.clone(), tid, vec![]);
+            assert!(self.env.bind_scheme(var, scheme).is_none());
+
+            if let Some(expr) = &func.expr {
+                let mut expr = self.lower_expr(&expr)?;
+
+                let meta = expr.meta.clone();
+
+                if binds.len() != 0 {
+                    expr = Expr::block(
+                        [Expr::bind(binds, meta.clone()), expr],
+                        meta.clone(),
+                    );
+                }
+
+                let f = Function::new(input, output, params, vec![], expr);
+                let f = f
+                    .type_check(&mut self.typestore, &self.env)
+                    .map_err(|e| self.map_inference_err(e))?;
+            }
+        }
+        self.scope.end_scope();
+        Ok(())
+    }
+
+    fn bind_interface_def(&mut self, iface: &InterfaceDefinition<'src>) -> Result<(), HayError> {
+        // Only have the vars known within the scope of the member definition.
+        self.scope.new_scope();
+
+        let vars = iface
+            .params
+            .iter()
+            .map(|ty| self.insert_param_ty(ty))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let var_tids = vars.iter().map(|tyvar| self.typestore.intern(Type::TypeVar(*tyvar))).collect();
+
+        let interface = Interface {
+            vars,
+            coherence: if iface.funcs.iter().all(|f| f.expr.is_some()) {
+                Coherence::Overlapping
+            } else {
+                Coherence::Unique
+            },
+        };
+        self.scope.end_scope();
+        
+        let cid = self.env.add_typeclass(interface);
+        let predicate = TypePredicate {
+            cid,
+            args: var_tids,
+        };
+
+        for func in &iface.funcs {
+            self.bind_interface_function_def(func, &predicate)?;
+        }
+
+        Ok(())
+
+
+    }
+
     pub fn build_world(mut statements: Vec<Statememt<'src>>) -> Result<(), HayError> {
         let mut tc = TypeCheck::new();
 
@@ -913,6 +999,7 @@ impl<'src> TypeCheck<'src> {
                 Statememt::StructDefinition(s) => tc.bind_struct_def(s)?,
                 Statememt::EnumDefinition(e) => tc.bind_enum_def(e)?,
                 Statememt::FunctionDefinition(func) => tc.bind_function_def(func)?,
+                Statememt::InterfaceDefinition(iface) => tc.bind_interface_def(iface)?,
             }
         }
 

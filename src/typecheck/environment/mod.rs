@@ -146,7 +146,7 @@ impl Environment {
 
     fn impls_overlap<M>(
         &self,
-        typestore: &mut TypeStore,
+        typestore: &mut TypeStore<M>,
         a: &InterfaceImpl,
         b: &InterfaceImpl,
         meta: &M,
@@ -161,8 +161,8 @@ impl Environment {
             return Ok(());
         }
 
-        let q_a = typestore.freshen_impl(a);
-        let q_b = typestore.freshen_impl(b);
+        let q_a = typestore.freshen_impl(a, meta);
+        let q_b = typestore.freshen_impl(b, meta);
         if q_a
             .args
             .into_iter()
@@ -187,7 +187,7 @@ impl Environment {
 
     pub fn add_impl<M>(
         &mut self,
-        typestore: &mut TypeStore,
+        typestore: &mut TypeStore<M>,
         cid: TypeClassId,
         iface_impl: InterfaceImpl,
         meta: &M,

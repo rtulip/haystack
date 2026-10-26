@@ -47,7 +47,7 @@ where
 
     pub fn type_check(
         self,
-        typestore: &mut TypeStore,
+        typestore: &mut TypeStore<Meta>,
         env: &Environment,
     ) -> Result<Function<'src, (Meta, TypeId)>, InferenceError<Meta>>
     where

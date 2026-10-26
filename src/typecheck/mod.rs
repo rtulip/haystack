@@ -34,7 +34,7 @@ pub mod typestore;
 pub mod union_find;
 
 pub struct TypeCheck<'src> {
-    typestore: TypeStore,
+    typestore: TypeStore<Token<'src>>,
     env: Environment,
     symbols: SymbolTable<'src>,
     scope: Scope<'src>,
@@ -58,7 +58,7 @@ struct SymbolTable<'src> {
 }
 
 impl<'src> SymbolTable<'src> {
-    pub fn new(typestore: &mut TypeStore) -> Self {
+    pub fn new(typestore: &mut TypeStore<Token<'src>>) -> Self {
         let types = HashMap::from([
             (
                 typestore.intern(Type::u8()),
@@ -129,7 +129,7 @@ struct Scope<'src> {
 }
 
 impl<'src> Scope<'src> {
-    pub fn new(typestore: &mut TypeStore) -> Self {
+    pub fn new(typestore: &mut TypeStore<Token<'src>>) -> Self {
         let types = HashMap::from([
             ("u8".to_owned(), (typestore.intern(Type::u8()), None)),
             ("u64".to_owned(), (typestore.intern(Type::u64()), None)),
@@ -587,7 +587,7 @@ impl<'src> TypeCheck<'src> {
         if let Some(info) = self.symbols.types.get(&tid) {
             info.name.clone()
         } else {
-            if let Some(origin) = self.typestore.tyvar_origin.get(&tid) {
+            if let Some((origin, _)) = self.typestore.tyvar_origin.get(&tid) {
                 return self.format_tid(*origin);
             }
 
@@ -707,6 +707,14 @@ impl<'src> TypeCheck<'src> {
                         diff.abs(),
                         if diff < -1 { "s" } else { "" },
                     ))
+                }
+            }
+            (ConstraintOrigin::UnboundVarInBody, InferenceErrorKind::UnboundVar(tyvar)) => {
+                let tid = self.typestore.intern(Type::TypeVar(tyvar));
+                match self.typestore.tyvar_origin.get(&tid).cloned()  {
+                    Some((tid, token)) => HayError::new(format!("Cannot infer type for `{}`", self.format_tid(tid)), token.loc)
+                    .with_hint(format!("Consider providing a type hint:\n            `{} #u64 hint`", token.lexeme)),
+                    None => todo!()
                 }
             }
             (origin, kind) => todo!("Generate Error message for {origin:?}, {kind:?}"),

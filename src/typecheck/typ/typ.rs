@@ -52,7 +52,7 @@ pub struct StructDef {
 
 impl StructDef {
     pub fn new<M>(
-        typestore: &TypeStore,
+        typestore: &TypeStore<M>,
         vars: Vec<TypeVar>,
         members: Vec<TypeId>,
         meta: &M,
@@ -93,7 +93,7 @@ pub struct EnumDef {
 
 impl EnumDef {
     pub fn new<M>(
-        typestore: &TypeStore,
+        typestore: &TypeStore<M>,
         vars: Vec<TypeVar>,
         variants: Vec<Option<TypeId>>,
         meta: &M,

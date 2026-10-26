@@ -37,18 +37,19 @@ pub type Stack = Vec<TypeId>;
 /// The type_lookup is the mapping from TypeId to the underlying type
 ///
 /// Builtin types have to be searchable, so there's also a mapping from `BuiltinType` to `TypeId`.
-pub struct TypeStore {
+pub struct TypeStore<M> {
     structs: Vec<StructDef>,
     enums: Vec<EnumDef>,
     types: Vec<Type>,
     interned: HashMap<Type, TypeId>,
 
     lookup: UnificationTable<TypeVar, TypeId>,
-    pub tyvar_origin: HashMap<TypeId, TypeId>,
+    pub tyvar_origin: HashMap<TypeId, (TypeId, M)>,
     str_tid: Option<TypeId>,
 }
 
-impl TypeStore {
+impl<M> TypeStore<M>
+where M: Debug + Clone {
     /// Create a new typestore.
     pub fn new() -> Self {
         let builtins = [
@@ -336,7 +337,7 @@ impl TypeStore {
     /// fn swap<A B>(A: a B: b) -> [B A] { b a }
     /// ```
     /// type checks successfully because `A` and `B` can be unified if `A==B`.
-    fn solidify_var<M>(&mut self, var: &TypeVar) -> Result<(), InferenceError<M>>
+    fn solidify_var(&mut self, var: &TypeVar) -> Result<(), InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
@@ -347,7 +348,7 @@ impl TypeStore {
     }
 
     /// Mark a set of vars as being Rigid
-    pub fn solidify_vars<'a, Vars, M>(&mut self, vars: Vars) -> Result<(), InferenceError<M>>
+    pub fn solidify_vars<'a, Vars>(&mut self, vars: Vars) -> Result<(), InferenceError<M>>
     where
         Vars: IntoIterator<Item = &'a TypeVar>,
         M: Debug + Clone + PartialEq + Eq,
@@ -461,7 +462,7 @@ impl TypeStore {
     }
 
     /// Substitute all types referenced in an Expression into common form.
-    fn substitute_expr<'src, M>(
+    fn substitute_expr<'src>(
         &mut self,
         expr: Expr<'src, (M, TypeId)>,
     ) -> (HashSet<TypeVar>, Expr<'src, (M, TypeId)>)
@@ -538,31 +539,31 @@ impl TypeStore {
     /// Create a unique TypeVar to subsitute one that shouldn't be used.
     ///
     /// This is to ensure that generic definitions aren't forced to be unified to a specific type.
-    fn freshen_type_var(&mut self, var: TypeVar, fresh: &mut HashMap<TypeVar, TypeId>) -> TypeId {
+    fn freshen_type_var(&mut self, var: TypeVar, fresh: &mut HashMap<TypeVar, TypeId>, meta: &M) -> TypeId {
         if let Some(tid) = fresh.get(&var) {
             *tid
         } else {
             let tyvar = self.fresh_type_var();
             let tid = self.intern(Type::TypeVar(tyvar));
             let origin_tid = self.intern(Type::TypeVar(var));
-            assert!(self.tyvar_origin.insert(tid, origin_tid).is_none());
+            assert!(self.tyvar_origin.insert(tid, (origin_tid, meta.clone())).is_none());
             assert!(fresh.insert(var, tid).is_none());
             tid
         }
     }
 
-    pub fn freshen_impl(&mut self, i: &InterfaceImpl) -> QualifiedInterfaceImpl {
+    pub fn freshen_impl(&mut self, i: &InterfaceImpl, meta: &M) -> QualifiedInterfaceImpl {
         let mut fresh = HashMap::new();
 
         i.vars.iter().for_each(|var| {
-            self.freshen_type_var(*var, &mut fresh);
+            self.freshen_type_var(*var, &mut fresh, meta);
         });
         let predicates = i
             .predicates
             .iter()
-            .map(|p| self.freshen_predicate(p, &mut fresh))
+            .map(|p| self.freshen_predicate(p, &mut fresh, meta))
             .collect();
-        let args = self.freshen_many_tids(&i.args, &mut fresh);
+        let args = self.freshen_many_tids(&i.args, &mut fresh, meta);
 
         QualifiedInterfaceImpl {
             cid: i.cid,
@@ -575,25 +576,26 @@ impl TypeStore {
         &mut self,
         variant: &VariantType,
         fresh: &mut HashMap<TypeVar, TypeId>,
+        meta: &M
     ) -> VariantType {
         VariantType {
             eid: variant.eid,
             args: variant
                 .args
                 .iter()
-                .map(|tid| self.freshen_tid(*tid, fresh))
+                .map(|tid| self.freshen_tid(*tid, fresh, meta))
                 .collect(),
             variant: variant.variant,
         }
     }
 
-    fn freshen_enum(&mut self, e: &EnumType, fresh: &mut HashMap<TypeVar, TypeId>) -> EnumType {
+    fn freshen_enum(&mut self, e: &EnumType, fresh: &mut HashMap<TypeVar, TypeId>, meta: &M) -> EnumType {
         EnumType {
             eid: e.eid,
             args: e
                 .args
                 .iter()
-                .map(|tid| self.freshen_tid(*tid, fresh))
+                .map(|tid| self.freshen_tid(*tid, fresh, meta))
                 .collect(),
         }
     }
@@ -602,33 +604,34 @@ impl TypeStore {
         &mut self,
         s: &StructType,
         fresh: &mut HashMap<TypeVar, TypeId>,
+        meta: &M,
     ) -> StructType {
         StructType {
             sid: s.sid,
             args: s
                 .args
                 .iter()
-                .map(|tid| self.freshen_tid(*tid, fresh))
+                .map(|tid| self.freshen_tid(*tid, fresh, meta))
                 .collect(),
         }
     }
 
-    fn freshen_tid(&mut self, tid: TypeId, fresh: &mut HashMap<TypeVar, TypeId>) -> TypeId {
+    fn freshen_tid(&mut self, tid: TypeId, fresh: &mut HashMap<TypeVar, TypeId>, meta: &M) -> TypeId {
         match self.get(tid).expect("All TypeIds should be resolvable") {
             Type::Builtin(_) | Type::RigidTypeVar(_) => tid,
-            Type::TypeVar(var) => self.freshen_type_var(*var, fresh),
+            Type::TypeVar(var) => self.freshen_type_var(*var, fresh, meta),
             Type::Function(func) => {
                 let func = func.clone();
-                let func = self.freshen_func(&func, fresh);
+                let func = self.freshen_func(&func, fresh, meta);
                 self.intern(Type::Function(func))
             }
             Type::Pointer(ptr) => {
                 let mutability = ptr.mutability;
-                let tid = self.freshen_tid(ptr.tid, fresh);
+                let tid = self.freshen_tid(ptr.tid, fresh, meta);
                 self.pointer(tid, mutability)
             }
             Type::Type(tid) => {
-                let tid = self.freshen_tid(*tid, fresh);
+                let tid = self.freshen_tid(*tid, fresh, meta);
                 self.intern(Type::Type(tid))
             }
             Type::Struct(s) => {
@@ -638,7 +641,7 @@ impl TypeStore {
                     args: s
                         .args
                         .into_iter()
-                        .map(|tid| self.freshen_tid(tid, fresh))
+                        .map(|tid| self.freshen_tid(tid, fresh, meta))
                         .collect(),
                 };
                 self.intern(Type::Struct(s))
@@ -650,7 +653,7 @@ impl TypeStore {
                     args: e
                         .args
                         .into_iter()
-                        .map(|tid| self.freshen_tid(tid, fresh))
+                        .map(|tid| self.freshen_tid(tid, fresh, meta))
                         .collect(),
                 };
                 self.intern(Type::Enum(e))
@@ -662,7 +665,7 @@ impl TypeStore {
                     args: v
                         .args
                         .into_iter()
-                        .map(|tid| self.freshen_tid(tid, fresh))
+                        .map(|tid| self.freshen_tid(tid, fresh, meta))
                         .collect(),
                     variant: v.variant,
                 };
@@ -670,25 +673,25 @@ impl TypeStore {
             }
             Type::Tuple(tids) => {
                 let tids = tids.clone();
-                let tids = self.freshen_many_tids(&tids, fresh);
+                let tids = self.freshen_many_tids(&tids, fresh, meta);
                 self.tuple(tids)
             }
         }
     }
 
     /// Given a Scheme, freshen it
-    fn freshen(&mut self, scheme: &Scheme) -> QualifiedType {
+    fn freshen(&mut self, scheme: &Scheme, meta: &M) -> QualifiedType {
         let mut fresh = HashMap::new();
 
         scheme.vars.iter().for_each(|var| {
-            self.freshen_type_var(*var, &mut fresh);
+            self.freshen_type_var(*var, &mut fresh, meta);
         });
         let predicates = scheme
             .predicates
             .iter()
-            .map(|p| self.freshen_predicate(p, &mut fresh))
+            .map(|p| self.freshen_predicate(p, &mut fresh, meta))
             .collect();
-        let tid = self.freshen_tid(scheme.tid, &mut fresh);
+        let tid = self.freshen_tid(scheme.tid, &mut fresh, meta);
 
         QualifiedType { tid, predicates }
     }
@@ -697,13 +700,14 @@ impl TypeStore {
         &mut self,
         predicate: &TypePredicate,
         fresh: &mut HashMap<TypeVar, TypeId>,
+        meta: &M
     ) -> TypePredicate {
         TypePredicate {
             cid: predicate.cid,
             args: predicate
                 .args
                 .iter()
-                .map(|tid| self.freshen_tid(*tid, fresh))
+                .map(|tid| self.freshen_tid(*tid, fresh, meta))
                 .collect(),
         }
     }
@@ -713,9 +717,10 @@ impl TypeStore {
         &mut self,
         tids: &Vec<TypeId>,
         fresh: &mut HashMap<TypeVar, TypeId>,
+        meta: &M
     ) -> Vec<TypeId> {
         tids.into_iter()
-            .map(|tid| self.freshen_tid(*tid, fresh))
+            .map(|tid| self.freshen_tid(*tid, fresh, meta))
             .collect()
     }
 
@@ -724,15 +729,16 @@ impl TypeStore {
         &mut self,
         func: &FunctionType,
         fresh: &mut HashMap<TypeVar, TypeId>,
+        meta: &M
     ) -> FunctionType {
         // Create fresh vars for all the types the function is paramaterized over
-        let input = self.freshen_many_tids(&func.input, fresh);
-        let output = self.freshen_many_tids(&func.output, fresh);
+        let input = self.freshen_many_tids(&func.input, fresh, meta);
+        let output = self.freshen_many_tids(&func.output, fresh, meta);
 
         FunctionType { input, output }
     }
 
-    fn infer_fn_call<M>(
+    fn infer_fn_call(
         &mut self,
         func: &FunctionType,
         predicates: Vec<TypePredicate>,
@@ -791,7 +797,7 @@ impl TypeStore {
         constraints.collect()
     }
 
-    fn infer_ident<'src, M>(
+    fn infer_ident<'src>(
         &mut self,
         var: Var,
         meta: M,
@@ -802,7 +808,7 @@ impl TypeStore {
         M: Debug + Clone + PartialEq + Eq,
     {
         let scheme = env.get_var(&var).expect("Vars should be resolvable");
-        let inst = self.freshen(scheme);
+        let inst = self.freshen(scheme, &meta);
 
         let (tid, constraints) = if let Some(func) = self.get_func(&inst.tid).cloned() {
             (
@@ -847,7 +853,7 @@ impl TypeStore {
         }
     }
 
-    fn generate_bindings<M>(
+    fn generate_bindings(
         vars: &Vec<TypeVar>,
         args: &Vec<TypeId>,
     ) -> Result<HashMap<TypeVar, TypeId>, InferenceError<M>>
@@ -912,7 +918,7 @@ impl TypeStore {
             .collect()
     }
 
-    fn generate_struct_constructor<M>(
+    fn generate_struct_constructor(
         &mut self,
         tid: TypeId,
     ) -> Result<FunctionType, InferenceError<M>>
@@ -933,7 +939,7 @@ impl TypeStore {
         }
     }
 
-    fn generate_variant_constructor<M>(
+    fn generate_variant_constructor(
         &mut self,
         tid: TypeId,
     ) -> Result<FunctionType, InferenceError<M>>
@@ -960,7 +966,7 @@ impl TypeStore {
         }
     }
 
-    fn generate_constructor<M>(&mut self, tid: TypeId) -> Result<FunctionType, InferenceError<M>>
+    fn generate_constructor(&mut self, tid: TypeId) -> Result<FunctionType, InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
@@ -988,7 +994,7 @@ impl TypeStore {
     ///
     /// Expressions are also marked with all their constraints in addition to
     /// whatever metadata they had beforehand.
-    fn infer<'src, M>(
+    fn infer<'src>(
         &mut self,
         expr: Expr<'src, M>,
         stack: &mut Stack,
@@ -1059,7 +1065,7 @@ impl TypeStore {
             ExprKind::Ident(var) => self.infer_ident(var, expr.meta, stack, env),
             ExprKind::Ref { var, mutability } => {
                 let scheme = env.get_var(&var).expect("Vars should be resolvable");
-                let inst = self.freshen(scheme);
+                let inst = self.freshen(scheme, &expr.meta);
 
                 let tid = if let Some(func) = self.get_func(&inst.tid).cloned() {
                     if mutability != Mutability::Const {
@@ -1163,7 +1169,7 @@ impl TypeStore {
             }
             ExprKind::MemberAccess { var, member } => {
                 let scheme = env.get_var(&var).expect("Vars should be resolvable");
-                let inst = self.freshen(scheme);
+                let inst = self.freshen(scheme, &expr.meta);
 
                 if let Some(Type::Struct(s)) = self.get(inst.tid) {
                     let def = self.get_struct_def(s.sid).clone();
@@ -1430,14 +1436,14 @@ impl TypeStore {
         }
     }
 
-    fn unify_typevar<M>(&mut self, var: TypeVar, tid: TypeId) -> Result<(), InferenceError<M>>
+    fn unify_typevar(&mut self, var: TypeVar, tid: TypeId) -> Result<(), InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
         self.lookup.assign_key(var, Some(tid)).map_err(|_| todo!())
     }
 
-    pub fn unify_ty_ty<M>(
+    pub fn unify_ty_ty(
         &mut self,
         unnorm_left: TypeId,
         unnorm_right: TypeId,
@@ -1570,7 +1576,7 @@ impl TypeStore {
         }
     }
 
-    fn check_subtype_args<M>(
+    fn check_subtype_args(
         &mut self,
         variances: &[Variance],
         sub_args: &[TypeId],
@@ -1602,7 +1608,7 @@ impl TypeStore {
         Ok(())
     }
 
-    pub fn check_subtype<M>(
+    pub fn check_subtype(
         &mut self,
         subty: TypeId,
         superty: TypeId,
@@ -1665,7 +1671,7 @@ impl TypeStore {
         }
     }
 
-    fn check_predicate<M>(
+    fn check_predicate(
         &mut self,
         env: &Environment,
         predicate: &TypePredicate,
@@ -1686,7 +1692,7 @@ impl TypeStore {
                 let matches: Vec<_> = impls
                     .iter()
                     .filter(|i| {
-                        let i = self.freshen_impl(i);
+                        let i = self.freshen_impl(i, meta);
                         assert!(i.args.len() == args.len());
 
                         let types_match =
@@ -1714,7 +1720,7 @@ impl TypeStore {
         }
     }
 
-    fn meet_args<M>(
+    fn meet_args(
         &mut self,
         variances: &[Variance],
         left: &[TypeId],
@@ -1744,7 +1750,7 @@ impl TypeStore {
         Ok(args)
     }
 
-    fn meet_ty_ty<M>(
+    fn meet_ty_ty(
         &mut self,
         left: TypeId,
         right: TypeId,
@@ -1840,7 +1846,7 @@ impl TypeStore {
         }
     }
 
-    fn join_args<M>(
+    fn join_args(
         &mut self,
         variances: &[Variance],
         left: &[TypeId],
@@ -1870,7 +1876,7 @@ impl TypeStore {
         Ok(args)
     }
 
-    pub fn join_ty_ty<M>(
+    pub fn join_ty_ty(
         &mut self,
         left: TypeId,
         right: TypeId,
@@ -1968,7 +1974,7 @@ impl TypeStore {
         }
     }
 
-    fn check_join<M>(
+    fn check_join(
         &mut self,
         output: TypeId,
         input: &Vec<TypeId>,
@@ -1990,7 +1996,7 @@ impl TypeStore {
         self.unify_ty_ty(output, joined, origin, meta)
     }
 
-    fn check_constraints<M>(
+    fn check_constraints(
         &mut self,
         env: &Environment,
         constraints: &mut Vec<Constraint<M>>,
@@ -2039,7 +2045,7 @@ impl TypeStore {
         Ok(())
     }
 
-    pub fn type_check<'src, M>(
+    pub fn type_check<'src>(
         &mut self,
         expr: Expr<'src, M>,
         stack: &Stack,
@@ -2074,7 +2080,7 @@ impl TypeStore {
         Ok((expr, unbound))
     }
 
-    pub fn type_instance<M>(
+    pub fn type_instance(
         &mut self,
         tid: TypeId,
         args: Option<Vec<TypeId>>,
@@ -2093,7 +2099,7 @@ impl TypeStore {
                     StructType { sid: s.sid, args }
                 } else {
                     let s = s.clone();
-                    self.freshen_struct(&s, &mut HashMap::new())
+                    self.freshen_struct(&s, &mut HashMap::new(), meta)
                 };
                 Ok(self.intern(Type::Struct(s)))
             }
@@ -2118,7 +2124,7 @@ impl TypeStore {
                     EnumType { eid: e.eid, args }
                 } else {
                     let e = e.clone();
-                    self.freshen_enum(&e, &mut HashMap::new())
+                    self.freshen_enum(&e, &mut HashMap::new(), meta)
                 };
 
                 Ok(self.intern(Type::Enum(e)))
@@ -2136,7 +2142,7 @@ impl TypeStore {
                     }
                 } else {
                     let variant = variant.clone();
-                    self.freshen_variant(&variant, &mut HashMap::new())
+                    self.freshen_variant(&variant, &mut HashMap::new(), meta)
                 };
 
                 Ok(self.intern(Type::Variant(variant)))
@@ -2144,7 +2150,7 @@ impl TypeStore {
         }
     }
 
-    pub fn get_enum_variant<M>(
+    pub fn get_enum_variant(
         &mut self,
         enum_tid: TypeId,
         variant_id: usize,
@@ -2180,7 +2186,7 @@ impl TypeStore {
         Ok(self.intern(Type::Variant(variant)))
     }
 
-    pub fn metatype<M>(
+    pub fn metatype(
         &mut self,
         tid: TypeId,
         args: Option<Vec<TypeId>>,

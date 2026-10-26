@@ -1,3 +1,4 @@
+#![allow(unused)]
 use crate::{
     error::HayError,
     lex::{scanner::Scanner, token::Loc},

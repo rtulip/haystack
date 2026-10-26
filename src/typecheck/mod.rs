@@ -2506,7 +2506,7 @@ mod tests {
         // }
 
         let mut typestore = TypeStore::new();
-        let mut env = Environment::new();
+        let env = Environment::new();
 
         let foo_def = EnumDef::new(&typestore, vec![], vec![None, None], &META).unwrap();
         let (foo_tid, _) = typestore.add_enum(foo_def);

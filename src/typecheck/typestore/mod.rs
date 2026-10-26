@@ -49,7 +49,9 @@ pub struct TypeStore<M> {
 }
 
 impl<M> TypeStore<M>
-where M: Debug + Clone {
+where
+    M: Debug + Clone,
+{
     /// Create a new typestore.
     pub fn new() -> Self {
         let builtins = [
@@ -539,14 +541,22 @@ where M: Debug + Clone {
     /// Create a unique TypeVar to subsitute one that shouldn't be used.
     ///
     /// This is to ensure that generic definitions aren't forced to be unified to a specific type.
-    fn freshen_type_var(&mut self, var: TypeVar, fresh: &mut HashMap<TypeVar, TypeId>, meta: &M) -> TypeId {
+    fn freshen_type_var(
+        &mut self,
+        var: TypeVar,
+        fresh: &mut HashMap<TypeVar, TypeId>,
+        meta: &M,
+    ) -> TypeId {
         if let Some(tid) = fresh.get(&var) {
             *tid
         } else {
             let tyvar = self.fresh_type_var();
             let tid = self.intern(Type::TypeVar(tyvar));
             let origin_tid = self.intern(Type::TypeVar(var));
-            assert!(self.tyvar_origin.insert(tid, (origin_tid, meta.clone())).is_none());
+            assert!(self
+                .tyvar_origin
+                .insert(tid, (origin_tid, meta.clone()))
+                .is_none());
             assert!(fresh.insert(var, tid).is_none());
             tid
         }
@@ -576,7 +586,7 @@ where M: Debug + Clone {
         &mut self,
         variant: &VariantType,
         fresh: &mut HashMap<TypeVar, TypeId>,
-        meta: &M
+        meta: &M,
     ) -> VariantType {
         VariantType {
             eid: variant.eid,
@@ -589,7 +599,12 @@ where M: Debug + Clone {
         }
     }
 
-    fn freshen_enum(&mut self, e: &EnumType, fresh: &mut HashMap<TypeVar, TypeId>, meta: &M) -> EnumType {
+    fn freshen_enum(
+        &mut self,
+        e: &EnumType,
+        fresh: &mut HashMap<TypeVar, TypeId>,
+        meta: &M,
+    ) -> EnumType {
         EnumType {
             eid: e.eid,
             args: e
@@ -616,7 +631,12 @@ where M: Debug + Clone {
         }
     }
 
-    fn freshen_tid(&mut self, tid: TypeId, fresh: &mut HashMap<TypeVar, TypeId>, meta: &M) -> TypeId {
+    fn freshen_tid(
+        &mut self,
+        tid: TypeId,
+        fresh: &mut HashMap<TypeVar, TypeId>,
+        meta: &M,
+    ) -> TypeId {
         match self.get(tid).expect("All TypeIds should be resolvable") {
             Type::Builtin(_) | Type::RigidTypeVar(_) => tid,
             Type::TypeVar(var) => self.freshen_type_var(*var, fresh, meta),
@@ -700,7 +720,7 @@ where M: Debug + Clone {
         &mut self,
         predicate: &TypePredicate,
         fresh: &mut HashMap<TypeVar, TypeId>,
-        meta: &M
+        meta: &M,
     ) -> TypePredicate {
         TypePredicate {
             cid: predicate.cid,
@@ -717,7 +737,7 @@ where M: Debug + Clone {
         &mut self,
         tids: &Vec<TypeId>,
         fresh: &mut HashMap<TypeVar, TypeId>,
-        meta: &M
+        meta: &M,
     ) -> Vec<TypeId> {
         tids.into_iter()
             .map(|tid| self.freshen_tid(*tid, fresh, meta))
@@ -729,7 +749,7 @@ where M: Debug + Clone {
         &mut self,
         func: &FunctionType,
         fresh: &mut HashMap<TypeVar, TypeId>,
-        meta: &M
+        meta: &M,
     ) -> FunctionType {
         // Create fresh vars for all the types the function is paramaterized over
         let input = self.freshen_many_tids(&func.input, fresh, meta);

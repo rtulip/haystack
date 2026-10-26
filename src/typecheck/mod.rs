@@ -711,10 +711,16 @@ impl<'src> TypeCheck<'src> {
             }
             (ConstraintOrigin::UnboundVarInBody, InferenceErrorKind::UnboundVar(tyvar)) => {
                 let tid = self.typestore.intern(Type::TypeVar(tyvar));
-                match self.typestore.tyvar_origin.get(&tid).cloned()  {
-                    Some((tid, token)) => HayError::new(format!("Cannot infer type for `{}`", self.format_tid(tid)), token.loc)
-                    .with_hint(format!("Consider providing a type hint:\n            `{} #u64 hint`", token.lexeme)),
-                    None => todo!()
+                match self.typestore.tyvar_origin.get(&tid).cloned() {
+                    Some((tid, token)) => HayError::new(
+                        format!("Cannot infer type for `{}`", self.format_tid(tid)),
+                        token.loc,
+                    )
+                    .with_hint(format!(
+                        "Consider providing a type hint:\n            `{} #u64 hint`",
+                        token.lexeme
+                    )),
+                    None => todo!(),
                 }
             }
             (origin, kind) => todo!("Generate Error message for {origin:?}, {kind:?}"),
@@ -916,19 +922,25 @@ impl<'src> TypeCheck<'src> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        typecheck::environment::{
-            Coherence, Environment, Interface, InterfaceImpl, Scheme, TypePredicate,
+    use std::assert_eq;
+
+    use crate::typecheck::{
+        constraint::ConstraintOrigin,
+        environment::{Coherence, Environment, Interface, InterfaceImpl, Scheme, TypePredicate},
+        expr::{Expr, MatchCase, MatchExpr, MatchPattern, Var},
+        func::Function,
+        typ::{
+            typ::{EnumDef, FunctionType, Mutability, PointerType, StructDef, Type},
+            type_id::TypeId,
         },
-        typecheck::expr::{Expr, MatchCase, MatchExpr, MatchPattern, Var},
-        typecheck::func::Function,
-        typecheck::typ::typ::{EnumDef, FunctionType, Mutability, PointerType, StructDef, Type},
-        typecheck::typ::type_id::TypeId,
-        typecheck::typestore::inference::{InferenceError, InferenceErrorKind},
-        typecheck::typestore::TypeStore,
+        typestore::{
+            inference::{InferenceError, InferenceErrorKind},
+            TypeStore,
+        },
     };
 
     const META: () = ();
+    const ORIGIN: ConstraintOrigin = ConstraintOrigin::ConflictingImpls;
 
     #[test]
     fn dup() {
@@ -981,12 +993,18 @@ mod tests {
             Expr::block([Expr::bind(t, ()), Expr::ident(t, ()), Expr::u8(0, ())], ()),
         );
 
+        let rigid = typestore.intern(Type::RigidTypeVar(typevar));
+        let u8_tid = typestore.intern(Type::u8());
         let f = bad_dup.type_check(&mut typestore, &env);
         assert_eq!(
             f,
             Err(InferenceError::type_param_constrained(
                 typevar,
                 typestore.intern(Type::u8()),
+                &ConstraintOrigin::OutputSubtyping {
+                    expected: vec![tid, tid],
+                    found: vec![rigid, u8_tid]
+                },
                 &META
             ))
         );
@@ -1100,7 +1118,15 @@ mod tests {
 
         assert_eq!(
             typestore.type_check(expr, &stack, &target, &mut env),
-            Err(InferenceError::not_enough_args(vec![u8_tid], vec![], &META))
+            Err(InferenceError::not_enough_args(
+                vec![u8_tid],
+                vec![],
+                &ConstraintOrigin::FunctionCall {
+                    input: vec![],
+                    expected: vec![u8_tid]
+                },
+                &META
+            ))
         )
     }
 
@@ -1275,7 +1301,15 @@ mod tests {
 
         assert_eq!(
             test.type_check(&mut typestore, &env),
-            Err(InferenceError::types_incompatible(u8_tid, bool_tid, &META))
+            Err(InferenceError::types_incompatible(
+                u8_tid,
+                bool_tid,
+                &ConstraintOrigin::OutputSubtyping {
+                    expected: vec![u8_tid],
+                    found: vec![bool_tid]
+                },
+                &META
+            ))
         );
     }
 
@@ -1364,7 +1398,14 @@ mod tests {
 
         assert_eq!(
             test.type_check(&mut typestore, &env),
-            Err(InferenceError::mutable_ref_to_fn(f, &META))
+            Err(InferenceError::mutable_ref_to_fn(
+                f,
+                &ConstraintOrigin::TakeRef {
+                    var: Var(0),
+                    mutability: Mutability::Mutable,
+                },
+                &META
+            ))
         );
     }
 
@@ -1397,7 +1438,15 @@ mod tests {
 
         assert_eq!(
             test_not_enough_args.type_check(&mut typestore, &env),
-            Err(InferenceError::not_enough_args(vec![u8_tid], vec![], &META))
+            Err(InferenceError::not_enough_args(
+                vec![u8_tid],
+                vec![],
+                &ConstraintOrigin::FunctionCall {
+                    input: vec![],
+                    expected: vec![u8_tid]
+                },
+                &META
+            ))
         );
 
         let test_bad_args = Function::new(
@@ -1417,7 +1466,15 @@ mod tests {
 
         assert_eq!(
             test_bad_args.type_check(&mut typestore, &env),
-            Err(InferenceError::types_incompatible(u8_tid, bool_tid, &META))
+            Err(InferenceError::types_incompatible(
+                u8_tid,
+                bool_tid,
+                &ConstraintOrigin::FunctionCall {
+                    input: vec![bool_tid],
+                    expected: vec![u8_tid]
+                },
+                &META
+            ))
         );
     }
 
@@ -1504,6 +1561,10 @@ mod tests {
             Err(InferenceError::types_incompatible(
                 u8_mut_ptr_tid,
                 u8_const_ptr_tid,
+                &ConstraintOrigin::OutputSubtyping {
+                    expected: vec![u8_mut_ptr_tid],
+                    found: vec![u8_const_ptr_tid]
+                },
                 &META
             ))
         );
@@ -1617,6 +1678,10 @@ mod tests {
             Err(InferenceError::predicate_not_met(
                 foo_cid,
                 vec![u8_tid],
+                &ConstraintOrigin::FunctionCall {
+                    input: vec![u8_tid],
+                    expected: vec![TypeId(5)]
+                },
                 &META
             ))
         );
@@ -1760,6 +1825,10 @@ mod tests {
             Err(InferenceError::predicate_not_met(
                 cast_cid,
                 vec![u8_tid, bool_ptr_tid],
+                &ConstraintOrigin::FunctionCall {
+                    input: vec![u8_tid],
+                    expected: vec![TypeId(22)]
+                },
                 &META
             ))
         );
@@ -1770,6 +1839,10 @@ mod tests {
             Err(InferenceError::predicate_not_met(
                 cast_cid,
                 vec![u8_ptr_tid, bool_tid],
+                &ConstraintOrigin::FunctionCall {
+                    input: vec![u8_ptr_tid],
+                    expected: vec![TypeId(30)]
+                },
                 &META
             ))
         );
@@ -1844,6 +1917,10 @@ mod tests {
             Err(InferenceError::predicate_not_met(
                 print_cid,
                 vec![bool_tid],
+                &ConstraintOrigin::FunctionCall {
+                    input: vec![bool_tid],
+                    expected: vec![TypeId(16)]
+                },
                 &META
             ))
         );
@@ -1857,6 +1934,10 @@ mod tests {
             Err(InferenceError::predicate_not_met(
                 print_cid,
                 vec![bool_ptr_tid],
+                &ConstraintOrigin::FunctionCall {
+                    input: vec![TypeId(4)],
+                    expected: vec![TypeId(27)]
+                },
                 &META
             ))
         );
@@ -1877,6 +1958,10 @@ mod tests {
             Err(InferenceError::predicate_not_met(
                 print_cid,
                 vec![bool_ptr_ptr_tid],
+                &ConstraintOrigin::FunctionCall {
+                    input: vec![TypeId(43)],
+                    expected: vec![TypeId(44)]
+                },
                 &META
             ))
         );
@@ -1957,6 +2042,10 @@ mod tests {
             Err(InferenceError::predicate_not_met(
                 print_cid,
                 vec![bool_tid],
+                &ConstraintOrigin::FunctionCall {
+                    input: vec![TypeId(2)],
+                    expected: vec![TypeId(8)]
+                },
                 &META
             ))
         );
@@ -2165,7 +2254,15 @@ mod tests {
         let u8_tid = typestore.intern(Type::u8());
         assert_eq!(
             bad_pack.type_check(&mut typestore, &env),
-            Err(InferenceError::types_incompatible(bool_tid, u8_tid, &META))
+            Err(InferenceError::types_incompatible(
+                bool_tid,
+                u8_tid,
+                &ConstraintOrigin::FunctionCall {
+                    input: vec![u8_tid, bool_tid],
+                    expected: vec![TypeId(17), TypeId(17)]
+                },
+                &META
+            ))
         );
     }
 
@@ -2321,6 +2418,10 @@ mod tests {
             Err(InferenceError::types_incompatible(
                 option_some_t_tid,
                 option_t_tid,
+                &ConstraintOrigin::FunctionCall {
+                    input: vec![option_t_tid],
+                    expected: vec![option_some_t_tid]
+                },
                 &META
             ))
         );
@@ -2564,7 +2665,7 @@ mod tests {
         assert!(test.type_check(&mut typestore, &env).is_ok());
     }
 
-    fn option_def(typestore: &mut TypeStore) -> (TypeId, TypeId, TypeId) {
+    fn option_def(typestore: &mut TypeStore<()>) -> (TypeId, TypeId, TypeId) {
         let t_tyvar = typestore.fresh_type_var();
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
         let def = EnumDef::new(&typestore, vec![t_tyvar], vec![Some(t_tid), None], &META).unwrap();
@@ -2653,24 +2754,29 @@ mod tests {
 #[cfg(test)]
 mod variance_tests {
 
-    use crate::{
-        typecheck::environment::Variance,
-        typecheck::typ::typ::{EnumDef, FunctionType, Mutability, StructDef, Type},
-        typecheck::typ::type_id::TypeId,
-        typecheck::typestore::inference::InferenceError,
-        typecheck::typestore::TypeStore,
+    use std::assert_eq;
+
+    use crate::typecheck::{
+        constraint::ConstraintOrigin,
+        environment::Variance,
+        typ::{
+            typ::{EnumDef, FunctionType, Mutability, StructDef, Type},
+            type_id::TypeId,
+        },
+        typestore::{inference::InferenceError, TypeStore},
     };
 
     const META: () = ();
+    const ORIGIN: ConstraintOrigin = ConstraintOrigin::ConflictingImpls;
 
-    fn animal_def(typestore: &mut TypeStore) -> (TypeId, TypeId) {
+    fn animal_def(typestore: &mut TypeStore<()>) -> (TypeId, TypeId) {
         let animal = EnumDef::new(&typestore, vec![], vec![None], &META).unwrap();
         let (animal_tid, _) = typestore.add_enum(animal);
         let dog_tid = typestore.get_enum_variant(animal_tid, 0, &META).unwrap();
         (animal_tid, dog_tid)
     }
 
-    fn option_def(typestore: &mut TypeStore) -> (TypeId, TypeId, TypeId) {
+    fn option_def(typestore: &mut TypeStore<()>) -> (TypeId, TypeId, TypeId) {
         let t_tyvar = typestore.fresh_type_var();
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
         let def = EnumDef::new(&typestore, vec![t_tyvar], vec![Some(t_tid), None], &META).unwrap();
@@ -2693,7 +2799,9 @@ mod variance_tests {
         let animal_ptr = typestore.pointer(animal_tid, Mutability::Const);
         let dog_ptr = typestore.pointer(dog_tid, Mutability::Const);
 
-        assert!(typestore.check_subtype(dog_ptr, animal_ptr, &META).is_ok());
+        assert!(typestore
+            .check_subtype(dog_ptr, animal_ptr, &ORIGIN, &META)
+            .is_ok());
     }
 
     #[test]
@@ -2709,7 +2817,7 @@ mod variance_tests {
         let dog_mut_ptr = typestore.pointer(dog_tid, Mutability::Mutable);
 
         assert!(typestore
-            .check_subtype(dog_mut_ptr, animal_ptr, &META)
+            .check_subtype(dog_mut_ptr, animal_ptr, &ORIGIN, &META)
             .is_ok());
     }
 
@@ -2726,10 +2834,11 @@ mod variance_tests {
         let dog_ptr = typestore.pointer(dog_tid, Mutability::Const);
 
         assert_eq!(
-            typestore.check_subtype(dog_ptr, animal_mut_ptr, &META),
+            typestore.check_subtype(dog_ptr, animal_mut_ptr, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
                 animal_mut_ptr,
                 dog_ptr,
+                &ORIGIN,
                 &META
             ))
         );
@@ -2748,9 +2857,9 @@ mod variance_tests {
         let dog_mut_ptr = typestore.pointer(dog_tid, Mutability::Mutable);
 
         assert_eq!(
-            typestore.check_subtype(dog_mut_ptr, animal_mut_ptr, &META),
+            typestore.check_subtype(dog_mut_ptr, animal_mut_ptr, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
     }
@@ -2768,7 +2877,7 @@ mod variance_tests {
         let animal_mut_ptr = typestore.pointer(animal_tid, Mutability::Mutable);
 
         assert!(typestore
-            .check_subtype(animal_mut_ptr, animal_mut_ptr, &META)
+            .check_subtype(animal_mut_ptr, animal_mut_ptr, &ORIGIN, &META)
             .is_ok());
     }
 
@@ -2789,7 +2898,7 @@ mod variance_tests {
         let dog_ptr_mut_ptr = typestore.pointer(dog_ptr_mut, Mutability::Const);
 
         assert!(typestore
-            .check_subtype(dog_ptr_mut_ptr, animal_ptr_ptr, &META)
+            .check_subtype(dog_ptr_mut_ptr, animal_ptr_ptr, &ORIGIN, &META)
             .is_ok());
     }
 
@@ -2810,9 +2919,9 @@ mod variance_tests {
         let dog_ptr_mut_ptr = typestore.pointer(dog_ptr_mut, Mutability::Const);
 
         assert_eq!(
-            typestore.check_subtype(dog_ptr_mut_ptr, animal_ptr_mut_ptr, &META),
+            typestore.check_subtype(dog_ptr_mut_ptr, animal_ptr_mut_ptr, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
     }
@@ -2830,11 +2939,11 @@ mod variance_tests {
         let dog_ptr = typestore.pointer(dog_tid, Mutability::Const);
 
         assert_eq!(
-            typestore.join_ty_ty(dog_ptr, animal_ptr, &META),
+            typestore.join_ty_ty(dog_ptr, animal_ptr, &ORIGIN, &META),
             Ok(animal_ptr)
         );
         assert_eq!(
-            typestore.join_ty_ty(animal_ptr, dog_ptr, &META),
+            typestore.join_ty_ty(animal_ptr, dog_ptr, &ORIGIN, &META),
             Ok(animal_ptr)
         );
     }
@@ -2852,11 +2961,11 @@ mod variance_tests {
         let dog_mut_ptr = typestore.pointer(dog_tid, Mutability::Mutable);
 
         assert_eq!(
-            typestore.join_ty_ty(dog_mut_ptr, animal_ptr, &META),
+            typestore.join_ty_ty(dog_mut_ptr, animal_ptr, &ORIGIN, &META),
             Ok(animal_ptr)
         );
         assert_eq!(
-            typestore.join_ty_ty(animal_ptr, dog_mut_ptr, &META),
+            typestore.join_ty_ty(animal_ptr, dog_mut_ptr, &ORIGIN, &META),
             Ok(animal_ptr)
         );
     }
@@ -2876,11 +2985,11 @@ mod variance_tests {
         let dog_ptr = typestore.pointer(dog_tid, Mutability::Const);
 
         assert_eq!(
-            typestore.join_ty_ty(dog_ptr, animal_mut_ptr, &META),
+            typestore.join_ty_ty(dog_ptr, animal_mut_ptr, &ORIGIN, &META),
             Ok(animal_ptr)
         );
         assert_eq!(
-            typestore.join_ty_ty(animal_mut_ptr, dog_ptr, &META),
+            typestore.join_ty_ty(animal_mut_ptr, dog_ptr, &ORIGIN, &META),
             Ok(animal_ptr)
         );
     }
@@ -2895,11 +3004,11 @@ mod variance_tests {
         let dog_mut_ptr = typestore.pointer(dog_tid, Mutability::Mutable);
 
         assert_eq!(
-            typestore.join_ty_ty(dog_mut_ptr, animal_mut_ptr, &META),
+            typestore.join_ty_ty(dog_mut_ptr, animal_mut_ptr, &ORIGIN, &META),
             Ok(animal_ptr)
         );
         assert_eq!(
-            typestore.join_ty_ty(animal_mut_ptr, dog_mut_ptr, &META),
+            typestore.join_ty_ty(animal_mut_ptr, dog_mut_ptr, &ORIGIN, &META),
             Ok(animal_ptr)
         );
     }
@@ -2913,7 +3022,7 @@ mod variance_tests {
         let animal_mut_ptr = typestore.pointer(animal_tid, Mutability::Mutable);
 
         assert_eq!(
-            typestore.join_ty_ty(animal_mut_ptr, animal_mut_ptr, &META),
+            typestore.join_ty_ty(animal_mut_ptr, animal_mut_ptr, &ORIGIN, &META),
             Ok(animal_mut_ptr)
         );
     }
@@ -2928,7 +3037,7 @@ mod variance_tests {
         let animal_mut_ptr = typestore.pointer(animal_tid, Mutability::Mutable);
 
         assert_eq!(
-            typestore.join_ty_ty(animal_mut_ptr, animal_ptr, &META),
+            typestore.join_ty_ty(animal_mut_ptr, animal_ptr, &ORIGIN, &META),
             Ok(animal_ptr)
         );
     }
@@ -2944,11 +3053,11 @@ mod variance_tests {
         let dog_mut_ptr_ptr = typestore.pointer(dog_mut_ptr, Mutability::Const);
 
         assert_eq!(
-            typestore.join_ty_ty(dog_mut_ptr_ptr, animal_ptr_ptr, &META),
+            typestore.join_ty_ty(dog_mut_ptr_ptr, animal_ptr_ptr, &ORIGIN, &META),
             Ok(animal_ptr_ptr)
         );
         assert_eq!(
-            typestore.join_ty_ty(animal_ptr_ptr, dog_mut_ptr_ptr, &META),
+            typestore.join_ty_ty(animal_ptr_ptr, dog_mut_ptr_ptr, &ORIGIN, &META),
             Ok(animal_ptr_ptr)
         );
     }
@@ -2965,16 +3074,16 @@ mod variance_tests {
         let dog_ptr_mut_ptr = typestore.pointer(dog_ptr, Mutability::Mutable);
 
         assert_eq!(
-            typestore.join_ty_ty(animal_ptr_mut_ptr, dog_ptr_mut_ptr, &META),
+            typestore.join_ty_ty(animal_ptr_mut_ptr, dog_ptr_mut_ptr, &ORIGIN, &META),
             Ok(animal_ptr_ptr)
         );
         assert_eq!(
-            typestore.join_ty_ty(dog_ptr_mut_ptr, animal_ptr_mut_ptr, &META),
+            typestore.join_ty_ty(dog_ptr_mut_ptr, animal_ptr_mut_ptr, &ORIGIN, &META),
             Ok(animal_ptr_ptr)
         );
     }
 
-    fn covariant_struct(typestore: &mut TypeStore) -> TypeId {
+    fn covariant_struct(typestore: &mut TypeStore<()>) -> TypeId {
         let t_tyvar = typestore.fresh_type_var();
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
         let def = StructDef::new(&typestore, vec![t_tyvar], vec![t_tid], &META).unwrap();
@@ -2982,7 +3091,7 @@ mod variance_tests {
         typestore.add_struct(def).0
     }
 
-    fn invariant_struct(typestore: &mut TypeStore) -> TypeId {
+    fn invariant_struct(typestore: &mut TypeStore<()>) -> TypeId {
         let t_tyvar = typestore.fresh_type_var();
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
         let t_ptr_mut_tid = typestore.pointer(t_tid, Mutability::Mutable);
@@ -2991,7 +3100,7 @@ mod variance_tests {
         typestore.add_struct(def).0
     }
 
-    fn contravariant_struct(typestore: &mut TypeStore) -> TypeId {
+    fn contravariant_struct(typestore: &mut TypeStore<()>) -> TypeId {
         let t_tyvar = typestore.fresh_type_var();
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
 
@@ -3024,12 +3133,22 @@ mod variance_tests {
             .unwrap();
 
         assert!(typestore
-            .check_subtype(covariant_struct_dog, covariant_struct_animal, &META)
+            .check_subtype(
+                covariant_struct_dog,
+                covariant_struct_animal,
+                &ORIGIN,
+                &META
+            )
             .is_ok());
         assert_eq!(
-            typestore.check_subtype(covariant_struct_animal, covariant_struct_dog, &META),
+            typestore.check_subtype(
+                covariant_struct_animal,
+                covariant_struct_dog,
+                &ORIGIN,
+                &META
+            ),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
     }
@@ -3056,22 +3175,42 @@ mod variance_tests {
             .unwrap();
 
         assert!(typestore
-            .check_subtype(invariant_struct_animal, invariant_struct_animal, &META)
+            .check_subtype(
+                invariant_struct_animal,
+                invariant_struct_animal,
+                &ORIGIN,
+                &META
+            )
             .is_ok());
         assert_eq!(
-            typestore.check_subtype(invariant_struct_animal, invariant_struct_dog, &META),
+            typestore.check_subtype(
+                invariant_struct_animal,
+                invariant_struct_dog,
+                &ORIGIN,
+                &META
+            ),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
         assert_eq!(
-            typestore.check_subtype(invariant_struct_dog, invariant_struct_animal, &META),
+            typestore.check_subtype(
+                invariant_struct_dog,
+                invariant_struct_animal,
+                &ORIGIN,
+                &META
+            ),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert!(typestore
-            .check_subtype(invariant_struct_animal, invariant_struct_animal, &META)
+            .check_subtype(
+                invariant_struct_animal,
+                invariant_struct_animal,
+                &ORIGIN,
+                &META
+            )
             .is_ok());
     }
 
@@ -3100,20 +3239,36 @@ mod variance_tests {
             .check_subtype(
                 contravariant_struct_animal,
                 contravariant_struct_animal,
+                &ORIGIN,
                 &META
             )
             .is_ok());
         assert_eq!(
-            typestore.check_subtype(contravariant_struct_dog, contravariant_struct_animal, &META),
+            typestore.check_subtype(
+                contravariant_struct_dog,
+                contravariant_struct_animal,
+                &ORIGIN,
+                &META
+            ),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert!(typestore
-            .check_subtype(contravariant_struct_animal, contravariant_struct_dog, &META)
+            .check_subtype(
+                contravariant_struct_animal,
+                contravariant_struct_dog,
+                &ORIGIN,
+                &META
+            )
             .is_ok());
         assert!(typestore
-            .check_subtype(contravariant_struct_dog, contravariant_struct_dog, &META)
+            .check_subtype(
+                contravariant_struct_dog,
+                contravariant_struct_dog,
+                &ORIGIN,
+                &META
+            )
             .is_ok());
     }
 
@@ -3145,12 +3300,22 @@ mod variance_tests {
             .unwrap();
 
         assert!(typestore
-            .check_subtype(covariant_covariant_dog, covariant_covariant_animal, &META)
+            .check_subtype(
+                covariant_covariant_dog,
+                covariant_covariant_animal,
+                &ORIGIN,
+                &META
+            )
             .is_ok());
         assert_eq!(
-            typestore.check_subtype(covariant_covariant_animal, covariant_covariant_dog, &META),
+            typestore.check_subtype(
+                covariant_covariant_animal,
+                covariant_covariant_dog,
+                &ORIGIN,
+                &META
+            ),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
     }
@@ -3188,16 +3353,18 @@ mod variance_tests {
             typestore.check_subtype(
                 covariant_contravariant_dog,
                 covariant_contravariant_animal,
+                &ORIGIN,
                 &META
             ),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert!(typestore
             .check_subtype(
                 covariant_contravariant_animal,
                 covariant_contravariant_dog,
+                &ORIGIN,
                 &META
             )
             .is_ok());
@@ -3236,16 +3403,18 @@ mod variance_tests {
             typestore.check_subtype(
                 contravariant_covariant_dog,
                 contravariant_covariant_animal,
+                &ORIGIN,
                 &META
             ),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert!(typestore
             .check_subtype(
                 contravariant_covariant_animal,
                 contravariant_covariant_dog,
+                &ORIGIN,
                 &META
             )
             .is_ok());
@@ -3286,6 +3455,7 @@ mod variance_tests {
             .check_subtype(
                 contravariant_contravariant_dog,
                 contravariant_contravariant_animal,
+                &ORIGIN,
                 &META
             )
             .is_ok());
@@ -3293,10 +3463,11 @@ mod variance_tests {
             typestore.check_subtype(
                 contravariant_contravariant_animal,
                 contravariant_contravariant_dog,
+                &ORIGIN,
                 &META
             ),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
     }
@@ -3368,98 +3539,98 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.check_subtype(co_inv_dog, co_inv_animal, &META),
+            typestore.check_subtype(co_inv_dog, co_inv_animal, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert_eq!(
-            typestore.check_subtype(co_inv_animal, co_inv_dog, &META),
+            typestore.check_subtype(co_inv_animal, co_inv_dog, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
         assert!(typestore
-            .check_subtype(co_inv_dog, co_inv_dog, &META)
+            .check_subtype(co_inv_dog, co_inv_dog, &ORIGIN, &META)
             .is_ok());
         assert!(typestore
-            .check_subtype(co_inv_animal, co_inv_animal, &META)
-            .is_ok());
-
-        assert_eq!(
-            typestore.check_subtype(contra_inv_dog, contra_inv_animal, &META),
-            Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
-            ))
-        );
-        assert_eq!(
-            typestore.check_subtype(contra_inv_animal, contra_inv_dog, &META),
-            Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
-            ))
-        );
-        assert!(typestore
-            .check_subtype(contra_inv_dog, contra_inv_dog, &META)
-            .is_ok());
-        assert!(typestore
-            .check_subtype(contra_inv_animal, contra_inv_animal, &META)
+            .check_subtype(co_inv_animal, co_inv_animal, &ORIGIN, &META)
             .is_ok());
 
         assert_eq!(
-            typestore.check_subtype(inv_co_dog, inv_co_animal, &META),
+            typestore.check_subtype(contra_inv_dog, contra_inv_animal, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert_eq!(
-            typestore.check_subtype(inv_co_animal, inv_co_dog, &META),
+            typestore.check_subtype(contra_inv_animal, contra_inv_dog, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
         assert!(typestore
-            .check_subtype(inv_co_dog, inv_co_dog, &META)
+            .check_subtype(contra_inv_dog, contra_inv_dog, &ORIGIN, &META)
             .is_ok());
         assert!(typestore
-            .check_subtype(inv_co_animal, inv_co_animal, &META)
-            .is_ok());
-
-        assert_eq!(
-            typestore.check_subtype(inv_contra_dog, inv_contra_animal, &META),
-            Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
-            ))
-        );
-        assert_eq!(
-            typestore.check_subtype(inv_contra_animal, inv_contra_dog, &META),
-            Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
-            ))
-        );
-        assert!(typestore
-            .check_subtype(inv_contra_dog, inv_contra_dog, &META)
-            .is_ok());
-        assert!(typestore
-            .check_subtype(inv_contra_animal, inv_contra_animal, &META)
+            .check_subtype(contra_inv_animal, contra_inv_animal, &ORIGIN, &META)
             .is_ok());
 
         assert_eq!(
-            typestore.check_subtype(inv_inv_dog, inv_inv_animal, &META),
+            typestore.check_subtype(inv_co_dog, inv_co_animal, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert_eq!(
-            typestore.check_subtype(inv_inv_animal, inv_inv_dog, &META),
+            typestore.check_subtype(inv_co_animal, inv_co_dog, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
         assert!(typestore
-            .check_subtype(inv_inv_dog, inv_inv_dog, &META)
+            .check_subtype(inv_co_dog, inv_co_dog, &ORIGIN, &META)
             .is_ok());
         assert!(typestore
-            .check_subtype(inv_inv_animal, inv_inv_animal, &META)
+            .check_subtype(inv_co_animal, inv_co_animal, &ORIGIN, &META)
+            .is_ok());
+
+        assert_eq!(
+            typestore.check_subtype(inv_contra_dog, inv_contra_animal, &ORIGIN, &META),
+            Err(InferenceError::types_incompatible(
+                animal_tid, dog_tid, &ORIGIN, &META
+            ))
+        );
+        assert_eq!(
+            typestore.check_subtype(inv_contra_animal, inv_contra_dog, &ORIGIN, &META),
+            Err(InferenceError::types_incompatible(
+                dog_tid, animal_tid, &ORIGIN, &META
+            ))
+        );
+        assert!(typestore
+            .check_subtype(inv_contra_dog, inv_contra_dog, &ORIGIN, &META)
+            .is_ok());
+        assert!(typestore
+            .check_subtype(inv_contra_animal, inv_contra_animal, &ORIGIN, &META)
+            .is_ok());
+
+        assert_eq!(
+            typestore.check_subtype(inv_inv_dog, inv_inv_animal, &ORIGIN, &META),
+            Err(InferenceError::types_incompatible(
+                animal_tid, dog_tid, &ORIGIN, &META
+            ))
+        );
+        assert_eq!(
+            typestore.check_subtype(inv_inv_animal, inv_inv_dog, &ORIGIN, &META),
+            Err(InferenceError::types_incompatible(
+                dog_tid, animal_tid, &ORIGIN, &META
+            ))
+        );
+        assert!(typestore
+            .check_subtype(inv_inv_dog, inv_inv_dog, &ORIGIN, &META)
+            .is_ok());
+        assert!(typestore
+            .check_subtype(inv_inv_animal, inv_inv_animal, &ORIGIN, &META)
             .is_ok());
     }
 
@@ -3505,34 +3676,34 @@ mod variance_tests {
             .unwrap();
 
         assert!(typestore
-            .check_subtype(mixed_dog_animal, mixed_animal_dog, &META)
+            .check_subtype(mixed_dog_animal, mixed_animal_dog, &ORIGIN, &META)
             .is_ok());
         assert_eq!(
-            typestore.check_subtype(mixed_animal_dog, mixed_dog_animal, &META),
+            typestore.check_subtype(mixed_animal_dog, mixed_dog_animal, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
         assert_eq!(
-            typestore.check_subtype(mixed_dog_dog, mixed_animal_animal, &META),
+            typestore.check_subtype(mixed_dog_dog, mixed_animal_animal, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert!(typestore
-            .check_subtype(mixed_dog_animal, mixed_animal_animal, &META)
+            .check_subtype(mixed_dog_animal, mixed_animal_animal, &ORIGIN, &META)
             .is_ok());
         assert!(typestore
-            .check_subtype(mixed_dog_animal, mixed_dog_dog, &META)
+            .check_subtype(mixed_dog_animal, mixed_dog_dog, &ORIGIN, &META)
             .is_ok());
         assert_eq!(
-            typestore.check_subtype(mixed_dog_dog, mixed_dog_animal, &META),
+            typestore.check_subtype(mixed_dog_dog, mixed_dog_animal, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert!(typestore
-            .check_subtype(mixed_dog_animal, mixed_dog_dog, &META)
+            .check_subtype(mixed_dog_animal, mixed_dog_dog, &ORIGIN, &META)
             .is_ok());
     }
 
@@ -3543,8 +3714,8 @@ mod variance_tests {
         let b = contravariant_struct(&mut typestore);
 
         assert_eq!(
-            typestore.check_subtype(a, b, &META),
-            Err(InferenceError::types_incompatible(b, a, &META))
+            typestore.check_subtype(a, b, &ORIGIN, &META),
+            Err(InferenceError::types_incompatible(b, a, &ORIGIN, &META))
         )
     }
 
@@ -3563,11 +3734,11 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(box_animal, box_dog, &META),
+            typestore.join_ty_ty(box_animal, box_dog, &ORIGIN, &META),
             Ok(box_animal)
         );
         assert_eq!(
-            typestore.join_ty_ty(box_dog, box_animal, &META),
+            typestore.join_ty_ty(box_dog, box_animal, &ORIGIN, &META),
             Ok(box_animal)
         );
     }
@@ -3587,20 +3758,23 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(inv_animal, inv_animal, &META),
+            typestore.join_ty_ty(inv_animal, inv_animal, &ORIGIN, &META),
             Ok(inv_animal)
         );
-        assert_eq!(typestore.join_ty_ty(inv_dog, inv_dog, &META), Ok(inv_dog));
         assert_eq!(
-            typestore.join_ty_ty(inv_animal, inv_dog, &META),
+            typestore.join_ty_ty(inv_dog, inv_dog, &ORIGIN, &META),
+            Ok(inv_dog)
+        );
+        assert_eq!(
+            typestore.join_ty_ty(inv_animal, inv_dog, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert_eq!(
-            typestore.join_ty_ty(inv_dog, inv_animal, &META),
+            typestore.join_ty_ty(inv_dog, inv_animal, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
     }
@@ -3620,19 +3794,19 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(contra_animal, contra_animal, &META),
+            typestore.join_ty_ty(contra_animal, contra_animal, &ORIGIN, &META),
             Ok(contra_animal)
         );
         assert_eq!(
-            typestore.join_ty_ty(contra_dog, contra_dog, &META),
+            typestore.join_ty_ty(contra_dog, contra_dog, &ORIGIN, &META),
             Ok(contra_dog)
         );
         assert_eq!(
-            typestore.join_ty_ty(contra_animal, contra_dog, &META),
+            typestore.join_ty_ty(contra_animal, contra_dog, &ORIGIN, &META),
             Ok(contra_dog)
         );
         assert_eq!(
-            typestore.join_ty_ty(contra_dog, contra_animal, &META),
+            typestore.join_ty_ty(contra_dog, contra_animal, &ORIGIN, &META),
             Ok(contra_dog)
         );
     }
@@ -3670,11 +3844,11 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(co_co_dog, co_co_animal, &META),
+            typestore.join_ty_ty(co_co_dog, co_co_animal, &ORIGIN, &META),
             Ok(co_co_animal)
         );
         assert_eq!(
-            typestore.join_ty_ty(co_co_animal, co_co_dog, &META),
+            typestore.join_ty_ty(co_co_animal, co_co_dog, &ORIGIN, &META),
             Ok(co_co_animal)
         );
     }
@@ -3719,11 +3893,11 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(co_contra_dog, co_contra_animal, &META),
+            typestore.join_ty_ty(co_contra_dog, co_contra_animal, &ORIGIN, &META),
             Ok(co_contra_dog)
         );
         assert_eq!(
-            typestore.join_ty_ty(co_contra_animal, co_contra_dog, &META),
+            typestore.join_ty_ty(co_contra_animal, co_contra_dog, &ORIGIN, &META),
             Ok(co_contra_dog)
         );
     }
@@ -3768,11 +3942,11 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(contra_co_dog, contra_co_animal, &META),
+            typestore.join_ty_ty(contra_co_dog, contra_co_animal, &ORIGIN, &META),
             Ok(contra_co_dog)
         );
         assert_eq!(
-            typestore.join_ty_ty(contra_co_animal, contra_co_dog, &META),
+            typestore.join_ty_ty(contra_co_animal, contra_co_dog, &ORIGIN, &META),
             Ok(contra_co_dog)
         );
     }
@@ -3816,11 +3990,11 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(contra_contra_dog, contra_contra_animal, &META),
+            typestore.join_ty_ty(contra_contra_dog, contra_contra_animal, &ORIGIN, &META),
             Ok(contra_contra_animal)
         );
         assert_eq!(
-            typestore.join_ty_ty(contra_contra_animal, contra_contra_dog, &META),
+            typestore.join_ty_ty(contra_contra_animal, contra_contra_dog, &ORIGIN, &META),
             Ok(contra_contra_animal)
         );
     }
@@ -3879,12 +4053,12 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(mixed_dog_animal, mixed_animal_dog, &META),
+            typestore.join_ty_ty(mixed_dog_animal, mixed_animal_dog, &ORIGIN, &META),
             Ok(mixed_animal_dog)
         );
 
         assert_eq!(
-            typestore.join_ty_ty(mixed_animal_dog, mixed_dog_animal, &META),
+            typestore.join_ty_ty(mixed_animal_dog, mixed_dog_animal, &ORIGIN, &META),
             Ok(mixed_animal_dog)
         );
     }
@@ -3942,12 +4116,12 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(mixed_dog_dog, mixed_animal_animal, &META),
+            typestore.join_ty_ty(mixed_dog_dog, mixed_animal_animal, &ORIGIN, &META),
             Ok(mixed_animal_dog)
         );
 
         assert_eq!(
-            typestore.join_ty_ty(mixed_animal_animal, mixed_dog_dog, &META),
+            typestore.join_ty_ty(mixed_animal_animal, mixed_dog_dog, &ORIGIN, &META),
             Ok(mixed_animal_dog)
         );
     }
@@ -4000,12 +4174,12 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(mixed_dog_animal, mixed_dog_dog, &META),
+            typestore.join_ty_ty(mixed_dog_animal, mixed_dog_dog, &ORIGIN, &META),
             Ok(mixed_dog_dog)
         );
 
         assert_eq!(
-            typestore.join_ty_ty(mixed_dog_dog, mixed_dog_animal, &META),
+            typestore.join_ty_ty(mixed_dog_dog, mixed_dog_animal, &ORIGIN, &META),
             Ok(mixed_dog_dog)
         );
     }
@@ -4058,12 +4232,12 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(mixed_dog_animal, mixed_animal_animal, &META),
+            typestore.join_ty_ty(mixed_dog_animal, mixed_animal_animal, &ORIGIN, &META),
             Ok(mixed_animal_animal)
         );
 
         assert_eq!(
-            typestore.join_ty_ty(mixed_animal_animal, mixed_dog_animal, &META),
+            typestore.join_ty_ty(mixed_animal_animal, mixed_dog_animal, &ORIGIN, &META),
             Ok(mixed_animal_animal)
         );
     }
@@ -4076,12 +4250,12 @@ mod variance_tests {
         let b = contravariant_struct(&mut typestore);
 
         assert_eq!(
-            typestore.join_ty_ty(a, b, &META),
-            Err(InferenceError::types_incompatible(a, b, &META))
+            typestore.join_ty_ty(a, b, &ORIGIN, &META),
+            Err(InferenceError::types_incompatible(a, b, &ORIGIN, &META))
         )
     }
 
-    fn covariant_enum(typestore: &mut TypeStore) -> TypeId {
+    fn covariant_enum(typestore: &mut TypeStore<()>) -> TypeId {
         let t_tyvar = typestore.fresh_type_var();
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
         let def = EnumDef::new(&typestore, vec![t_tyvar], vec![Some(t_tid)], &META).unwrap();
@@ -4089,7 +4263,7 @@ mod variance_tests {
         typestore.add_enum(def).0
     }
 
-    fn invariant_enum(typestore: &mut TypeStore) -> TypeId {
+    fn invariant_enum(typestore: &mut TypeStore<()>) -> TypeId {
         let t_tyvar = typestore.fresh_type_var();
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
         let t_ptr_mut_tid = typestore.pointer(t_tid, Mutability::Mutable);
@@ -4099,7 +4273,7 @@ mod variance_tests {
         typestore.add_enum(def).0
     }
 
-    fn contravariant_enum(typestore: &mut TypeStore) -> TypeId {
+    fn contravariant_enum(typestore: &mut TypeStore<()>) -> TypeId {
         let t_tyvar = typestore.fresh_type_var();
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
 
@@ -4132,12 +4306,12 @@ mod variance_tests {
             .unwrap();
 
         assert!(typestore
-            .check_subtype(covariant_enum_dog, covariant_enum_animal, &META)
+            .check_subtype(covariant_enum_dog, covariant_enum_animal, &ORIGIN, &META)
             .is_ok());
         assert_eq!(
-            typestore.check_subtype(covariant_enum_animal, covariant_enum_dog, &META),
+            typestore.check_subtype(covariant_enum_animal, covariant_enum_dog, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
     }
@@ -4164,22 +4338,22 @@ mod variance_tests {
             .unwrap();
 
         assert!(typestore
-            .check_subtype(invariant_enum_animal, invariant_enum_animal, &META)
+            .check_subtype(invariant_enum_animal, invariant_enum_animal, &ORIGIN, &META)
             .is_ok());
         assert_eq!(
-            typestore.check_subtype(invariant_enum_animal, invariant_enum_dog, &META),
+            typestore.check_subtype(invariant_enum_animal, invariant_enum_dog, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
         assert_eq!(
-            typestore.check_subtype(invariant_enum_dog, invariant_enum_animal, &META),
+            typestore.check_subtype(invariant_enum_dog, invariant_enum_animal, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert!(typestore
-            .check_subtype(invariant_enum_animal, invariant_enum_animal, &META)
+            .check_subtype(invariant_enum_animal, invariant_enum_animal, &ORIGIN, &META)
             .is_ok());
     }
 
@@ -4205,19 +4379,39 @@ mod variance_tests {
             .unwrap();
 
         assert!(typestore
-            .check_subtype(contravariant_enum_animal, contravariant_enum_animal, &META)
+            .check_subtype(
+                contravariant_enum_animal,
+                contravariant_enum_animal,
+                &ORIGIN,
+                &META
+            )
             .is_ok());
         assert_eq!(
-            typestore.check_subtype(contravariant_enum_dog, contravariant_enum_animal, &META),
+            typestore.check_subtype(
+                contravariant_enum_dog,
+                contravariant_enum_animal,
+                &ORIGIN,
+                &META
+            ),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert!(typestore
-            .check_subtype(contravariant_enum_animal, contravariant_enum_dog, &META)
+            .check_subtype(
+                contravariant_enum_animal,
+                contravariant_enum_dog,
+                &ORIGIN,
+                &META
+            )
             .is_ok());
         assert!(typestore
-            .check_subtype(contravariant_enum_dog, contravariant_enum_dog, &META)
+            .check_subtype(
+                contravariant_enum_dog,
+                contravariant_enum_dog,
+                &ORIGIN,
+                &META
+            )
             .is_ok());
     }
 
@@ -4249,12 +4443,22 @@ mod variance_tests {
             .unwrap();
 
         assert!(typestore
-            .check_subtype(covariant_covariant_dog, covariant_covariant_animal, &META)
+            .check_subtype(
+                covariant_covariant_dog,
+                covariant_covariant_animal,
+                &ORIGIN,
+                &META
+            )
             .is_ok());
         assert_eq!(
-            typestore.check_subtype(covariant_covariant_animal, covariant_covariant_dog, &META),
+            typestore.check_subtype(
+                covariant_covariant_animal,
+                covariant_covariant_dog,
+                &ORIGIN,
+                &META
+            ),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
     }
@@ -4292,16 +4496,18 @@ mod variance_tests {
             typestore.check_subtype(
                 covariant_contravariant_dog,
                 covariant_contravariant_animal,
+                &ORIGIN,
                 &META
             ),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert!(typestore
             .check_subtype(
                 covariant_contravariant_animal,
                 covariant_contravariant_dog,
+                &ORIGIN,
                 &META
             )
             .is_ok());
@@ -4340,16 +4546,18 @@ mod variance_tests {
             typestore.check_subtype(
                 contravariant_covariant_dog,
                 contravariant_covariant_animal,
+                &ORIGIN,
                 &META
             ),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert!(typestore
             .check_subtype(
                 contravariant_covariant_animal,
                 contravariant_covariant_dog,
+                &ORIGIN,
                 &META
             )
             .is_ok());
@@ -4386,6 +4594,7 @@ mod variance_tests {
             .check_subtype(
                 contravariant_contravariant_dog,
                 contravariant_contravariant_animal,
+                &ORIGIN,
                 &META
             )
             .is_ok());
@@ -4393,10 +4602,11 @@ mod variance_tests {
             typestore.check_subtype(
                 contravariant_contravariant_animal,
                 contravariant_contravariant_dog,
+                &ORIGIN,
                 &META
             ),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
     }
@@ -4468,98 +4678,98 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.check_subtype(co_inv_dog, co_inv_animal, &META),
+            typestore.check_subtype(co_inv_dog, co_inv_animal, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert_eq!(
-            typestore.check_subtype(co_inv_animal, co_inv_dog, &META),
+            typestore.check_subtype(co_inv_animal, co_inv_dog, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
         assert!(typestore
-            .check_subtype(co_inv_dog, co_inv_dog, &META)
+            .check_subtype(co_inv_dog, co_inv_dog, &ORIGIN, &META)
             .is_ok());
         assert!(typestore
-            .check_subtype(co_inv_animal, co_inv_animal, &META)
-            .is_ok());
-
-        assert_eq!(
-            typestore.check_subtype(contra_inv_dog, contra_inv_animal, &META),
-            Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
-            ))
-        );
-        assert_eq!(
-            typestore.check_subtype(contra_inv_animal, contra_inv_dog, &META),
-            Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
-            ))
-        );
-        assert!(typestore
-            .check_subtype(contra_inv_dog, contra_inv_dog, &META)
-            .is_ok());
-        assert!(typestore
-            .check_subtype(contra_inv_animal, contra_inv_animal, &META)
+            .check_subtype(co_inv_animal, co_inv_animal, &ORIGIN, &META)
             .is_ok());
 
         assert_eq!(
-            typestore.check_subtype(inv_co_dog, inv_co_animal, &META),
+            typestore.check_subtype(contra_inv_dog, contra_inv_animal, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert_eq!(
-            typestore.check_subtype(inv_co_animal, inv_co_dog, &META),
+            typestore.check_subtype(contra_inv_animal, contra_inv_dog, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
         assert!(typestore
-            .check_subtype(inv_co_dog, inv_co_dog, &META)
+            .check_subtype(contra_inv_dog, contra_inv_dog, &ORIGIN, &META)
             .is_ok());
         assert!(typestore
-            .check_subtype(inv_co_animal, inv_co_animal, &META)
-            .is_ok());
-
-        assert_eq!(
-            typestore.check_subtype(inv_contra_dog, inv_contra_animal, &META),
-            Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
-            ))
-        );
-        assert_eq!(
-            typestore.check_subtype(inv_contra_animal, inv_contra_dog, &META),
-            Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
-            ))
-        );
-        assert!(typestore
-            .check_subtype(inv_contra_dog, inv_contra_dog, &META)
-            .is_ok());
-        assert!(typestore
-            .check_subtype(inv_contra_animal, inv_contra_animal, &META)
+            .check_subtype(contra_inv_animal, contra_inv_animal, &ORIGIN, &META)
             .is_ok());
 
         assert_eq!(
-            typestore.check_subtype(inv_inv_dog, inv_inv_animal, &META),
+            typestore.check_subtype(inv_co_dog, inv_co_animal, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert_eq!(
-            typestore.check_subtype(inv_inv_animal, inv_inv_dog, &META),
+            typestore.check_subtype(inv_co_animal, inv_co_dog, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
         assert!(typestore
-            .check_subtype(inv_inv_dog, inv_inv_dog, &META)
+            .check_subtype(inv_co_dog, inv_co_dog, &ORIGIN, &META)
             .is_ok());
         assert!(typestore
-            .check_subtype(inv_inv_animal, inv_inv_animal, &META)
+            .check_subtype(inv_co_animal, inv_co_animal, &ORIGIN, &META)
+            .is_ok());
+
+        assert_eq!(
+            typestore.check_subtype(inv_contra_dog, inv_contra_animal, &ORIGIN, &META),
+            Err(InferenceError::types_incompatible(
+                animal_tid, dog_tid, &ORIGIN, &META
+            ))
+        );
+        assert_eq!(
+            typestore.check_subtype(inv_contra_animal, inv_contra_dog, &ORIGIN, &META),
+            Err(InferenceError::types_incompatible(
+                dog_tid, animal_tid, &ORIGIN, &META
+            ))
+        );
+        assert!(typestore
+            .check_subtype(inv_contra_dog, inv_contra_dog, &ORIGIN, &META)
+            .is_ok());
+        assert!(typestore
+            .check_subtype(inv_contra_animal, inv_contra_animal, &ORIGIN, &META)
+            .is_ok());
+
+        assert_eq!(
+            typestore.check_subtype(inv_inv_dog, inv_inv_animal, &ORIGIN, &META),
+            Err(InferenceError::types_incompatible(
+                animal_tid, dog_tid, &ORIGIN, &META
+            ))
+        );
+        assert_eq!(
+            typestore.check_subtype(inv_inv_animal, inv_inv_dog, &ORIGIN, &META),
+            Err(InferenceError::types_incompatible(
+                dog_tid, animal_tid, &ORIGIN, &META
+            ))
+        );
+        assert!(typestore
+            .check_subtype(inv_inv_dog, inv_inv_dog, &ORIGIN, &META)
+            .is_ok());
+        assert!(typestore
+            .check_subtype(inv_inv_animal, inv_inv_animal, &ORIGIN, &META)
             .is_ok());
     }
 
@@ -4605,34 +4815,34 @@ mod variance_tests {
             .unwrap();
 
         assert!(typestore
-            .check_subtype(mixed_dog_animal, mixed_animal_dog, &META)
+            .check_subtype(mixed_dog_animal, mixed_animal_dog, &ORIGIN, &META)
             .is_ok());
         assert_eq!(
-            typestore.check_subtype(mixed_animal_dog, mixed_dog_animal, &META),
+            typestore.check_subtype(mixed_animal_dog, mixed_dog_animal, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
         assert_eq!(
-            typestore.check_subtype(mixed_dog_dog, mixed_animal_animal, &META),
+            typestore.check_subtype(mixed_dog_dog, mixed_animal_animal, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert!(typestore
-            .check_subtype(mixed_dog_animal, mixed_animal_animal, &META)
+            .check_subtype(mixed_dog_animal, mixed_animal_animal, &ORIGIN, &META)
             .is_ok());
         assert!(typestore
-            .check_subtype(mixed_dog_animal, mixed_dog_dog, &META)
+            .check_subtype(mixed_dog_animal, mixed_dog_dog, &ORIGIN, &META)
             .is_ok());
         assert_eq!(
-            typestore.check_subtype(mixed_dog_dog, mixed_dog_animal, &META),
+            typestore.check_subtype(mixed_dog_dog, mixed_dog_animal, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert!(typestore
-            .check_subtype(mixed_dog_animal, mixed_dog_dog, &META)
+            .check_subtype(mixed_dog_animal, mixed_dog_dog, &ORIGIN, &META)
             .is_ok());
     }
 
@@ -4643,8 +4853,8 @@ mod variance_tests {
         let b = contravariant_enum(&mut typestore);
 
         assert_eq!(
-            typestore.check_subtype(a, b, &META),
-            Err(InferenceError::types_incompatible(b, a, &META))
+            typestore.check_subtype(a, b, &ORIGIN, &META),
+            Err(InferenceError::types_incompatible(b, a, &ORIGIN, &META))
         )
     }
 
@@ -4663,11 +4873,11 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(box_animal, box_dog, &META),
+            typestore.join_ty_ty(box_animal, box_dog, &ORIGIN, &META),
             Ok(box_animal)
         );
         assert_eq!(
-            typestore.join_ty_ty(box_dog, box_animal, &META),
+            typestore.join_ty_ty(box_dog, box_animal, &ORIGIN, &META),
             Ok(box_animal)
         );
     }
@@ -4687,20 +4897,23 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(inv_animal, inv_animal, &META),
+            typestore.join_ty_ty(inv_animal, inv_animal, &ORIGIN, &META),
             Ok(inv_animal)
         );
-        assert_eq!(typestore.join_ty_ty(inv_dog, inv_dog, &META), Ok(inv_dog));
         assert_eq!(
-            typestore.join_ty_ty(inv_animal, inv_dog, &META),
+            typestore.join_ty_ty(inv_dog, inv_dog, &ORIGIN, &META),
+            Ok(inv_dog)
+        );
+        assert_eq!(
+            typestore.join_ty_ty(inv_animal, inv_dog, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
         assert_eq!(
-            typestore.join_ty_ty(inv_dog, inv_animal, &META),
+            typestore.join_ty_ty(inv_dog, inv_animal, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
     }
@@ -4720,19 +4933,19 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(contra_animal, contra_animal, &META),
+            typestore.join_ty_ty(contra_animal, contra_animal, &ORIGIN, &META),
             Ok(contra_animal)
         );
         assert_eq!(
-            typestore.join_ty_ty(contra_dog, contra_dog, &META),
+            typestore.join_ty_ty(contra_dog, contra_dog, &ORIGIN, &META),
             Ok(contra_dog)
         );
         assert_eq!(
-            typestore.join_ty_ty(contra_animal, contra_dog, &META),
+            typestore.join_ty_ty(contra_animal, contra_dog, &ORIGIN, &META),
             Ok(contra_dog)
         );
         assert_eq!(
-            typestore.join_ty_ty(contra_dog, contra_animal, &META),
+            typestore.join_ty_ty(contra_dog, contra_animal, &ORIGIN, &META),
             Ok(contra_dog)
         );
     }
@@ -4770,11 +4983,11 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(co_co_dog, co_co_animal, &META),
+            typestore.join_ty_ty(co_co_dog, co_co_animal, &ORIGIN, &META),
             Ok(co_co_animal)
         );
         assert_eq!(
-            typestore.join_ty_ty(co_co_animal, co_co_dog, &META),
+            typestore.join_ty_ty(co_co_animal, co_co_dog, &ORIGIN, &META),
             Ok(co_co_animal)
         );
     }
@@ -4819,11 +5032,11 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(co_contra_dog, co_contra_animal, &META),
+            typestore.join_ty_ty(co_contra_dog, co_contra_animal, &ORIGIN, &META),
             Ok(co_contra_dog)
         );
         assert_eq!(
-            typestore.join_ty_ty(co_contra_animal, co_contra_dog, &META),
+            typestore.join_ty_ty(co_contra_animal, co_contra_dog, &ORIGIN, &META),
             Ok(co_contra_dog)
         );
     }
@@ -4868,11 +5081,11 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(contra_co_dog, contra_co_animal, &META),
+            typestore.join_ty_ty(contra_co_dog, contra_co_animal, &ORIGIN, &META),
             Ok(contra_co_dog)
         );
         assert_eq!(
-            typestore.join_ty_ty(contra_co_animal, contra_co_dog, &META),
+            typestore.join_ty_ty(contra_co_animal, contra_co_dog, &ORIGIN, &META),
             Ok(contra_co_dog)
         );
     }
@@ -4916,11 +5129,11 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(contra_contra_dog, contra_contra_animal, &META),
+            typestore.join_ty_ty(contra_contra_dog, contra_contra_animal, &ORIGIN, &META),
             Ok(contra_contra_animal)
         );
         assert_eq!(
-            typestore.join_ty_ty(contra_contra_animal, contra_contra_dog, &META),
+            typestore.join_ty_ty(contra_contra_animal, contra_contra_dog, &ORIGIN, &META),
             Ok(contra_contra_animal)
         );
     }
@@ -4979,12 +5192,12 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(mixed_dog_animal, mixed_animal_dog, &META),
+            typestore.join_ty_ty(mixed_dog_animal, mixed_animal_dog, &ORIGIN, &META),
             Ok(mixed_animal_dog)
         );
 
         assert_eq!(
-            typestore.join_ty_ty(mixed_animal_dog, mixed_dog_animal, &META),
+            typestore.join_ty_ty(mixed_animal_dog, mixed_dog_animal, &ORIGIN, &META),
             Ok(mixed_animal_dog)
         );
     }
@@ -5042,12 +5255,12 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(mixed_dog_dog, mixed_animal_animal, &META),
+            typestore.join_ty_ty(mixed_dog_dog, mixed_animal_animal, &ORIGIN, &META),
             Ok(mixed_animal_dog)
         );
 
         assert_eq!(
-            typestore.join_ty_ty(mixed_animal_animal, mixed_dog_dog, &META),
+            typestore.join_ty_ty(mixed_animal_animal, mixed_dog_dog, &ORIGIN, &META),
             Ok(mixed_animal_dog)
         );
     }
@@ -5100,12 +5313,12 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(mixed_dog_animal, mixed_dog_dog, &META),
+            typestore.join_ty_ty(mixed_dog_animal, mixed_dog_dog, &ORIGIN, &META),
             Ok(mixed_dog_dog)
         );
 
         assert_eq!(
-            typestore.join_ty_ty(mixed_dog_dog, mixed_dog_animal, &META),
+            typestore.join_ty_ty(mixed_dog_dog, mixed_dog_animal, &ORIGIN, &META),
             Ok(mixed_dog_dog)
         );
     }
@@ -5158,12 +5371,12 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.join_ty_ty(mixed_dog_animal, mixed_animal_animal, &META),
+            typestore.join_ty_ty(mixed_dog_animal, mixed_animal_animal, &ORIGIN, &META),
             Ok(mixed_animal_animal)
         );
 
         assert_eq!(
-            typestore.join_ty_ty(mixed_animal_animal, mixed_dog_animal, &META),
+            typestore.join_ty_ty(mixed_animal_animal, mixed_dog_animal, &ORIGIN, &META),
             Ok(mixed_animal_animal)
         );
     }
@@ -5176,8 +5389,8 @@ mod variance_tests {
         let b = contravariant_enum(&mut typestore);
 
         assert_eq!(
-            typestore.join_ty_ty(a, b, &META),
-            Err(InferenceError::types_incompatible(a, b, &META))
+            typestore.join_ty_ty(a, b, &ORIGIN, &META),
+            Err(InferenceError::types_incompatible(a, b, &ORIGIN, &META))
         )
     }
 
@@ -5190,7 +5403,9 @@ mod variance_tests {
         let some_dog = typestore
             .type_instance(some, Some(vec![dog_tid]), &META)
             .unwrap();
-        assert!(typestore.check_subtype(some_dog, some_dog, &META).is_ok());
+        assert!(typestore
+            .check_subtype(some_dog, some_dog, &ORIGIN, &META)
+            .is_ok());
     }
 
     #[test]
@@ -5207,12 +5422,12 @@ mod variance_tests {
             .unwrap();
 
         assert!(typestore
-            .check_subtype(some_dog, some_animal, &META)
+            .check_subtype(some_dog, some_animal, &ORIGIN, &META)
             .is_ok());
         assert_eq!(
-            typestore.check_subtype(some_animal, some_dog, &META),
+            typestore.check_subtype(some_animal, some_dog, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
     }
@@ -5231,15 +5446,15 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.check_subtype(some_dog, none_dog, &META),
+            typestore.check_subtype(some_dog, none_dog, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                none_dog, some_dog, &META
+                none_dog, some_dog, &ORIGIN, &META
             ))
         );
         assert_eq!(
-            typestore.check_subtype(none_dog, some_dog, &META),
+            typestore.check_subtype(none_dog, some_dog, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                some_dog, none_dog, &META
+                some_dog, none_dog, &ORIGIN, &META
             ))
         );
     }
@@ -5257,11 +5472,13 @@ mod variance_tests {
             .type_instance(option, Some(vec![dog_tid]), &META)
             .unwrap();
 
-        assert!(typestore.check_subtype(some_dog, option_dog, &META).is_ok());
+        assert!(typestore
+            .check_subtype(some_dog, option_dog, &ORIGIN, &META)
+            .is_ok());
         assert_eq!(
-            typestore.check_subtype(option_dog, some_dog, &META),
+            typestore.check_subtype(option_dog, some_dog, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                some_dog, option_dog, &META
+                some_dog, option_dog, &ORIGIN, &META
             ))
         );
     }
@@ -5289,22 +5506,23 @@ mod variance_tests {
             .unwrap();
 
         assert!(typestore
-            .check_subtype(some_dog, option_animal, &META)
+            .check_subtype(some_dog, option_animal, &ORIGIN, &META)
             .is_ok());
 
         assert_eq!(
-            typestore.check_subtype(option_animal, some_dog, &META),
+            typestore.check_subtype(option_animal, some_dog, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
                 some_dog,
                 option_animal,
+                &ORIGIN,
                 &META
             ))
         );
 
         assert_eq!(
-            typestore.check_subtype(some_animal, option_dog, &META),
+            typestore.check_subtype(some_animal, option_dog, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
     }
@@ -5320,9 +5538,9 @@ mod variance_tests {
             .unwrap();
 
         assert_eq!(
-            typestore.check_subtype(animal_tid, some_dog, &META),
+            typestore.check_subtype(animal_tid, some_dog, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                some_dog, animal_tid, &META
+                some_dog, animal_tid, &ORIGIN, &META
             ))
         )
     }
@@ -5348,13 +5566,13 @@ mod variance_tests {
         // Variant<Dog> <: Variant<Animal>
 
         assert!(typestore
-            .check_subtype(variant_dog, variant_animal, &META)
+            .check_subtype(variant_dog, variant_animal, &ORIGIN, &META)
             .is_ok());
 
         assert_eq!(
-            typestore.check_subtype(variant_animal, variant_dog, &META),
+            typestore.check_subtype(variant_animal, variant_dog, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
     }
@@ -5382,13 +5600,13 @@ mod variance_tests {
         // Variant<Dog> </: Variant<Animal>
 
         assert!(typestore
-            .check_subtype(variant_animal, variant_dog, &META)
+            .check_subtype(variant_animal, variant_dog, &ORIGIN, &META)
             .is_ok());
 
         assert_eq!(
-            typestore.check_subtype(variant_dog, variant_animal, &META),
+            typestore.check_subtype(variant_dog, variant_animal, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
     }
@@ -5416,25 +5634,25 @@ mod variance_tests {
         // Variant<Animal> </: Variant<Dog>
 
         assert_eq!(
-            typestore.check_subtype(variant_dog, variant_animal, &META),
+            typestore.check_subtype(variant_dog, variant_animal, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                animal_tid, dog_tid, &META
+                animal_tid, dog_tid, &ORIGIN, &META
             ))
         );
 
         assert_eq!(
-            typestore.check_subtype(variant_animal, variant_dog, &META),
+            typestore.check_subtype(variant_animal, variant_dog, &ORIGIN, &META),
             Err(InferenceError::types_incompatible(
-                dog_tid, animal_tid, &META
+                dog_tid, animal_tid, &ORIGIN, &META
             ))
         );
 
         assert!(typestore
-            .check_subtype(variant_dog, variant_dog, &META)
+            .check_subtype(variant_dog, variant_dog, &ORIGIN, &META)
             .is_ok());
 
         assert!(typestore
-            .check_subtype(variant_animal, variant_animal, &META)
+            .check_subtype(variant_animal, variant_animal, &ORIGIN, &META)
             .is_ok());
     }
 
@@ -5462,12 +5680,12 @@ mod variance_tests {
         // = Some<Animal>
 
         assert_eq!(
-            typestore.join_ty_ty(some_dog, some_animal, &META),
+            typestore.join_ty_ty(some_dog, some_animal, &ORIGIN, &META),
             Ok(some_animal)
         );
 
         assert_eq!(
-            typestore.join_ty_ty(some_animal, some_dog, &META),
+            typestore.join_ty_ty(some_animal, some_dog, &ORIGIN, &META),
             Ok(some_animal)
         );
     }
@@ -5500,12 +5718,12 @@ mod variance_tests {
         // = Option<Animal>
 
         assert_eq!(
-            typestore.join_ty_ty(some_dog, none_animal, &META),
+            typestore.join_ty_ty(some_dog, none_animal, &ORIGIN, &META),
             Ok(option_animal)
         );
 
         assert_eq!(
-            typestore.join_ty_ty(none_animal, some_dog, &META),
+            typestore.join_ty_ty(none_animal, some_dog, &ORIGIN, &META),
             Ok(option_animal)
         );
     }
@@ -5537,12 +5755,12 @@ mod variance_tests {
         // = Option<Animal>
 
         assert_eq!(
-            typestore.join_ty_ty(some_dog, option_animal, &META),
+            typestore.join_ty_ty(some_dog, option_animal, &ORIGIN, &META),
             Ok(option_animal)
         );
 
         assert_eq!(
-            typestore.join_ty_ty(option_animal, some_dog, &META),
+            typestore.join_ty_ty(option_animal, some_dog, &ORIGIN, &META),
             Ok(option_animal)
         );
     }

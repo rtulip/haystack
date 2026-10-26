@@ -2,11 +2,14 @@ use std::fmt::Debug;
 
 use crate::{
     typecheck::environment::Variance,
-    typecheck::typ::{
-        type_id::{EnumId, StructId, TypeId},
-        type_var::TypeVar,
-    },
     typecheck::typestore::{inference::InferenceError, TypeStore},
+    typecheck::{
+        constraint::ConstraintOrigin,
+        typ::{
+            type_id::{EnumId, StructId, TypeId},
+            type_var::TypeVar,
+        },
+    },
 };
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -65,7 +68,11 @@ impl StructDef {
                     .fold(None, |result, tid| {
                         Variance::combine(result, typestore.get_variance(*tid, *var))
                     })
-                    .ok_or(InferenceError::unbound_var(*var, meta))
+                    .ok_or(InferenceError::unbound_var(
+                        *var,
+                        &ConstraintOrigin::StructDef,
+                        meta,
+                    ))
             })
             .collect::<Result<Vec<_>, InferenceError<M>>>()?;
 
@@ -107,7 +114,11 @@ impl EnumDef {
                         };
                         Variance::combine(result, variance)
                     })
-                    .ok_or(InferenceError::unbound_var(*var, meta))
+                    .ok_or(InferenceError::unbound_var(
+                        *var,
+                        &ConstraintOrigin::EnumDef,
+                        meta,
+                    ))
             })
             .collect::<Result<Vec<_>, InferenceError<M>>>()?;
 

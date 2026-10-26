@@ -23,6 +23,8 @@ use crate::{
     typecheck::union_find::{UnifiactionError, UnificationTable},
 };
 
+use super::constraint::ConstraintOrigin;
+
 pub mod inference;
 
 pub type Stack = Vec<TypeId>;
@@ -749,6 +751,10 @@ impl TypeStore {
                 expected: func.input.clone(),
                 found: stack.clone(),
             },
+            ConstraintOrigin::FunctionCall {
+                input: stack.clone(),
+                expected: func.input.clone(),
+            },
             meta,
         );
         let split = if stack.len() < func.input.len() {
@@ -756,6 +762,11 @@ impl TypeStore {
         } else {
             stack.split_off(stack.len() - func.input.len())
         };
+        let constraint = ConstraintOrigin::FunctionCall {
+            input: split.clone(),
+            expected: func.input.clone(),
+        };
+
         let constraints = split
             .into_iter()
             .rev()
@@ -766,14 +777,13 @@ impl TypeStore {
                         subty: found,
                         superty: *expected,
                     },
+                    constraint.clone(),
                     meta,
                 )
             })
-            .chain(
-                predicates
-                    .into_iter()
-                    .map(|pred| Constraint::new(ConstraintType::Predicate(pred), meta)),
-            )
+            .chain(predicates.into_iter().map(|pred| {
+                Constraint::new(ConstraintType::Predicate(pred), constraint.clone(), meta)
+            }))
             .chain([argument_constraint]);
 
         stack.extend(func.output.clone());
@@ -809,7 +819,13 @@ impl TypeStore {
             let constraints = inst
                 .predicates
                 .into_iter()
-                .map(|pred| Constraint::new(ConstraintType::Predicate(pred), &meta))
+                .map(|pred| {
+                    Constraint::new(
+                        ConstraintType::Predicate(pred),
+                        ConstraintOrigin::Identifier(tid),
+                        &meta,
+                    )
+                })
                 .collect();
             (tid, constraints)
         };
@@ -1047,7 +1063,11 @@ impl TypeStore {
 
                 let tid = if let Some(func) = self.get_func(&inst.tid).cloned() {
                     if mutability != Mutability::Const {
-                        return Err(InferenceError::mutable_ref_to_fn(var, &expr.meta));
+                        return Err(InferenceError::mutable_ref_to_fn(
+                            var,
+                            &ConstraintOrigin::TakeRef { var, mutability },
+                            &expr.meta,
+                        ));
                     }
                     self.function(func)
                 } else {
@@ -1276,6 +1296,10 @@ impl TypeStore {
                             output: *tid,
                             inputs,
                         },
+                        ConstraintOrigin::MatchBranch {
+                            fresh_stack: fresh_stack.clone(),
+                            stacks: stacks.clone(),
+                        },
                         &expr.meta,
                     ));
                 }
@@ -1417,6 +1441,7 @@ impl TypeStore {
         &mut self,
         unnorm_left: TypeId,
         unnorm_right: TypeId,
+        origin: &ConstraintOrigin,
         meta: &M,
     ) -> Result<(), InferenceError<M>>
     where
@@ -1428,7 +1453,7 @@ impl TypeStore {
             (a, b) if a == b => Ok(()),
             (Type::Builtin(left), Type::Builtin(right)) if left == right => Ok(()),
             (Type::Builtin(_), Type::Builtin(_)) => Err(InferenceError::types_incompatible(
-                left_tid, right_tid, meta,
+                left_tid, right_tid, origin, meta,
             )),
             (Type::RigidTypeVar(left), Type::RigidTypeVar(right)) if left == right => Ok(()),
             (Type::TypeVar(left), Type::TypeVar(right)) => self
@@ -1437,16 +1462,16 @@ impl TypeStore {
                 .map_err(|UnifiactionError(_, _)| todo!()),
             (Type::TypeVar(var), _) => self.unify_typevar(var, right_tid),
             (_, Type::TypeVar(var)) => self.unify_typevar(var, left_tid),
-            (Type::Type(left), Type::Type(right)) => self.unify_ty_ty(left, right, meta),
+            (Type::Type(left), Type::Type(right)) => self.unify_ty_ty(left, right, origin, meta),
             (Type::Type(_), _) | (_, Type::Type(_)) => Err(InferenceError::types_incompatible(
-                left_tid, right_tid, meta,
+                left_tid, right_tid, origin, meta,
             )),
-            (Type::RigidTypeVar(var), _) => {
-                Err(InferenceError::type_param_constrained(var, right_tid, meta))
-            }
-            (_, Type::RigidTypeVar(var)) => {
-                Err(InferenceError::type_param_constrained(var, left_tid, meta))
-            }
+            (Type::RigidTypeVar(var), _) => Err(InferenceError::type_param_constrained(
+                var, right_tid, origin, meta,
+            )),
+            (_, Type::RigidTypeVar(var)) => Err(InferenceError::type_param_constrained(
+                var, left_tid, origin, meta,
+            )),
             (
                 Type::Pointer(PointerType {
                     mutability: mut_left,
@@ -1457,7 +1482,7 @@ impl TypeStore {
                     ..
                 }),
             ) if mut_left != mut_right => Err(InferenceError::types_incompatible(
-                left_tid, right_tid, meta,
+                left_tid, right_tid, origin, meta,
             )),
             (
                 Type::Pointer(PointerType {
@@ -1468,9 +1493,11 @@ impl TypeStore {
                     mutability: mut_right,
                     tid: right_inner_tid,
                 }),
-            ) if mut_left == mut_right => self.unify_ty_ty(left_inner_tid, right_inner_tid, meta),
+            ) if mut_left == mut_right => {
+                self.unify_ty_ty(left_inner_tid, right_inner_tid, origin, meta)
+            }
             (Type::Pointer(_), _) | (_, Type::Pointer(_)) => Err(
-                InferenceError::types_incompatible(left_tid, right_tid, meta),
+                InferenceError::types_incompatible(left_tid, right_tid, origin, meta),
             ),
             (Type::Variant(left), Type::Variant(right)) => {
                 if left.eid != right.eid {
@@ -1479,7 +1506,7 @@ impl TypeStore {
 
                 if left.variant != right.variant {
                     return Err(InferenceError::types_incompatible(
-                        left_tid, right_tid, meta,
+                        left_tid, right_tid, origin, meta,
                     ));
                 }
 
@@ -1487,24 +1514,24 @@ impl TypeStore {
                 left.args
                     .iter()
                     .zip(right.args.iter())
-                    .map(|(left, right)| self.unify_ty_ty(*left, *right, meta))
+                    .map(|(left, right)| self.unify_ty_ty(*left, *right, origin, meta))
                     .collect::<Result<(), InferenceError<M>>>()?;
 
                 Ok(())
             }
             (Type::Enum(_), Type::Variant(_)) | (Type::Variant(_), Type::Enum(_)) => Err(
-                InferenceError::types_incompatible(left_tid, right_tid, meta),
+                InferenceError::types_incompatible(left_tid, right_tid, origin, meta),
             ),
             (Type::Enum(left), Type::Enum(right)) => {
                 if left.eid != right.eid {
                     return Err(InferenceError::types_incompatible(
-                        left_tid, right_tid, meta,
+                        left_tid, right_tid, origin, meta,
                     ));
                 }
 
                 assert!(left.args.len() == right.args.len());
                 for (left, right) in left.args.into_iter().zip(right.args.into_iter()) {
-                    self.unify_ty_ty(left, right, meta)?;
+                    self.unify_ty_ty(left, right, origin, meta)?;
                 }
 
                 Ok(())
@@ -1512,13 +1539,13 @@ impl TypeStore {
             (Type::Struct(left), Type::Struct(right)) => {
                 if left.sid != right.sid {
                     return Err(InferenceError::types_incompatible(
-                        left_tid, right_tid, meta,
+                        left_tid, right_tid, origin, meta,
                     ));
                 }
 
                 assert!(left.args.len() == right.args.len());
                 for (left, right) in left.args.into_iter().zip(right.args.into_iter()) {
-                    self.unify_ty_ty(left, right, meta)?;
+                    self.unify_ty_ty(left, right, origin, meta)?;
                 }
 
                 Ok(())
@@ -1526,18 +1553,18 @@ impl TypeStore {
             (Type::Tuple(left), Type::Tuple(right)) => {
                 if left.len() != right.len() {
                     return Err(InferenceError::types_incompatible(
-                        left_tid, right_tid, meta,
+                        left_tid, right_tid, origin, meta,
                     ));
                 }
 
                 for (left, right) in left.into_iter().zip(right.into_iter()) {
-                    self.unify_ty_ty(left, right, meta)?;
+                    self.unify_ty_ty(left, right, origin, meta)?;
                 }
 
                 Ok(())
             }
             (Type::Tuple(_), _) | (_, Type::Tuple(_)) => Err(InferenceError::types_incompatible(
-                left_tid, right_tid, meta,
+                left_tid, right_tid, origin, meta,
             )),
             (_, _) => todo!("Unify {}, {}", self.fmt(left_tid), self.fmt(right_tid)),
         }
@@ -1548,6 +1575,7 @@ impl TypeStore {
         variances: &[Variance],
         sub_args: &[TypeId],
         super_args: &[TypeId],
+        origin: &ConstraintOrigin,
         meta: &M,
     ) -> Result<(), InferenceError<M>>
     where
@@ -1558,17 +1586,16 @@ impl TypeStore {
 
         for ((variance, sub_tid), super_tid) in variances.iter().zip(sub_args).zip(super_args) {
             let tid = match variance {
-                Variance::Covariant => self.check_subtype(*sub_tid, *super_tid, meta)?,
-                Variance::Invariant => self.unify_ty_ty(*super_tid, *sub_tid, meta)?,
-                Variance::Contravariant => {
-                    self.check_subtype(*super_tid, *sub_tid, meta)
-                        .map_err(|e| match e.kind {
-                            InferenceErrorKind::TypesIncompatible { expected, found } => {
-                                InferenceError::types_incompatible(found, expected, &e.meta)
-                            }
-                            _ => e,
-                        })?
-                }
+                Variance::Covariant => self.check_subtype(*sub_tid, *super_tid, origin, meta)?,
+                Variance::Invariant => self.unify_ty_ty(*super_tid, *sub_tid, origin, meta)?,
+                Variance::Contravariant => self
+                    .check_subtype(*super_tid, *sub_tid, origin, meta)
+                    .map_err(|e| match e.kind {
+                    InferenceErrorKind::TypesIncompatible { expected, found } => {
+                        InferenceError::types_incompatible(found, expected, origin, &e.meta)
+                    }
+                    _ => e,
+                })?,
             };
         }
 
@@ -1579,6 +1606,7 @@ impl TypeStore {
         &mut self,
         subty: TypeId,
         superty: TypeId,
+        origin: &ConstraintOrigin,
         meta: &M,
     ) -> Result<(), InferenceError<M>>
     where
@@ -1592,7 +1620,7 @@ impl TypeStore {
                     (Mutability::Mutable, Mutability::Mutable) => {
                         // &mut T <: &mut T
                         // iff T == T
-                        self.unify_ty_ty(superty_tid, subty_tid, meta)
+                        self.unify_ty_ty(superty_tid, subty_tid, origin, meta)
                     }
                     (Mutability::Mutable, Mutability::Const)
                     | (Mutability::Const, Mutability::Const) => {
@@ -1600,40 +1628,40 @@ impl TypeStore {
                         // ---------
                         // &mut A <: &B
                         // &A <: &B
-                        self.check_subtype(subty_inner.tid, superty_inner.tid, meta)
+                        self.check_subtype(subty_inner.tid, superty_inner.tid, origin, meta)
                     }
                     (Mutability::Const, Mutability::Mutable) => Err(
-                        InferenceError::types_incompatible(superty_tid, subty_tid, meta),
+                        InferenceError::types_incompatible(superty_tid, subty_tid, origin, meta),
                     ),
                 }
             }
             (Type::Variant(v), Type::Enum(e)) if v.eid == e.eid => {
                 assert!(v.args.len() == e.args.len());
                 let variances = self.get_enum_def(e.eid).variances.clone();
-                self.check_subtype_args(&variances, &v.args, &e.args, meta)
+                self.check_subtype_args(&variances, &v.args, &e.args, origin, meta)
             }
             (Type::Enum(sub_e), Type::Enum(super_e)) if sub_e.eid == super_e.eid => {
                 let variances = self.get_enum_def(sub_e.eid).variances.clone();
-                self.check_subtype_args(&variances, &sub_e.args, &super_e.args, meta)
+                self.check_subtype_args(&variances, &sub_e.args, &super_e.args, origin, meta)
             }
             (Type::Variant(sub_v), Type::Variant(super_v))
                 if sub_v.eid == super_v.eid && sub_v.variant == super_v.variant =>
             {
                 let variances = self.get_enum_def(sub_v.eid).variances.clone();
-                self.check_subtype_args(&variances, &sub_v.args, &super_v.args, meta)
+                self.check_subtype_args(&variances, &sub_v.args, &super_v.args, origin, meta)
             }
             (Type::Struct(sub_s), Type::Struct(super_s)) if sub_s.sid == super_s.sid => {
                 let variances = self.get_struct_def(sub_s.sid).variances.clone();
-                self.check_subtype_args(&variances, &sub_s.args, &super_s.args, meta)
+                self.check_subtype_args(&variances, &sub_s.args, &super_s.args, origin, meta)
             }
             (Type::Tuple(sub), Type::Tuple(sup)) if sub.len() == sup.len() => {
                 for (sub, sup) in sub.into_iter().zip(sup.into_iter()) {
-                    self.check_subtype(sub, sup, meta)?;
+                    self.check_subtype(sub, sup, origin, meta)?;
                 }
 
                 Ok(())
             }
-            (_, _) => self.unify_ty_ty(superty_tid, subty_tid, meta),
+            (_, _) => self.unify_ty_ty(superty_tid, subty_tid, origin, meta),
         }
     }
 
@@ -1641,6 +1669,7 @@ impl TypeStore {
         &mut self,
         env: &Environment,
         predicate: &TypePredicate,
+        origin: &ConstraintOrigin,
         meta: &M,
     ) -> Result<(), InferenceError<M>>
     where
@@ -1662,7 +1691,7 @@ impl TypeStore {
 
                         let types_match =
                             i.args.iter().zip(args.iter()).all(|(expected, found)| {
-                                self.unify_ty_ty(*expected, *found, meta).is_ok()
+                                self.unify_ty_ty(*expected, *found, origin, meta).is_ok()
                             });
 
                         if !types_match {
@@ -1671,17 +1700,17 @@ impl TypeStore {
 
                         i.predicates
                             .iter()
-                            .all(|p| self.check_predicate(env, p, meta).is_ok())
+                            .all(|p| self.check_predicate(env, p, origin, meta).is_ok())
                     })
                     .collect();
 
                 if matches.is_empty() {
-                    Err(InferenceError::predicate_not_met(cid, args, meta))
+                    Err(InferenceError::predicate_not_met(cid, args, origin, meta))
                 } else {
                     Ok(())
                 }
             }
-            None => Err(InferenceError::predicate_not_met(cid, args, meta)),
+            None => Err(InferenceError::predicate_not_met(cid, args, origin, meta)),
         }
     }
 
@@ -1690,6 +1719,7 @@ impl TypeStore {
         variances: &[Variance],
         left: &[TypeId],
         right: &[TypeId],
+        origin: &ConstraintOrigin,
         meta: &M,
     ) -> Result<Vec<TypeId>, InferenceError<M>>
     where
@@ -1701,12 +1731,12 @@ impl TypeStore {
         let mut args = vec![];
         for ((variance, left), right) in variances.iter().zip(left).zip(right) {
             let tid = match variance {
-                Variance::Covariant => self.meet_ty_ty(*left, *right, meta)?,
+                Variance::Covariant => self.meet_ty_ty(*left, *right, origin, meta)?,
                 Variance::Invariant => {
-                    self.unify_ty_ty(*left, *right, meta)?;
+                    self.unify_ty_ty(*left, *right, origin, meta)?;
                     self.normalize_ty(*left).1
                 }
-                Variance::Contravariant => self.join_ty_ty(*left, *right, meta)?,
+                Variance::Contravariant => self.join_ty_ty(*left, *right, origin, meta)?,
             };
 
             args.push(tid)
@@ -1718,6 +1748,7 @@ impl TypeStore {
         &mut self,
         left: TypeId,
         right: TypeId,
+        origin: &ConstraintOrigin,
         meta: &M,
     ) -> Result<TypeId, InferenceError<M>>
     where
@@ -1730,22 +1761,22 @@ impl TypeStore {
             (Type::Pointer(left), Type::Pointer(right)) => {
                 match (left.mutability, right.mutability) {
                     (Mutability::Mutable, Mutability::Mutable) => {
-                        self.unify_ty_ty(left.tid, right.tid, meta)?;
+                        self.unify_ty_ty(left.tid, right.tid, origin, meta)?;
                         let tid = self.normalize_ty(left.tid).1;
                         Ok(self.pointer(tid, Mutability::Mutable))
                     }
                     (Mutability::Mutable, Mutability::Const) => {
-                        self.check_subtype(left.tid, right.tid, meta)?;
+                        self.check_subtype(left.tid, right.tid, origin, meta)?;
                         let tid = self.normalize_ty(left.tid).1;
                         Ok(self.pointer(tid, Mutability::Mutable))
                     }
                     (Mutability::Const, Mutability::Mutable) => {
-                        self.check_subtype(right.tid, left.tid, meta)?;
+                        self.check_subtype(right.tid, left.tid, origin, meta)?;
                         let tid = self.normalize_ty(right.tid).1;
                         Ok(self.pointer(tid, Mutability::Mutable))
                     }
                     (Mutability::Const, Mutability::Const) => {
-                        let tid = self.meet_ty_ty(left.tid, right.tid, meta)?;
+                        let tid = self.meet_ty_ty(left.tid, right.tid, origin, meta)?;
                         Ok(self.pointer(tid, Mutability::Const))
                     }
                 }
@@ -1754,14 +1785,14 @@ impl TypeStore {
                 if left.eid == right.eid && left.variant != right.variant =>
             {
                 Err(InferenceError::types_incompatible(
-                    left_tid, right_tid, meta,
+                    left_tid, right_tid, origin, meta,
                 ))
             }
             (Type::Variant(left), Type::Variant(right))
                 if left.eid == right.eid && left.variant == right.variant =>
             {
                 let variances = self.get_enum_def(left.eid).variances.clone();
-                let args = self.meet_args(&variances, &left.args, &right.args, meta)?;
+                let args = self.meet_args(&variances, &left.args, &right.args, origin, meta)?;
                 Ok(self.intern(Type::Variant(VariantType {
                     eid: left.eid,
                     args,
@@ -1770,7 +1801,7 @@ impl TypeStore {
             }
             (Type::Variant(v), Type::Enum(e)) if v.eid == e.eid => {
                 let variances = self.get_enum_def(e.eid).variances.clone();
-                let args = self.meet_args(&variances, &e.args, &v.args, meta)?;
+                let args = self.meet_args(&variances, &e.args, &v.args, origin, meta)?;
                 Ok(self.intern(Type::Variant(VariantType {
                     eid: v.eid,
                     args,
@@ -1779,7 +1810,7 @@ impl TypeStore {
             }
             (Type::Enum(e), Type::Variant(v)) if v.eid == e.eid => {
                 let variances = self.get_enum_def(e.eid).variances.clone();
-                let args = self.meet_args(&variances, &e.args, &v.args, meta)?;
+                let args = self.meet_args(&variances, &e.args, &v.args, origin, meta)?;
                 Ok(self.intern(Type::Variant(VariantType {
                     eid: v.eid,
                     args,
@@ -1788,7 +1819,7 @@ impl TypeStore {
             }
             (Type::Enum(left), Type::Enum(right)) if left.eid == right.eid => {
                 let variances = self.get_enum_def(left.eid).variances.clone();
-                let args = self.meet_args(&variances, &left.args, &right.args, meta)?;
+                let args = self.meet_args(&variances, &left.args, &right.args, origin, meta)?;
                 Ok(self.intern(Type::Enum(EnumType {
                     eid: left.eid,
                     args,
@@ -1796,14 +1827,14 @@ impl TypeStore {
             }
             (Type::Struct(left), Type::Struct(right)) if left.sid == right.sid => {
                 let variances = self.get_struct_def(left.sid).variances.clone();
-                let args = self.meet_args(&variances, &left.args, &right.args, meta)?;
+                let args = self.meet_args(&variances, &left.args, &right.args, origin, meta)?;
                 Ok(self.intern(Type::Struct(StructType {
                     sid: left.sid,
                     args,
                 })))
             }
             (_, _) => {
-                self.unify_ty_ty(left_tid, right_tid, meta)?;
+                self.unify_ty_ty(left_tid, right_tid, origin, meta)?;
                 Ok(self.normalize_ty(left_tid).1)
             }
         }
@@ -1814,6 +1845,7 @@ impl TypeStore {
         variances: &[Variance],
         left: &[TypeId],
         right: &[TypeId],
+        origin: &ConstraintOrigin,
         meta: &M,
     ) -> Result<Vec<TypeId>, InferenceError<M>>
     where
@@ -1825,12 +1857,12 @@ impl TypeStore {
         let mut args = vec![];
         for ((variance, left), right) in variances.iter().zip(left).zip(right) {
             let tid = match variance {
-                Variance::Covariant => self.join_ty_ty(*left, *right, meta)?,
+                Variance::Covariant => self.join_ty_ty(*left, *right, origin, meta)?,
                 Variance::Invariant => {
-                    self.unify_ty_ty(*left, *right, meta)?;
+                    self.unify_ty_ty(*left, *right, origin, meta)?;
                     self.normalize_ty(*left).1
                 }
-                Variance::Contravariant => self.meet_ty_ty(*left, *right, meta)?,
+                Variance::Contravariant => self.meet_ty_ty(*left, *right, origin, meta)?,
             };
 
             args.push(tid)
@@ -1842,6 +1874,7 @@ impl TypeStore {
         &mut self,
         left: TypeId,
         right: TypeId,
+        origin: &ConstraintOrigin,
         meta: &M,
     ) -> Result<TypeId, InferenceError<M>>
     where
@@ -1861,7 +1894,7 @@ impl TypeStore {
                 {
                     Ok(self.pointer(left_normal, Mutability::Mutable))
                 } else {
-                    let tid = self.join_ty_ty(left.tid, right.tid, meta)?;
+                    let tid = self.join_ty_ty(left.tid, right.tid, origin, meta)?;
                     Ok(self.pointer(tid, Mutability::Const))
                 }
             }
@@ -1870,7 +1903,7 @@ impl TypeStore {
             {
                 //  todo!("Handle variant specific Variances")
                 let variances = self.get_enum_def(left.eid).variances.clone();
-                let args = self.join_args(&variances, &left.args, &right.args, meta)?;
+                let args = self.join_args(&variances, &left.args, &right.args, origin, meta)?;
                 Ok(self.intern(Type::Enum(EnumType {
                     eid: left.eid,
                     args,
@@ -1880,7 +1913,7 @@ impl TypeStore {
                 if left.eid == right.eid && left.variant == right.variant =>
             {
                 let variances = self.get_enum_def(left.eid).variances.clone();
-                let args = self.join_args(&variances, &left.args, &right.args, meta)?;
+                let args = self.join_args(&variances, &left.args, &right.args, origin, meta)?;
                 Ok(self.intern(Type::Variant(VariantType {
                     eid: left.eid,
                     args,
@@ -1889,17 +1922,17 @@ impl TypeStore {
             }
             (Type::Variant(v), Type::Enum(e)) if v.eid == e.eid => {
                 let variances = self.get_enum_def(e.eid).variances.clone();
-                let args = self.join_args(&variances, &v.args, &e.args, meta)?;
+                let args = self.join_args(&variances, &v.args, &e.args, origin, meta)?;
                 Ok(self.intern(Type::Enum(EnumType { eid: v.eid, args })))
             }
             (Type::Enum(e), Type::Variant(v)) if v.eid == e.eid => {
                 let variances = self.get_enum_def(e.eid).variances.clone();
-                let args = self.join_args(&variances, &e.args, &v.args, meta)?;
+                let args = self.join_args(&variances, &e.args, &v.args, origin, meta)?;
                 Ok(self.intern(Type::Enum(EnumType { eid: v.eid, args })))
             }
             (Type::Enum(left), Type::Enum(right)) if left.eid == right.eid => {
                 let variances = self.get_enum_def(left.eid).variances.clone();
-                let args = self.join_args(&variances, &left.args, &right.args, meta)?;
+                let args = self.join_args(&variances, &left.args, &right.args, origin, meta)?;
                 Ok(self.intern(Type::Enum(EnumType {
                     eid: left.eid,
                     args,
@@ -1907,7 +1940,7 @@ impl TypeStore {
             }
             (Type::Struct(left), Type::Struct(right)) if left.sid == right.sid => {
                 let variances = self.get_struct_def(left.sid).variances.clone();
-                let args = self.join_args(&variances, &left.args, &right.args, meta)?;
+                let args = self.join_args(&variances, &left.args, &right.args, origin, meta)?;
                 Ok(self.intern(Type::Struct(StructType {
                     sid: left.sid,
                     args,
@@ -1916,20 +1949,20 @@ impl TypeStore {
             (Type::Tuple(left), Type::Tuple(right)) if left.len() == right.len() => {
                 if left.len() != right.len() {
                     return Err(InferenceError::types_incompatible(
-                        left_tid, right_tid, meta,
+                        left_tid, right_tid, origin, meta,
                     ));
                 }
 
                 let tids = left
                     .into_iter()
                     .zip(right.into_iter())
-                    .map(|(left, right)| self.join_ty_ty(left, right, meta))
+                    .map(|(left, right)| self.join_ty_ty(left, right, origin, meta))
                     .collect::<Result<Vec<_>, _>>()?;
 
                 Ok(self.tuple(tids))
             }
             (_, _) => {
-                self.unify_ty_ty(left_tid, right_tid, meta)?;
+                self.unify_ty_ty(left_tid, right_tid, origin, meta)?;
                 Ok(self.normalize_ty(left_tid).1)
             }
         }
@@ -1939,6 +1972,7 @@ impl TypeStore {
         &mut self,
         output: TypeId,
         input: &Vec<TypeId>,
+        origin: &ConstraintOrigin,
         meta: &M,
     ) -> Result<(), InferenceError<M>>
     where
@@ -1950,10 +1984,10 @@ impl TypeStore {
 
         let mut joined = first;
         for tid in rest {
-            joined = self.join_ty_ty(joined, *tid, meta)?;
+            joined = self.join_ty_ty(joined, *tid, origin, meta)?;
         }
 
-        self.unify_ty_ty(output, joined, meta)
+        self.unify_ty_ty(output, joined, origin, meta)
     }
 
     fn check_constraints<M>(
@@ -1967,19 +2001,24 @@ impl TypeStore {
         constraints.sort();
         for c in constraints {
             match &c.constraint {
-                ConstraintType::Equal(left, right) => self.unify_ty_ty(*left, *right, &c.meta)?,
+                ConstraintType::Equal(left, right) => {
+                    self.unify_ty_ty(*left, *right, &c.origin, &c.meta)?
+                }
                 ConstraintType::Subtype { subty, superty } => {
-                    self.check_subtype(*subty, *superty, &c.meta)?
+                    self.check_subtype(*subty, *superty, &c.origin, &c.meta)?
                 }
                 ConstraintType::Join { output, inputs } => {
-                    self.check_join(*output, inputs, &c.meta)?
+                    self.check_join(*output, inputs, &c.origin, &c.meta)?
                 }
-                ConstraintType::Predicate(pred) => self.check_predicate(env, pred, &c.meta)?,
+                ConstraintType::Predicate(pred) => {
+                    self.check_predicate(env, pred, &c.origin, &c.meta)?
+                }
                 ConstraintType::Arity { expected, found } => {
                     if expected.len() != found.len() {
                         return Err(InferenceError::stacks_differ(
                             expected.clone(),
                             found.clone(),
+                            &c.origin,
                             &c.meta,
                         ));
                     }
@@ -1989,6 +2028,7 @@ impl TypeStore {
                         return Err(InferenceError::not_enough_args(
                             expected.clone(),
                             found.clone(),
+                            &c.origin,
                             &c.meta,
                         ));
                     }

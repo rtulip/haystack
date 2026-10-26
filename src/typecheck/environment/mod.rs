@@ -2,8 +2,11 @@ use std::{collections::HashMap, fmt::Debug};
 
 use crate::{
     typecheck::expr::Var,
-    typecheck::typ::{type_id::TypeId, type_var::TypeVar},
     typecheck::typestore::{inference::InferenceError, TypeStore},
+    typecheck::{
+        constraint::ConstraintOrigin,
+        typ::{type_id::TypeId, type_var::TypeVar},
+    },
 };
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Default)]
@@ -164,12 +167,17 @@ impl Environment {
             .args
             .into_iter()
             .zip(q_b.args.into_iter())
-            .all(|(a, b)| typestore.unify_ty_ty(a, b, meta).is_ok())
+            .all(|(a, b)| {
+                typestore
+                    .unify_ty_ty(a, b, &ConstraintOrigin::ConflictingImpls, meta)
+                    .is_ok()
+            })
         {
             Err(InferenceError::conflicting_impls(
                 a.cid,
                 a.clone(),
                 b.clone(),
+                &ConstraintOrigin::ConflictingImpls,
                 meta,
             ))
         } else {

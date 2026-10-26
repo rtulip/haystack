@@ -9,6 +9,7 @@ use crate::{
         typ::{ParamatarizedIdent, ParseType, ParseTypePath},
     },
     typecheck::{
+        constraint::ConstraintOrigin,
         environment::{Environment, Scheme},
         expr::{Expr, Var},
         func::Function,
@@ -610,34 +611,105 @@ impl<'src> TypeCheck<'src> {
     }
 
     fn map_inference_err(&mut self, e: InferenceError<Token<'src>>) -> HayError {
-        match e.kind {
-            InferenceErrorKind::NotEnoughArgs { expected, stack } => {
-                HayError::new("Too few arguments on the stack", e.meta.loc.clone())
-                    .with_hint(format!(
-                        "Expected: {}",
-                        self.format_stack(&expected, '[', ']')
-                    ))
-                    .with_hint(format!("Found   : {}", self.format_stack(&stack, '[', ']')))
+        match (e.origin, e.kind) {
+            (
+                ConstraintOrigin::FunctionCall { input, expected },
+                InferenceErrorKind::TypesIncompatible {
+                    expected: expected_tid,
+                    found: found_tid,
+                },
+            ) => {
+                let expected = self.format_stack(&expected, '[', ']');
+                let input = self.format_stack(&input, '[', ']');
+
+                let expected_ty = self.format_tid(expected_tid);
+                let incompatible_ty = self.format_tid(found_tid);
+
+                HayError::new(
+                    format!("Incorrect Arguments when calling `{}`", e.meta.lexeme),
+                    e.meta.loc.clone(),
+                )
+                .with_hint(format!("Expected: {expected}"))
+                .with_hint(format!("Found   : {input}"))
+                .with_hint(format!(
+                    "Type `{}` is incompatible with `{}`",
+                    expected_ty, incompatible_ty
+                ))
             }
-            InferenceErrorKind::StacksDiffer { expected, found } => {
-                HayError::new("Stacks Different", e.meta.loc.clone())
-                    .with_hint(format!(
-                        "Expected: {}",
-                        self.format_stack(&expected, '[', ']')
-                    ))
-                    .with_hint(format!("Found   : {}", self.format_stack(&found, '[', ']')))
+            (
+                ConstraintOrigin::OutputSubtyping { .. },
+                InferenceErrorKind::StacksDiffer { expected, found },
+            ) if expected.len() != found.len() => {
+                let expected = self.format_stack(&expected, '[', ']');
+                let found = self.format_stack(&found, '[', ']');
+
+                HayError::new(
+                    format!("Wrong number of elements left on the stack at end of function",),
+                    e.meta.loc.clone(),
+                )
+                .with_hint(format!("Expected: {expected}"))
+                .with_hint(format!("Found   : {found}"))
             }
-            InferenceErrorKind::TypeParameterConstrained { .. } => todo!(),
-            InferenceErrorKind::UnboundVar(..) => todo!(),
-            InferenceErrorKind::TypesIncompatible { expected, found } => HayError::new(
-                format!("Incompatible type for `{}`", e.meta.lexeme),
-                e.meta.loc.clone(),
-            )
-            .with_hint(format!("Expected: {}", self.format_tid(expected)))
-            .with_hint(format!("Found   : {}", self.format_tid(found))),
-            InferenceErrorKind::MutableRefToFunction(..) => todo!(),
-            InferenceErrorKind::PredicateNotMet { .. } => todo!(),
-            InferenceErrorKind::ConflictingImpls { .. } => todo!(),
+            (
+                ConstraintOrigin::OutputSubtyping { expected, found },
+                InferenceErrorKind::TypesIncompatible {
+                    expected: expected_tid,
+                    found: found_tid,
+                },
+            ) if expected.len() == found.len() => {
+                let expected = self.format_stack(&expected, '[', ']');
+                let found = self.format_stack(&found, '[', ']');
+
+                let expected_ty = self.format_tid(expected_tid);
+                let incompatible_ty = self.format_tid(found_tid);
+
+                HayError::new(
+                    format!("Incompatible Stacks at end of function"),
+                    e.meta.loc.clone(),
+                )
+                .with_hint(format!("Expected: {expected}"))
+                .with_hint(format!("Found   : {found}"))
+                .with_hint(format!(
+                    "Type `{}` is incompatible with `{}`",
+                    expected_ty, incompatible_ty
+                ))
+            }
+            (
+                ConstraintOrigin::OutputSubtyping { expected, found },
+                InferenceErrorKind::TypesIncompatible {
+                    expected: expected_tid,
+                    found: found_tid,
+                },
+            ) if expected.len() != found.len() => {
+                let diff = (expected.len() as isize) - (found.len() as isize);
+
+                let expected = self.format_stack(&expected, '[', ']');
+                let found = self.format_stack(&found, '[', ']');
+
+                let expected_ty = self.format_tid(expected_tid);
+                let incompatible_ty = self.format_tid(found_tid);
+
+                let e = HayError::new(
+                    format!("Incompatible Stacks at end of function"),
+                    e.meta.loc.clone(),
+                )
+                .with_hint(format!("Expected: {expected}"))
+                .with_hint(format!("Found   : {found}"));
+
+                if diff > 0 {
+                    e.with_hint(format!(
+                        "Expected {diff} additional element{} on the stack",
+                        if diff > 1 { "s" } else { "" }
+                    ))
+                } else {
+                    e.with_hint(format!(
+                        "Found {} extra element{} on the stack",
+                        diff.abs(),
+                        if diff < -1 { "s" } else { "" },
+                    ))
+                }
+            }
+            (origin, kind) => todo!("Generate Error message for {origin:?}, {kind:?}"),
         }
     }
 

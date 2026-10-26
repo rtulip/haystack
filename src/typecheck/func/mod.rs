@@ -7,6 +7,8 @@ use crate::{
     typecheck::typestore::{inference::InferenceError, TypeStore},
 };
 
+use super::constraint::ConstraintOrigin;
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct Function<'src, Meta> {
     pub ty: FunctionType,
@@ -78,7 +80,11 @@ where
             let mut vars: Vec<_> = unbound.into_iter().collect();
             vars.sort();
 
-            return Err(InferenceError::unbound_var(vars[0], &expr.meta.0));
+            return Err(InferenceError::unbound_var(
+                vars[0],
+                &ConstraintOrigin::UnboundVarInBody,
+                &expr.meta.0,
+            ));
         }
 
         Ok(Function {

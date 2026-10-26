@@ -10,7 +10,7 @@ use crate::{
     },
     typecheck::{
         environment::{Environment, Scheme},
-        expr::{Expr, ExprKind, Var},
+        expr::{Var, Expr},
         func::Function,
         typ::{
             typ::{EnumDef, EnumType, FunctionType, Mutability, StructDef, Type},
@@ -2044,7 +2044,7 @@ mod tests {
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
         let pair_def =
             StructDef::new(&typestore, vec![t_tyvar], vec![t_tid, t_tid], &META).unwrap();
-        let pair_tid = typestore.add_struct(pair_def);
+        let (pair_tid, _) = typestore.add_struct(pair_def);
 
         let bool_tid = typestore.intern(Type::bool());
         let pair_bool_tid = typestore
@@ -2113,7 +2113,7 @@ mod tests {
         )
         .unwrap();
 
-        let option_tid = typestore.add_enum(option_def);
+        let (option_tid, _) = typestore.add_enum(option_def);
 
         let t_tyvar = typestore.fresh_type_var();
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
@@ -2155,7 +2155,7 @@ mod tests {
         )
         .unwrap();
 
-        let option_tid = typestore.add_enum(option_def);
+        let (option_tid, _) = typestore.add_enum(option_def);
 
         let t_tyvar = typestore.fresh_type_var();
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
@@ -2198,7 +2198,7 @@ mod tests {
         )
         .unwrap();
 
-        let option_tid = typestore.add_enum(option_def);
+        let (option_tid, _) = typestore.add_enum(option_def);
 
         let bool_tid = typestore.intern(Type::bool());
         let option_t_tid = typestore
@@ -2259,7 +2259,7 @@ mod tests {
 
         let str_def = StructDef::new(&typestore, vec![], vec![u8_tid, u8_ptr_tid], &META).unwrap();
 
-        let str_tid = typestore.add_struct(str_def);
+        let (str_tid, _) = typestore.add_struct(str_def);
 
         let test = Function::new(
             [str_tid],
@@ -2284,7 +2284,7 @@ mod tests {
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
         let pair_def =
             StructDef::new(&typestore, vec![t_tyvar], vec![t_tid, t_tid], &META).unwrap();
-        let pair_tid = typestore.add_struct(pair_def);
+        let (pair_tid, _) = typestore.add_struct(pair_def);
         let bool_tid = typestore.intern(Type::bool());
 
         let pair_bool_tid = typestore
@@ -2310,7 +2310,7 @@ mod tests {
 
         let u8_tid = typestore.intern(Type::u8());
         let option_u8 = EnumDef::new(&typestore, vec![], vec![Some(u8_tid), None], &META).unwrap();
-        let option_u8_tid = typestore.add_enum(option_u8);
+        let (option_u8_tid, _) = typestore.add_enum(option_u8);
         let option_u8_some_tid = typestore.get_enum_variant(option_u8_tid, 0, &META).unwrap();
         let option_u8_none_tid = typestore.get_enum_variant(option_u8_tid, 1, &META).unwrap();
 
@@ -2355,7 +2355,7 @@ mod tests {
         let env = Environment::new();
 
         let foo_def = EnumDef::new(&typestore, vec![], vec![None, None], &META).unwrap();
-        let foo_tid = typestore.add_enum(foo_def);
+        let (foo_tid, _) = typestore.add_enum(foo_def);
         let foo_bar_tid = typestore.get_enum_variant(foo_tid, 0, &META).unwrap();
         let foo_baz_tid = typestore.get_enum_variant(foo_tid, 1, &META).unwrap();
 
@@ -2363,7 +2363,7 @@ mod tests {
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
         let option_def =
             EnumDef::new(&typestore, vec![t_tyvar], vec![Some(t_tid), None], &META).unwrap();
-        let option_tid = typestore.add_enum(option_def);
+        let (option_tid, _) = typestore.add_enum(option_def);
 
         let u8_tid = typestore.intern(Type::u8());
         let option_u8_tid = typestore
@@ -2429,7 +2429,7 @@ mod tests {
 
         let foo_def =
             EnumDef::new(&typestore, vec![], vec![Some(u8_tid), Some(u8_tid)], &META).unwrap();
-        let foo_tid = typestore.add_enum(foo_def);
+        let (foo_tid, _) = typestore.add_enum(foo_def);
         let foo_bar_tid = typestore.get_enum_variant(foo_tid, 0, &META).unwrap();
         let foo_baz_tid = typestore.get_enum_variant(foo_tid, 1, &META).unwrap();
 
@@ -2491,7 +2491,7 @@ mod tests {
         let t_tyvar = typestore.fresh_type_var();
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
         let def = EnumDef::new(&typestore, vec![t_tyvar], vec![Some(t_tid), None], &META).unwrap();
-        let option_tid = typestore.add_enum(def);
+        let (option_tid, _) = typestore.add_enum(def);
         let some_tid = typestore.get_enum_variant(option_tid, 0, &META).unwrap();
         let none_tid = typestore.get_enum_variant(option_tid, 1, &META).unwrap();
 
@@ -2509,7 +2509,7 @@ mod tests {
         let mut env = Environment::new();
 
         let foo_def = EnumDef::new(&typestore, vec![], vec![None, None], &META).unwrap();
-        let foo_tid = typestore.add_enum(foo_def);
+        let (foo_tid, _) = typestore.add_enum(foo_def);
         let foo_bar = typestore.get_enum_variant(foo_tid, 0, &META).unwrap();
         let foo_baz = typestore.get_enum_variant(foo_tid, 1, &META).unwrap();
 
@@ -2588,7 +2588,7 @@ mod variance_tests {
 
     fn animal_def(typestore: &mut TypeStore) -> (TypeId, TypeId) {
         let animal = EnumDef::new(&typestore, vec![], vec![None], &META).unwrap();
-        let animal_tid = typestore.add_enum(animal);
+        let (animal_tid, _) = typestore.add_enum(animal);
         let dog_tid = typestore.get_enum_variant(animal_tid, 0, &META).unwrap();
         (animal_tid, dog_tid)
     }
@@ -2597,7 +2597,7 @@ mod variance_tests {
         let t_tyvar = typestore.fresh_type_var();
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
         let def = EnumDef::new(&typestore, vec![t_tyvar], vec![Some(t_tid), None], &META).unwrap();
-        let option_tid = typestore.add_enum(def);
+        let (option_tid, _) = typestore.add_enum(def);
         let some_tid = typestore.get_enum_variant(option_tid, 0, &META).unwrap();
         let none_tid = typestore.get_enum_variant(option_tid, 1, &META).unwrap();
 
@@ -2687,7 +2687,7 @@ mod variance_tests {
         // &mut Animal <: &mut Animal
 
         let animal = EnumDef::new(&typestore, vec![], vec![None], &META).unwrap();
-        let animal_tid = typestore.add_enum(animal);
+        let (animal_tid, _) = typestore.add_enum(animal);
         let animal_mut_ptr = typestore.pointer(animal_tid, Mutability::Mutable);
 
         assert!(typestore
@@ -2832,7 +2832,7 @@ mod variance_tests {
         let mut typestore = TypeStore::new();
 
         let animal = EnumDef::new(&typestore, vec![], vec![None], &META).unwrap();
-        let animal_tid = typestore.add_enum(animal);
+        let (animal_tid, _) = typestore.add_enum(animal);
         let animal_mut_ptr = typestore.pointer(animal_tid, Mutability::Mutable);
 
         assert_eq!(
@@ -2846,7 +2846,7 @@ mod variance_tests {
         let mut typestore = TypeStore::new();
 
         let animal = EnumDef::new(&typestore, vec![], vec![None], &META).unwrap();
-        let animal_tid = typestore.add_enum(animal);
+        let (animal_tid, _) = typestore.add_enum(animal);
         let animal_ptr = typestore.pointer(animal_tid, Mutability::Const);
         let animal_mut_ptr = typestore.pointer(animal_tid, Mutability::Mutable);
 
@@ -2902,7 +2902,7 @@ mod variance_tests {
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
         let def = StructDef::new(&typestore, vec![t_tyvar], vec![t_tid], &META).unwrap();
         assert!(def.variances.iter().all(|v| *v == Variance::Covariant));
-        typestore.add_struct(def)
+        typestore.add_struct(def).0
     }
 
     fn invariant_struct(typestore: &mut TypeStore) -> TypeId {
@@ -2911,7 +2911,7 @@ mod variance_tests {
         let t_ptr_mut_tid = typestore.pointer(t_tid, Mutability::Mutable);
         let def = StructDef::new(&typestore, vec![t_tyvar], vec![t_ptr_mut_tid], &META).unwrap();
         assert!(def.variances.iter().all(|v| *v == Variance::Invariant));
-        typestore.add_struct(def)
+        typestore.add_struct(def).0
     }
 
     fn contravariant_struct(typestore: &mut TypeStore) -> TypeId {
@@ -2925,7 +2925,7 @@ mod variance_tests {
 
         let def = StructDef::new(&typestore, vec![t_tyvar], vec![f_tid], &META).unwrap();
         assert!(def.variances.iter().all(|v| *v == Variance::Contravariant));
-        typestore.add_struct(def)
+        typestore.add_struct(def).0
     }
 
     #[test]
@@ -3410,7 +3410,7 @@ mod variance_tests {
         .unwrap();
         assert!(def.variances[0] == Variance::Covariant);
         assert!(def.variances[1] == Variance::Contravariant);
-        let mixed = typestore.add_struct(def);
+        let (mixed, _) = typestore.add_struct(def);
 
         let (animal_tid, dog_tid) = animal_def(&mut typestore);
 
@@ -3774,7 +3774,7 @@ mod variance_tests {
         assert_eq!(def.variances[0], Variance::Covariant);
         assert_eq!(def.variances[1], Variance::Contravariant);
 
-        let mixed = typestore.add_struct(def);
+        let (mixed, _) = typestore.add_struct(def);
 
         let (animal_tid, dog_tid) = animal_def(&mut typestore);
 
@@ -3834,7 +3834,7 @@ mod variance_tests {
         )
         .unwrap();
 
-        let mixed = typestore.add_struct(def);
+        let (mixed, _) = typestore.add_struct(def);
 
         let (animal_tid, dog_tid) = animal_def(&mut typestore);
 
@@ -3897,7 +3897,7 @@ mod variance_tests {
         )
         .unwrap();
 
-        let mixed = typestore.add_struct(def);
+        let (mixed, _) = typestore.add_struct(def);
 
         let (animal_tid, dog_tid) = animal_def(&mut typestore);
 
@@ -3955,7 +3955,7 @@ mod variance_tests {
         )
         .unwrap();
 
-        let mixed = typestore.add_struct(def);
+        let (mixed, _) = typestore.add_struct(def);
 
         let (animal_tid, dog_tid) = animal_def(&mut typestore);
 
@@ -4009,7 +4009,7 @@ mod variance_tests {
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
         let def = EnumDef::new(&typestore, vec![t_tyvar], vec![Some(t_tid)], &META).unwrap();
         assert!(def.variances.iter().all(|v| *v == Variance::Covariant));
-        typestore.add_enum(def)
+        typestore.add_enum(def).0
     }
 
     fn invariant_enum(typestore: &mut TypeStore) -> TypeId {
@@ -4019,7 +4019,7 @@ mod variance_tests {
         let def =
             EnumDef::new(&typestore, vec![t_tyvar], vec![Some(t_ptr_mut_tid)], &META).unwrap();
         assert!(def.variances.iter().all(|v| *v == Variance::Invariant));
-        typestore.add_enum(def)
+        typestore.add_enum(def).0
     }
 
     fn contravariant_enum(typestore: &mut TypeStore) -> TypeId {
@@ -4033,7 +4033,7 @@ mod variance_tests {
 
         let def = EnumDef::new(&typestore, vec![t_tyvar], vec![Some(f_tid)], &META).unwrap();
         assert!(def.variances.iter().all(|v| *v == Variance::Contravariant));
-        typestore.add_enum(def)
+        typestore.add_enum(def).0
     }
 
     #[test]
@@ -4510,7 +4510,7 @@ mod variance_tests {
         .unwrap();
         assert!(def.variances[0] == Variance::Covariant);
         assert!(def.variances[1] == Variance::Contravariant);
-        let mixed = typestore.add_enum(def);
+        let (mixed, _) = typestore.add_enum(def);
 
         let (animal_tid, dog_tid) = animal_def(&mut typestore);
 
@@ -4874,7 +4874,7 @@ mod variance_tests {
         assert_eq!(def.variances[0], Variance::Covariant);
         assert_eq!(def.variances[1], Variance::Contravariant);
 
-        let mixed = typestore.add_enum(def);
+        let (mixed, _) = typestore.add_enum(def);
 
         let (animal_tid, dog_tid) = animal_def(&mut typestore);
 
@@ -4934,7 +4934,7 @@ mod variance_tests {
         )
         .unwrap();
 
-        let mixed = typestore.add_enum(def);
+        let (mixed,_) = typestore.add_enum(def);
 
         let (animal_tid, dog_tid) = animal_def(&mut typestore);
 
@@ -4997,7 +4997,7 @@ mod variance_tests {
         )
         .unwrap();
 
-        let mixed = typestore.add_enum(def);
+        let (mixed, _) = typestore.add_enum(def);
 
         let (animal_tid, dog_tid) = animal_def(&mut typestore);
 
@@ -5055,7 +5055,7 @@ mod variance_tests {
         )
         .unwrap();
 
-        let mixed = typestore.add_enum(def);
+        let (mixed, _) = typestore.add_enum(def);
 
         let (animal_tid, dog_tid) = animal_def(&mut typestore);
 

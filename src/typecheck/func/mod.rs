@@ -1,11 +1,6 @@
 use std::{fmt::Debug, todo, vec};
 
-use crate::{
-    typecheck::environment::{Environment, InterfaceImpl, TypePredicate},
-    typecheck::expr::Expr,
-    typecheck::typ::{typ::FunctionType, type_id::TypeId, type_var::TypeVar},
-    typecheck::typestore::{inference::InferenceError, TypeStore},
-};
+use crate::typecheck::{environment::{Coherence, Environment, InterfaceImpl, TypePredicate}, expr::Expr, typ::{typ::FunctionType, type_id::TypeId, type_var::TypeVar}, typestore::{TypeStore, inference::InferenceError}};
 
 use super::constraint::ConstraintOrigin;
 
@@ -68,7 +63,7 @@ where
                 vars: vec![],
                 args: p.args,
                 predicates: vec![],
-                coherence: todo!(),
+                coherence: Coherence::Overlapping,
             };
 
             env.add_impl(typestore, p.cid, p_impl, &self.expr.meta)?;

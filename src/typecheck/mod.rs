@@ -58,6 +58,7 @@ struct VarInfo<'src> {
 struct SymbolTable<'src> {
     types: HashMap<TypeId, TypeInfo<'src>>,
     vars: HashMap<Var, VarInfo<'src>>,
+    interfaces: HashMap<TypeClassId, Token<'src>>,
     variants: HashMap<(EnumId, usize), Token<'src>>,
     members: HashMap<(StructId, usize), Token<'src>>,
 }
@@ -92,11 +93,16 @@ impl<'src> SymbolTable<'src> {
             vars: HashMap::new(),
             variants: HashMap::new(),
             members: HashMap::new(),
+            interfaces: HashMap::new(),
         }
     }
 
     pub fn insert_tid(&mut self, tid: TypeId, info: TypeInfo<'src>) -> Option<TypeInfo<'src>> {
         self.types.insert(tid, info)
+    }
+
+    pub fn insert_cid(&mut self, cid: TypeClassId, token: Token<'src>) -> Option<Token<'src>> {
+        self.interfaces.insert(cid, token)
     }
 
     pub fn insert_variant(
@@ -172,24 +178,12 @@ impl<'src> Scope<'src> {
     }
 
     fn get_cid(&self, name: &str) -> Option<(TypeClassId, InterfaceFnsLookup<'src>)> {
-        for scope in &self.scopes {
-            eprintln!("{:?}", scope.interfaces.keys());
-            eprintln!("    Contains Key: {name}: {}", scope.interfaces.contains_key(name));
-        }
-
-        let x = self.scopes
+        let x = self
+            .scopes
             .iter()
             .rev()
-            .find(|scope| {
-                if scope.interfaces.contains_key(name) {
-                    eprintln!("Found the key {name}");
-                    true
-                } else {
-                    false
-                }
-                })
+            .find(|scope| scope.interfaces.contains_key(name))
             .map(|scope| scope.interfaces.get(name).unwrap().clone());
-        dbg!(&x);
         x
     }
 
@@ -199,8 +193,6 @@ impl<'src> Scope<'src> {
         cid: TypeClassId,
         fns: InterfaceFnsLookup<'src>,
     ) -> Option<(TypeClassId, InterfaceFnsLookup<'src>)> {
-        eprintln!("Inserting `{name}` into interface scope");
-        
         self.scopes
             .last_mut()
             .unwrap()
@@ -771,6 +763,27 @@ impl<'src> TypeCheck<'src> {
                     None => todo!(),
                 }
             }
+            (
+                ConstraintOrigin::ConflictingImpls,
+                InferenceErrorKind::ConflictingImpls { cid, a, b },
+            ) => {
+                let iface_name = self.symbols.interfaces.get(&cid).unwrap().clone();
+                HayError::new(
+                    format!(
+                        "Conflicting implementations for interface `{}`",
+                        iface_name.lexeme
+                    ),
+                    e.meta.loc.clone(),
+                )
+                .with_hint(format!(
+                    "`{}{}` conflicts with\n            `{}{}`",
+                    iface_name.lexeme,
+                    self.format_stack(&b.args, '<', '>'),
+                    iface_name.lexeme,
+                    self.format_stack(&a.args, '<', '>')
+                ))
+                .with_hint("Overlapping implementations cannot override default functions")
+            }
             (origin, kind) => todo!("Generate Error message for {origin:?}, {kind:?}"),
         }
     }
@@ -1014,8 +1027,6 @@ impl<'src> TypeCheck<'src> {
     }
 
     fn bind_interface_def(&mut self, iface: &InterfaceDefinition<'src>) -> Result<(), HayError> {
-        
-        
         // Only have the vars known within the scope of the member definition.
         self.scope.new_scope();
 
@@ -1038,7 +1049,6 @@ impl<'src> TypeCheck<'src> {
                 Coherence::Unique
             },
         };
-        self.scope.end_scope();
 
         let cid = self.env.add_typeclass(interface);
 
@@ -1050,16 +1060,27 @@ impl<'src> TypeCheck<'src> {
                     if fn_lookup.insert(func.name.lexeme, Some(expr)).is_some() {
                         todo!("re-definition of interface function")
                     }
-                },
+                }
                 None => {
                     if fn_lookup.insert(func.name.lexeme, None).is_some() {
                         todo!("re-definition of interface function")
                     }
-                },
+                }
             }
         }
 
-        self.scope.insert_cid(iface.name.lexeme, cid, fn_lookup);
+        self.scope.end_scope();
+
+        if self
+            .scope
+            .insert_cid(iface.name.lexeme, cid, fn_lookup)
+            .is_some()
+        {
+            todo!("error interface of this name already exists")
+        }
+        if self.symbols.insert_cid(cid, iface.name.clone()).is_some() {
+            todo!("Error interface of this cid already exists")
+        }
         let predicate = TypePredicate {
             cid,
             args: var_tids,
@@ -1084,14 +1105,10 @@ impl<'src> TypeCheck<'src> {
             .map(|ty| self.insert_param_ty(ty))
             .collect::<Result<Vec<_>, _>>()?;
 
-        let (cid, fns) = match self
-            .scope
-            .get_cid(iface_impl.name.lexeme){
-                Some((cid, fns)) => (cid, fns),
-                None => todo!("???"),
-            };
-
-        dbg!(&cid, fns);
+        let (cid, fns) = match self.scope.get_cid(iface_impl.name.lexeme) {
+            Some((cid, fns)) => (cid, fns),
+            None => todo!("???"),
+        };
 
         let mut args = vec![];
         for ty in &iface_impl.args {
@@ -1113,8 +1130,7 @@ impl<'src> TypeCheck<'src> {
 
         self.env
             .add_impl(&mut self.typestore, cid, interface_impl, &iface_impl.name)
-            .map_err(|e| self.map_inference_err(e));
-
+            .map_err(|e| self.map_inference_err(e))?;
 
         Ok(())
     }
@@ -1926,6 +1942,7 @@ mod tests {
                     vars: vec![],
                     args: vec![u8_tid],
                     predicates: vec![],
+                    coherence: Coherence::Unique,
                 },
                 &META
             )
@@ -1983,6 +2000,7 @@ mod tests {
                     vars: vec![a_tyvar, b_tyvar],
                     args: vec![a_ptr_tid, b_ptr_tid],
                     predicates: vec![],
+                    coherence: Coherence::Overlapping,
                 },
                 &META
             )
@@ -2001,6 +2019,7 @@ mod tests {
                     vars: vec![a_tyvar],
                     args: vec![a_tid, a_tid],
                     predicates: vec![],
+                    coherence: Coherence::Overlapping,
                 },
                 &META
             )
@@ -2086,6 +2105,7 @@ mod tests {
             vars: vec![],
             args: vec![u8_tid],
             predicates: vec![],
+            coherence: Coherence::Unique,
         };
         assert!(env
             .add_impl(&mut typestore, print_cid, u8_print_impl, &META)
@@ -2102,6 +2122,7 @@ mod tests {
                 cid: print_cid,
                 args: vec![t_tid],
             }],
+            coherence: Coherence::Unique,
         };
         assert!(env
             .add_impl(&mut typestore, print_cid, ptr_impl, &META)
@@ -2237,6 +2258,7 @@ mod tests {
             vars: vec![],
             args: vec![u8_tid],
             predicates: vec![],
+            coherence: Coherence::Unique,
         };
 
         let print_impl_bool = InterfaceImpl {
@@ -2244,6 +2266,7 @@ mod tests {
             vars: vec![],
             args: vec![bool_tid],
             predicates: vec![],
+            coherence: Coherence::Unique,
         };
 
         assert!(env
@@ -2351,6 +2374,7 @@ mod tests {
             vars: vec![],
             args: vec![u8_tid],
             predicates: vec![],
+            coherence: Coherence::Unique,
         };
         assert!(env
             .add_impl(&mut typestore, print_cid, print_impl_u8, &META)

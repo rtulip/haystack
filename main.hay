@@ -3,21 +3,18 @@ fn dup<T>(T: t) -> [T T] { t t }
 fn typeof<T>(T: _) -> [Type<T>] #T
 fn hint<T>(T Type<T>) -> [T] drop
 
+interface Cast<From Into> {
+    fn cast<From Into>(From Type<Into>) -> [Into] __unchecked_cast
+}
+
+impl<T> Cast<T T> {}
+impl<From Into> Cast<&From &Into> {}
+impl Cast<bool u8> {}
+
 struct Str {
     &u8: data
     u64: len
 }
-
-// SymbolTable
-//    * TID(Option) -> Token<Option>
-//    * (Option.eid, 0) -> Token("Some")
-//    * (Option.eid, 1) -> Token("None")
-//    * (Str.sid, 0) -> Token("data")
-//    * (Str.sid, 1) -> Token("len")
-// Scope
-//    * "Option" -> Tid(Option)
-//    * (Option.eid "Some") -> 0
-//    * "None" -> (Option.eid, 1)
 
 enum Option<T> {
     T: Some
@@ -28,16 +25,48 @@ fn Some<T>(T) -> [Option<T>::Some] {
     #Option::Some pack
 }
 
+fn None<T>() -> [Option<T>::None] {
+    #Option::None pack
+}
+
 enum Result<T E> {
     T: Ok
     E: Err
 }
 
-fn example((&mut Option<u64> bool)) drop
+fn Ok<T E>(T) -> [Result<T E>::Ok] {
+    #Result::Ok pack
+}
+
+fn Err<T E>(E) -> [Result<T E>::Err] {
+    #Result::Err pack
+}
+
+
+
+interface Foo<T> {
+    fn a<T>(T) drop
+    fn b<T>(T) drop
+}
+
+impl<T> Foo<T> {
+    fn a(T) {
+        as [_]
+        "inside A" drop
+    }
+}
+
+impl Foo<u64> {
+    fn b(u64) {
+        drop
+        "Inside Foo<u64> B" drop
+    }
+}
 
 fn main() {
-    
-    123 Some as [x]
-    (&x true) example
 
+    true as [b]
+    &b #&u8 cast
+
+    true #u8 cast
 }

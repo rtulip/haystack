@@ -446,6 +446,10 @@ impl<'src> Parser<'src> {
             | TokenKind::Keyword(Keyword::UncheckedCast)
             | TokenKind::Operator(Operator::Ampersand)
             | TokenKind::Literal(_) => Ok(Some(self.parse_expr()?)),
+            TokenKind::Keyword(Keyword::Function) | TokenKind::Marker(Marker::RightBrace) => {
+                Ok(None)
+            }
+
             kind => todo!("Not sure if we can parse an expr from {kind}"),
         }
     }

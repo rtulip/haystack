@@ -9,12 +9,12 @@ impl Into<Vec<Var>> for Var {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum MatchPattern {
     Variant(TypeId),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MatchCase<'src, Meta> {
     pub pattern: MatchPattern,
     pub binding: Option<Var>,
@@ -31,7 +31,7 @@ impl<'src, Meta> MatchCase<'src, Meta> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MatchExpr<'src, Meta> {
     pub cases: Vec<MatchCase<'src, Meta>>,
     pub finally: Option<Box<Expr<'src, Meta>>>,
@@ -49,7 +49,7 @@ impl<'src, Meta> MatchExpr<'src, Meta> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ExprKind<'src, Meta> {
     U8(u8),
     U64(u64),
@@ -68,7 +68,7 @@ pub enum ExprKind<'src, Meta> {
     Match(MatchExpr<'src, Meta>),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Expr<'src, Meta> {
     pub expr: ExprKind<'src, Meta>,
     pub meta: Meta,

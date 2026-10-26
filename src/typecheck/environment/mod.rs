@@ -69,6 +69,7 @@ pub struct InterfaceImpl {
     pub vars: Vec<TypeVar>,
     pub args: Vec<TypeId>,
     pub predicates: Vec<TypePredicate>,
+    pub coherence: Coherence,
 }
 
 #[derive(Debug, Clone)]
@@ -157,7 +158,10 @@ impl Environment {
         assert!(a.cid == b.cid);
         assert!(a.args.len() == b.args.len());
 
-        if self.typeclasses[a.cid.0].coherence == Coherence::Overlapping {
+        if self.typeclasses[a.cid.0].coherence == Coherence::Overlapping
+            && a.coherence == Coherence::Overlapping
+            && b.coherence == Coherence::Overlapping
+        {
             return Ok(());
         }
 

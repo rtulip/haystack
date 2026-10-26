@@ -1,12 +1,21 @@
 use std::{format, todo, unreachable};
 
 use crate::{
-    error::HayError, lex::token::{
+    error::HayError,
+    lex::token::{
         Keyword,
         Marker::{self, LeftParen},
         Operator, Token, TokenKind,
-    }, parser::{
-        argument::Argument, expr::{ParseExpr, ParseExprKind}, signature::Signature, statement::{EnumDefinition, FunctionDefinition, InterfaceDefinition, InterfaceFunctionDefinition, Statememt, StructDefinition}, typ::{ParamatarizedIdent, ParseType, ParseTypePath},
+    },
+    parser::{
+        argument::Argument,
+        expr::{ParseExpr, ParseExprKind},
+        signature::Signature,
+        statement::{
+            EnumDefinition, FunctionDefinition, InterfaceDefinition, InterfaceFunctionDefinition,
+            InterfaceImpl, Statememt, StructDefinition,
+        },
+        typ::{ParamatarizedIdent, ParseType, ParseTypePath},
     },
 };
 
@@ -415,29 +424,30 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_unchecked_cast_expr(&mut self) -> ParseExpr<'src> {
-
-        let token = self.expect(TokenKind::Keyword(Keyword::UncheckedCast)).unwrap();
-        ParseExpr { kind: ParseExprKind::UncheckedCast, token }
-
+        let token = self
+            .expect(TokenKind::Keyword(Keyword::UncheckedCast))
+            .unwrap();
+        ParseExpr {
+            kind: ParseExprKind::UncheckedCast,
+            token,
+        }
     }
 
     fn parse_expr_if_available(&mut self) -> Result<Option<ParseExpr<'src>>, HayError> {
-
         self.strip_whitespace();
         match &self.peek().kind {
-            TokenKind::Ident(_) 
+            TokenKind::Ident(_)
             | TokenKind::Marker(Marker::LeftBrace)
-            | TokenKind::Marker(Marker::Hash) 
+            | TokenKind::Marker(Marker::Hash)
             | TokenKind::Marker(Marker::LeftParen)
             | TokenKind::Keyword(Keyword::Pack)
             | TokenKind::Keyword(Keyword::As)
-            | TokenKind::Keyword(Keyword::Call) 
+            | TokenKind::Keyword(Keyword::Call)
             | TokenKind::Keyword(Keyword::UncheckedCast)
-            | TokenKind::Operator(Operator::Ampersand) 
+            | TokenKind::Operator(Operator::Ampersand)
             | TokenKind::Literal(_) => Ok(Some(self.parse_expr()?)),
-            kind => todo!("Not sure if we can parse an expr from {kind}")
+            kind => todo!("Not sure if we can parse an expr from {kind}"),
         }
-
     }
 
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
@@ -461,7 +471,10 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_function_def(&mut self, start: Token<'src>) -> Result<(Token<'src>, Vec<ParseType<'src>>, Signature<'src>), HayError> {
+    fn parse_function_def(
+        &mut self,
+        start: Token<'src>,
+    ) -> Result<(Token<'src>, Vec<ParseType<'src>>, Signature<'src>), HayError> {
         assert!(start.kind == TokenKind::Keyword(Keyword::Function));
         self.strip_whitespace();
         let name = self.expect(TokenKind::ident())?;
@@ -473,7 +486,6 @@ impl<'src> Parser<'src> {
 
     // fn <ident> <params>? <signature> <expr>
     fn parse_function(&mut self, start: Token<'src>) -> Result<Statememt<'src>, HayError> {
-        
         let (name, params, signature) = self.parse_function_def(start)?;
         let expr = self.parse_expr()?;
 
@@ -492,8 +504,7 @@ impl<'src> Parser<'src> {
         let params = self.parse_type_param_list()?;
 
         self.strip_whitespace();
-        let open = self
-            .expect(TokenKind::Marker(Marker::LeftBrace))?;
+        let open = self.expect(TokenKind::Marker(Marker::LeftBrace))?;
 
         let mut members = vec![];
         while let Some(ty) = self.parse_type()? {
@@ -523,8 +534,7 @@ impl<'src> Parser<'src> {
         let params = self.parse_type_param_list()?;
 
         self.strip_whitespace();
-        let open = self
-            .expect(TokenKind::Marker(Marker::LeftBrace))?;
+        let open = self.expect(TokenKind::Marker(Marker::LeftBrace))?;
 
         let mut variants = vec![];
         while let Some(ty) = self.parse_type()? {
@@ -573,17 +583,15 @@ impl<'src> Parser<'src> {
         let params = self.parse_type_param_list()?;
         self.strip_whitespace();
         self.expect(TokenKind::Marker(Marker::LeftBrace))?;
-        
 
         let mut funcs = vec![];
 
         loop {
-            
             self.strip_whitespace();
             let Ok(start) = self.matches(TokenKind::Keyword(Keyword::Function)) else {
                 break;
             };
-            
+
             let (name, params, signature) = self.parse_function_def(start)?;
             let expr = self.parse_expr_if_available()?;
 
@@ -593,7 +601,6 @@ impl<'src> Parser<'src> {
                 signature,
                 expr,
             })
-
         }
 
         self.expect(TokenKind::Marker(Marker::RightBrace))?;
@@ -605,6 +612,38 @@ impl<'src> Parser<'src> {
         }))
     }
 
+    fn parse_impl(&mut self, start: Token<'src>) -> Result<Statememt<'src>, HayError> {
+        let params = self.parse_type_param_list()?;
+        self.strip_whitespace();
+        let name = self.expect(TokenKind::ident())?;
+        self.strip_whitespace();
+        let args = self.parse_type_param_list()?;
+        self.strip_whitespace();
+
+        self.expect(TokenKind::Marker(Marker::LeftBrace))?;
+        let mut impls = vec![];
+        loop {
+            self.strip_whitespace();
+            let Ok(start) = self.matches(TokenKind::Keyword(Keyword::Function)) else {
+                break;
+            };
+
+            let Statememt::FunctionDefinition(func) = self.parse_function(start)? else {
+                unreachable!()
+            };
+            impls.push(func);
+        }
+
+        self.expect(TokenKind::Marker(Marker::RightBrace))?;
+
+        Ok(Statememt::InterfaceImpl(InterfaceImpl {
+            params,
+            name,
+            args,
+            impls,
+        }))
+    }
+
     fn parse_declaration(&mut self) -> Result<Statememt<'src>, HayError> {
         self.strip_whitespace();
         let token = self.tokens.pop().unwrap();
@@ -613,6 +652,7 @@ impl<'src> Parser<'src> {
             TokenKind::Keyword(Keyword::Struct) => self.parse_struct(token),
             TokenKind::Keyword(Keyword::Enum) => self.parse_enum(token),
             TokenKind::Keyword(Keyword::Interface) => self.parse_interface(token),
+            TokenKind::Keyword(Keyword::Impl) => self.parse_impl(token),
             kind => Err(HayError::new(
                 format!("Unexpected token: {kind}"),
                 token.loc,

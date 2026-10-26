@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, todo, vec};
 
 use crate::{
     typecheck::environment::{Environment, InterfaceImpl, TypePredicate},
@@ -68,6 +68,7 @@ where
                 vars: vec![],
                 args: p.args,
                 predicates: vec![],
+                coherence: todo!(),
             };
 
             env.add_impl(typestore, p.cid, p_impl, &self.expr.meta)?;

@@ -32,12 +32,20 @@ pub struct EnumDefinition<'src> {
 pub struct InterfaceDefinition<'src> {
     pub name: Token<'src>,
     pub params: Vec<ParseType<'src>>,
-    pub funcs: Vec<InterfaceFunctionDefinition<'src>>
+    pub funcs: Vec<InterfaceFunctionDefinition<'src>>,
+}
+
+pub struct InterfaceImpl<'src> {
+    pub params: Vec<ParseType<'src>>,
+    pub name: Token<'src>,
+    pub args: Vec<ParseType<'src>>,
+    pub impls: Vec<FunctionDefinition<'src>>,
 }
 
 pub enum Statememt<'src> {
     FunctionDefinition(FunctionDefinition<'src>),
     StructDefinition(StructDefinition<'src>),
     EnumDefinition(EnumDefinition<'src>),
-    InterfaceDefinition(InterfaceDefinition<'src>)
+    InterfaceDefinition(InterfaceDefinition<'src>),
+    InterfaceImpl(InterfaceImpl<'src>),
 }

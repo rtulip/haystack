@@ -1,15 +1,31 @@
-use std::{assert_eq, collections::HashMap, format, todo};
+use std::{assert_eq, collections::HashMap, format, todo, vec};
 
 use crate::{
-    error::HayError, lex::token::{Literal, Token}, parser::{
-        expr::{ParseExpr, ParseExprKind}, statement::{EnumDefinition, FunctionDefinition, InterfaceDefinition, InterfaceFunctionDefinition, Statememt, StructDefinition}, typ::{ParamatarizedIdent, ParseType, ParseTypePath},
-    }, typecheck::{
-        constraint::ConstraintOrigin, environment::{Coherence, Environment, Interface, Scheme, TypePredicate}, expr::{Expr, Var}, func::Function, typ::{
+    error::HayError,
+    lex::token::{Literal, Token},
+    parser::{
+        expr::{ParseExpr, ParseExprKind},
+        statement::{
+            EnumDefinition, FunctionDefinition, InterfaceDefinition, InterfaceFunctionDefinition,
+            InterfaceImpl as ParseInterfaceImpl, Statememt, StructDefinition,
+        },
+        typ::{ParamatarizedIdent, ParseType, ParseTypePath},
+    },
+    typecheck::{
+        constraint::ConstraintOrigin,
+        environment::{
+            Coherence, Environment, Interface, InterfaceImpl, Scheme, TypeClassId, TypePredicate,
+        },
+        expr::{Expr, Var},
+        func::Function,
+        typ::{
             typ::{EnumDef, EnumType, FunctionType, Mutability, StructDef, Type},
             type_id::{EnumId, StructId, TypeId},
             type_var::TypeVar,
-        }, typestore::{
-            TypeStore, inference::{InferenceError, InferenceErrorKind},
+        },
+        typestore::{
+            inference::{InferenceError, InferenceErrorKind},
+            TypeStore,
         },
     },
 };
@@ -106,9 +122,12 @@ impl<'src> SymbolTable<'src> {
     }
 }
 
+type InterfaceFnsLookup<'src> = HashMap<&'src str, Option<Expr<'src, Token<'src>>>>;
+
 struct ScopeLayer<'src> {
     types: HashMap<String, (TypeId, Option<Token<'src>>)>,
     vars: HashMap<&'src str, (Var, Token<'src>)>,
+    interfaces: HashMap<&'src str, (TypeClassId, InterfaceFnsLookup<'src>)>,
     variants: HashMap<(EnumId, &'src str), usize>,
     members: HashMap<(StructId, &'src str), usize>,
 }
@@ -131,6 +150,7 @@ impl<'src> Scope<'src> {
                 vars: HashMap::new(),
                 variants: HashMap::new(),
                 members: HashMap::new(),
+                interfaces: HashMap::new(),
             }],
         }
     }
@@ -149,6 +169,43 @@ impl<'src> Scope<'src> {
             .rev()
             .find(|scope| scope.vars.contains_key(name))
             .map(|scope| scope.vars.get(name).unwrap().clone())
+    }
+
+    fn get_cid(&self, name: &str) -> Option<(TypeClassId, InterfaceFnsLookup<'src>)> {
+        for scope in &self.scopes {
+            eprintln!("{:?}", scope.interfaces.keys());
+            eprintln!("    Contains Key: {name}: {}", scope.interfaces.contains_key(name));
+        }
+
+        let x = self.scopes
+            .iter()
+            .rev()
+            .find(|scope| {
+                if scope.interfaces.contains_key(name) {
+                    eprintln!("Found the key {name}");
+                    true
+                } else {
+                    false
+                }
+                })
+            .map(|scope| scope.interfaces.get(name).unwrap().clone());
+        dbg!(&x);
+        x
+    }
+
+    fn insert_cid(
+        &mut self,
+        name: &'src str,
+        cid: TypeClassId,
+        fns: InterfaceFnsLookup<'src>,
+    ) -> Option<(TypeClassId, InterfaceFnsLookup<'src>)> {
+        eprintln!("Inserting `{name}` into interface scope");
+        
+        self.scopes
+            .last_mut()
+            .unwrap()
+            .interfaces
+            .insert(name, (cid, fns))
     }
 
     fn insert_tid(
@@ -215,6 +272,7 @@ impl<'src> Scope<'src> {
             vars: HashMap::new(),
             variants: HashMap::new(),
             members: HashMap::new(),
+            interfaces: HashMap::new(),
         })
     }
 
@@ -895,7 +953,11 @@ impl<'src> TypeCheck<'src> {
         Ok(())
     }
 
-    fn bind_interface_function_def(&mut self, func: &InterfaceFunctionDefinition<'src>, predicate: &TypePredicate) -> Result<(), HayError> {
+    fn bind_interface_function_def(
+        &mut self,
+        func: &InterfaceFunctionDefinition<'src>,
+        predicate: &TypePredicate,
+    ) -> Result<(), HayError> {
         // insert this function into the global scope
         let var = self.insert_var(&func.name)?;
 
@@ -938,10 +1000,7 @@ impl<'src> TypeCheck<'src> {
                 let meta = expr.meta.clone();
 
                 if binds.len() != 0 {
-                    expr = Expr::block(
-                        [Expr::bind(binds, meta.clone()), expr],
-                        meta.clone(),
-                    );
+                    expr = Expr::block([Expr::bind(binds, meta.clone()), expr], meta.clone());
                 }
 
                 let f = Function::new(input, output, params, vec![], expr);
@@ -955,6 +1014,8 @@ impl<'src> TypeCheck<'src> {
     }
 
     fn bind_interface_def(&mut self, iface: &InterfaceDefinition<'src>) -> Result<(), HayError> {
+        
+        
         // Only have the vars known within the scope of the member definition.
         self.scope.new_scope();
 
@@ -964,7 +1025,10 @@ impl<'src> TypeCheck<'src> {
             .map(|ty| self.insert_param_ty(ty))
             .collect::<Result<Vec<_>, _>>()?;
 
-        let var_tids = vars.iter().map(|tyvar| self.typestore.intern(Type::TypeVar(*tyvar))).collect();
+        let var_tids = vars
+            .iter()
+            .map(|tyvar| self.typestore.intern(Type::TypeVar(*tyvar)))
+            .collect();
 
         let interface = Interface {
             vars,
@@ -975,8 +1039,27 @@ impl<'src> TypeCheck<'src> {
             },
         };
         self.scope.end_scope();
-        
+
         let cid = self.env.add_typeclass(interface);
+
+        let mut fn_lookup = InterfaceFnsLookup::new();
+        for func in &iface.funcs {
+            match &func.expr {
+                Some(expr) => {
+                    let expr = self.lower_expr(expr)?;
+                    if fn_lookup.insert(func.name.lexeme, Some(expr)).is_some() {
+                        todo!("re-definition of interface function")
+                    }
+                },
+                None => {
+                    if fn_lookup.insert(func.name.lexeme, None).is_some() {
+                        todo!("re-definition of interface function")
+                    }
+                },
+            }
+        }
+
+        self.scope.insert_cid(iface.name.lexeme, cid, fn_lookup);
         let predicate = TypePredicate {
             cid,
             args: var_tids,
@@ -987,8 +1070,53 @@ impl<'src> TypeCheck<'src> {
         }
 
         Ok(())
+    }
+
+    fn bind_interface_impl(
+        &mut self,
+        iface_impl: &ParseInterfaceImpl<'src>,
+    ) -> Result<(), HayError> {
+        self.scope.new_scope();
+
+        let vars = iface_impl
+            .params
+            .iter()
+            .map(|ty| self.insert_param_ty(ty))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let (cid, fns) = match self
+            .scope
+            .get_cid(iface_impl.name.lexeme){
+                Some((cid, fns)) => (cid, fns),
+                None => todo!("???"),
+            };
+
+        dbg!(&cid, fns);
+
+        let mut args = vec![];
+        for ty in &iface_impl.args {
+            args.push(self.get_tid(ty)?)
+        }
+
+        let interface_impl = InterfaceImpl {
+            cid,
+            vars,
+            args,
+            predicates: vec![],
+            coherence: if iface_impl.impls.is_empty() {
+                Coherence::Overlapping
+            } else {
+                Coherence::Unique
+            },
+        };
+        self.scope.end_scope();
+
+        self.env
+            .add_impl(&mut self.typestore, cid, interface_impl, &iface_impl.name)
+            .map_err(|e| self.map_inference_err(e));
 
 
+        Ok(())
     }
 
     pub fn build_world(mut statements: Vec<Statememt<'src>>) -> Result<(), HayError> {
@@ -1000,6 +1128,7 @@ impl<'src> TypeCheck<'src> {
                 Statememt::EnumDefinition(e) => tc.bind_enum_def(e)?,
                 Statememt::FunctionDefinition(func) => tc.bind_function_def(func)?,
                 Statememt::InterfaceDefinition(iface) => tc.bind_interface_def(iface)?,
+                Statememt::InterfaceImpl(iface_impl) => tc.bind_interface_impl(iface_impl)?,
             }
         }
 

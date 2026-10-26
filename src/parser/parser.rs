@@ -1,4 +1,4 @@
-use std::{todo, unreachable};
+use std::{format, todo, unreachable};
 
 use crate::{
     error::HayError,
@@ -66,6 +66,15 @@ impl<'src> Parser<'src> {
         }
     }
 
+    fn expect(&mut self, kind: TokenKind<'src>) -> Result<Token<'src>, HayError> {
+        self.matches(kind.clone()).map_err(|token| {
+            HayError::new(
+                format!("Expected {}, but found {} instead", kind, token.kind),
+                token.loc,
+            )
+        })
+    }
+
     // [< ParseType* >]?
     fn parse_type_param_list(&mut self) -> Result<Vec<ParseType<'src>>, HayError> {
         self.strip_whitespace();
@@ -78,13 +87,7 @@ impl<'src> Parser<'src> {
             types.push(ty)
         }
 
-        self.matches(TokenKind::Operator(Operator::GreaterThan))
-            .map_err(|tok| {
-                HayError::new(
-                    format!("Expected {}, but found {}", Operator::GreaterThan, tok.kind),
-                    tok.loc,
-                )
-            })?;
+        self.expect(TokenKind::Operator(Operator::GreaterThan))?;
 
         Ok(types)
     }
@@ -130,12 +133,7 @@ impl<'src> Parser<'src> {
     fn parse_type_path(&mut self) -> Result<ParseType<'src>, HayError> {
         let mut path = vec![];
         loop {
-            let base = self.matches(TokenKind::ident()).map_err(|token| {
-                HayError::new(
-                    format!("Expected a type identifier, but found {} instead", token),
-                    token.loc,
-                )
-            })?;
+            let base = self.expect(TokenKind::ident())?;
             let params = self.parse_type_param_list()?;
             match self.matches(TokenKind::Marker(Marker::DoubleColon)) {
                 Ok(dc) => path.push(ParamatarizedIdent { base, params }),
@@ -160,8 +158,7 @@ impl<'src> Parser<'src> {
         }
 
         self.strip_whitespace();
-        self.matches(TokenKind::Marker(Marker::RightParen))
-            .map_err(|e| todo!())?;
+        self.expect(TokenKind::Marker(Marker::RightParen))?;
 
         Ok(ParseType::Tuple(types))
     }
@@ -193,16 +190,7 @@ impl<'src> Parser<'src> {
         self.strip_whitespace();
         let ident = if self.matches(TokenKind::Marker(Marker::Colon)).is_ok() {
             self.strip_whitespace();
-            Some(self.matches(TokenKind::ident()).map_err(|tok| {
-                HayError::new(
-                    format!(
-                        "Expected an identifier after {}, but found {}",
-                        Marker::Colon,
-                        tok.kind
-                    ),
-                    tok.loc,
-                )
-            })?)
+            Some(self.expect(TokenKind::ident())?)
         } else {
             None
         };
@@ -221,33 +209,12 @@ impl<'src> Parser<'src> {
 
     fn parse_function_arguments(&mut self) -> Result<Vec<Argument<'src>>, HayError> {
         self.strip_whitespace();
-        let open = self
-            .matches(TokenKind::Marker(Marker::LeftParen))
-            .map_err(|tok| {
-                HayError::new(
-                    format!(
-                        "Expected {} after function name, but found {} instead",
-                        Marker::LeftParen,
-                        tok.kind
-                    ),
-                    tok.loc,
-                )
-            })?;
+        let open = self.expect(TokenKind::Marker(Marker::LeftParen))?;
 
         let args = self.parse_argument_list()?;
 
         self.strip_whitespace();
-        self.matches(TokenKind::Marker(Marker::RightParen))
-            .map_err(|tok| {
-                HayError::new(
-                    format!(
-                        "Expected {} after function arguments, but found {} instead",
-                        Marker::RightParen,
-                        tok.kind
-                    ),
-                    tok.loc,
-                )
-            })?;
+        self.expect(TokenKind::Marker(Marker::RightParen))?;
 
         Ok(args)
     }
@@ -258,18 +225,7 @@ impl<'src> Parser<'src> {
         if self.matches(TokenKind::Marker(Marker::Arrow)).is_ok() {
             self.strip_whitespace();
 
-            self.matches(TokenKind::Marker(Marker::LeftBracket))
-                .map_err(|tok| {
-                    HayError::new(
-                        format!(
-                            "Expected {} after {}, but found {} instead.",
-                            Marker::LeftBracket,
-                            Marker::Arrow,
-                            tok.kind
-                        ),
-                        tok.loc,
-                    )
-                })?;
+            self.expect(TokenKind::Marker(Marker::LeftBracket))?;
 
             let mut types = vec![];
             while let Some(ty) = self.parse_type()? {
@@ -277,17 +233,7 @@ impl<'src> Parser<'src> {
             }
 
             self.strip_whitespace();
-            self.matches(TokenKind::Marker(Marker::RightBracket))
-                .map_err(|tok| {
-                    HayError::new(
-                        format!(
-                            "Expected {}, but found {} instead",
-                            Marker::RightBracket,
-                            tok.kind
-                        ),
-                        tok.loc,
-                    )
-                })?;
+            self.expect(TokenKind::Marker(Marker::RightBracket))?;
             Ok(types)
         } else {
             Ok(vec![])
@@ -422,13 +368,7 @@ impl<'src> Parser<'src> {
 
         self.strip_whitespace();
 
-        self.matches(TokenKind::Marker(Marker::LeftBracket))
-            .map_err(|token| {
-                HayError::new(
-                    format!("Expected {}, but found {}", Marker::LeftBracket, token.kind),
-                    token.loc,
-                )
-            })?;
+        self.expect(TokenKind::Marker(Marker::LeftBracket))?;
 
         let mut idents = vec![];
         loop {
@@ -441,16 +381,7 @@ impl<'src> Parser<'src> {
                 break;
             }
 
-            let ident = self.matches(TokenKind::ident()).map_err(|token| {
-                HayError::new(
-                    format!(
-                        "Expected {}, but found {} instead",
-                        TokenKind::ident(),
-                        token.kind
-                    ),
-                    token.loc,
-                )
-            })?;
+            let ident = self.expect(TokenKind::ident())?;
             idents.push(ident)
         }
 
@@ -470,16 +401,7 @@ impl<'src> Parser<'src> {
             self.strip_whitespace();
         }
 
-        let ident = self.matches(TokenKind::ident()).map_err(|token| {
-            HayError::new(
-                format!(
-                    "Expected {}, but found {} instead",
-                    TokenKind::ident(),
-                    token.kind
-                ),
-                token.loc,
-            )
-        })?;
+        let ident = self.expect(TokenKind::ident())?;
 
         Ok(ParseExpr {
             kind: ParseExprKind::TakeRef {
@@ -522,16 +444,7 @@ impl<'src> Parser<'src> {
     fn parse_function(&mut self, start: Token<'src>) -> Result<Statememt<'src>, HayError> {
         assert!(start.kind == TokenKind::Keyword(Keyword::Function));
         self.strip_whitespace();
-        let name = self.matches(TokenKind::ident()).map_err(|tok| {
-            HayError::new(
-                format!(
-                    "Expected function name after {}, but found {}",
-                    Keyword::Function,
-                    tok.kind
-                ),
-                tok.loc,
-            )
-        })?;
+        let name = self.expect(TokenKind::ident())?;
 
         let params = self.parse_type_param_list()?;
         let signature = self.parse_function_signature()?;
@@ -547,79 +460,27 @@ impl<'src> Parser<'src> {
 
     fn parse_struct(&mut self, start: Token<'src>) -> Result<Statememt<'src>, HayError> {
         self.strip_whitespace();
-        let name = self.matches(TokenKind::ident()).map_err(|token| {
-            HayError::new(
-                format!(
-                    "Expected {} after {}, but found {} instead.",
-                    Marker::LeftBrace,
-                    TokenKind::ident(),
-                    token.kind
-                ),
-                token.loc,
-            )
-        })?;
+        let name = self.expect(TokenKind::ident())?;
 
         let params = self.parse_type_param_list()?;
 
         self.strip_whitespace();
         let open = self
-            .matches(TokenKind::Marker(Marker::LeftBrace))
-            .map_err(|token| {
-                HayError::new(
-                    format!(
-                        "Expected {} after {}, but found {} instead.",
-                        Marker::LeftBrace,
-                        Keyword::Struct,
-                        token.kind
-                    ),
-                    token.loc,
-                )
-            })?;
+            .expect(TokenKind::Marker(Marker::LeftBrace))?;
 
         let mut members = vec![];
         while let Some(ty) = self.parse_type()? {
             self.strip_whitespace();
-            self.matches(TokenKind::Marker(Marker::Colon))
-                .map_err(|token| {
-                    HayError::new(
-                        format!(
-                            "Expected {} after {}, but found {} instead.",
-                            Marker::Colon,
-                            ty.token(),
-                            token.kind
-                        ),
-                        token.loc,
-                    )
-                })?;
+            self.expect(TokenKind::Marker(Marker::Colon))?;
 
             self.strip_whitespace();
-            let id = self.matches(TokenKind::ident()).map_err(|token| {
-                HayError::new(
-                    format!(
-                        "Expected {} after {}, but found {} instead.",
-                        TokenKind::ident(),
-                        Marker::Colon,
-                        token.kind
-                    ),
-                    token.loc,
-                )
-            })?;
+            let id = self.expect(TokenKind::ident())?;
 
             members.push((ty, id))
         }
 
         self.strip_whitespace();
-        self.matches(TokenKind::Marker(Marker::RightBrace))
-            .map_err(|token| {
-                HayError::new(
-                    format!(
-                        "Expected {} after struct members, but found {} instead.",
-                        Marker::RightBrace,
-                        token.kind
-                    ),
-                    token.loc,
-                )
-            })?;
+        self.expect(TokenKind::Marker(Marker::RightBrace))?;
 
         Ok(Statememt::StructDefinition(StructDefinition {
             name,
@@ -630,34 +491,13 @@ impl<'src> Parser<'src> {
 
     fn parse_enum(&mut self, start: Token<'src>) -> Result<Statememt<'src>, HayError> {
         self.strip_whitespace();
-        let name = self.matches(TokenKind::ident()).map_err(|token| {
-            HayError::new(
-                format!(
-                    "Expected {} after {}, but found {} instead.",
-                    Marker::LeftBrace,
-                    TokenKind::ident(),
-                    token.kind
-                ),
-                token.loc,
-            )
-        })?;
+        let name = self.expect(TokenKind::ident())?;
 
         let params = self.parse_type_param_list()?;
 
         self.strip_whitespace();
         let open = self
-            .matches(TokenKind::Marker(Marker::LeftBrace))
-            .map_err(|token| {
-                HayError::new(
-                    format!(
-                        "Expected {} after {}, but found {} instead.",
-                        Marker::LeftBrace,
-                        Keyword::Struct,
-                        token.kind
-                    ),
-                    token.loc,
-                )
-            })?;
+            .expect(TokenKind::Marker(Marker::LeftBrace))?;
 
         let mut variants = vec![];
         while let Some(ty) = self.parse_type()? {
@@ -667,17 +507,7 @@ impl<'src> Parser<'src> {
             let (variant_name, ty) = match self.matches(TokenKind::Marker(Marker::Colon)) {
                 Ok(_) => {
                     self.strip_whitespace();
-                    let id = self.matches(TokenKind::ident()).map_err(|token| {
-                        HayError::new(
-                            format!(
-                                "Expected {} after {}, but found {} instead.",
-                                TokenKind::ident(),
-                                Marker::Colon,
-                                token.kind
-                            ),
-                            token.loc,
-                        )
-                    })?;
+                    let id = self.expect(TokenKind::ident())?;
                     (id, Some(ty))
                 }
                 Err(token) => match ty {
@@ -700,23 +530,19 @@ impl<'src> Parser<'src> {
         }
 
         self.strip_whitespace();
-        self.matches(TokenKind::Marker(Marker::RightBrace))
-            .map_err(|token| {
-                HayError::new(
-                    format!(
-                        "Expected {} after enum variants, but found {} instead.",
-                        Marker::RightBrace,
-                        token.kind
-                    ),
-                    token.loc,
-                )
-            })?;
+        self.expect(TokenKind::Marker(Marker::RightBrace))?;
 
         Ok(Statememt::EnumDefinition(EnumDefinition {
             name,
             params,
             variants,
         }))
+    }
+
+    fn parse_interface(&mut self, start: Token<'src>) -> Result<Statememt<'src>, HayError> {
+        self.strip_whitespace();
+
+        todo!()
     }
 
     fn parse_declaration(&mut self) -> Result<Statememt<'src>, HayError> {
@@ -726,6 +552,7 @@ impl<'src> Parser<'src> {
             TokenKind::Keyword(Keyword::Function) => self.parse_function(token),
             TokenKind::Keyword(Keyword::Struct) => self.parse_struct(token),
             TokenKind::Keyword(Keyword::Enum) => self.parse_enum(token),
+            TokenKind::Keyword(Keyword::Interface) => self.parse_interface(token),
             kind => Err(HayError::new(
                 format!("Unexpected token: {kind}"),
                 token.loc,

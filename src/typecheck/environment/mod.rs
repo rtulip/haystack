@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Debug};
+use std::{collections::HashMap, fmt::Debug, todo};
 
 use crate::{
     typecheck::expr::Var,
@@ -200,6 +200,10 @@ impl Environment {
         M: Debug + Clone + PartialEq + Eq,
     {
         assert_eq!(cid, iface_impl.cid);
+
+        if self.typeclasses[cid.0].vars.len() != iface_impl.args.len() {
+            todo!("Error: wrong number of args")
+        }
 
         if let Some(impls) = self.impls.get(&cid) {
             impls

@@ -142,6 +142,11 @@ struct Scope<'src> {
     scopes: Vec<ScopeLayer<'src>>,
 }
 
+enum Scoping {
+    Global,
+    Local,
+}
+
 impl<'src> Scope<'src> {
     pub fn new(typestore: &mut TypeStore<Token<'src>>) -> Self {
         let types = HashMap::from([
@@ -258,6 +263,21 @@ impl<'src> Scope<'src> {
             .insert(name, (var, token))
     }
 
+
+    fn insert_global_var(
+        &mut self,
+        name: &'src str,
+        var: Var,
+        token: Token<'src>,
+    ) -> Option<(Var, Token<'src>)> {
+        self.scopes
+            .first_mut()
+            .unwrap()
+            .vars
+            .insert(name, (var, token))
+    }
+
+
     fn new_scope(&mut self) {
         self.scopes.push(ScopeLayer {
             types: HashMap::new(),
@@ -275,9 +295,15 @@ impl<'src> Scope<'src> {
 }
 
 impl<'src> TypeCheck<'src> {
-    fn insert_var(&mut self, token: &Token<'src>) -> Result<Var, HayError> {
+    fn insert_var(&mut self, token: &Token<'src>, scoping: Scoping) -> Result<Var, HayError> {
+        
+        let insert_fn = match scoping {
+            Scoping::Global => Scope::insert_global_var,
+            Scoping::Local => Scope::insert_var,
+        };
+        
         let var = self.env.fresh_var();
-        if let Some((var, tok)) = self.scope.insert_var(token.lexeme, var, token.clone()) {
+        if let Some((var, tok)) = insert_fn(&mut self.scope, token.lexeme, var, token.clone()) {
             return Err(HayError::new(
                 format!("`{}` already defined", token.lexeme),
                 token.loc.clone(),
@@ -305,6 +331,8 @@ impl<'src> TypeCheck<'src> {
         let tyvar = self.typestore.fresh_type_var();
         let tid = self.typestore.intern(Type::TypeVar(tyvar));
         let token = ty.token();
+        eprintln!("Inserting {} ({tid:?}) into scope", token.lexeme);
+
         if let Some((tid, tok)) = self
             .scope
             .insert_tid(token.lexeme.into(), tid, token.clone())
@@ -760,7 +788,7 @@ impl<'src> TypeCheck<'src> {
                         "Consider providing a type hint:\n            `{} #u64 hint`",
                         token.lexeme
                     )),
-                    None => todo!(),
+                    None => todo!("{tid:?}"),
                 }
             }
             (
@@ -790,7 +818,7 @@ impl<'src> TypeCheck<'src> {
 
     fn bind_function_def(&mut self, func: &FunctionDefinition<'src>) -> Result<(), HayError> {
         // insert this function into the global scope
-        let var = self.insert_var(&func.name)?;
+        let var = self.insert_var(&func.name, Scoping::Global)?;
 
         // create a new scope for types and identifiers
         self.scope.new_scope();
@@ -807,7 +835,7 @@ impl<'src> TypeCheck<'src> {
                 input.push(tid);
 
                 if let Some(ident) = &arg.ident {
-                    let var = self.insert_var(ident)?;
+                    let var = self.insert_var(ident, Scoping::Local)?;
                     binds.push(var);
                 }
             }
@@ -969,15 +997,14 @@ impl<'src> TypeCheck<'src> {
     fn bind_interface_function_def(
         &mut self,
         func: &InterfaceFunctionDefinition<'src>,
+        var: Var,
         predicate: &TypePredicate,
+        params: &Vec<TypeVar>,
     ) -> Result<(), HayError> {
-        // insert this function into the global scope
-        let var = self.insert_var(&func.name)?;
-
         // create a new scope for types and identifiers
         self.scope.new_scope();
         {
-            let mut params = vec![];
+            let mut params = params.clone();
             for ty in &func.params {
                 params.push(self.insert_param_ty(ty)?);
             }
@@ -989,7 +1016,7 @@ impl<'src> TypeCheck<'src> {
                 input.push(tid);
 
                 if let Some(ident) = &arg.ident {
-                    let var = self.insert_var(ident)?;
+                    let var = self.insert_var(ident, Scoping::Local)?;
                     binds.push(var);
                 }
             }
@@ -1042,7 +1069,7 @@ impl<'src> TypeCheck<'src> {
             .collect();
 
         let interface = Interface {
-            vars,
+            vars: vars.clone(),
             coherence: if iface.funcs.iter().all(|f| f.expr.is_some()) {
                 Coherence::Overlapping
             } else {
@@ -1069,6 +1096,18 @@ impl<'src> TypeCheck<'src> {
             }
         }
 
+        let predicate = TypePredicate {
+            cid,
+            args: var_tids,
+        };
+
+        
+        for func in &iface.funcs {
+            // insert this function into the global scope
+            let var = self.insert_var(&func.name, Scoping::Global)?;
+            self.bind_interface_function_def(func, var, &predicate, &vars)?;
+        }
+
         self.scope.end_scope();
 
         if self
@@ -1081,14 +1120,7 @@ impl<'src> TypeCheck<'src> {
         if self.symbols.insert_cid(cid, iface.name.clone()).is_some() {
             todo!("Error interface of this cid already exists")
         }
-        let predicate = TypePredicate {
-            cid,
-            args: var_tids,
-        };
 
-        for func in &iface.funcs {
-            self.bind_interface_function_def(func, &predicate)?;
-        }
 
         Ok(())
     }

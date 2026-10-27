@@ -1,6 +1,11 @@
 use std::{fmt::Debug, todo, vec};
 
-use crate::typecheck::{environment::{Coherence, Environment, InterfaceImpl, TypePredicate}, expr::Expr, typ::{typ::FunctionType, type_id::TypeId, type_var::TypeVar}, typestore::{TypeStore, inference::InferenceError}};
+use crate::typecheck::{
+    environment::{Coherence, Environment, InterfaceImpl, TypePredicate},
+    expr::Expr,
+    typ::{typ::FunctionType, type_id::TypeId, type_var::TypeVar},
+    typestore::{inference::InferenceError, TypeStore},
+};
 
 use super::constraint::ConstraintOrigin;
 

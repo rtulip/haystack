@@ -5,6 +5,7 @@ use crate::{
     lex::token::{Literal, Token},
     parser::{
         expr::{ParseExpr, ParseExprKind},
+        signature::Signature,
         statement::{
             EnumDefinition, FunctionDefinition, InterfaceDefinition, InterfaceFunctionDefinition,
             InterfaceImpl as ParseInterfaceImpl, Statememt, StructDefinition,
@@ -128,7 +129,13 @@ impl<'src> SymbolTable<'src> {
     }
 }
 
-type InterfaceFnsLookup<'src> = HashMap<&'src str, Option<Expr<'src, Token<'src>>>>;
+#[derive(Debug, Clone)]
+struct InterfaceFnInfo<'src> {
+    tid: TypeId,
+    body: Option<Expr<'src, Token<'src>>>,
+}
+
+type InterfaceFnsLookup<'src> = HashMap<&'src str, InterfaceFnInfo<'src>>;
 
 struct ScopeLayer<'src> {
     types: HashMap<String, (TypeId, Option<Token<'src>>)>,
@@ -263,7 +270,6 @@ impl<'src> Scope<'src> {
             .insert(name, (var, token))
     }
 
-
     fn insert_global_var(
         &mut self,
         name: &'src str,
@@ -276,7 +282,6 @@ impl<'src> Scope<'src> {
             .vars
             .insert(name, (var, token))
     }
-
 
     fn new_scope(&mut self) {
         self.scopes.push(ScopeLayer {
@@ -296,12 +301,11 @@ impl<'src> Scope<'src> {
 
 impl<'src> TypeCheck<'src> {
     fn insert_var(&mut self, token: &Token<'src>, scoping: Scoping) -> Result<Var, HayError> {
-        
         let insert_fn = match scoping {
             Scoping::Global => Scope::insert_global_var,
             Scoping::Local => Scope::insert_var,
         };
-        
+
         let var = self.env.fresh_var();
         if let Some((var, tok)) = insert_fn(&mut self.scope, token.lexeme, var, token.clone()) {
             return Err(HayError::new(
@@ -500,6 +504,23 @@ impl<'src> TypeCheck<'src> {
                 Ok(tid)
             }
         }
+    }
+
+    fn get_function_tid(&mut self, signature: &Signature<'src>) -> Result<TypeId, HayError> {
+        let function_type = FunctionType {
+            input: signature
+                .input
+                .iter()
+                .map(|arg| self.get_tid(&arg.typ))
+                .collect::<Result<Vec<_>, _>>()?,
+            output: signature
+                .output
+                .iter()
+                .map(|ty| self.get_tid(ty))
+                .collect::<Result<Vec<_>, _>>()?,
+        };
+
+        Ok(self.typestore.function(function_type))
     }
 
     fn lower_expr(&mut self, expr: &ParseExpr<'src>) -> Result<Expr<'src, Token<'src>>, HayError> {
@@ -812,6 +833,15 @@ impl<'src> TypeCheck<'src> {
                 ))
                 .with_hint("Overlapping implementations cannot override default functions")
             }
+            (
+                ConstraintOrigin::ImplsMustMatch,
+                InferenceErrorKind::TypesIncompatible { expected, found },
+            ) => HayError::new(
+                format!("Incompatible function signature for `{}`", e.meta.lexeme),
+                e.meta.loc,
+            )
+            .with_hint(format!("Expected: {}", self.format_tid(expected)))
+            .with_hint(format!("Found   : {}", self.format_tid(found))),
             (origin, kind) => todo!("Generate Error message for {origin:?}, {kind:?}"),
         }
     }
@@ -1081,15 +1111,28 @@ impl<'src> TypeCheck<'src> {
 
         let mut fn_lookup = InterfaceFnsLookup::new();
         for func in &iface.funcs {
+            let tid = self.get_function_tid(&func.signature)?;
             match &func.expr {
                 Some(expr) => {
                     let expr = self.lower_expr(expr)?;
-                    if fn_lookup.insert(func.name.lexeme, Some(expr)).is_some() {
+                    if fn_lookup
+                        .insert(
+                            func.name.lexeme,
+                            InterfaceFnInfo {
+                                tid,
+                                body: Some(expr),
+                            },
+                        )
+                        .is_some()
+                    {
                         todo!("re-definition of interface function")
                     }
                 }
                 None => {
-                    if fn_lookup.insert(func.name.lexeme, None).is_some() {
+                    if fn_lookup
+                        .insert(func.name.lexeme, InterfaceFnInfo { tid, body: None })
+                        .is_some()
+                    {
                         todo!("re-definition of interface function")
                     }
                 }
@@ -1101,7 +1144,6 @@ impl<'src> TypeCheck<'src> {
             args: var_tids,
         };
 
-        
         for func in &iface.funcs {
             // insert this function into the global scope
             let var = self.insert_var(&func.name, Scoping::Global)?;
@@ -1110,17 +1152,12 @@ impl<'src> TypeCheck<'src> {
 
         self.scope.end_scope();
 
-        if self
-            .scope
-            .insert_cid(iface.name.lexeme, cid, fn_lookup)
-            .is_some()
-        {
+        if let Some(_) = self.scope.insert_cid(iface.name.lexeme, cid, fn_lookup) {
             todo!("error interface of this name already exists")
         }
         if self.symbols.insert_cid(cid, iface.name.clone()).is_some() {
             todo!("Error interface of this cid already exists")
         }
-
 
         Ok(())
     }
@@ -1137,7 +1174,7 @@ impl<'src> TypeCheck<'src> {
             .map(|ty| self.insert_param_ty(ty))
             .collect::<Result<Vec<_>, _>>()?;
 
-        let (cid, fns) = match self.scope.get_cid(iface_impl.name.lexeme) {
+        let (cid, mut fns) = match self.scope.get_cid(iface_impl.name.lexeme) {
             Some((cid, fns)) => (cid, fns),
             None => todo!("???"),
         };
@@ -1163,6 +1200,76 @@ impl<'src> TypeCheck<'src> {
         self.env
             .add_impl(&mut self.typestore, cid, interface_impl, &iface_impl.name)
             .map_err(|e| self.map_inference_err(e))?;
+
+        for func in &iface_impl.impls {
+            let Some(fn_info) = fns.get(&func.name.lexeme) else {
+                todo!("Unexpected function in interface")
+            };
+
+            let impl_func_tid = self.get_function_tid(&func.signature)?;
+            let impl_func_tid = self
+                .typestore
+                .type_instance(impl_func_tid, None, &func.name)
+                .map_err(|e| self.map_inference_err(e))?;
+
+            let origin_func_tid = self
+                .typestore
+                .type_instance(fn_info.tid, None, &func.name)
+                .map_err(|e| self.map_inference_err(e))?;
+
+            self.typestore
+                .unify_ty_ty(
+                    origin_func_tid,
+                    impl_func_tid,
+                    &ConstraintOrigin::ImplsMustMatch,
+                    &func.name,
+                )
+                .map_err(|e| self.map_inference_err(e))?;
+
+            let expr = self.lower_expr(&func.expr)?;
+
+            let fn_ty = self
+                .typestore
+                .get_func(&impl_func_tid)
+                .expect("This should always be a function")
+                .clone();
+            let f = Function::new(
+                fn_ty.input,
+                fn_ty.output,
+                func.params
+                    .iter()
+                    .map(|ty| self.insert_param_ty(ty))
+                    .collect::<Result<Vec<_>, _>>()?,
+                vec![],
+                expr.clone(),
+            )
+            .type_check(&mut self.typestore, &mut self.env)
+            .map_err(|e| self.map_inference_err(e))?;
+
+            fns.insert(
+                &func.name.lexeme,
+                InterfaceFnInfo {
+                    tid: fn_info.tid,
+                    body: Some(expr),
+                },
+            );
+        }
+
+        for (fn_name, fn_info) in &fns {
+            if fn_info.body.is_none() {
+                return Err(HayError::new(
+                    format!(
+                        "Missing implementation for `fn {fn_name}{}`",
+                        &self.format_tid(fn_info.tid)[2..]
+                    ),
+                    iface_impl.name.loc.clone(),
+                )
+                .with_hint(format!(
+                    "Required by interface `{}`",
+                    iface_impl.name.lexeme
+                )));
+            }
+        }
 
         Ok(())
     }

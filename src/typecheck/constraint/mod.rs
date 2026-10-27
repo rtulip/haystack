@@ -118,6 +118,7 @@ pub enum ConstraintOrigin {
     EnumDef,
     UnboundVarInBody,
     ConflictingImpls,
+    ImplsMustMatch,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -1392,7 +1392,22 @@ where
 
                 (ty.clone(), self.intern(ty))
             }
-            Type::Function(_) => todo!(),
+            Type::Function(func) => {
+                let func = func.clone();
+                let input = func
+                    .input
+                    .iter()
+                    .map(|tid| self.normalize_ty(*tid).1)
+                    .collect();
+                let output = func
+                    .output
+                    .iter()
+                    .map(|tid| self.normalize_ty(*tid).1)
+                    .collect();
+
+                let ty = Type::Function(FunctionType { input, output });
+                (ty.clone(), self.intern(ty))
+            }
             Type::Type(inner_tid) => {
                 let (_, inner_tid) = self.normalize_ty(*inner_tid);
                 let ty = Type::Type(inner_tid);
@@ -1592,6 +1607,25 @@ where
             (Type::Tuple(_), _) | (_, Type::Tuple(_)) => Err(InferenceError::types_incompatible(
                 left_tid, right_tid, origin, meta,
             )),
+            (Type::Function(left), Type::Function(right)) => {
+                if (left.input.len() != right.input.len())
+                    || (left.output.len() != right.output.len())
+                {
+                    return Err(InferenceError::types_incompatible(
+                        left_tid, right_tid, origin, meta,
+                    ));
+                }
+
+                for (left, right) in left.input.into_iter().zip(right.input.into_iter()) {
+                    self.unify_ty_ty(left, right, origin, meta)?;
+                }
+
+                for (left, right) in left.output.into_iter().zip(right.output.into_iter()) {
+                    self.unify_ty_ty(left, right, origin, meta)?;
+                }
+
+                Ok(())
+            }
             (_, _) => todo!("Unify {}, {}", self.fmt(left_tid), self.fmt(right_tid)),
         }
     }

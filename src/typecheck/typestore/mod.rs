@@ -2252,4 +2252,33 @@ where
         let tid = self.type_instance(tid, args, meta)?;
         Ok(self.intern(Type::Type(tid)))
     }
+
+    pub fn free_vars(&self, tid: TypeId) -> HashSet<TypeVar> {
+        match &self.types[tid.0] {
+            Type::TypeVar(tyvar) => HashSet::from([*tyvar]),
+            Type::RigidTypeVar(type_var) => todo!(),
+            Type::Builtin(builtin_type) => HashSet::new(),
+            Type::Function(func) => HashSet::from_iter(
+                func.input
+                    .iter()
+                    .chain(func.output.iter())
+                    .map(|tid| self.free_vars(*tid))
+                    .flatten(),
+            ),
+            Type::Pointer(ptr) => self.free_vars(ptr.tid),
+            Type::Struct(s) => {
+                HashSet::from_iter(s.args.iter().map(|tid| self.free_vars(*tid)).flatten())
+            }
+            Type::Enum(e) => {
+                HashSet::from_iter(e.args.iter().map(|tid| self.free_vars(*tid)).flatten())
+            }
+            Type::Variant(v) => {
+                HashSet::from_iter(v.args.iter().map(|tid| self.free_vars(*tid)).flatten())
+            }
+            Type::Tuple(tids) => {
+                HashSet::from_iter(tids.iter().map(|tid| self.free_vars(*tid)).flatten())
+            }
+            Type::Type(tid) => self.free_vars(*tid),
+        }
+    }
 }

@@ -335,7 +335,10 @@ impl<'src> TypeCheck<'src> {
         let tyvar = self.typestore.fresh_type_var();
         let tid = self.typestore.intern(Type::TypeVar(tyvar));
         let token = ty.token();
-        eprintln!("Inserting {} ({tid:?}) into scope", token.lexeme);
+        eprintln!(
+            "[{}]: Inserting {} ({tid:?}) into scope",
+            token.loc, token.lexeme
+        );
 
         if let Some((tid, tok)) = self
             .scope
@@ -846,56 +849,76 @@ impl<'src> TypeCheck<'src> {
         }
     }
 
-    fn bind_function_def(&mut self, func: &FunctionDefinition<'src>) -> Result<(), HayError> {
-        // insert this function into the global scope
-        let var = self.insert_var(&func.name, Scoping::Global)?;
+    fn add_fn_params_to_scope(
+        &mut self,
+        params: &Vec<ParseType<'src>>,
+    ) -> Result<Vec<TypeVar>, HayError> {
+        let mut tyvars = vec![];
+        for ty in params {
+            eprintln!("{ty:?}");
+            tyvars.push(self.insert_param_ty(ty)?);
+        }
 
+        Ok(tyvars)
+    }
+
+    fn type_check_function_def(
+        &mut self,
+        func: &FunctionDefinition<'src>,
+        params: Vec<TypeVar>,
+        var: Option<Var>,
+    ) -> Result<Expr<'src, Token<'src>>, HayError> {
         // create a new scope for types and identifiers
-        self.scope.new_scope();
-        {
-            let mut params = vec![];
-            for ty in &func.params {
-                params.push(self.insert_param_ty(ty)?);
+        let mut binds = vec![];
+        let mut input = vec![];
+        for arg in &func.signature.input {
+            let tid = self.get_tid(&arg.typ)?;
+            input.push(tid);
+
+            if let Some(ident) = &arg.ident {
+                let var = self.insert_var(ident, Scoping::Local)?;
+                binds.push(var);
             }
+        }
 
-            let mut binds = vec![];
-            let mut input = vec![];
-            for arg in &func.signature.input {
-                let tid = self.get_tid(&arg.typ)?;
-                input.push(tid);
+        let mut output = vec![];
+        for ty in &func.signature.output {
+            let tid = self.get_tid(&ty)?;
+            output.push(tid);
+        }
 
-                if let Some(ident) = &arg.ident {
-                    let var = self.insert_var(ident, Scoping::Local)?;
-                    binds.push(var);
-                }
-            }
-
-            let mut output = vec![];
-            for ty in &func.signature.output {
-                let tid = self.get_tid(&ty)?;
-                output.push(tid);
-            }
-
+        if let Some(var) = var {
             let tid = self.typestore.function(FunctionType {
                 input: input.clone(),
                 output: output.clone(),
             });
             let scheme = Scheme::new(params.clone(), tid, vec![]);
             assert!(self.env.bind_scheme(var, scheme).is_none());
+        }
+        let mut expr = self.lower_expr(&func.expr)?;
 
-            let mut expr = self.lower_expr(&func.expr)?;
+        if binds.len() != 0 {
+            expr = Expr::block(
+                [Expr::bind(binds, func.expr.token.clone()), expr],
+                func.expr.token.clone(),
+            );
+        }
 
-            if binds.len() != 0 {
-                expr = Expr::block(
-                    [Expr::bind(binds, func.expr.token.clone()), expr],
-                    func.expr.token.clone(),
-                );
-            }
+        let f = Function::new(input, output, params, vec![], expr.clone());
+        let f = f
+            .type_check(&mut self.typestore, &self.env)
+            .map_err(|e| self.map_inference_err(e))?;
 
-            let f = Function::new(input, output, params, vec![], expr);
-            let f = f
-                .type_check(&mut self.typestore, &self.env)
-                .map_err(|e| self.map_inference_err(e))?;
+        Ok(expr)
+    }
+
+    fn bind_function_def(&mut self, func: &FunctionDefinition<'src>) -> Result<(), HayError> {
+        // insert this function into the global scope
+        let var = self.insert_var(&func.name, Scoping::Global)?;
+        self.scope.new_scope();
+        {
+            let params = self.add_fn_params_to_scope(&func.params)?;
+            self.type_check_function_def(func, params, Some(var))?;
         }
         self.scope.end_scope();
         Ok(())
@@ -1206,45 +1229,35 @@ impl<'src> TypeCheck<'src> {
                 todo!("Unexpected function in interface")
             };
 
-            let impl_func_tid = self.get_function_tid(&func.signature)?;
-            let impl_func_tid = self
-                .typestore
-                .type_instance(impl_func_tid, None, &func.name)
-                .map_err(|e| self.map_inference_err(e))?;
+            self.scope.new_scope();
+            let expr = {
+                let params = self.add_fn_params_to_scope(&func.params)?;
 
-            let origin_func_tid = self
-                .typestore
-                .type_instance(fn_info.tid, None, &func.name)
-                .map_err(|e| self.map_inference_err(e))?;
+                let impl_func_tid = self.get_function_tid(&func.signature)?;
+                let impl_func_tid = self
+                    .typestore
+                    .type_instance(impl_func_tid, None, &func.name)
+                    .map_err(|e| self.map_inference_err(e))?;
 
-            self.typestore
-                .unify_ty_ty(
-                    origin_func_tid,
-                    impl_func_tid,
-                    &ConstraintOrigin::ImplsMustMatch,
-                    &func.name,
-                )
-                .map_err(|e| self.map_inference_err(e))?;
+                let origin_func_tid = self
+                    .typestore
+                    .type_instance(fn_info.tid, None, &func.name)
+                    .map_err(|e| self.map_inference_err(e))?;
 
-            let expr = self.lower_expr(&func.expr)?;
+                self.typestore
+                    .unify_ty_ty(
+                        origin_func_tid,
+                        impl_func_tid,
+                        &ConstraintOrigin::ImplsMustMatch,
+                        &func.name,
+                    )
+                    .map_err(|e| self.map_inference_err(e))?;
 
-            let fn_ty = self
-                .typestore
-                .get_func(&impl_func_tid)
-                .expect("This should always be a function")
-                .clone();
-            let f = Function::new(
-                fn_ty.input,
-                fn_ty.output,
-                func.params
-                    .iter()
-                    .map(|ty| self.insert_param_ty(ty))
-                    .collect::<Result<Vec<_>, _>>()?,
-                vec![],
-                expr.clone(),
-            )
-            .type_check(&mut self.typestore, &mut self.env)
-            .map_err(|e| self.map_inference_err(e))?;
+                let expr = self.lower_expr(&func.expr)?;
+
+                self.type_check_function_def(func, params, None)?
+            };
+            self.scope.end_scope();
 
             fns.insert(
                 &func.name.lexeme,

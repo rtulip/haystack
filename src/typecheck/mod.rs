@@ -335,10 +335,6 @@ impl<'src> TypeCheck<'src> {
         let tyvar = self.typestore.fresh_type_var();
         let tid = self.typestore.intern(Type::TypeVar(tyvar));
         let token = ty.token();
-        eprintln!(
-            "[{}]: Inserting {} ({tid:?}) into scope",
-            token.loc, token.lexeme
-        );
 
         if let Some((tid, tok)) = self
             .scope
@@ -855,10 +851,8 @@ impl<'src> TypeCheck<'src> {
     ) -> Result<Vec<TypeVar>, HayError> {
         let mut tyvars = vec![];
         for ty in params {
-            eprintln!("{ty:?}");
             tyvars.push(self.insert_param_ty(ty)?);
         }
-
         Ok(tyvars)
     }
 

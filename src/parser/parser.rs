@@ -2,10 +2,13 @@ use std::{format, todo, unreachable};
 
 use crate::{
     error::HayError,
-    lex::token::{
-        Keyword,
-        Marker::{self, LeftParen},
-        Operator, Token, TokenKind,
+    lex::{
+        scanner::Scanner,
+        token::{
+            Keyword,
+            Marker::{self, LeftParen},
+            Operator, Token, TokenKind,
+        },
     },
     parser::{
         argument::Argument,
@@ -28,15 +31,14 @@ impl<'src> Parser<'src> {
         let mut parser = Parser {
             tokens: tokens.drain(..).rev().collect(),
         };
-        parser.strip_whitespace();
 
         let mut stmts = vec![];
         loop {
+            parser.strip_whitespace();
             if parser.is_at_end() {
                 break;
             }
-            let stmt = parser.parse_declaration()?;
-            stmts.push(stmt)
+            stmts.extend(parser.parse_declaration()?)
         }
         Ok(stmts)
     }
@@ -648,15 +650,29 @@ impl<'src> Parser<'src> {
         }))
     }
 
-    fn parse_declaration(&mut self) -> Result<Statememt<'src>, HayError> {
+    fn parse_include(&mut self, start: Token<'src>) -> Result<Vec<Statememt<'src>>, HayError> {
+        self.strip_whitespace();
+        let path = self.expect(TokenKind::string())?;
+        let file = &path.lexeme[1..path.lexeme.len() - 1];
+        let source: &'src str = std::fs::read_to_string(file)
+            .map_err(|e| HayError::new(format!("Failed to open file `{file}`"), path.loc.clone()))?
+            .leak();
+
+        let tokens = Scanner::new(file, &source).scan_tokens()?;
+
+        Parser::parse(tokens)
+    }
+
+    fn parse_declaration(&mut self) -> Result<Vec<Statememt<'src>>, HayError> {
         self.strip_whitespace();
         let token = self.tokens.pop().unwrap();
         match &token.kind {
-            TokenKind::Keyword(Keyword::Function) => self.parse_function(token),
-            TokenKind::Keyword(Keyword::Struct) => self.parse_struct(token),
-            TokenKind::Keyword(Keyword::Enum) => self.parse_enum(token),
-            TokenKind::Keyword(Keyword::Interface) => self.parse_interface(token),
-            TokenKind::Keyword(Keyword::Impl) => self.parse_impl(token),
+            TokenKind::Keyword(Keyword::Function) => Ok(vec![self.parse_function(token)?]),
+            TokenKind::Keyword(Keyword::Struct) => Ok(vec![self.parse_struct(token)?]),
+            TokenKind::Keyword(Keyword::Enum) => Ok(vec![self.parse_enum(token)?]),
+            TokenKind::Keyword(Keyword::Interface) => Ok(vec![self.parse_interface(token)?]),
+            TokenKind::Keyword(Keyword::Impl) => Ok(vec![self.parse_impl(token)?]),
+            TokenKind::Keyword(Keyword::Include) => self.parse_include(token),
             kind => Err(HayError::new(
                 format!("Unexpected token: {kind}"),
                 token.loc,

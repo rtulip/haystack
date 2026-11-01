@@ -106,7 +106,7 @@ pub enum ConstraintOrigin {
         expected: Stack,
     },
     Identifier(TypeId),
-    MatchBranch {
+    Branching {
         fresh_stack: Stack,
         stacks: Vec<Stack>,
     },
@@ -119,6 +119,7 @@ pub enum ConstraintOrigin {
     UnboundVarInBody,
     ConflictingImpls,
     ImplsMustMatch,
+    IfCondition,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

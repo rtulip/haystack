@@ -50,6 +50,12 @@ impl<'src, Meta> MatchExpr<'src, Meta> {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
+pub struct IfExpr<'src, Meta> {
+    pub then: Box<Expr<'src, Meta>>,
+    pub otherwise: Box<Expr<'src, Meta>>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ExprKind<'src, Meta> {
     U8(u8),
     U64(u64),
@@ -66,6 +72,7 @@ pub enum ExprKind<'src, Meta> {
     Pack,
     MemberAccess { var: Var, member: usize },
     Match(MatchExpr<'src, Meta>),
+    If(IfExpr<'src, Meta>),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -186,6 +193,16 @@ impl<'src, Meta> Expr<'src, Meta> {
         Expr {
             expr: ExprKind::Match(m),
             meta,
+        }
+    }
+
+    pub fn iff(then: Expr<'src, Meta>, otherwise: Expr<'src, Meta>, meta: Meta) -> Self {
+        Expr {
+            expr: ExprKind::If(IfExpr {
+                then: Box::new(then),
+                otherwise: Box::new(otherwise),
+            }),
+            meta: meta,
         }
     }
 }

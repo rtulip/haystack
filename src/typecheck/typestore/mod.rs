@@ -529,6 +529,16 @@ where
                     Expr::match_(MatchExpr::new(cases, finally), (expr.meta.0, expr_tid)),
                 )
             }
+            ExprKind::If(iff) => {
+
+                let (mut unbound, then) =self.substitute_expr(*iff.then);
+                let (ub, otherwise) = self.substitute_expr(*iff.otherwise);
+
+                unbound.extend(ub);
+
+                (unbound, Expr::iff(then, otherwise, (expr.meta.0, expr_tid)))
+
+            },
             ExprKind::Tuple(_) => todo!(),
         }
     }
@@ -1322,7 +1332,7 @@ where
                             output: *tid,
                             inputs,
                         },
-                        ConstraintOrigin::MatchBranch {
+                        ConstraintOrigin::Branching {
                             fresh_stack: fresh_stack.clone(),
                             stacks: stacks.clone(),
                         },
@@ -1335,6 +1345,69 @@ where
                     output: fresh_stack.clone(),
                 });
                 let e = Expr::match_(MatchExpr::new(cases, finally), (expr.meta, expr_tid));
+
+                *stack = fresh_stack;
+
+                Ok((e, constraints))
+            }
+            ExprKind::If(iff) => {
+                let input = stack.clone();
+
+                // pop an enum off of the stack.
+                if stack.is_empty() {
+                    todo!("Error: Expected an enum")
+                }
+
+                let tid = stack.pop().unwrap();
+                let mut constraints = vec![Constraint::new(
+                    ConstraintType::Equal(tid, self.intern(Type::bool())),
+                    ConstraintOrigin::IfCondition,
+                    &expr.meta,
+                )];
+
+
+                let mut then_stack = stack.clone();
+                let (then, constrs) = self.infer(*iff.then, &mut then_stack, env)?;
+                constraints.extend(constrs);
+
+                let mut otherwise_stack = stack.clone();
+                let (otherwise, constrs) = self.infer(*iff.otherwise, &mut otherwise_stack, env)?;
+                constraints.extend(constrs);
+
+                if then_stack.len() != otherwise_stack.len() {
+                    todo!("Error: Stack shapes differ")
+                }
+
+                let fresh_stack: Vec<_> = (0..then_stack.len())
+                    .map(|_| {
+                        let tyvar = self.fresh_type_var();
+                        self.intern(Type::TypeVar(tyvar))
+                    })
+                    .collect();
+
+                for (i, tid) in fresh_stack.iter().enumerate() {
+                    let inputs = [&then_stack, &otherwise_stack]
+                        .iter()
+                        .map(|stack| stack[i])
+                        .collect();
+                    constraints.push(Constraint::new(
+                        ConstraintType::Join {
+                            output: *tid,
+                            inputs,
+                        },
+                        ConstraintOrigin::Branching {
+                            fresh_stack: fresh_stack.clone(),
+                            stacks: vec![then_stack.clone(), otherwise_stack.clone()],
+                        },
+                        &expr.meta,
+                    ));
+                }
+
+                let expr_tid = self.function(FunctionType {
+                    input,
+                    output: fresh_stack.clone(),
+                });
+                let e = Expr::iff(then, otherwise, (expr.meta, expr_tid));
 
                 *stack = fresh_stack;
 
@@ -1577,6 +1650,12 @@ where
 
                 Ok(())
             }
+            (Type::Enum(_), _) | (_, Type::Enum(_)) => Err(InferenceError::types_incompatible(
+                left_tid, right_tid, origin, meta,
+            )),
+            (Type::Variant(_), _) | (_, Type::Variant(_)) => Err(InferenceError::types_incompatible(
+                left_tid, right_tid, origin, meta,
+            )),
             (Type::Struct(left), Type::Struct(right)) => {
                 if left.sid != right.sid {
                     return Err(InferenceError::types_incompatible(
@@ -1590,6 +1669,9 @@ where
                 }
 
                 Ok(())
+            }
+            (Type::Struct(_), _) | (_, Type::Struct(_)) => {
+                Err(InferenceError::types_incompatible(left_tid, right_tid, origin, meta))
             }
             (Type::Tuple(left), Type::Tuple(right)) => {
                 if left.len() != right.len() {

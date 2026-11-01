@@ -594,6 +594,44 @@ impl<'src> TypeCheck<'src> {
 
                 Ok(Expr::take_ref(var, mutability, expr.token.clone()))
             }
+            ParseExprKind::If(if_expr) => {
+                let mut then = vec![];
+                for expr in &if_expr.then {
+                    then.push(self.lower_expr(expr)?);
+                }
+
+                let then = Expr::block(then, expr.token.clone());
+
+                let mut otherwise = vec![];
+                for expr in &if_expr.finally {
+                    otherwise.push(self.lower_expr(expr)?);
+                }
+
+                let mut otherwise = Expr::block(otherwise, expr.token.clone());
+
+                for branch in if_expr.otherwise.iter().rev() {
+                    let mut then = vec![];
+                    for expr in &branch.body {
+                        then.push(self.lower_expr(expr)?);
+                    }
+
+                    let if_expr = Expr::iff(
+                        Expr::block(then, branch.token.clone()),
+                        otherwise,
+                        branch.token.clone(),
+                    );
+
+                    let mut block = vec![];
+                    for expr in &branch.condition {
+                        block.push(self.lower_expr(expr)?);
+                    }
+                    block.push(if_expr);
+
+                    otherwise = Expr::block(block, branch.token.clone());
+                }
+
+                Ok(Expr::iff(then, otherwise, expr.token.clone()))
+            }
         }
     }
 
@@ -841,6 +879,19 @@ impl<'src> TypeCheck<'src> {
             )
             .with_hint(format!("Expected: {}", self.format_tid(expected)))
             .with_hint(format!("Found   : {}", self.format_tid(found))),
+            (ConstraintOrigin::Branching{ fresh_stack, stacks }, InferenceErrorKind::TypesIncompatible { expected, found }) => {
+
+                let mut e = HayError::new("Branches must produce similar stacks.", e.meta.loc);
+                for (i, stack) in stacks.into_iter().enumerate() {
+                    e = e.with_hint(format!("Branch {}: {}", i + 1, self.format_stack(&stack, '[', ']')))
+                }
+                e = e.with_hint(format!(
+                    "No common type can be found between `{}` and `{}`",
+                    self.format_tid(expected), self.format_tid(found),
+                ));
+
+                e
+            },
             (origin, kind) => todo!("Generate Error message for {origin:?}, {kind:?}"),
         }
     }

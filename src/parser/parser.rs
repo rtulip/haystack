@@ -22,6 +22,8 @@ use crate::{
     },
 };
 
+use super::expr::{ParseIfExpr, ParseIfElseBranch};
+
 pub struct Parser<'src> {
     tokens: Vec<Token<'src>>,
 }
@@ -456,6 +458,102 @@ impl<'src> Parser<'src> {
         }
     }
 
+    fn parse_if_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
+        let start = self.expect(TokenKind::Keyword(Keyword::If)).unwrap();
+
+        self.strip_whitespace();
+        let then_open = self.expect(TokenKind::Marker(Marker::LeftBrace))?;
+        let mut then = vec![];
+
+        loop {
+            self.strip_whitespace();
+            if self.matches(TokenKind::Marker(Marker::RightBrace)).is_ok() {
+                break;
+            }
+
+            then.push(self.parse_expr()?);
+        }
+
+        let mut otherwise = vec![];
+        let mut finally = vec![];
+        loop {
+            self.strip_whitespace();
+            let Ok(_) = self.matches(TokenKind::Keyword(Keyword::Else)) else {
+                break;
+            };
+
+            self.strip_whitespace();
+            match self.matches(TokenKind::Marker(Marker::LeftBrace)) {
+                Ok(_) => {
+                    let mut exprs = vec![];
+                    loop {
+                        self.strip_whitespace();
+                        if self.matches(TokenKind::Marker(Marker::RightBrace)).is_ok() {
+                            finally = exprs;
+                            break;
+                        }
+
+                        if (self.is_at_end()) {
+                            todo!("Error")
+                        }
+
+                        exprs.push(self.parse_expr()?);
+                    }
+                }
+                Err(_) => {
+
+                    let mut condition = vec![];
+                    let token =
+                    loop {
+                        self.strip_whitespace();
+                        if let Ok(token) = self.matches(TokenKind::Keyword(Keyword::If)) {
+                            break token;
+                        }
+                        
+                        if (self.is_at_end()) {
+                            todo!("Error")
+                        }
+
+                        condition.push(self.parse_expr()?);
+                        
+                    };
+                    
+                    self.strip_whitespace();
+                    self.expect(TokenKind::Marker(Marker::LeftBrace))?;
+                    let mut body = vec![];
+                    loop {
+                        self.strip_whitespace();
+                        if self.matches(TokenKind::Marker(Marker::RightBrace)).is_ok() {
+                            break;
+                        }
+
+                        if (self.is_at_end()) {
+                            todo!("Error")
+                        }
+
+                        body.push(self.parse_expr()?);
+                    }
+
+                    otherwise.push(ParseIfElseBranch {
+                        token,
+                        condition,
+                        body,
+                    })
+
+                },
+            }
+        }
+
+        Ok(ParseExpr {
+            kind: ParseExprKind::If(ParseIfExpr {
+                then,
+                otherwise,
+                finally,
+            }),
+            token: start,
+        })
+    }
+
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
         self.strip_whitespace();
         match &self.peek().kind {
@@ -463,11 +561,12 @@ impl<'src> Parser<'src> {
             TokenKind::Marker(Marker::LeftBrace) => self.parse_block_expr(),
             TokenKind::Marker(Marker::Hash) => self.parse_type_expr(),
             TokenKind::Marker(Marker::LeftParen) => self.parse_tuple_expr(),
-            TokenKind::Keyword(Keyword::Pack) => Ok(self.parse_pack_expr()),
             TokenKind::Marker(m) => todo!("Parse Expr from {m}"),
+            TokenKind::Keyword(Keyword::Pack) => Ok(self.parse_pack_expr()),
             TokenKind::Keyword(Keyword::As) => self.parse_as_expr(),
             TokenKind::Keyword(Keyword::Call) => Ok(self.parse_call_expr()),
             TokenKind::Keyword(Keyword::UncheckedCast) => Ok(self.parse_unchecked_cast_expr()),
+            TokenKind::Keyword(Keyword::If) => self.parse_if_expr(),
             TokenKind::Keyword(kw) => todo!("Parse {kw} expr"),
             TokenKind::Operator(Operator::Ampersand) => self.parse_take_ref_expr(),
             TokenKind::Operator(_) => todo!(),

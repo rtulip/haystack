@@ -1,9 +1,13 @@
 include "prelude.hay"
 
 fn main() {
+    true if {
+        "Hello World" Some
+    } else false if {
+        123
+    } else {
+        None
+    }
 
-    true as [b]
-    &b #&u8 cast
-
-    true #u8 cast
+    drop 
 }

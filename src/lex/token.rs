@@ -240,6 +240,7 @@ impl Keyword {
         map.insert("unpack", TokenKind::Keyword(Keyword::Unpack));
         map.insert("call", TokenKind::Keyword(Keyword::Call));
         map.insert("interface", TokenKind::Keyword(Keyword::Interface));
+        map.insert("extern", TokenKind::Keyword(Keyword::Extern));
 
         map.insert("true", TokenKind::Literal(Literal::Bool(true)));
         map.insert("false", TokenKind::Literal(Literal::Bool(false)));

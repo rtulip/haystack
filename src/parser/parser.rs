@@ -22,7 +22,7 @@ use crate::{
     },
 };
 
-use super::expr::{ParseIfExpr, ParseIfElseBranch};
+use super::{expr::{ParseIfExpr, ParseIfElseBranch}, statement::FunctionDeclaration};
 
 pub struct Parser<'src> {
     tokens: Vec<Token<'src>>,
@@ -179,6 +179,7 @@ impl<'src> Parser<'src> {
             TokenKind::Marker(Marker::RightParen) => Ok(None),
             TokenKind::Marker(Marker::RightBracket) => Ok(None),
             TokenKind::Marker(Marker::LeftParen) => Ok(Some(self.parse_tuple_type()?)),
+            TokenKind::Operator(Operator::Write) => Ok(Some(ParseType::Never(self.tokens.pop().unwrap()))),
             TokenKind::Marker(m) => todo!("Parse Type from {m}"),
             TokenKind::Operator(Operator::GreaterThan) => Ok(None),
             TokenKind::Operator(Operator::Ampersand) => self.parse_pointer_type(),
@@ -762,6 +763,22 @@ impl<'src> Parser<'src> {
         Parser::parse(tokens)
     }
 
+    fn parse_extern_function(&mut self, start: Token<'src>) -> Result<Statememt<'src>, HayError> {
+
+        self.strip_whitespace();
+        let fn_keyword = self.expect(TokenKind::Keyword(Keyword::Function))?;
+        let (name, params, signature) = self.parse_function_def(fn_keyword)?;
+
+        if params.len() != 0 {
+            return Err(HayError::new("Extern functions cannot be generic", params[0].token().loc))
+        }
+
+        Ok(Statememt::ExternFunctionDeclaratoin(FunctionDeclaration {
+            name, signature
+        }))
+
+    }
+
     fn parse_declaration(&mut self) -> Result<Vec<Statememt<'src>>, HayError> {
         self.strip_whitespace();
         let token = self.tokens.pop().unwrap();
@@ -772,6 +789,7 @@ impl<'src> Parser<'src> {
             TokenKind::Keyword(Keyword::Interface) => Ok(vec![self.parse_interface(token)?]),
             TokenKind::Keyword(Keyword::Impl) => Ok(vec![self.parse_impl(token)?]),
             TokenKind::Keyword(Keyword::Include) => self.parse_include(token),
+            TokenKind::Keyword(Keyword::Extern) => Ok(vec![self.parse_extern_function(token)?]),
             kind => Err(HayError::new(
                 format!("Unexpected token: {kind}"),
                 token.loc,

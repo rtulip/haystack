@@ -155,6 +155,7 @@ pub enum Type {
     Tuple(Vec<TypeId>),
     Variant(VariantType),
     Type(TypeId),
+    Never,
 }
 
 impl Type {

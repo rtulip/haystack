@@ -17,6 +17,7 @@ pub enum ParseType<'src> {
     Pointer { inner: Box<Self>, mutable: bool },
     Path(ParseTypePath<'src>),
     Tuple(Vec<Self>),
+    Never(Token<'src>)
 }
 
 impl<'src> ParseType<'src> {
@@ -26,6 +27,7 @@ impl<'src> ParseType<'src> {
             ParseType::Path(p) => p.path[0].base.clone(),
             ParseType::Pointer { inner, mutable } => todo!(),
             ParseType::Tuple(_) => todo!(),
+            ParseType::Never(token) => token.clone() 
         }
     }
 }

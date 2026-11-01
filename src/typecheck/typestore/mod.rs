@@ -180,6 +180,7 @@ where
     ) -> Result<(), std::fmt::Error> {
         let t = &self.types[tid.0];
         match t {
+            Type::Never => write!(w, "!"),
             Type::TypeVar(type_var) => write!(w, "TV({})", type_var.0),
             Type::RigidTypeVar(type_var) => write!(w, "RV({})", type_var.0),
             Type::Builtin(builtin_type) => match builtin_type {
@@ -250,6 +251,7 @@ where
 
     pub fn get_variance(&self, tid: TypeId, tyvar: TypeVar) -> Option<Variance> {
         match self.types.get(tid.0).expect("TypeIds should be resolvable") {
+            Type::Never => None,
             Type::TypeVar(tv) => {
                 if tyvar == *tv {
                     Some(Variance::Covariant)
@@ -367,7 +369,7 @@ where
             .get(tid)
             .expect("All TypeIds must be present in typestore")
         {
-            Type::Builtin(_) | Type::RigidTypeVar(_) => (HashSet::new(), tid),
+            Type::Builtin(_) | Type::RigidTypeVar(_) | Type::Never => (HashSet::new(), tid),
             Type::Type(tid) => {
                 let (unbound, tid) = self.substitute_one(*tid);
                 let tid = self.intern(Type::Type(tid));
@@ -648,7 +650,7 @@ where
         meta: &M,
     ) -> TypeId {
         match self.get(tid).expect("All TypeIds should be resolvable") {
-            Type::Builtin(_) | Type::RigidTypeVar(_) => tid,
+            Type::Builtin(_) | Type::RigidTypeVar(_) | Type::Never => tid,
             Type::TypeVar(var) => self.freshen_type_var(*var, fresh, meta),
             Type::Function(func) => {
                 let func = func.clone();
@@ -908,7 +910,7 @@ where
                     tid
                 }
             }
-            Type::RigidTypeVar(_) | Type::Builtin(_) => tid,
+            Type::RigidTypeVar(_) | Type::Builtin(_) | Type::Never => tid,
             Type::Function(function_type) => {
                 let input = self.instantiate_tids(&function_type.input, bindings);
                 let output = self.instantiate_tids(&function_type.output, bindings);
@@ -1013,7 +1015,8 @@ where
             | Type::Builtin(_)
             | Type::Function(_)
             | Type::Pointer(_)
-            | Type::Type(_) => todo!("Can't pack into a {}", self.fmt(tid)),
+            | Type::Type(_) 
+            | Type::Never => todo!("Can't pack into a {}", self.fmt(tid)),
         }
     }
 
@@ -1449,6 +1452,7 @@ where
 
     fn normalize_ty(&mut self, tid: TypeId) -> (Type, TypeId) {
         match self.get(tid).expect("Type Ids should be resolvable") {
+            Type::Never => (Type::Never, tid),
             Type::Builtin(b) => (Type::Builtin(*b), tid),
             Type::TypeVar(var) => match self.lookup.get(*var).clone() {
                 Some(tid) => self.normalize_ty(tid),
@@ -1757,6 +1761,7 @@ where
         let (subty, subty_tid) = self.normalize_ty(subty);
         let (superty, superty_tid) = self.normalize_ty(superty);
         match (subty, superty) {
+            (Type::Never, _) => Ok(()),
             (Type::Pointer(subty_inner), Type::Pointer(superty_inner)) => {
                 match (subty_inner.mutability, superty_inner.mutability) {
                     (Mutability::Mutable, Mutability::Mutable) => {
@@ -2026,6 +2031,8 @@ where
         let (right, right_tid) = self.normalize_ty(right);
         match (left, right) {
             (_, _) if left_tid == right_tid => Ok(left_tid),
+            (Type::Never, _) => Ok(right_tid),
+            (_, Type::Never) => Ok(left_tid),
             (Type::Pointer(left), Type::Pointer(right)) => {
                 let left_normal = self.normalize_ty(left.tid).1;
                 let right_normal = self.normalize_ty(right.tid).1;
@@ -2242,6 +2249,7 @@ where
             Type::TypeVar(_)
             | Type::RigidTypeVar(_)
             | Type::Builtin(_)
+            | Type::Never
             | Type::Function(_)
             | Type::Pointer(_)
             | Type::Tuple(_)
@@ -2316,7 +2324,8 @@ where
             | Type::Struct(_)
             | Type::Variant(_)
             | Type::Type(_)
-            | Type::Tuple(_) => todo!("{} is not an enum", self.fmt(enum_tid)),
+            | Type::Tuple(_) 
+            | Type::Never => todo!("{} is not an enum", self.fmt(enum_tid)),
         };
 
         Ok(self.intern(Type::Variant(variant)))
@@ -2339,7 +2348,7 @@ where
         match &self.types[tid.0] {
             Type::TypeVar(tyvar) => HashSet::from([*tyvar]),
             Type::RigidTypeVar(type_var) => todo!(),
-            Type::Builtin(builtin_type) => HashSet::new(),
+            Type::Builtin(_) | Type::Never => HashSet::new(),
             Type::Function(func) => HashSet::from_iter(
                 func.input
                     .iter()

@@ -1,10 +1,11 @@
 include "prelude.hay"
+include "c.hay"
 
 fn main() {
     true if {
         "Hello World" Some
     } else false if {
-        123
+        1 exit 
     } else {
         None
     }

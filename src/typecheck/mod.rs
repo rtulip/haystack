@@ -8,7 +8,7 @@ use crate::{
         signature::Signature,
         statement::{
             EnumDefinition, FunctionDefinition, InterfaceDefinition, InterfaceFunctionDefinition,
-            InterfaceImpl as ParseInterfaceImpl, Statememt, StructDefinition,
+            InterfaceImpl as ParseInterfaceImpl, Statememt, StructDefinition, FunctionDeclaration,
         },
         typ::{ParamatarizedIdent, ParseType, ParseTypePath},
     },
@@ -470,6 +470,7 @@ impl<'src> TypeCheck<'src> {
 
     fn get_tid(&mut self, ty: &ParseType<'src>) -> Result<TypeId, HayError> {
         match ty {
+            ParseType::Never(_) => Ok(self.typestore.intern(Type::Never)),
             ParseType::Simple(ident) => Ok(self.get_paramatarized_ident_tid(ident)?),
             ParseType::Path(path) => {
                 self.get_type_path_tid(path)
@@ -672,6 +673,7 @@ impl<'src> TypeCheck<'src> {
             .expect("TypeIds should be resolvable")
             .clone()
         {
+            Type::Never => "!".into(),
             Type::TypeVar(_) => todo!(),
             Type::RigidTypeVar(tyvar) => {
                 let tid = self.typestore.intern(Type::TypeVar(tyvar));
@@ -1332,6 +1334,23 @@ impl<'src> TypeCheck<'src> {
         Ok(())
     }
 
+    fn bind_function_declaration(&mut self, func: &FunctionDeclaration<'src>) -> Result<(), HayError> {
+
+        let var = self.insert_var(&func.name, Scoping::Global)?;
+        let tid = self.get_function_tid(&func.signature)?;
+
+        let scheme = Scheme {
+            vars: vec![],
+            tid,
+            predicates: vec![],
+        };
+
+        self.env.bind_scheme(var, scheme);
+
+        Ok(())
+
+    }
+
     pub fn build_world(mut statements: Vec<Statememt<'src>>) -> Result<(), HayError> {
         let mut tc = TypeCheck::new();
 
@@ -1342,6 +1361,7 @@ impl<'src> TypeCheck<'src> {
                 Statememt::FunctionDefinition(func) => tc.bind_function_def(func)?,
                 Statememt::InterfaceDefinition(iface) => tc.bind_interface_def(iface)?,
                 Statememt::InterfaceImpl(iface_impl) => tc.bind_interface_impl(iface_impl)?,
+                Statememt::ExternFunctionDeclaratoin(func) => tc.bind_function_declaration(func)?,
             }
         }
 

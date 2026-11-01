@@ -10,6 +10,11 @@ pub struct FunctionDefinition<'src> {
     pub expr: ParseExpr<'src>,
 }
 
+pub struct FunctionDeclaration<'src> {
+    pub name: Token<'src>,
+    pub signature: Signature<'src>,
+}
+
 pub struct InterfaceFunctionDefinition<'src> {
     pub name: Token<'src>,
     pub params: Vec<ParseType<'src>>,
@@ -44,6 +49,7 @@ pub struct InterfaceImpl<'src> {
 
 pub enum Statememt<'src> {
     FunctionDefinition(FunctionDefinition<'src>),
+    ExternFunctionDeclaratoin(FunctionDeclaration<'src>),
     StructDefinition(StructDefinition<'src>),
     EnumDefinition(EnumDefinition<'src>),
     InterfaceDefinition(InterfaceDefinition<'src>),

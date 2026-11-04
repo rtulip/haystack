@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
-    todo, write,
+    format, todo, unreachable, write,
 };
 
 use crate::typecheck::{
@@ -13,8 +13,8 @@ use crate::typecheck::{
     expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Var},
     typ::{
         typ::{
-            BuiltinType, EnumDef, EnumType, FunctionType, Mutability, PointerType, StructDef,
-            StructType, Type, VariantType,
+            BuiltinType, EnumDef, EnumType, FunctionType, Mutability, PointerType, Projection,
+            StructDef, StructType, Type, VariantType,
         },
         type_id::{EnumId, StructId, TypeId},
         type_var::TypeVar,
@@ -232,6 +232,7 @@ where
                 s += " )";
                 write!(w, "{s}")
             }
+            Type::Projection(_) => todo!(),
         }
     }
 
@@ -328,6 +329,7 @@ where
             Type::Tuple(tids) => tids.iter().fold(None, |result, tid| {
                 Variance::combine(result, self.get_variance(*tid, tyvar))
             }),
+            Type::Projection(_) => todo!(),
         }
     }
 
@@ -432,6 +434,17 @@ where
                 let tids = tids.clone();
                 let (unbound, tids) = self.substitute(&tids);
                 let tid = self.tuple(tids);
+                (unbound, tid)
+            }
+            Type::Projection(p) => {
+                let p = p.clone();
+                let (unbound, args) = self.substitute(&p.args);
+                let p = Projection {
+                    cid: p.cid,
+                    args,
+                    idx: p.idx,
+                };
+                let tid = self.intern(Type::Projection(p));
                 (unbound, tid)
             }
         }
@@ -585,9 +598,12 @@ where
             .collect();
         let args = self.freshen_many_tids(&i.args, &mut fresh, meta);
 
+        let associated_types = self.freshen_many_tids(&i.associated_types, &mut fresh, meta);
+
         QualifiedInterfaceImpl {
             cid: i.cid,
             args,
+            associated_types,
             predicates,
         }
     }
@@ -705,6 +721,11 @@ where
                 let tids = tids.clone();
                 let tids = self.freshen_many_tids(&tids, fresh, meta);
                 self.tuple(tids)
+            }
+            Type::Projection(p) => {
+                let mut p = p.clone();
+                p.args = self.freshen_many_tids(&p.args, fresh, meta);
+                self.intern(Type::Projection(p))
             }
         }
     }
@@ -935,6 +956,7 @@ where
                 let tids = self.instantiate_tids(&tids, bindings);
                 self.tuple(tids)
             }
+            Type::Projection(_) => todo!(),
         }
     }
 
@@ -1014,7 +1036,8 @@ where
             | Type::Function(_)
             | Type::Pointer(_)
             | Type::Type(_)
-            | Type::Never => todo!("Can't pack into a {}", self.fmt(tid)),
+            | Type::Never
+            | Type::Projection(_) => todo!("Can't pack into a {}", self.fmt(tid)),
         }
     }
 
@@ -1447,46 +1470,51 @@ where
         e
     }
 
-    fn normalize_ty(&mut self, tid: TypeId) -> (Type, TypeId) {
+    fn normalize_ty(
+        &mut self,
+        env: &Environment,
+        tid: TypeId,
+        meta: &M,
+    ) -> Result<(Type, TypeId), InferenceErrorKind> {
         match self.get(tid).expect("Type Ids should be resolvable") {
-            Type::Never => (Type::Never, tid),
-            Type::Builtin(b) => (Type::Builtin(*b), tid),
+            Type::Never => Ok((Type::Never, tid)),
+            Type::Builtin(b) => Ok((Type::Builtin(*b), tid)),
             Type::TypeVar(var) => match self.lookup.get(*var).clone() {
-                Some(tid) => self.normalize_ty(tid),
-                None => (Type::TypeVar(*var), tid),
+                Some(tid) => self.normalize_ty(env, tid, meta),
+                None => Ok((Type::TypeVar(*var), tid)),
             },
-            Type::RigidTypeVar(var) => (Type::RigidTypeVar(*var), tid),
+            Type::RigidTypeVar(var) => Ok((Type::RigidTypeVar(*var), tid)),
             Type::Pointer(ptr) => {
                 let ptr = ptr.clone();
-                let (_, inner_tid) = self.normalize_ty(ptr.tid);
+                let (_, inner_tid) = self.normalize_ty(env, ptr.tid, meta)?;
                 let ty = Type::Pointer(PointerType {
                     tid: inner_tid,
                     mutability: ptr.mutability,
                 });
 
-                (ty.clone(), self.intern(ty))
+                Ok((ty.clone(), self.intern(ty)))
             }
             Type::Function(func) => {
                 let func = func.clone();
                 let input = func
                     .input
                     .iter()
-                    .map(|tid| self.normalize_ty(*tid).1)
-                    .collect();
+                    .map(|tid| self.normalize_ty(env, *tid, meta).map(|(_, tid)| tid))
+                    .collect::<Result<_, _>>()?;
                 let output = func
                     .output
                     .iter()
-                    .map(|tid| self.normalize_ty(*tid).1)
-                    .collect();
+                    .map(|tid| self.normalize_ty(env, *tid, meta).map(|(_, tid)| tid))
+                    .collect::<Result<_, _>>()?;
 
                 let ty = Type::Function(FunctionType { input, output });
-                (ty.clone(), self.intern(ty))
+                Ok((ty.clone(), self.intern(ty)))
             }
             Type::Type(inner_tid) => {
-                let (_, inner_tid) = self.normalize_ty(*inner_tid);
+                let (_, inner_tid) = self.normalize_ty(env, *inner_tid, meta)?;
                 let ty = Type::Type(inner_tid);
                 let tid = self.intern(ty);
-                (Type::Type(inner_tid), tid)
+                Ok((Type::Type(inner_tid), tid))
             }
             Type::Struct(s) => {
                 let s = s.clone();
@@ -1494,15 +1522,15 @@ where
                     sid: s.sid,
                     args: s
                         .args
-                        .into_iter()
-                        .map(|tid| self.normalize_ty(tid).1)
-                        .collect(),
+                        .iter()
+                        .map(|tid| self.normalize_ty(env, *tid, meta).map(|(_, tid)| tid))
+                        .collect::<Result<_, _>>()?,
                 };
 
                 let ty = Type::Struct(s);
                 let tid = self.intern(ty.clone());
 
-                (ty, tid)
+                Ok((ty, tid))
             }
             Type::Enum(e) => {
                 let e = e.clone();
@@ -1510,13 +1538,13 @@ where
                     eid: e.eid,
                     args: e
                         .args
-                        .into_iter()
-                        .map(|tid| self.normalize_ty(tid).1)
-                        .collect(),
+                        .iter()
+                        .map(|tid| self.normalize_ty(env, *tid, meta).map(|(_, tid)| tid))
+                        .collect::<Result<_, _>>()?,
                 };
                 let ty = Type::Enum(e);
                 let tid = self.intern(ty.clone());
-                (ty, tid)
+                Ok((ty, tid))
             }
             Type::Variant(v) => {
                 let v = v.clone();
@@ -1524,23 +1552,49 @@ where
                     eid: v.eid,
                     args: v
                         .args
-                        .into_iter()
-                        .map(|tid| self.normalize_ty(tid).1)
-                        .collect(),
+                        .iter()
+                        .map(|tid| self.normalize_ty(env, *tid, meta).map(|(_, tid)| tid))
+                        .collect::<Result<_, _>>()?,
                     variant: v.variant,
                 };
 
                 let ty = Type::Variant(v);
                 let tid = self.intern(ty.clone());
 
-                (ty, tid)
+                Ok((ty, tid))
             }
             Type::Tuple(tids) => {
                 let tids = tids.clone();
-                let tids = tids.iter().map(|tid| self.normalize_ty(*tid).1).collect();
+                let tids = tids
+                    .iter()
+                    .map(|tid| self.normalize_ty(env, *tid, meta).map(|(_, tid)| tid))
+                    .collect::<Result<_, _>>()?;
                 let ty = Type::Tuple(tids);
                 let tid = self.intern(ty.clone());
-                (ty, tid)
+                Ok((ty, tid))
+            }
+            Type::Projection(p) => {
+                let p = p.clone();
+                if let Some(InterfaceImpl {
+                    associated_types, ..
+                }) = self.get_matching_impl(env, p.cid, &p.args, meta)?
+                {
+                    assert!(p.idx < associated_types.len());
+                    self.normalize_ty(env, associated_types[p.idx], meta)
+                } else {
+                    let args = p
+                        .args
+                        .iter()
+                        .map(|tid| self.normalize_ty(env, *tid, meta).map(|(_, tid)| tid))
+                        .collect::<Result<_, _>>()?;
+                    let ty = Type::Projection(Projection {
+                        cid: p.cid,
+                        args,
+                        idx: p.idx,
+                    });
+                    let tid = self.intern(ty.clone());
+                    Ok((ty, tid))
+                }
             }
         }
     }
@@ -1554,14 +1608,16 @@ where
 
     pub fn unify_ty_ty(
         &mut self,
+        env: &Environment,
         unnorm_left: TypeId,
         unnorm_right: TypeId,
+        meta: &M,
     ) -> Result<(), InferenceErrorKind>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
-        let (left, left_tid) = self.normalize_ty(unnorm_left);
-        let (right, right_tid) = self.normalize_ty(unnorm_right);
+        let (left, left_tid) = self.normalize_ty(env, unnorm_left, meta)?;
+        let (right, right_tid) = self.normalize_ty(env, unnorm_right, meta)?;
         match (left, right) {
             (a, b) if a == b => Ok(()),
             (Type::Builtin(left), Type::Builtin(right)) if left == right => Ok(()),
@@ -1576,7 +1632,7 @@ where
                 .map_err(|UnifiactionError(_, _)| todo!()),
             (Type::TypeVar(var), _) => self.unify_typevar(var, right_tid),
             (_, Type::TypeVar(var)) => self.unify_typevar(var, left_tid),
-            (Type::Type(left), Type::Type(right)) => self.unify_ty_ty(left, right),
+            (Type::Type(left), Type::Type(right)) => self.unify_ty_ty(env, left, right, meta),
             (Type::Type(_), _) | (_, Type::Type(_)) => Err(InferenceErrorKind::TypesIncompatible {
                 expected: left_tid,
                 found: right_tid,
@@ -1610,7 +1666,9 @@ where
                     mutability: mut_right,
                     tid: right_inner_tid,
                 }),
-            ) if mut_left == mut_right => self.unify_ty_ty(left_inner_tid, right_inner_tid),
+            ) if mut_left == mut_right => {
+                self.unify_ty_ty(env, left_inner_tid, right_inner_tid, meta)
+            }
             (Type::Pointer(_), _) | (_, Type::Pointer(_)) => {
                 Err(InferenceErrorKind::TypesIncompatible {
                     expected: left_tid,
@@ -1633,7 +1691,7 @@ where
                 left.args
                     .iter()
                     .zip(right.args.iter())
-                    .map(|(left, right)| self.unify_ty_ty(*left, *right))
+                    .map(|(left, right)| self.unify_ty_ty(env, *left, *right, meta))
                     .collect::<Result<(), InferenceErrorKind>>()?;
 
                 Ok(())
@@ -1654,7 +1712,7 @@ where
 
                 assert!(left.args.len() == right.args.len());
                 for (left, right) in left.args.into_iter().zip(right.args.into_iter()) {
-                    self.unify_ty_ty(left, right)?;
+                    self.unify_ty_ty(env, left, right, meta)?;
                 }
 
                 Ok(())
@@ -1679,7 +1737,7 @@ where
 
                 assert!(left.args.len() == right.args.len());
                 for (left, right) in left.args.into_iter().zip(right.args.into_iter()) {
-                    self.unify_ty_ty(left, right)?;
+                    self.unify_ty_ty(env, left, right, meta)?;
                 }
 
                 Ok(())
@@ -1699,7 +1757,7 @@ where
                 }
 
                 for (left, right) in left.into_iter().zip(right.into_iter()) {
-                    self.unify_ty_ty(left, right)?;
+                    self.unify_ty_ty(env, left, right, meta)?;
                 }
 
                 Ok(())
@@ -1721,11 +1779,11 @@ where
                 }
 
                 for (left, right) in left.input.into_iter().zip(right.input.into_iter()) {
-                    self.unify_ty_ty(left, right)?;
+                    self.unify_ty_ty(env, left, right, meta)?;
                 }
 
                 for (left, right) in left.output.into_iter().zip(right.output.into_iter()) {
-                    self.unify_ty_ty(left, right)?;
+                    self.unify_ty_ty(env, left, right, meta)?;
                 }
 
                 Ok(())
@@ -1736,6 +1794,7 @@ where
 
     fn check_subtype_args(
         &mut self,
+        env: &Environment,
         variances: &[Variance],
         sub_args: &[TypeId],
         super_args: &[TypeId],
@@ -1750,9 +1809,11 @@ where
 
         for ((variance, sub_tid), super_tid) in variances.iter().zip(sub_args).zip(super_args) {
             let tid = match variance {
-                Variance::Covariant => self.check_subtype(*sub_tid, *super_tid, origin, meta)?,
+                Variance::Covariant => {
+                    self.check_subtype(env, *sub_tid, *super_tid, origin, meta)?
+                }
                 Variance::Invariant => {
-                    self.unify_ty_ty(*super_tid, *sub_tid)
+                    self.unify_ty_ty(env, *super_tid, *sub_tid, meta)
                         .map_err(|kind| InferenceError {
                             kind,
                             origin: origin.clone(),
@@ -1760,13 +1821,13 @@ where
                         })?
                 }
                 Variance::Contravariant => self
-                    .check_subtype(*super_tid, *sub_tid, origin, meta)
+                    .check_subtype(env, *super_tid, *sub_tid, origin, meta)
                     .map_err(|e| match e.kind {
-                    InferenceErrorKind::TypesIncompatible { expected, found } => {
-                        InferenceError::types_incompatible(found, expected, origin, &e.meta)
-                    }
-                    _ => e,
-                })?,
+                        InferenceErrorKind::TypesIncompatible { expected, found } => {
+                            InferenceError::types_incompatible(found, expected, origin, &e.meta)
+                        }
+                        _ => e,
+                    })?,
             };
         }
 
@@ -1775,6 +1836,7 @@ where
 
     pub fn check_subtype(
         &mut self,
+        env: &Environment,
         subty: TypeId,
         superty: TypeId,
         origin: &ConstraintOrigin,
@@ -1783,8 +1845,20 @@ where
     where
         M: Debug + Clone + PartialEq + Eq,
     {
-        let (subty, subty_tid) = self.normalize_ty(subty);
-        let (superty, superty_tid) = self.normalize_ty(superty);
+        let (subty, subty_tid) =
+            self.normalize_ty(env, subty, meta)
+                .map_err(|kind| InferenceError {
+                    kind,
+                    origin: origin.clone(),
+                    meta: meta.clone(),
+                })?;
+        let (superty, superty_tid) =
+            self.normalize_ty(env, superty, meta)
+                .map_err(|kind| InferenceError {
+                    kind,
+                    origin: origin.clone(),
+                    meta: meta.clone(),
+                })?;
         match (subty, superty) {
             (Type::Never, _) => Ok(()),
             (Type::Pointer(subty_inner), Type::Pointer(superty_inner)) => {
@@ -1792,7 +1866,7 @@ where
                     (Mutability::Mutable, Mutability::Mutable) => {
                         // &mut T <: &mut T
                         // iff T == T
-                        self.unify_ty_ty(superty_tid, subty_tid)
+                        self.unify_ty_ty(env, superty_tid, subty_tid, meta)
                             .map_err(|kind| InferenceError {
                                 kind,
                                 origin: origin.clone(),
@@ -1805,7 +1879,7 @@ where
                         // ---------
                         // &mut A <: &B
                         // &A <: &B
-                        self.check_subtype(subty_inner.tid, superty_inner.tid, origin, meta)
+                        self.check_subtype(env, subty_inner.tid, superty_inner.tid, origin, meta)
                     }
                     (Mutability::Const, Mutability::Mutable) => Err(
                         InferenceError::types_incompatible(superty_tid, subty_tid, origin, meta),
@@ -1815,31 +1889,31 @@ where
             (Type::Variant(v), Type::Enum(e)) if v.eid == e.eid => {
                 assert!(v.args.len() == e.args.len());
                 let variances = self.get_enum_def(e.eid).variances.clone();
-                self.check_subtype_args(&variances, &v.args, &e.args, origin, meta)
+                self.check_subtype_args(env, &variances, &v.args, &e.args, origin, meta)
             }
             (Type::Enum(sub_e), Type::Enum(super_e)) if sub_e.eid == super_e.eid => {
                 let variances = self.get_enum_def(sub_e.eid).variances.clone();
-                self.check_subtype_args(&variances, &sub_e.args, &super_e.args, origin, meta)
+                self.check_subtype_args(env, &variances, &sub_e.args, &super_e.args, origin, meta)
             }
             (Type::Variant(sub_v), Type::Variant(super_v))
                 if sub_v.eid == super_v.eid && sub_v.variant == super_v.variant =>
             {
                 let variances = self.get_enum_def(sub_v.eid).variances.clone();
-                self.check_subtype_args(&variances, &sub_v.args, &super_v.args, origin, meta)
+                self.check_subtype_args(env, &variances, &sub_v.args, &super_v.args, origin, meta)
             }
             (Type::Struct(sub_s), Type::Struct(super_s)) if sub_s.sid == super_s.sid => {
                 let variances = self.get_struct_def(sub_s.sid).variances.clone();
-                self.check_subtype_args(&variances, &sub_s.args, &super_s.args, origin, meta)
+                self.check_subtype_args(env, &variances, &sub_s.args, &super_s.args, origin, meta)
             }
             (Type::Tuple(sub), Type::Tuple(sup)) if sub.len() == sup.len() => {
                 for (sub, sup) in sub.into_iter().zip(sup.into_iter()) {
-                    self.check_subtype(sub, sup, origin, meta)?;
+                    self.check_subtype(env, sub, sup, origin, meta)?;
                 }
 
                 Ok(())
             }
             (_, _) => self
-                .unify_ty_ty(superty_tid, subty_tid)
+                .unify_ty_ty(env, superty_tid, subty_tid, meta)
                 .map_err(|kind| InferenceError {
                     kind,
                     origin: origin.clone(),
@@ -1870,7 +1944,7 @@ where
 
                         let types_match =
                             i.args.iter().zip(args.iter()).all(|(expected, found)| {
-                                self.unify_ty_ty(*expected, *found).is_ok()
+                                self.unify_ty_ty(env, *expected, *found, meta).is_ok()
                             });
 
                         if !types_match {
@@ -1897,9 +1971,7 @@ where
                         {
                             Ok(Some(matches[0]))
                         } else {
-                            todo!(
-                                "Multiple matching implementations with unique coherence"
-                            );
+                            todo!("Multiple matching implementations with unique coherence");
                         }
                     }
                 }
@@ -1940,6 +2012,7 @@ where
 
     fn meet_args(
         &mut self,
+        env: &Environment,
         variances: &[Variance],
         left: &[TypeId],
         right: &[TypeId],
@@ -1955,17 +2028,23 @@ where
         let mut args = vec![];
         for ((variance, left), right) in variances.iter().zip(left).zip(right) {
             let tid = match variance {
-                Variance::Covariant => self.meet_ty_ty(*left, *right, origin, meta)?,
+                Variance::Covariant => self.meet_ty_ty(env, *left, *right, origin, meta)?,
                 Variance::Invariant => {
-                    self.unify_ty_ty(*left, *right)
+                    self.unify_ty_ty(env, *left, *right, meta)
                         .map_err(|kind| InferenceError {
                             kind,
                             origin: origin.clone(),
                             meta: meta.clone(),
                         })?;
-                    self.normalize_ty(*left).1
+                    self.normalize_ty(env, *left, meta)
+                        .map_err(|kind| InferenceError {
+                            kind,
+                            origin: origin.clone(),
+                            meta: meta.clone(),
+                        })?
+                        .1
                 }
-                Variance::Contravariant => self.join_ty_ty(*left, *right, origin, meta)?,
+                Variance::Contravariant => self.join_ty_ty(env, *left, *right, origin, meta)?,
             };
 
             args.push(tid)
@@ -1975,6 +2054,7 @@ where
 
     fn meet_ty_ty(
         &mut self,
+        env: &Environment,
         left: TypeId,
         right: TypeId,
         origin: &ConstraintOrigin,
@@ -1983,34 +2063,67 @@ where
     where
         M: Debug + Clone + PartialEq + Eq,
     {
-        let (left, left_tid) = self.normalize_ty(left);
-        let (right, right_tid) = self.normalize_ty(right);
+        let (left, left_tid) =
+            self.normalize_ty(env, left, meta)
+                .map_err(|kind| InferenceError {
+                    kind,
+                    origin: origin.clone(),
+                    meta: meta.clone(),
+                })?;
+        let (right, right_tid) =
+            self.normalize_ty(env, right, meta)
+                .map_err(|kind| InferenceError {
+                    kind,
+                    origin: origin.clone(),
+                    meta: meta.clone(),
+                })?;
         match (left, right) {
             (_, _) if left_tid == right_tid => Ok(left_tid),
             (Type::Pointer(left), Type::Pointer(right)) => {
                 match (left.mutability, right.mutability) {
                     (Mutability::Mutable, Mutability::Mutable) => {
-                        self.unify_ty_ty(left.tid, right.tid)
+                        self.unify_ty_ty(env, left.tid, right.tid, meta)
                             .map_err(|kind| InferenceError {
                                 kind,
                                 origin: origin.clone(),
                                 meta: meta.clone(),
                             })?;
-                        let tid = self.normalize_ty(left.tid).1;
+                        let tid = self
+                            .normalize_ty(env, left.tid, meta)
+                            .map_err(|kind| InferenceError {
+                                kind,
+                                origin: origin.clone(),
+                                meta: meta.clone(),
+                            })?
+                            .1;
                         Ok(self.pointer(tid, Mutability::Mutable))
                     }
                     (Mutability::Mutable, Mutability::Const) => {
-                        self.check_subtype(left.tid, right.tid, origin, meta)?;
-                        let tid = self.normalize_ty(left.tid).1;
+                        self.check_subtype(env, left.tid, right.tid, origin, meta)?;
+                        let tid = self
+                            .normalize_ty(env, left.tid, meta)
+                            .map_err(|kind| InferenceError {
+                                kind,
+                                origin: origin.clone(),
+                                meta: meta.clone(),
+                            })?
+                            .1;
                         Ok(self.pointer(tid, Mutability::Mutable))
                     }
                     (Mutability::Const, Mutability::Mutable) => {
-                        self.check_subtype(right.tid, left.tid, origin, meta)?;
-                        let tid = self.normalize_ty(right.tid).1;
+                        self.check_subtype(env, right.tid, left.tid, origin, meta)?;
+                        let tid = self
+                            .normalize_ty(env, right.tid, meta)
+                            .map_err(|kind| InferenceError {
+                                kind,
+                                origin: origin.clone(),
+                                meta: meta.clone(),
+                            })?
+                            .1;
                         Ok(self.pointer(tid, Mutability::Mutable))
                     }
                     (Mutability::Const, Mutability::Const) => {
-                        let tid = self.meet_ty_ty(left.tid, right.tid, origin, meta)?;
+                        let tid = self.meet_ty_ty(env, left.tid, right.tid, origin, meta)?;
                         Ok(self.pointer(tid, Mutability::Const))
                     }
                 }
@@ -2026,7 +2139,8 @@ where
                 if left.eid == right.eid && left.variant == right.variant =>
             {
                 let variances = self.get_enum_def(left.eid).variances.clone();
-                let args = self.meet_args(&variances, &left.args, &right.args, origin, meta)?;
+                let args =
+                    self.meet_args(env, &variances, &left.args, &right.args, origin, meta)?;
                 Ok(self.intern(Type::Variant(VariantType {
                     eid: left.eid,
                     args,
@@ -2035,7 +2149,7 @@ where
             }
             (Type::Variant(v), Type::Enum(e)) if v.eid == e.eid => {
                 let variances = self.get_enum_def(e.eid).variances.clone();
-                let args = self.meet_args(&variances, &e.args, &v.args, origin, meta)?;
+                let args = self.meet_args(env, &variances, &e.args, &v.args, origin, meta)?;
                 Ok(self.intern(Type::Variant(VariantType {
                     eid: v.eid,
                     args,
@@ -2044,7 +2158,7 @@ where
             }
             (Type::Enum(e), Type::Variant(v)) if v.eid == e.eid => {
                 let variances = self.get_enum_def(e.eid).variances.clone();
-                let args = self.meet_args(&variances, &e.args, &v.args, origin, meta)?;
+                let args = self.meet_args(env, &variances, &e.args, &v.args, origin, meta)?;
                 Ok(self.intern(Type::Variant(VariantType {
                     eid: v.eid,
                     args,
@@ -2053,7 +2167,8 @@ where
             }
             (Type::Enum(left), Type::Enum(right)) if left.eid == right.eid => {
                 let variances = self.get_enum_def(left.eid).variances.clone();
-                let args = self.meet_args(&variances, &left.args, &right.args, origin, meta)?;
+                let args =
+                    self.meet_args(env, &variances, &left.args, &right.args, origin, meta)?;
                 Ok(self.intern(Type::Enum(EnumType {
                     eid: left.eid,
                     args,
@@ -2061,26 +2176,35 @@ where
             }
             (Type::Struct(left), Type::Struct(right)) if left.sid == right.sid => {
                 let variances = self.get_struct_def(left.sid).variances.clone();
-                let args = self.meet_args(&variances, &left.args, &right.args, origin, meta)?;
+                let args =
+                    self.meet_args(env, &variances, &left.args, &right.args, origin, meta)?;
                 Ok(self.intern(Type::Struct(StructType {
                     sid: left.sid,
                     args,
                 })))
             }
             (_, _) => {
-                self.unify_ty_ty(left_tid, right_tid)
+                self.unify_ty_ty(env, left_tid, right_tid, meta)
                     .map_err(|kind| InferenceError {
                         kind,
                         origin: origin.clone(),
                         meta: meta.clone(),
                     })?;
-                Ok(self.normalize_ty(left_tid).1)
+                Ok(self
+                    .normalize_ty(env, left_tid, meta)
+                    .map_err(|kind| InferenceError {
+                        kind,
+                        origin: origin.clone(),
+                        meta: meta.clone(),
+                    })?
+                    .1)
             }
         }
     }
 
     fn join_args(
         &mut self,
+        env: &Environment,
         variances: &[Variance],
         left: &[TypeId],
         right: &[TypeId],
@@ -2096,17 +2220,23 @@ where
         let mut args = vec![];
         for ((variance, left), right) in variances.iter().zip(left).zip(right) {
             let tid = match variance {
-                Variance::Covariant => self.join_ty_ty(*left, *right, origin, meta)?,
+                Variance::Covariant => self.join_ty_ty(env, *left, *right, origin, meta)?,
                 Variance::Invariant => {
-                    self.unify_ty_ty(*left, *right)
+                    self.unify_ty_ty(env, *left, *right, meta)
                         .map_err(|kind| InferenceError {
                             kind,
                             origin: origin.clone(),
                             meta: meta.clone(),
                         })?;
-                    self.normalize_ty(*left).1
+                    self.normalize_ty(env, *left, meta)
+                        .map_err(|kind| InferenceError {
+                            kind,
+                            origin: origin.clone(),
+                            meta: meta.clone(),
+                        })?
+                        .1
                 }
-                Variance::Contravariant => self.meet_ty_ty(*left, *right, origin, meta)?,
+                Variance::Contravariant => self.meet_ty_ty(env, *left, *right, origin, meta)?,
             };
 
             args.push(tid)
@@ -2116,6 +2246,7 @@ where
 
     pub fn join_ty_ty(
         &mut self,
+        env: &Environment,
         left: TypeId,
         right: TypeId,
         origin: &ConstraintOrigin,
@@ -2124,15 +2255,41 @@ where
     where
         M: Debug + Clone + PartialEq + Eq,
     {
-        let (left, left_tid) = self.normalize_ty(left);
-        let (right, right_tid) = self.normalize_ty(right);
+        let (left, left_tid) =
+            self.normalize_ty(env, left, meta)
+                .map_err(|kind| InferenceError {
+                    kind,
+                    origin: origin.clone(),
+                    meta: meta.clone(),
+                })?;
+        let (right, right_tid) =
+            self.normalize_ty(env, right, meta)
+                .map_err(|kind| InferenceError {
+                    kind,
+                    origin: origin.clone(),
+                    meta: meta.clone(),
+                })?;
         match (left, right) {
             (_, _) if left_tid == right_tid => Ok(left_tid),
             (Type::Never, _) => Ok(right_tid),
             (_, Type::Never) => Ok(left_tid),
             (Type::Pointer(left), Type::Pointer(right)) => {
-                let left_normal = self.normalize_ty(left.tid).1;
-                let right_normal = self.normalize_ty(right.tid).1;
+                let left_normal = self
+                    .normalize_ty(env, left.tid, meta)
+                    .map_err(|kind| InferenceError {
+                        kind,
+                        origin: origin.clone(),
+                        meta: meta.clone(),
+                    })?
+                    .1;
+                let right_normal = self
+                    .normalize_ty(env, right.tid, meta)
+                    .map_err(|kind| InferenceError {
+                        kind,
+                        origin: origin.clone(),
+                        meta: meta.clone(),
+                    })?
+                    .1;
 
                 if left.mutability == Mutability::Mutable
                     && right.mutability == Mutability::Mutable
@@ -2140,7 +2297,7 @@ where
                 {
                     Ok(self.pointer(left_normal, Mutability::Mutable))
                 } else {
-                    let tid = self.join_ty_ty(left.tid, right.tid, origin, meta)?;
+                    let tid = self.join_ty_ty(env, left.tid, right.tid, origin, meta)?;
                     Ok(self.pointer(tid, Mutability::Const))
                 }
             }
@@ -2149,7 +2306,8 @@ where
             {
                 //  todo!("Handle variant specific Variances")
                 let variances = self.get_enum_def(left.eid).variances.clone();
-                let args = self.join_args(&variances, &left.args, &right.args, origin, meta)?;
+                let args =
+                    self.join_args(env, &variances, &left.args, &right.args, origin, meta)?;
                 Ok(self.intern(Type::Enum(EnumType {
                     eid: left.eid,
                     args,
@@ -2159,7 +2317,8 @@ where
                 if left.eid == right.eid && left.variant == right.variant =>
             {
                 let variances = self.get_enum_def(left.eid).variances.clone();
-                let args = self.join_args(&variances, &left.args, &right.args, origin, meta)?;
+                let args =
+                    self.join_args(env, &variances, &left.args, &right.args, origin, meta)?;
                 Ok(self.intern(Type::Variant(VariantType {
                     eid: left.eid,
                     args,
@@ -2168,17 +2327,18 @@ where
             }
             (Type::Variant(v), Type::Enum(e)) if v.eid == e.eid => {
                 let variances = self.get_enum_def(e.eid).variances.clone();
-                let args = self.join_args(&variances, &v.args, &e.args, origin, meta)?;
+                let args = self.join_args(env, &variances, &v.args, &e.args, origin, meta)?;
                 Ok(self.intern(Type::Enum(EnumType { eid: v.eid, args })))
             }
             (Type::Enum(e), Type::Variant(v)) if v.eid == e.eid => {
                 let variances = self.get_enum_def(e.eid).variances.clone();
-                let args = self.join_args(&variances, &e.args, &v.args, origin, meta)?;
+                let args = self.join_args(env, &variances, &e.args, &v.args, origin, meta)?;
                 Ok(self.intern(Type::Enum(EnumType { eid: v.eid, args })))
             }
             (Type::Enum(left), Type::Enum(right)) if left.eid == right.eid => {
                 let variances = self.get_enum_def(left.eid).variances.clone();
-                let args = self.join_args(&variances, &left.args, &right.args, origin, meta)?;
+                let args =
+                    self.join_args(env, &variances, &left.args, &right.args, origin, meta)?;
                 Ok(self.intern(Type::Enum(EnumType {
                     eid: left.eid,
                     args,
@@ -2186,7 +2346,8 @@ where
             }
             (Type::Struct(left), Type::Struct(right)) if left.sid == right.sid => {
                 let variances = self.get_struct_def(left.sid).variances.clone();
-                let args = self.join_args(&variances, &left.args, &right.args, origin, meta)?;
+                let args =
+                    self.join_args(env, &variances, &left.args, &right.args, origin, meta)?;
                 Ok(self.intern(Type::Struct(StructType {
                     sid: left.sid,
                     args,
@@ -2202,25 +2363,33 @@ where
                 let tids = left
                     .into_iter()
                     .zip(right.into_iter())
-                    .map(|(left, right)| self.join_ty_ty(left, right, origin, meta))
+                    .map(|(left, right)| self.join_ty_ty(env, left, right, origin, meta))
                     .collect::<Result<Vec<_>, _>>()?;
 
                 Ok(self.tuple(tids))
             }
             (_, _) => {
-                self.unify_ty_ty(left_tid, right_tid)
+                self.unify_ty_ty(env, left_tid, right_tid, meta)
                     .map_err(|kind| InferenceError {
                         kind,
                         origin: origin.clone(),
                         meta: meta.clone(),
                     })?;
-                Ok(self.normalize_ty(left_tid).1)
+                Ok(self
+                    .normalize_ty(env, left_tid, meta)
+                    .map_err(|kind| InferenceError {
+                        kind,
+                        origin: origin.clone(),
+                        meta: meta.clone(),
+                    })?
+                    .1)
             }
         }
     }
 
     fn check_join(
         &mut self,
+        env: &Environment,
         output: TypeId,
         input: &Vec<TypeId>,
         origin: &ConstraintOrigin,
@@ -2235,10 +2404,10 @@ where
 
         let mut joined = first;
         for tid in rest {
-            joined = self.join_ty_ty(joined, *tid, origin, meta)?;
+            joined = self.join_ty_ty(env, joined, *tid, origin, meta)?;
         }
 
-        self.unify_ty_ty(output, joined)
+        self.unify_ty_ty(env, output, joined, meta)
             .map_err(|kind| InferenceError {
                 kind,
                 origin: origin.clone(),
@@ -2257,19 +2426,18 @@ where
         constraints.sort();
         for c in constraints {
             match &c.constraint {
-                ConstraintType::Equal(left, right) => {
-                    self.unify_ty_ty(*left, *right)
-                        .map_err(|kind| InferenceError {
-                            kind,
-                            origin: c.origin.clone(),
-                            meta: c.meta.clone(),
-                        })?
-                }
+                ConstraintType::Equal(left, right) => self
+                    .unify_ty_ty(env, *left, *right, &c.meta)
+                    .map_err(|kind| InferenceError {
+                        kind,
+                        origin: c.origin.clone(),
+                        meta: c.meta.clone(),
+                    })?,
                 ConstraintType::Subtype { subty, superty } => {
-                    self.check_subtype(*subty, *superty, &c.origin, &c.meta)?
+                    self.check_subtype(env, *subty, *superty, &c.origin, &c.meta)?
                 }
                 ConstraintType::Join { output, inputs } => {
-                    self.check_join(*output, inputs, &c.origin, &c.meta)?
+                    self.check_join(env, *output, inputs, &c.origin, &c.meta)?
                 }
                 ConstraintType::Predicate(pred) => {
                     self.check_predicate(env, pred, &c.origin, &c.meta)?
@@ -2403,6 +2571,7 @@ where
 
                 Ok(self.intern(Type::Variant(variant)))
             }
+            Type::Projection(_) => todo!(),
         }
     }
 
@@ -2437,7 +2606,8 @@ where
             | Type::Variant(_)
             | Type::Type(_)
             | Type::Tuple(_)
-            | Type::Never => todo!("{} is not an enum", self.fmt(enum_tid)),
+            | Type::Never
+            | Type::Projection(_) => todo!("{} is not an enum", self.fmt(enum_tid)),
         };
 
         Ok(self.intern(Type::Variant(variant)))
@@ -2482,6 +2652,7 @@ where
                 HashSet::from_iter(tids.iter().map(|tid| self.free_vars(*tid)).flatten())
             }
             Type::Type(tid) => self.free_vars(*tid),
+            Type::Projection(_) => todo!(),
         }
     }
 }

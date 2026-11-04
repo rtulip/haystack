@@ -69,6 +69,7 @@ pub struct InterfaceImpl {
     pub cid: TypeClassId,
     pub vars: Vec<TypeVar>,
     pub args: Vec<TypeId>,
+    pub associated_types: Vec<TypeId>,
     pub predicates: Vec<TypePredicate>,
     pub coherence: Coherence,
 }
@@ -77,6 +78,7 @@ pub struct InterfaceImpl {
 pub struct QualifiedInterfaceImpl {
     pub cid: TypeClassId,
     pub args: Vec<TypeId>,
+    pub associated_types: Vec<TypeId>,
     pub predicates: Vec<TypePredicate>,
 }
 
@@ -148,6 +150,7 @@ impl Environment {
 
     fn impls_overlap<M>(
         &self,
+        env: &Environment,
         typestore: &mut TypeStore<M>,
         a: &InterfaceImpl,
         b: &InterfaceImpl,
@@ -172,7 +175,7 @@ impl Environment {
             .args
             .into_iter()
             .zip(q_b.args.into_iter())
-            .all(|(a, b)| typestore.unify_ty_ty(a, b).is_ok())
+            .all(|(a, b)| typestore.unify_ty_ty(env, a, b, meta).is_ok())
         {
             Err(InferenceError::conflicting_impls(
                 a.cid,
@@ -205,7 +208,7 @@ impl Environment {
         if let Some(impls) = self.impls.get(&cid) {
             impls
                 .iter()
-                .map(|i| self.impls_overlap(typestore, i, &iface_impl, meta))
+                .map(|i| self.impls_overlap(&self, typestore, i, &iface_impl, meta))
                 .collect::<Result<Vec<_>, _>>()?;
         }
 

@@ -1,15 +1,13 @@
 use std::fmt::Debug;
 
-use crate::{
-    typecheck::environment::Variance,
-    typecheck::typestore::{inference::InferenceError, TypeStore},
-    typecheck::{
-        constraint::ConstraintOrigin,
-        typ::{
-            type_id::{EnumId, StructId, TypeId},
-            type_var::TypeVar,
-        },
+use crate::typecheck::{
+    constraint::ConstraintOrigin,
+    environment::{TypeClassId, Variance},
+    typ::{
+        type_id::{EnumId, StructId, TypeId},
+        type_var::TypeVar,
     },
+    typestore::{inference::InferenceError, TypeStore},
 };
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -144,6 +142,13 @@ pub struct VariantType {
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Projection {
+    pub cid: TypeClassId,
+    pub args: Vec<TypeId>,
+    pub idx: usize,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Type {
     TypeVar(TypeVar),
     RigidTypeVar(TypeVar),
@@ -155,6 +160,7 @@ pub enum Type {
     Tuple(Vec<TypeId>),
     Variant(VariantType),
     Type(TypeId),
+    Projection(Projection),
     Never,
 }
 

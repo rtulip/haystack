@@ -67,6 +67,7 @@ where
                 cid: p.cid,
                 vars: vec![],
                 args: p.args,
+                associated_types: vec![],
                 predicates: vec![],
                 coherence: Coherence::Overlapping,
             };

@@ -7,8 +7,9 @@ use crate::{
         expr::{ParseExpr, ParseExprKind},
         signature::Signature,
         statement::{
-            EnumDefinition, FunctionDefinition, InterfaceDefinition, InterfaceFunctionDefinition,
-            InterfaceImpl as ParseInterfaceImpl, Statememt, StructDefinition, FunctionDeclaration,
+            EnumDefinition, FunctionDeclaration, FunctionDefinition, InterfaceDefinition,
+            InterfaceFunctionDefinition, InterfaceImpl as ParseInterfaceImpl, Statememt,
+            StructDefinition,
         },
         typ::{ParamatarizedIdent, ParseType, ParseTypePath},
     },
@@ -881,19 +882,29 @@ impl<'src> TypeCheck<'src> {
             )
             .with_hint(format!("Expected: {}", self.format_tid(expected)))
             .with_hint(format!("Found   : {}", self.format_tid(found))),
-            (ConstraintOrigin::Branching{ fresh_stack, stacks }, InferenceErrorKind::TypesIncompatible { expected, found }) => {
-
+            (
+                ConstraintOrigin::Branching {
+                    fresh_stack,
+                    stacks,
+                },
+                InferenceErrorKind::TypesIncompatible { expected, found },
+            ) => {
                 let mut e = HayError::new("Branches must produce similar stacks.", e.meta.loc);
                 for (i, stack) in stacks.into_iter().enumerate() {
-                    e = e.with_hint(format!("Branch {}: {}", i + 1, self.format_stack(&stack, '[', ']')))
+                    e = e.with_hint(format!(
+                        "Branch {}: {}",
+                        i + 1,
+                        self.format_stack(&stack, '[', ']')
+                    ))
                 }
                 e = e.with_hint(format!(
                     "No common type can be found between `{}` and `{}`",
-                    self.format_tid(expected), self.format_tid(found),
+                    self.format_tid(expected),
+                    self.format_tid(found),
                 ));
 
                 e
-            },
+            }
             (origin, kind) => todo!("Generate Error message for {origin:?}, {kind:?}"),
         }
     }
@@ -1170,6 +1181,7 @@ impl<'src> TypeCheck<'src> {
 
         let interface = Interface {
             vars: vars.clone(),
+            associated_types_count: 0,
             coherence: if iface.funcs.iter().all(|f| f.expr.is_some()) {
                 Coherence::Overlapping
             } else {
@@ -1292,13 +1304,14 @@ impl<'src> TypeCheck<'src> {
                     .map_err(|e| self.map_inference_err(e))?;
 
                 self.typestore
-                    .unify_ty_ty(
-                        origin_func_tid,
-                        impl_func_tid,
-                        &ConstraintOrigin::ImplsMustMatch,
-                        &func.name,
-                    )
-                    .map_err(|e| self.map_inference_err(e))?;
+                    .unify_ty_ty(origin_func_tid, impl_func_tid)
+                    .map_err(|kind| {
+                        self.map_inference_err(InferenceError {
+                            kind,
+                            origin: ConstraintOrigin::ImplsMustMatch,
+                            meta: func.name.clone(),
+                        })
+                    })?;
 
                 let expr = self.lower_expr(&func.expr)?;
 
@@ -1334,8 +1347,10 @@ impl<'src> TypeCheck<'src> {
         Ok(())
     }
 
-    fn bind_function_declaration(&mut self, func: &FunctionDeclaration<'src>) -> Result<(), HayError> {
-
+    fn bind_function_declaration(
+        &mut self,
+        func: &FunctionDeclaration<'src>,
+    ) -> Result<(), HayError> {
         let var = self.insert_var(&func.name, Scoping::Global)?;
         let tid = self.get_function_tid(&func.signature)?;
 
@@ -1348,7 +1363,6 @@ impl<'src> TypeCheck<'src> {
         self.env.bind_scheme(var, scheme);
 
         Ok(())
-
     }
 
     pub fn build_world(mut statements: Vec<Statememt<'src>>) -> Result<(), HayError> {
@@ -2098,6 +2112,7 @@ mod tests {
         let foo = Interface {
             vars: vec![t_tyvar],
             coherence: Coherence::Unique,
+            associated_types_count: 0,
         };
 
         let foo_cid = env.add_typeclass(foo);
@@ -2145,6 +2160,7 @@ mod tests {
         let foo = Interface {
             vars: vec![t_tyvar],
             coherence: Coherence::Unique,
+            associated_types_count: 0,
         };
 
         let foo_cid = env.add_typeclass(foo);
@@ -2197,6 +2213,7 @@ mod tests {
         let cast_iface = Interface {
             vars: vec![from_tyvar, into_tyvar],
             coherence: Coherence::Overlapping,
+            associated_types_count: 0,
         };
         let cast_cid = env.add_typeclass(cast_iface);
 
@@ -2309,6 +2326,7 @@ mod tests {
         let print_iface = Interface {
             vars: vec![print_t_tyvar],
             coherence: Coherence::Unique,
+            associated_types_count: 0,
         };
         let print_cid = env.add_typeclass(print_iface);
 
@@ -2452,6 +2470,7 @@ mod tests {
         let print_iface = Interface {
             vars: vec![t_tyvar],
             coherence: Coherence::Unique,
+            associated_types_count: 0,
         };
 
         let print_cid = env.add_typeclass(print_iface);
@@ -2569,6 +2588,7 @@ mod tests {
         let print_iface = Interface {
             vars: vec![t_tyvar],
             coherence: Coherence::Unique,
+            associated_types_count: 0,
         };
 
         let print_cid = env.add_typeclass(print_iface);
@@ -2632,6 +2652,7 @@ mod tests {
         let cast_iface = Interface {
             vars: vec![from_tyvar, into_tyvar],
             coherence: Coherence::Overlapping,
+            associated_types_count: 0,
         };
 
         let cast_cid = env.add_typeclass(cast_iface);

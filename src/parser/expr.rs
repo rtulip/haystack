@@ -5,8 +5,8 @@ use crate::{
 
 pub struct ParseIfElseBranch<'src> {
     pub token: Token<'src>,
-    pub condition: Vec<ParseExpr<'src>>, 
-    pub body: Vec<ParseExpr<'src>>
+    pub condition: Vec<ParseExpr<'src>>,
+    pub body: Vec<ParseExpr<'src>>,
 }
 
 pub struct ParseIfExpr<'src> {

@@ -22,7 +22,10 @@ use crate::{
     },
 };
 
-use super::{expr::{ParseIfExpr, ParseIfElseBranch}, statement::FunctionDeclaration};
+use super::{
+    expr::{ParseIfElseBranch, ParseIfExpr},
+    statement::FunctionDeclaration,
+};
 
 pub struct Parser<'src> {
     tokens: Vec<Token<'src>>,
@@ -179,7 +182,9 @@ impl<'src> Parser<'src> {
             TokenKind::Marker(Marker::RightParen) => Ok(None),
             TokenKind::Marker(Marker::RightBracket) => Ok(None),
             TokenKind::Marker(Marker::LeftParen) => Ok(Some(self.parse_tuple_type()?)),
-            TokenKind::Operator(Operator::Write) => Ok(Some(ParseType::Never(self.tokens.pop().unwrap()))),
+            TokenKind::Operator(Operator::Write) => {
+                Ok(Some(ParseType::Never(self.tokens.pop().unwrap())))
+            }
             TokenKind::Marker(m) => todo!("Parse Type from {m}"),
             TokenKind::Operator(Operator::GreaterThan) => Ok(None),
             TokenKind::Operator(Operator::Ampersand) => self.parse_pointer_type(),
@@ -502,23 +507,20 @@ impl<'src> Parser<'src> {
                     }
                 }
                 Err(_) => {
-
                     let mut condition = vec![];
-                    let token =
-                    loop {
+                    let token = loop {
                         self.strip_whitespace();
                         if let Ok(token) = self.matches(TokenKind::Keyword(Keyword::If)) {
                             break token;
                         }
-                        
+
                         if (self.is_at_end()) {
                             todo!("Error")
                         }
 
                         condition.push(self.parse_expr()?);
-                        
                     };
-                    
+
                     self.strip_whitespace();
                     self.expect(TokenKind::Marker(Marker::LeftBrace))?;
                     let mut body = vec![];
@@ -540,8 +542,7 @@ impl<'src> Parser<'src> {
                         condition,
                         body,
                     })
-
-                },
+                }
             }
         }
 
@@ -764,19 +765,21 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_extern_function(&mut self, start: Token<'src>) -> Result<Statememt<'src>, HayError> {
-
         self.strip_whitespace();
         let fn_keyword = self.expect(TokenKind::Keyword(Keyword::Function))?;
         let (name, params, signature) = self.parse_function_def(fn_keyword)?;
 
         if params.len() != 0 {
-            return Err(HayError::new("Extern functions cannot be generic", params[0].token().loc))
+            return Err(HayError::new(
+                "Extern functions cannot be generic",
+                params[0].token().loc,
+            ));
         }
 
         Ok(Statememt::ExternFunctionDeclaratoin(FunctionDeclaration {
-            name, signature
+            name,
+            signature,
         }))
-
     }
 
     fn parse_declaration(&mut self) -> Result<Vec<Statememt<'src>>, HayError> {

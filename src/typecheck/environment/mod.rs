@@ -54,6 +54,7 @@ impl Variance {
 #[derive(Debug, Clone)]
 pub struct Interface {
     pub vars: Vec<TypeVar>,
+    pub associated_types_count: usize,
     pub coherence: Coherence,
 }
 
@@ -171,11 +172,7 @@ impl Environment {
             .args
             .into_iter()
             .zip(q_b.args.into_iter())
-            .all(|(a, b)| {
-                typestore
-                    .unify_ty_ty(a, b, &ConstraintOrigin::ConflictingImpls, meta)
-                    .is_ok()
-            })
+            .all(|(a, b)| typestore.unify_ty_ty(a, b).is_ok())
         {
             Err(InferenceError::conflicting_impls(
                 a.cid,

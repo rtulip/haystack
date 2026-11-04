@@ -499,7 +499,8 @@ where
             | ExprKind::Ident(_)
             | ExprKind::Ref { .. }
             | ExprKind::MemberAccess { .. }
-            | ExprKind::Pack => (
+            | ExprKind::Pack 
+            | ExprKind::Read => (
                 unbound,
                 Expr {
                     expr: expr.expr,
@@ -605,6 +606,7 @@ where
             args,
             associated_types,
             predicates,
+            coherence: i.coherence,
         }
     }
 
@@ -1465,6 +1467,7 @@ where
                 let e = Expr::block(exprs, (expr.meta, tid));
                 Ok((e, constraints))
             }
+            ExprKind::Read => todo!(),
         };
 
         e
@@ -1575,7 +1578,7 @@ where
             }
             Type::Projection(p) => {
                 let p = p.clone();
-                if let Some(InterfaceImpl {
+                if let Some(QualifiedInterfaceImpl {
                     associated_types, ..
                 }) = self.get_matching_impl(env, p.cid, &p.args, meta)?
                 {
@@ -1928,7 +1931,7 @@ where
         cid: TypeClassId,
         args: &Vec<TypeId>,
         meta: &M,
-    ) -> Result<Option<&'env InterfaceImpl>, InferenceErrorKind> {
+    ) -> Result<Option<QualifiedInterfaceImpl>, InferenceErrorKind> {
         let (unbound, args) = self.substitute(&args);
 
         if !unbound.is_empty() {
@@ -1936,9 +1939,9 @@ where
         }
         match env.get_impls(&cid) {
             Some(impls) => {
-                let matches: Vec<_> = impls
+                let mut matches: Vec<_> = impls
                     .iter()
-                    .filter(|i| {
+                    .filter_map(|i| {
                         let i = self.freshen_impl(i, meta);
                         assert!(i.args.len() == args.len());
 
@@ -1948,28 +1951,32 @@ where
                             });
 
                         if !types_match {
-                            return false;
+                            return None;
                         }
 
-                        i.predicates.iter().all(|p| {
+                        if i.predicates.iter().all(|p| {
                             if let Ok(Some(_)) = self.get_matching_impl(env, p.cid, &p.args, meta) {
                                 true
                             } else {
                                 false
                             }
-                        })
+                        }){
+                            Some(i)
+                        } else {
+                            None
+                        }
                     })
                     .collect();
 
                 match matches.len() {
                     0 => Ok(None),
-                    1 => Ok(Some(matches[0])),
+                    1 => Ok(Some(matches.pop().unwrap())),
                     _ => {
                         if matches
                             .iter()
                             .all(|i| i.coherence == Coherence::Overlapping)
                         {
-                            Ok(Some(matches[0]))
+                            Ok(Some(matches.pop().unwrap()))
                         } else {
                             todo!("Multiple matching implementations with unique coherence");
                         }

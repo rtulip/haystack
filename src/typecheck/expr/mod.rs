@@ -1,3 +1,5 @@
+use std::vec;
+
 use crate::typecheck::typ::{typ::Mutability, type_id::TypeId};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -73,6 +75,7 @@ pub enum ExprKind<'src, Meta> {
     MemberAccess { var: Var, member: usize },
     Match(MatchExpr<'src, Meta>),
     If(IfExpr<'src, Meta>),
+    Read,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

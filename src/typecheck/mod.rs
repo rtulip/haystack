@@ -3285,6 +3285,81 @@ mod tests {
         assert!(test.type_check(&mut typestore, &env).is_ok());
     }
 
+    #[test]
+    fn associated_type_generic() {
+        let mut typestore = TypeStore::new();
+        let mut env = Environment::new();
+
+        // interface Extract<T> {
+        //     type: Inner
+        //     fn extract(T) -> [Inner]
+        // }
+        let t_tyvar = typestore.fresh_type_var();
+        let extract = Interface {
+            vars: vec![t_tyvar],
+            coherence: Coherence::Unique,
+            associated_types_count: 1,
+        };
+
+        let extract_cid = env.add_typeclass(extract);
+
+        // fn bar(T) -> [inner]
+        let extract = Var(0);
+        let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
+        let inner_tid = typestore.intern(Type::Projection(Projection {
+            cid: extract_cid,
+            args: vec![t_tid],
+            idx: 0,
+        }));
+
+        let extract_tid = typestore.function(FunctionType {
+            input: vec![t_tid],
+            output: vec![inner_tid],
+        });
+        let extract_scheme = Scheme::new(
+            [t_tyvar],
+            extract_tid,
+            [TypePredicate {
+                cid: extract_cid,
+                args: vec![t_tid],
+            }],
+        );
+        env.bind_scheme(extract, extract_scheme);
+
+        // impl<T> Extract<&T> {
+        //     T: Inner
+        //     fn extract(&T) -> [T]
+        // }
+        let t_tyvar = typestore.fresh_type_var();
+        let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
+        let t_ptr_tid = typestore.pointer(t_tid, Mutability::Const);
+        assert!(env
+            .add_impl(
+                &mut typestore,
+                extract_cid,
+                InterfaceImpl {
+                    cid: extract_cid,
+                    vars: vec![t_tyvar],
+                    args: vec![t_ptr_tid],
+                    associated_types: vec![t_tid],
+                    predicates: vec![],
+                    coherence: Coherence::Unique,
+                },
+                &META
+            )
+            .is_ok());
+
+        let u8_tid = typestore.intern(Type::u8());
+        let u8_ptr_tid = typestore.pointer(u8_tid, Mutability::Const);
+        let bool_tid = typestore.intern(Type::bool());
+        let bool_ptr_tid = typestore.pointer(bool_tid, Mutability::Const);
+
+        let test = Function::new([u8_ptr_tid], [u8_tid], [], [], Expr::ident(extract, ()));
+        assert!(test.type_check(&mut typestore, &env).is_ok());
+        let test = Function::new([bool_ptr_tid], [bool_tid], [], [], Expr::ident(extract, ()));
+        assert!(test.type_check(&mut typestore, &env).is_ok());
+    }
+
 }
 
 #[cfg(test)]

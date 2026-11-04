@@ -80,6 +80,7 @@ pub struct QualifiedInterfaceImpl {
     pub args: Vec<TypeId>,
     pub associated_types: Vec<TypeId>,
     pub predicates: Vec<TypePredicate>,
+    pub coherence: Coherence,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

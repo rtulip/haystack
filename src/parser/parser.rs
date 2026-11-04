@@ -174,9 +174,7 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_function_type(&mut self) -> Result<Option<ParseType<'src>>, HayError> {
-
         Ok(None)
-
     }
 
     fn parse_type(&mut self) -> Result<Option<ParseType<'src>>, HayError> {
@@ -703,7 +701,7 @@ impl<'src> Parser<'src> {
             self.strip_whitespace();
             let Ok(_) = self.matches(TokenKind::Keyword(Keyword::Type)) else {
                 break;
-            }; 
+            };
 
             self.strip_whitespace();
             self.expect(TokenKind::Marker(Marker::Colon))?;

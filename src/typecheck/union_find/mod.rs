@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct UnifiactionError<V>(pub V, pub V);
 
 pub struct UnificationTable<K, V>
@@ -63,8 +64,22 @@ where
     }
 
     pub fn unify_keys(&mut self, a: K, b: K) -> Result<(), UnifiactionError<V>> {
-        Self::unify_values(self.get(a), self.get(b))?;
-        Ok(self.unify(a, b))
+        let a = self.find_key(a);
+        let b = self.find_key(b);
+
+        if a == b {
+            return Ok(());
+        }
+
+        let value = Self::unify_values(
+            &self.parents[a.into()].1,
+            &self.parents[b.into()].1,
+        )?;
+
+        self.parents[a.into()].1 = value;
+        self.parents[b.into()].0 = a;
+
+        Ok(())
     }
 
     pub fn assign_key(&mut self, k: K, value: Option<V>) -> Result<(), UnifiactionError<V>> {
@@ -94,4 +109,55 @@ mod tests {
         assert!(tbl.get(k) == &Some(true));
         assert!(tbl.assign_key(k, Some(false)).is_err());
     }
+
+    #[test]
+    fn unify_preserves_assigned_value() {
+        let mut tbl = UnificationTable::<usize, bool>::new();
+
+        let a = tbl.new_key();
+        let b = tbl.new_key();
+
+        tbl.assign_key(b, Some(true)).unwrap();
+        tbl.unify_keys(a, b).unwrap();
+
+        assert_eq!(tbl.get(a), &Some(true));
+        assert_eq!(tbl.get(b), &Some(true));
+    }
+
+    #[test]
+    fn unify_keys_preserves_values() {
+        let mut tbl = UnificationTable::<usize, bool>::new();
+
+        // None + Some
+        let a = tbl.new_key();
+        let b = tbl.new_key();
+        tbl.assign_key(b, Some(true)).unwrap();
+        tbl.unify_keys(a, b).unwrap();
+        assert_eq!(tbl.get(a), &Some(true));
+        assert_eq!(tbl.get(b), &Some(true));
+
+        // Some + None
+        let c = tbl.new_key();
+        tbl.unify_keys(a, c).unwrap();
+        assert_eq!(tbl.get(c), &Some(true));
+
+        // Some + same Some
+        let d = tbl.new_key();
+        tbl.assign_key(d, Some(true)).unwrap();
+        tbl.unify_keys(c, d).unwrap();
+        assert_eq!(tbl.get(d), &Some(true));
+
+        // Some + conflicting Some
+        let e = tbl.new_key();
+        tbl.assign_key(e, Some(false)).unwrap();
+
+        assert!(tbl.unify_keys(a, e).is_err());
+        assert_eq!(tbl.get(a), &Some(true));
+        assert_eq!(tbl.get(e), &Some(false));
+
+        // Failure must not merge the keys.
+        tbl.assign_key(e, Some(false)).unwrap();
+        assert!(tbl.assign_key(e, Some(true)).is_err());
+    }
 }
+    

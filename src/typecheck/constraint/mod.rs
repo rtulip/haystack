@@ -114,6 +114,10 @@ pub enum ConstraintOrigin {
         var: Var,
         mutability: Mutability,
     },
+    MemberAccess {
+        var: Var,
+        member: usize,
+    },
     StructDef,
     EnumDef,
     UnboundVarInBody,

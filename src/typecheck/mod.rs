@@ -1,7 +1,9 @@
 use std::{assert_eq, collections::HashMap, format, todo, vec};
 
 use crate::{
-    error::HayError, lex::token::{Literal, Token}, parser::{
+    error::HayError,
+    lex::token::{Literal, Token},
+    parser::{
         expr::{ParseExpr, ParseExprKind},
         signature::Signature,
         statement::{
@@ -10,13 +12,22 @@ use crate::{
             StructDefinition,
         },
         typ::{ParamatarizedIdent, ParseType, ParseTypePath},
-    }, typecheck::{
-        constraint::ConstraintOrigin, environment::{
+    },
+    typecheck::{
+        constraint::ConstraintOrigin,
+        environment::{
             Coherence, Environment, Interface, InterfaceImpl, Scheme, TypeClassId, TypePredicate,
-        }, expr::{Expr, Var}, func::Function, typ::{
-            typ::{EnumDef, EnumType, FunctionType, Mutability, Projection, StructDef, Type}, type_id::{EnumId, StructId, TypeId}, type_var::TypeVar,
-        }, typestore::{
-            TypeStore, inference::{InferenceError, InferenceErrorKind},
+        },
+        expr::{Expr, Var},
+        func::Function,
+        typ::{
+            typ::{EnumDef, EnumType, FunctionType, Mutability, Projection, StructDef, Type},
+            type_id::{EnumId, StructId, TypeId},
+            type_var::TypeVar,
+        },
+        typestore::{
+            inference::{InferenceError, InferenceErrorKind},
+            TypeStore,
         },
     },
 };
@@ -129,11 +140,9 @@ type InterfaceFnsLookup<'src> = HashMap<&'src str, InterfaceFnInfo<'src>>;
 
 #[derive(Debug, Clone)]
 struct InterfaceInfo<'src> {
-
     cid: TypeClassId,
-    fns: InterfaceFnsLookup<'src>, 
+    fns: InterfaceFnsLookup<'src>,
     associated_types: Vec<&'src str>,
-
 }
 
 struct ScopeLayer<'src> {
@@ -201,7 +210,7 @@ impl<'src> Scope<'src> {
     fn insert_cid(
         &mut self,
         name: &'src str,
-        info: InterfaceInfo<'src>
+        info: InterfaceInfo<'src>,
     ) -> Option<InterfaceInfo<'src>> {
         self.scopes
             .last_mut()
@@ -404,12 +413,10 @@ impl<'src> TypeCheck<'src> {
         if params.len() == 0 {
             Ok(base_tid)
         } else {
-            self
-                .typestore
+            self.typestore
                 .type_instance(base_tid, Some(params), &ident.base)
                 .map_err(|e| self.map_inference_err(e))
         }
-        
     }
 
     fn get_enum_variant(
@@ -535,11 +542,12 @@ impl<'src> TypeCheck<'src> {
                 Literal::U64(n) => Ok(Expr::u64(*n, expr.token.clone())),
             },
             ParseExprKind::Block(parse_exprs) => {
+                self.scope.new_scope();
                 let mut exprs = vec![];
                 for expr in parse_exprs {
                     exprs.push(self.lower_expr(expr)?);
                 }
-
+                self.scope.end_scope();
                 Ok(Expr::block(exprs, expr.token.clone()))
             }
             ParseExprKind::Type(ty) => {
@@ -707,8 +715,11 @@ impl<'src> TypeCheck<'src> {
     }
 
     fn format_tid(&mut self, tid: TypeId) -> String {
-    
-        let tid = self.typestore.normalize_ty(&self.env, tid, &Token::default()).unwrap().1;
+        let tid = self
+            .typestore
+            .normalize_ty(&self.env, tid, &Token::default())
+            .unwrap()
+            .1;
 
         if let Some(info) = self.symbols.types.get(&tid) {
             info.name.clone()
@@ -1202,12 +1213,11 @@ impl<'src> TypeCheck<'src> {
             if let Some(_) = self.scope.insert_tid(name.lexeme.into(), tid, name.clone()) {
                 todo!("")
             }
-
         }
 
         let mut fn_lookup = InterfaceFnsLookup::new();
         for func in &iface.funcs {
-            let tid = self.get_function_tid(&func.signature)?;    
+            let tid = self.get_function_tid(&func.signature)?;
             match &func.expr {
                 Some(expr) => {
                     let expr = self.lower_expr(expr)?;
@@ -1248,7 +1258,14 @@ impl<'src> TypeCheck<'src> {
 
         self.scope.end_scope();
 
-        if let Some(_) = self.scope.insert_cid(iface.name.lexeme, InterfaceInfo { cid, fns: fn_lookup, associated_types }) {
+        if let Some(_) = self.scope.insert_cid(
+            iface.name.lexeme,
+            InterfaceInfo {
+                cid,
+                fns: fn_lookup,
+                associated_types,
+            },
+        ) {
             todo!("error interface of this name already exists")
         }
         if self.symbols.insert_cid(cid, iface.name.clone()).is_some() {
@@ -1282,7 +1299,11 @@ impl<'src> TypeCheck<'src> {
 
         let mut associated_types = vec![];
         for type_name in &info.associated_types {
-            match iface_impl.associated_types.iter().find(|(name, _)| name.lexeme == *type_name) {
+            match iface_impl
+                .associated_types
+                .iter()
+                .find(|(name, _)| name.lexeme == *type_name)
+            {
                 Some((_, ty)) => associated_types.push(self.get_tid(ty)?),
                 None => todo!("Error: Unexpected associated type"),
             }
@@ -1303,7 +1324,12 @@ impl<'src> TypeCheck<'src> {
         self.scope.end_scope();
 
         self.env
-            .add_impl(&mut self.typestore, info.cid, interface_impl, &iface_impl.name)
+            .add_impl(
+                &mut self.typestore,
+                info.cid,
+                interface_impl,
+                &iface_impl.name,
+            )
             .map_err(|e| self.map_inference_err(e))?;
 
         for func in &iface_impl.impls {
@@ -3381,6 +3407,96 @@ mod tests {
         assert!(test.type_check(&mut typestore, &env).is_ok());
     }
 
+    #[test]
+    fn associated_type_failed_candidate_does_not_affect_next() {
+        let mut typestore = TypeStore::new();
+        let mut env = Environment::new();
+
+        // interface Extract<T, Tag> {
+        //     type Inner
+        // }
+        let t_tyvar = typestore.fresh_type_var();
+        let tag_tyvar = typestore.fresh_type_var();
+
+        let extract_cid = env.add_typeclass(Interface {
+            vars: vec![t_tyvar, tag_tyvar],
+            coherence: Coherence::Unique,
+            associated_types_count: 1,
+        });
+
+        let u8_tid = typestore.intern(Type::u8());
+        let u64_tid = typestore.intern(Type::u64());
+        let bool_tid = typestore.intern(Type::bool());
+
+        // impl<T> Extract<&T, u64> {
+        //     type Inner = u64;
+        // }
+        //
+        // This candidate partially unifies with the query:
+        //     &T  == &u8    succeeds, binding T = u8
+        //     u64 == bool   fails
+        let t_tyvar = typestore.fresh_type_var();
+        let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
+        let t_ptr_tid = typestore.pointer(t_tid, Mutability::Const);
+
+        assert!(env
+            .add_impl(
+                &mut typestore,
+                extract_cid,
+                InterfaceImpl {
+                    cid: extract_cid,
+                    vars: vec![t_tyvar],
+                    args: vec![t_ptr_tid, u64_tid],
+                    associated_types: vec![u64_tid],
+                    predicates: vec![],
+                    coherence: Coherence::Unique,
+                },
+                &META,
+            )
+            .is_ok());
+
+        // impl<U> Extract<&U, bool> {
+        //     type Inner = U;
+        // }
+        //
+        // This candidate should match and resolve Inner = u8.
+        let u_tyvar = typestore.fresh_type_var();
+        let u_tid = typestore.intern(Type::TypeVar(u_tyvar));
+        let u_ptr_tid = typestore.pointer(u_tid, Mutability::Const);
+
+        assert!(env
+            .add_impl(
+                &mut typestore,
+                extract_cid,
+                InterfaceImpl {
+                    cid: extract_cid,
+                    vars: vec![u_tyvar],
+                    args: vec![u_ptr_tid, bool_tid],
+                    associated_types: vec![u_tid],
+                    predicates: vec![],
+                    coherence: Coherence::Unique,
+                },
+                &META,
+            )
+            .is_ok());
+
+        // Resolve:
+        //     Extract<&u8, bool>::Inner
+        //
+        // Expected: u8
+        let u8_ptr_tid = typestore.pointer(u8_tid, Mutability::Const);
+        let projection_tid = typestore.intern(Type::Projection(Projection {
+            cid: extract_cid,
+            args: vec![u8_ptr_tid, bool_tid],
+            idx: 0,
+        }));
+
+        let (_, resolved_tid) = typestore
+            .normalize_ty(&env, projection_tid, &META)
+            .expect("Associated type should resolve");
+
+        assert_eq!(resolved_tid, u8_tid);
+    }
 }
 
 #[cfg(test)]

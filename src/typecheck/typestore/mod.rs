@@ -233,8 +233,14 @@ where
                 write!(w, "{s}")
             }
             Type::Projection(p) => {
-                write!(w, "Interface({})< {} >::{}", p.cid.0, self.fmt_many(&p.args), p.idx)
-            },
+                write!(
+                    w,
+                    "Interface({})< {} >::{}",
+                    p.cid.0,
+                    self.fmt_many(&p.args),
+                    p.idx
+                )
+            }
         }
     }
 
@@ -254,12 +260,30 @@ where
 
     pub fn fmt_constraint(&self, constraint: &Constraint<M>) -> String {
         match &constraint.constraint {
-            ConstraintType::Equal(left, right) => format!("{} == {}", self.fmt(*left), self.fmt(*right)),
-            ConstraintType::Subtype { subty, superty } => format!("{} <: {}", self.fmt(*subty), self.fmt(*superty)),
-            ConstraintType::Join { output, inputs } => format!("join {} {}", self.fmt(*output), self.fmt_many(inputs)),
-            ConstraintType::Predicate(type_predicate) => format!("Predicate: Cid: {} Args: {}", type_predicate.cid.0, self.fmt_many(&type_predicate.args)),
-            ConstraintType::Arity { expected, found } => format!("len({}) == len({})", self.fmt_many(expected), self.fmt_many(found)),
-            ConstraintType::HasEnoughArgs { expected, found } => format!("len({}) <= len({})", self.fmt_many(expected), self.fmt_many(found)),
+            ConstraintType::Equal(left, right) => {
+                format!("{} == {}", self.fmt(*left), self.fmt(*right))
+            }
+            ConstraintType::Subtype { subty, superty } => {
+                format!("{} <: {}", self.fmt(*subty), self.fmt(*superty))
+            }
+            ConstraintType::Join { output, inputs } => {
+                format!("join {} {}", self.fmt(*output), self.fmt_many(inputs))
+            }
+            ConstraintType::Predicate(type_predicate) => format!(
+                "Predicate: Cid: {} Args: {}",
+                type_predicate.cid.0,
+                self.fmt_many(&type_predicate.args)
+            ),
+            ConstraintType::Arity { expected, found } => format!(
+                "len({}) == len({})",
+                self.fmt_many(expected),
+                self.fmt_many(found)
+            ),
+            ConstraintType::HasEnoughArgs { expected, found } => format!(
+                "len({}) <= len({})",
+                self.fmt_many(expected),
+                self.fmt_many(found)
+            ),
         }
     }
 
@@ -512,7 +536,7 @@ where
             | ExprKind::Ident(_)
             | ExprKind::Ref { .. }
             | ExprKind::MemberAccess { .. }
-            | ExprKind::Pack 
+            | ExprKind::Pack
             | ExprKind::Read => (
                 unbound,
                 Expr {
@@ -533,7 +557,7 @@ where
                 let (mut ub, innertid) = self.substitute_one(tid);
                 unbound.extend(ub);
 
-                (unbound, Expr::typ(tid, (expr.meta.0, expr_tid)))
+                (unbound, Expr::typ(innertid, (expr.meta.0, expr_tid)))
             }
             ExprKind::Match(m) => {
                 let cases: Vec<_> = m
@@ -559,10 +583,11 @@ where
                 )
             }
             ExprKind::If(iff) => {
-                let (mut unbound, then) = self.substitute_expr(*iff.then);
-                let (ub, otherwise) = self.substitute_expr(*iff.otherwise);
+                let (then_unbound, then) = self.substitute_expr(*iff.then);
+                let (otherwise_unbound, otherwise) = self.substitute_expr(*iff.otherwise);
 
-                unbound.extend(ub);
+                unbound.extend(then_unbound);
+                unbound.extend(otherwise_unbound);
 
                 (unbound, Expr::iff(then, otherwise, (expr.meta.0, expr_tid)))
             }
@@ -685,7 +710,7 @@ where
                 .iter()
                 .map(|tid| self.freshen_tid(*tid, fresh, meta))
                 .collect(),
-            idx: p.idx
+            idx: p.idx,
         }
     }
 
@@ -831,7 +856,6 @@ where
     where
         M: Debug + Clone + PartialEq + Eq,
     {
-
         // We're going to defer the check for enough arguments to get as
         // much typing information as possible. So if we don't have enough
         // args, just consume the stack. The error will be reported during
@@ -875,7 +899,7 @@ where
                 Constraint::new(ConstraintType::Predicate(pred), constraint.clone(), meta)
             }))
             .chain([argument_constraint]);
-        
+
         stack.extend(func.output.clone());
 
         constraints.collect()
@@ -1258,6 +1282,18 @@ where
                 let scheme = env.get_var(&var).expect("Vars should be resolvable");
                 let inst = self.freshen(scheme, &expr.meta);
 
+                let constraints = inst
+                    .predicates
+                    .into_iter()
+                    .map(|pred| {
+                        Constraint::new(
+                            ConstraintType::Predicate(pred),
+                            ConstraintOrigin::MemberAccess { var, member },
+                            &expr.meta,
+                        )
+                    })
+                    .collect();
+
                 if let Some(Type::Struct(s)) = self.get(inst.tid) {
                     let def = self.get_struct_def(s.sid).clone();
                     let bindings = Self::generate_bindings(&def.vars, &s.args)?;
@@ -1271,7 +1307,7 @@ where
                     });
                     let e = Expr::member_access(var, member, (expr.meta, expr_tid));
 
-                    Ok((e, vec![]))
+                    Ok((e, constraints))
                 } else {
                     todo!("Error: Can't access member of non-struct type")
                 }
@@ -1423,11 +1459,14 @@ where
                 )];
 
                 let mut then_stack = stack.clone();
-                let (then, constrs) = self.infer(*iff.then, &mut then_stack, env)?;
+                let mut then_env = env.clone();
+                let (then, constrs) = self.infer(*iff.then, &mut then_stack, &mut then_env)?;
                 constraints.extend(constrs);
 
                 let mut otherwise_stack = stack.clone();
-                let (otherwise, constrs) = self.infer(*iff.otherwise, &mut otherwise_stack, env)?;
+                let mut otherwise_env = env.clone();
+                let (otherwise, constrs) =
+                    self.infer(*iff.otherwise, &mut otherwise_stack, &mut otherwise_env)?;
                 constraints.extend(constrs);
 
                 if then_stack.len() != otherwise_stack.len() {
@@ -1495,7 +1534,7 @@ where
                     input: vec![],
                     output: vec![tuple_tid],
                 });
-                let e = Expr::block(exprs, (expr.meta, tid));
+                let e = Expr::tuple(exprs, (expr.meta, tid));
                 Ok((e, constraints))
             }
             ExprKind::Read => todo!(),
@@ -1613,7 +1652,12 @@ where
                     associated_types, ..
                 }) = self.get_matching_impl(env, p.cid, &p.args, meta)?
                 {
-                    assert!(p.idx < associated_types.len(), "{} should be less than {}", p.idx, associated_types.len());
+                    assert!(
+                        p.idx < associated_types.len(),
+                        "{} should be less than {}",
+                        p.idx,
+                        associated_types.len()
+                    );
                     self.normalize_ty(env, associated_types[p.idx], meta)
                 } else {
                     let args = p
@@ -1946,6 +1990,7 @@ where
 
                 Ok(())
             }
+            (Type::Function(_), Type::Function(_)) => todo!(),
             (_, _) => self
                 .unify_ty_ty(env, superty_tid, subty_tid, meta)
                 .map_err(|kind| InferenceError {
@@ -1991,7 +2036,7 @@ where
                             } else {
                                 false
                             }
-                        }){
+                        }) {
                             Some(i)
                         } else {
                             None
@@ -2117,6 +2162,7 @@ where
                 })?;
         match (left, right) {
             (_, _) if left_tid == right_tid => Ok(left_tid),
+            (Type::Never, _) | (_, Type::Never) => Ok(self.intern(Type::Never)),
             (Type::Pointer(left), Type::Pointer(right)) => {
                 match (left.mutability, right.mutability) {
                     (Mutability::Mutable, Mutability::Mutable) => {
@@ -2615,13 +2661,17 @@ where
                         todo!("Wrong number of type parameters provided: {:?}", meta);
                     }
                     // Just overwrite the args
-                    Projection { cid: p.cid, args, idx: p.idx }
+                    Projection {
+                        cid: p.cid,
+                        args,
+                        idx: p.idx,
+                    }
                 } else {
                     let p = p.clone();
                     self.freshen_projection(&p, &mut HashMap::new(), meta)
                 };
-                Ok(self.intern(Type::Projection(p)))  
-            },
+                Ok(self.intern(Type::Projection(p)))
+            }
         }
     }
 

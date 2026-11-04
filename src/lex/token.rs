@@ -183,6 +183,7 @@ pub enum Keyword {
     Unpack,
     Extern,
     Call,
+    Type,
 }
 
 impl std::fmt::Display for Keyword {
@@ -209,6 +210,7 @@ impl std::fmt::Display for Keyword {
             Keyword::Unpack => write!(f, "unpack")?,
             Keyword::Extern => write!(f, "extern")?,
             Keyword::Call => write!(f, "call")?,
+            Keyword::Type => write!(f, "type")?,
         }
         write!(f, "`")
     }
@@ -241,6 +243,7 @@ impl Keyword {
         map.insert("call", TokenKind::Keyword(Keyword::Call));
         map.insert("interface", TokenKind::Keyword(Keyword::Interface));
         map.insert("extern", TokenKind::Keyword(Keyword::Extern));
+        map.insert("type", TokenKind::Keyword(Keyword::Type));
 
         map.insert("true", TokenKind::Literal(Literal::Bool(true)));
         map.insert("false", TokenKind::Literal(Literal::Bool(false)));
@@ -326,7 +329,7 @@ impl<'src> std::cmp::PartialEq for TokenKind<'src> {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct Token<'src> {
     pub kind: TokenKind<'src>,
     pub lexeme: &'src str,
@@ -372,6 +375,12 @@ impl<'src> std::fmt::Display for Token<'src> {
             TokenKind::Operator(op) => write!(f, "{op}"),
             TokenKind::Whitespace => Ok(()),
         }
+    }
+}
+
+impl<'src> std::fmt::Debug for Token<'src> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
     }
 }
 

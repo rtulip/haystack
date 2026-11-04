@@ -218,10 +218,10 @@ where
             Type::Enum(e) => write!(w, "enum({})< {} >", e.eid.0, self.fmt_many(&e.args)),
             Type::Variant(v) => write!(
                 w,
-                "enum({})::{}< {} >",
+                "enum({})< {} >::{}",
                 v.eid.0,
+                self.fmt_many(&v.args),
                 v.variant,
-                self.fmt_many(&v.args)
             ),
             Type::Tuple(tids) => {
                 let mut s = String::from("(");
@@ -232,7 +232,9 @@ where
                 s += " )";
                 write!(w, "{s}")
             }
-            Type::Projection(_) => todo!(),
+            Type::Projection(p) => {
+                write!(w, "Interface({})< {} >::{}", p.cid.0, self.fmt_many(&p.args), p.idx)
+            },
         }
     }
 
@@ -248,6 +250,17 @@ where
     {
         let tids: Vec<_> = tids.into_iter().map(|tid| self.fmt(*tid)).collect();
         format!("{tids:?}")
+    }
+
+    pub fn fmt_constraint(&self, constraint: &Constraint<M>) -> String {
+        match &constraint.constraint {
+            ConstraintType::Equal(left, right) => format!("{} == {}", self.fmt(*left), self.fmt(*right)),
+            ConstraintType::Subtype { subty, superty } => format!("{} <: {}", self.fmt(*subty), self.fmt(*superty)),
+            ConstraintType::Join { output, inputs } => format!("join {} {}", self.fmt(*output), self.fmt_many(inputs)),
+            ConstraintType::Predicate(type_predicate) => format!("Predicate: Cid: {} Args: {}", type_predicate.cid.0, self.fmt_many(&type_predicate.args)),
+            ConstraintType::Arity { expected, found } => format!("len({}) == len({})", self.fmt_many(expected), self.fmt_many(found)),
+            ConstraintType::HasEnoughArgs { expected, found } => format!("len({}) <= len({})", self.fmt_many(expected), self.fmt_many(found)),
+        }
     }
 
     pub fn get_variance(&self, tid: TypeId, tyvar: TypeVar) -> Option<Variance> {
@@ -659,6 +672,23 @@ where
         }
     }
 
+    fn freshen_projection(
+        &mut self,
+        p: &Projection,
+        fresh: &mut HashMap<TypeVar, TypeId>,
+        meta: &M,
+    ) -> Projection {
+        Projection {
+            cid: p.cid,
+            args: p
+                .args
+                .iter()
+                .map(|tid| self.freshen_tid(*tid, fresh, meta))
+                .collect(),
+            idx: p.idx
+        }
+    }
+
     fn freshen_tid(
         &mut self,
         tid: TypeId,
@@ -801,6 +831,7 @@ where
     where
         M: Debug + Clone + PartialEq + Eq,
     {
+
         // We're going to defer the check for enough arguments to get as
         // much typing information as possible. So if we don't have enough
         // args, just consume the stack. The error will be reported during
@@ -844,7 +875,7 @@ where
                 Constraint::new(ConstraintType::Predicate(pred), constraint.clone(), meta)
             }))
             .chain([argument_constraint]);
-
+        
         stack.extend(func.output.clone());
 
         constraints.collect()
@@ -1473,7 +1504,7 @@ where
         e
     }
 
-    fn normalize_ty(
+    pub fn normalize_ty(
         &mut self,
         env: &Environment,
         tid: TypeId,
@@ -1582,7 +1613,7 @@ where
                     associated_types, ..
                 }) = self.get_matching_impl(env, p.cid, &p.args, meta)?
                 {
-                    assert!(p.idx < associated_types.len());
+                    assert!(p.idx < associated_types.len(), "{} should be less than {}", p.idx, associated_types.len());
                     self.normalize_ty(env, associated_types[p.idx], meta)
                 } else {
                     let args = p
@@ -2578,7 +2609,19 @@ where
 
                 Ok(self.intern(Type::Variant(variant)))
             }
-            Type::Projection(_) => todo!(),
+            Type::Projection(p) => {
+                let p = if let Some(args) = args {
+                    if p.args.len() != args.len() {
+                        todo!("Wrong number of type parameters provided: {:?}", meta);
+                    }
+                    // Just overwrite the args
+                    Projection { cid: p.cid, args, idx: p.idx }
+                } else {
+                    let p = p.clone();
+                    self.freshen_projection(&p, &mut HashMap::new(), meta)
+                };
+                Ok(self.intern(Type::Projection(p)))  
+            },
         }
     }
 

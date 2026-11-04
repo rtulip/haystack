@@ -173,6 +173,12 @@ impl<'src> Parser<'src> {
         Ok(ParseType::Tuple(types))
     }
 
+    fn parse_function_type(&mut self) -> Result<Option<ParseType<'src>>, HayError> {
+
+        Ok(None)
+
+    }
+
     fn parse_type(&mut self) -> Result<Option<ParseType<'src>>, HayError> {
         self.strip_whitespace();
 
@@ -189,6 +195,7 @@ impl<'src> Parser<'src> {
             TokenKind::Operator(Operator::GreaterThan) => Ok(None),
             TokenKind::Operator(Operator::Ampersand) => self.parse_pointer_type(),
             TokenKind::Operator(o) => todo!("Parse type from {o}: "),
+            TokenKind::Keyword(Keyword::Function) => self.parse_function_type(),
             TokenKind::Keyword(_) => todo!(),
             TokenKind::Literal(_) => todo!(),
             TokenKind::Whitespace => todo!(),
@@ -691,8 +698,21 @@ impl<'src> Parser<'src> {
         self.strip_whitespace();
         self.expect(TokenKind::Marker(Marker::LeftBrace))?;
 
-        let mut funcs = vec![];
+        let mut associated_types = vec![];
+        loop {
+            self.strip_whitespace();
+            let Ok(_) = self.matches(TokenKind::Keyword(Keyword::Type)) else {
+                break;
+            }; 
 
+            self.strip_whitespace();
+            self.expect(TokenKind::Marker(Marker::Colon))?;
+            self.strip_whitespace();
+            let type_name = self.expect(TokenKind::ident())?;
+            associated_types.push(type_name);
+        }
+
+        let mut funcs = vec![];
         loop {
             self.strip_whitespace();
             let Ok(start) = self.matches(TokenKind::Keyword(Keyword::Function)) else {
@@ -715,6 +735,7 @@ impl<'src> Parser<'src> {
         Ok(Statememt::InterfaceDefinition(InterfaceDefinition {
             name,
             params,
+            associated_types,
             funcs,
         }))
     }
@@ -728,6 +749,21 @@ impl<'src> Parser<'src> {
         self.strip_whitespace();
 
         self.expect(TokenKind::Marker(Marker::LeftBrace))?;
+
+        let mut associated_types = vec![];
+        loop {
+            self.strip_whitespace();
+            let Some(ty) = self.parse_type()? else {
+                break;
+            };
+            self.strip_whitespace();
+            self.expect(TokenKind::Marker(Marker::Colon))?;
+            self.strip_whitespace();
+            let type_name = self.expect(TokenKind::ident())?;
+
+            associated_types.push((type_name, ty));
+        }
+
         let mut impls = vec![];
         loop {
             self.strip_whitespace();
@@ -747,6 +783,7 @@ impl<'src> Parser<'src> {
             params,
             name,
             args,
+            associated_types,
             impls,
         }))
     }

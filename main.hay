@@ -1,14 +1,22 @@
 include "prelude.hay"
 include "c.hay"
 
-fn main() {
-    true if {
-        "Hello World" Some
-    } else false if {
-        1 exit 
-    } else {
-        None
-    }
+interface Foo<T> {
+    type: Bar
+    fn baz(T) -> [Bar]
+}
 
-    drop 
+impl Foo<u64> {
+    bool: Bar
+    fn baz(u64) -> [bool] { drop true }
+}
+
+impl Foo<bool> {
+    u64: Bar
+    fn baz(bool) -> [u64] { drop 12345 }
+}
+fn take_u64(u64) drop 
+
+fn main() {
+    12345 baz baz baz baz baz baz take_u64
 }

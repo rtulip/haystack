@@ -1,9 +1,7 @@
 use std::{assert_eq, collections::HashMap, format, todo, vec};
 
 use crate::{
-    error::HayError,
-    lex::token::{Literal, Token},
-    parser::{
+    error::HayError, lex::token::{Literal, Token}, parser::{
         expr::{ParseExpr, ParseExprKind},
         signature::Signature,
         statement::{
@@ -12,22 +10,13 @@ use crate::{
             StructDefinition,
         },
         typ::{ParamatarizedIdent, ParseType, ParseTypePath},
-    },
-    typecheck::{
-        constraint::ConstraintOrigin,
-        environment::{
+    }, typecheck::{
+        constraint::ConstraintOrigin, environment::{
             Coherence, Environment, Interface, InterfaceImpl, Scheme, TypeClassId, TypePredicate,
-        },
-        expr::{Expr, Var},
-        func::Function,
-        typ::{
-            typ::{EnumDef, EnumType, FunctionType, Mutability, StructDef, Type},
-            type_id::{EnumId, StructId, TypeId},
-            type_var::TypeVar,
-        },
-        typestore::{
-            inference::{InferenceError, InferenceErrorKind},
-            TypeStore,
+        }, expr::{Expr, Var}, func::Function, typ::{
+            typ::{EnumDef, EnumType, FunctionType, Mutability, Projection, StructDef, Type}, type_id::{EnumId, StructId, TypeId}, type_var::TypeVar,
+        }, typestore::{
+            TypeStore, inference::{InferenceError, InferenceErrorKind},
         },
     },
 };
@@ -138,10 +127,19 @@ struct InterfaceFnInfo<'src> {
 
 type InterfaceFnsLookup<'src> = HashMap<&'src str, InterfaceFnInfo<'src>>;
 
+#[derive(Debug, Clone)]
+struct InterfaceInfo<'src> {
+
+    cid: TypeClassId,
+    fns: InterfaceFnsLookup<'src>, 
+    associated_types: Vec<&'src str>,
+
+}
+
 struct ScopeLayer<'src> {
     types: HashMap<String, (TypeId, Option<Token<'src>>)>,
     vars: HashMap<&'src str, (Var, Token<'src>)>,
-    interfaces: HashMap<&'src str, (TypeClassId, InterfaceFnsLookup<'src>)>,
+    interfaces: HashMap<&'src str, InterfaceInfo<'src>>,
     variants: HashMap<(EnumId, &'src str), usize>,
     members: HashMap<(StructId, &'src str), usize>,
 }
@@ -190,27 +188,26 @@ impl<'src> Scope<'src> {
             .map(|scope| scope.vars.get(name).unwrap().clone())
     }
 
-    fn get_cid(&self, name: &str) -> Option<(TypeClassId, InterfaceFnsLookup<'src>)> {
+    fn get_cid(&self, name: &str) -> Option<&InterfaceInfo<'src>> {
         let x = self
             .scopes
             .iter()
             .rev()
             .find(|scope| scope.interfaces.contains_key(name))
-            .map(|scope| scope.interfaces.get(name).unwrap().clone());
+            .map(|scope| scope.interfaces.get(name).unwrap());
         x
     }
 
     fn insert_cid(
         &mut self,
         name: &'src str,
-        cid: TypeClassId,
-        fns: InterfaceFnsLookup<'src>,
-    ) -> Option<(TypeClassId, InterfaceFnsLookup<'src>)> {
+        info: InterfaceInfo<'src>
+    ) -> Option<InterfaceInfo<'src>> {
         self.scopes
             .last_mut()
             .unwrap()
             .interfaces
-            .insert(name, (cid, fns))
+            .insert(name, info)
     }
 
     fn insert_tid(
@@ -404,17 +401,15 @@ impl<'src> TypeCheck<'src> {
             params.push(self.get_tid(param)?);
         }
 
-        let args = if params.len() == 0 {
-            None
+        if params.len() == 0 {
+            Ok(base_tid)
         } else {
-            Some(params)
-        };
-
-        let tid = self
-            .typestore
-            .type_instance(base_tid, args, &ident.base)
-            .map_err(|e| self.map_inference_err(e))?;
-        Ok(tid)
+            self
+                .typestore
+                .type_instance(base_tid, Some(params), &ident.base)
+                .map_err(|e| self.map_inference_err(e))
+        }
+        
     }
 
     fn get_enum_variant(
@@ -712,7 +707,8 @@ impl<'src> TypeCheck<'src> {
     }
 
     fn format_tid(&mut self, tid: TypeId) -> String {
-        let tid = self.typestore.substitute_one(tid).1;
+    
+        let tid = self.typestore.normalize_ty(&self.env, tid, &Token::default()).unwrap().1;
 
         if let Some(info) = self.symbols.types.get(&tid) {
             info.name.clone()
@@ -1143,7 +1139,7 @@ impl<'src> TypeCheck<'src> {
                 input: input.clone(),
                 output: output.clone(),
             });
-            let scheme = Scheme::new(params.clone(), tid, vec![]);
+            let scheme = Scheme::new(params.clone(), tid, vec![predicate.clone()]);
             assert!(self.env.bind_scheme(var, scheme).is_none());
 
             if let Some(expr) = &func.expr {
@@ -1175,14 +1171,14 @@ impl<'src> TypeCheck<'src> {
             .map(|ty| self.insert_param_ty(ty))
             .collect::<Result<Vec<_>, _>>()?;
 
-        let var_tids = vars
+        let var_tids: Vec<_> = vars
             .iter()
             .map(|tyvar| self.typestore.intern(Type::TypeVar(*tyvar)))
             .collect();
 
         let interface = Interface {
             vars: vars.clone(),
-            associated_types_count: 0,
+            associated_types_count: iface.associated_types.len(),
             coherence: if iface.funcs.iter().all(|f| f.expr.is_some()) {
                 Coherence::Overlapping
             } else {
@@ -1192,9 +1188,26 @@ impl<'src> TypeCheck<'src> {
 
         let cid = self.env.add_typeclass(interface);
 
+        let mut associated_types = vec![];
+        for (idx, name) in iface.associated_types.iter().enumerate() {
+            associated_types.push(name.lexeme);
+            let p = Projection {
+                cid,
+                args: var_tids.clone(),
+                idx,
+            };
+
+            let tid = self.typestore.intern(Type::Projection(p));
+
+            if let Some(_) = self.scope.insert_tid(name.lexeme.into(), tid, name.clone()) {
+                todo!("")
+            }
+
+        }
+
         let mut fn_lookup = InterfaceFnsLookup::new();
         for func in &iface.funcs {
-            let tid = self.get_function_tid(&func.signature)?;
+            let tid = self.get_function_tid(&func.signature)?;    
             match &func.expr {
                 Some(expr) => {
                     let expr = self.lower_expr(expr)?;
@@ -1235,7 +1248,7 @@ impl<'src> TypeCheck<'src> {
 
         self.scope.end_scope();
 
-        if let Some(_) = self.scope.insert_cid(iface.name.lexeme, cid, fn_lookup) {
+        if let Some(_) = self.scope.insert_cid(iface.name.lexeme, InterfaceInfo { cid, fns: fn_lookup, associated_types }) {
             todo!("error interface of this name already exists")
         }
         if self.symbols.insert_cid(cid, iface.name.clone()).is_some() {
@@ -1257,8 +1270,8 @@ impl<'src> TypeCheck<'src> {
             .map(|ty| self.insert_param_ty(ty))
             .collect::<Result<Vec<_>, _>>()?;
 
-        let (cid, mut fns) = match self.scope.get_cid(iface_impl.name.lexeme) {
-            Some((cid, fns)) => (cid, fns),
+        let mut info = match self.scope.get_cid(iface_impl.name.lexeme) {
+            Some(info) => info.clone(),
             None => todo!("???"),
         };
 
@@ -1267,11 +1280,19 @@ impl<'src> TypeCheck<'src> {
             args.push(self.get_tid(ty)?)
         }
 
+        let mut associated_types = vec![];
+        for type_name in &info.associated_types {
+            match iface_impl.associated_types.iter().find(|(name, _)| name.lexeme == *type_name) {
+                Some((_, ty)) => associated_types.push(self.get_tid(ty)?),
+                None => todo!("Error: Unexpected associated type"),
+            }
+        }
+
         let interface_impl = InterfaceImpl {
-            cid,
+            cid: info.cid,
             vars,
             args,
-            associated_types: vec![],
+            associated_types,
             predicates: vec![],
             coherence: if iface_impl.impls.is_empty() {
                 Coherence::Overlapping
@@ -1282,11 +1303,11 @@ impl<'src> TypeCheck<'src> {
         self.scope.end_scope();
 
         self.env
-            .add_impl(&mut self.typestore, cid, interface_impl, &iface_impl.name)
+            .add_impl(&mut self.typestore, info.cid, interface_impl, &iface_impl.name)
             .map_err(|e| self.map_inference_err(e))?;
 
         for func in &iface_impl.impls {
-            let Some(fn_info) = fns.get(&func.name.lexeme) else {
+            let Some(fn_info) = info.fns.get(&func.name.lexeme) else {
                 todo!("Unexpected function in interface")
             };
 
@@ -1302,7 +1323,7 @@ impl<'src> TypeCheck<'src> {
             };
             self.scope.end_scope();
 
-            fns.insert(
+            info.fns.insert(
                 &func.name.lexeme,
                 InterfaceFnInfo {
                     tid: fn_info.tid,
@@ -1311,7 +1332,7 @@ impl<'src> TypeCheck<'src> {
             );
         }
 
-        for (fn_name, fn_info) in &fns {
+        for (fn_name, fn_info) in &info.fns {
             if fn_info.body.is_none() {
                 return Err(HayError::new(
                     format!(

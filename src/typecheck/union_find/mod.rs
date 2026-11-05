@@ -71,10 +71,7 @@ where
             return Ok(());
         }
 
-        let value = Self::unify_values(
-            &self.parents[a.into()].1,
-            &self.parents[b.into()].1,
-        )?;
+        let value = Self::unify_values(&self.parents[a.into()].1, &self.parents[b.into()].1)?;
 
         self.parents[a.into()].1 = value;
         self.parents[b.into()].0 = a;
@@ -160,4 +157,3 @@ mod tests {
         assert!(tbl.assign_key(e, Some(true)).is_err());
     }
 }
-    

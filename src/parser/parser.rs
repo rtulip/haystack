@@ -5,7 +5,7 @@ use crate::{
     lex::{
         scanner::Scanner,
         token::{
-            Keyword,
+            Intrinsic, Keyword,
             Marker::{self, LeftParen},
             Operator, Token, TokenKind,
         },
@@ -195,6 +195,7 @@ impl<'src> Parser<'src> {
             TokenKind::Operator(o) => todo!("Parse type from {o}: "),
             TokenKind::Keyword(Keyword::Function) => self.parse_function_type(),
             TokenKind::Keyword(_) => todo!(),
+            TokenKind::Intrinsic(_) => todo!(),
             TokenKind::Literal(_) => todo!(),
             TokenKind::Whitespace => todo!(),
             TokenKind::EoF => todo!(),
@@ -438,14 +439,20 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_unchecked_cast_expr(&mut self) -> ParseExpr<'src> {
-        let token = self
-            .expect(TokenKind::Keyword(Keyword::UncheckedCast))
-            .unwrap();
-        ParseExpr {
-            kind: ParseExprKind::UncheckedCast,
-            token,
-        }
+    fn parse_intrinsic(&mut self) -> ParseExpr<'src> {
+        let token = self.tokens.pop().unwrap();
+        let kind = match &token.kind {
+            TokenKind::Intrinsic(i) => ParseExprKind::Intrinsic(*i),
+            TokenKind::Ident(_)
+            | TokenKind::Marker(_)
+            | TokenKind::Operator(_)
+            | TokenKind::Keyword(_)
+            | TokenKind::Literal(_)
+            | TokenKind::Whitespace
+            | TokenKind::EoF => unreachable!(),
+        };
+
+        ParseExpr { kind, token }
     }
 
     fn parse_expr_if_available(&mut self) -> Result<Option<ParseExpr<'src>>, HayError> {
@@ -458,7 +465,7 @@ impl<'src> Parser<'src> {
             | TokenKind::Keyword(Keyword::Pack)
             | TokenKind::Keyword(Keyword::As)
             | TokenKind::Keyword(Keyword::Call)
-            | TokenKind::Keyword(Keyword::UncheckedCast)
+            | TokenKind::Intrinsic(_)
             | TokenKind::Operator(Operator::Ampersand)
             | TokenKind::Literal(_) => Ok(Some(self.parse_expr()?)),
             TokenKind::Keyword(Keyword::Function) | TokenKind::Marker(Marker::RightBrace) => {
@@ -561,6 +568,42 @@ impl<'src> Parser<'src> {
         })
     }
 
+    fn parse_operator_expr(&mut self) -> ParseExpr<'src> {
+        let token = self.tokens.pop().unwrap();
+
+        let kind = match &token.kind {
+            TokenKind::Operator(operator) => match operator {
+                Operator::Plus => ParseExprKind::Ident("add"),
+                Operator::Minus => todo!(),
+                Operator::Star => todo!(),
+                Operator::Slash => todo!(),
+                Operator::LessThan => todo!(),
+                Operator::LessEqual => todo!(),
+                Operator::GreaterThan => todo!(),
+                Operator::GreaterEqual => todo!(),
+                Operator::Equal => todo!(),
+                Operator::BangEqual => todo!(),
+                Operator::Modulo => todo!(),
+                Operator::Read => todo!(),
+                Operator::Write => todo!(),
+                Operator::Ampersand => todo!(),
+                Operator::Pipe => todo!(),
+                Operator::Caret => todo!(),
+                Operator::ShiftRight => todo!(),
+                Operator::ShiftLeft => todo!(),
+            },
+            TokenKind::Ident(_)
+            | TokenKind::Marker(_)
+            | TokenKind::Keyword(_)
+            | TokenKind::Intrinsic(_)
+            | TokenKind::Literal(_)
+            | TokenKind::Whitespace
+            | TokenKind::EoF => todo!(),
+        };
+
+        ParseExpr { kind, token }
+    }
+
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
         self.strip_whitespace();
         match &self.peek().kind {
@@ -572,11 +615,11 @@ impl<'src> Parser<'src> {
             TokenKind::Keyword(Keyword::Pack) => Ok(self.parse_pack_expr()),
             TokenKind::Keyword(Keyword::As) => self.parse_as_expr(),
             TokenKind::Keyword(Keyword::Call) => Ok(self.parse_call_expr()),
-            TokenKind::Keyword(Keyword::UncheckedCast) => Ok(self.parse_unchecked_cast_expr()),
             TokenKind::Keyword(Keyword::If) => self.parse_if_expr(),
             TokenKind::Keyword(kw) => todo!("Parse {kw} expr"),
             TokenKind::Operator(Operator::Ampersand) => self.parse_take_ref_expr(),
-            TokenKind::Operator(_) => todo!(),
+            TokenKind::Operator(_) => Ok(self.parse_operator_expr()),
+            TokenKind::Intrinsic(_) => Ok(self.parse_intrinsic()),
             TokenKind::Literal(_) => Ok(self.parse_literal_expr()),
             TokenKind::Whitespace => todo!(),
             TokenKind::EoF => todo!(),

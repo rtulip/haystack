@@ -162,6 +162,23 @@ impl std::fmt::Display for Operator {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Intrinsic {
+    UncheckedCast,
+    U64Add,
+}
+
+impl std::fmt::Display for Intrinsic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "`")?;
+        match self {
+            Intrinsic::UncheckedCast => write!(f, "__unchecked_cast")?,
+            Intrinsic::U64Add => write!(f, "__u64_add")?,
+        }
+        write!(f, "`")
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Keyword {
     Function,
     As,
@@ -171,7 +188,6 @@ pub enum Keyword {
     Do,
     Struct,
     Enum,
-    UncheckedCast,
     Include,
     SizeOf,
     Impl,
@@ -198,7 +214,6 @@ impl std::fmt::Display for Keyword {
             Keyword::Do => write!(f, "do")?,
             Keyword::Struct => write!(f, "struct")?,
             Keyword::Enum => write!(f, "enum")?,
-            Keyword::UncheckedCast => write!(f, "__unchecked_cast")?,
             Keyword::Include => write!(f, "include")?,
             Keyword::SizeOf => write!(f, "sizeOf")?,
             Keyword::Impl => write!(f, "impl")?,
@@ -227,10 +242,6 @@ impl Keyword {
         map.insert("do", TokenKind::Keyword(Keyword::Do));
         map.insert("struct", TokenKind::Keyword(Keyword::Struct));
         map.insert("enum", TokenKind::Keyword(Keyword::Enum));
-        map.insert(
-            "__unchecked_cast",
-            TokenKind::Keyword(Keyword::UncheckedCast),
-        );
         map.insert("include", TokenKind::Keyword(Keyword::Include));
         map.insert("sizeof", TokenKind::Keyword(Keyword::SizeOf));
         map.insert("impl", TokenKind::Keyword(Keyword::Impl));
@@ -244,6 +255,12 @@ impl Keyword {
         map.insert("interface", TokenKind::Keyword(Keyword::Interface));
         map.insert("extern", TokenKind::Keyword(Keyword::Extern));
         map.insert("type", TokenKind::Keyword(Keyword::Type));
+
+        map.insert(
+            "__unchecked_cast",
+            TokenKind::Intrinsic(Intrinsic::UncheckedCast),
+        );
+        map.insert("__u64_add", TokenKind::Intrinsic(Intrinsic::U64Add));
 
         map.insert("true", TokenKind::Literal(Literal::Bool(true)));
         map.insert("false", TokenKind::Literal(Literal::Bool(false)));
@@ -267,6 +284,7 @@ pub enum TokenKind<'src> {
     Marker(Marker),
     Operator(Operator),
     Keyword(Keyword),
+    Intrinsic(Intrinsic),
     Literal(Literal<'src>),
     Whitespace,
     #[default]
@@ -301,6 +319,7 @@ impl<'src> std::fmt::Display for TokenKind<'src> {
                 Literal::U8(_) => write!(f, "`u8`"),
             },
             TokenKind::Ident(id) => write!(f, "an identifier ({id})"),
+            TokenKind::Intrinsic(i) => write!(f, "{i}"),
             TokenKind::EoF => write!(f, "end of file"),
             TokenKind::Whitespace => write!(f, "` `"),
         }
@@ -373,6 +392,7 @@ impl<'src> std::fmt::Display for Token<'src> {
             },
             TokenKind::Marker(m) => write!(f, "{m}"),
             TokenKind::Operator(op) => write!(f, "{op}"),
+            TokenKind::Intrinsic(i) => write!(f, "{i}"),
             TokenKind::Whitespace => Ok(()),
         }
     }

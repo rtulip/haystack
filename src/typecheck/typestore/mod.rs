@@ -537,7 +537,8 @@ where
             | ExprKind::Ref { .. }
             | ExprKind::MemberAccess { .. }
             | ExprKind::Pack
-            | ExprKind::Read => (
+            | ExprKind::Read
+            | ExprKind::Add(_) => (
                 unbound,
                 Expr {
                     expr: expr.expr,
@@ -1538,6 +1539,15 @@ where
                 Ok((e, constraints))
             }
             ExprKind::Read => todo!(),
+            ExprKind::Add(tid) => {
+                let func = FunctionType {
+                    input: vec![tid, tid],
+                    output: vec![tid],
+                };
+                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
+                let e = Expr::add(tid, (expr.meta.clone(), self.function(func)));
+                Ok((e, constraints))
+            }
         };
 
         e

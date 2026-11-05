@@ -1,5 +1,5 @@
 use crate::{
-    lex::token::{Literal, Token},
+    lex::token::{Intrinsic, Literal, Token},
     parser::typ::ParseType,
 };
 
@@ -23,7 +23,7 @@ pub enum ParseExprKind<'src> {
     Tuple(Vec<ParseExpr<'src>>),
     Pack,
     Call,
-    UncheckedCast,
+    Intrinsic(Intrinsic),
     As(Vec<Token<'src>>),
     TakeRef { mutable: bool, ident: &'src str },
     If(ParseIfExpr<'src>),

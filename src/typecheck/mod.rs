@@ -2,7 +2,7 @@ use std::{assert_eq, collections::HashMap, format, todo, vec};
 
 use crate::{
     error::HayError,
-    lex::token::{Literal, Token},
+    lex::token::{Intrinsic, Literal, Token},
     parser::{
         expr::{ParseExpr, ParseExprKind},
         signature::Signature,
@@ -560,7 +560,13 @@ impl<'src> TypeCheck<'src> {
             }
             ParseExprKind::Pack => Ok(Expr::pack(expr.token.clone())),
             ParseExprKind::Call => Ok(Expr::call(expr.token.clone())),
-            ParseExprKind::UncheckedCast => Ok(Expr::unchecked_cast(expr.token.clone())),
+            ParseExprKind::Intrinsic(Intrinsic::UncheckedCast) => {
+                Ok(Expr::unchecked_cast(expr.token.clone()))
+            }
+            ParseExprKind::Intrinsic(Intrinsic::U64Add) => {
+                let tid = self.typestore.intern(Type::u64());
+                Ok(Expr::add(tid, expr.token.clone()))
+            }
             ParseExprKind::Tuple(parse_exprs) => {
                 let mut exprs = vec![];
                 for expr in parse_exprs {
@@ -606,7 +612,7 @@ impl<'src> TypeCheck<'src> {
                     then.push(self.lower_expr(expr)?);
                 }
                 self.scope.end_scope();
-                
+
                 let then = Expr::block(then, expr.token.clone());
 
                 self.scope.new_scope();
@@ -616,7 +622,6 @@ impl<'src> TypeCheck<'src> {
                 }
                 self.scope.end_scope();
 
-                
                 let mut otherwise = Expr::block(otherwise, expr.token.clone());
 
                 for branch in if_expr.otherwise.iter().rev() {

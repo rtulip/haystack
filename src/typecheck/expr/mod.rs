@@ -1,6 +1,9 @@
 use std::vec;
 
-use crate::typecheck::typ::{typ::Mutability, type_id::TypeId};
+use crate::typecheck::typ::{
+    typ::{BuiltinType, Mutability},
+    type_id::TypeId,
+};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Var(pub usize);
@@ -71,6 +74,7 @@ pub enum ExprKind<'src, Meta> {
     Call,
     Type(TypeId),
     UncheckedCast,
+    Add(TypeId),
     Pack,
     MemberAccess { var: Var, member: usize },
     Match(MatchExpr<'src, Meta>),
@@ -174,6 +178,13 @@ impl<'src, Meta> Expr<'src, Meta> {
     pub fn unchecked_cast(meta: Meta) -> Self {
         Expr {
             expr: ExprKind::UncheckedCast,
+            meta,
+        }
+    }
+
+    pub fn add(tid: TypeId, meta: Meta) -> Self {
+        Expr {
+            expr: ExprKind::Add(tid),
             meta,
         }
     }

@@ -187,7 +187,7 @@ impl<'src> Scanner<'src> {
             c => {
                 if c.is_ascii_digit() {
                     self.number()?
-                } else if c.is_alphabetic() || c == '_' {
+                } else if c.is_alphabetic() || c == '_' || c == '.' {
                     self.identifier()?
                 } else {
                     return Err(HayError::new(

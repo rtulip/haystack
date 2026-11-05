@@ -15,6 +15,7 @@ pub enum BuiltinType {
     U8,
     U64,
     Bool,
+    CVarArgs,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -175,5 +176,26 @@ impl Type {
 
     pub fn u64() -> Type {
         Type::Builtin(BuiltinType::U64)
+    }
+
+    pub fn is_c_element(&self) -> bool {
+        match self {
+            Type::TypeVar(_)
+            | Type::RigidTypeVar(_)
+            | Type::Builtin(BuiltinType::CVarArgs)
+            | Type::Struct(_)
+            | Type::Enum(_)
+            | Type::Variant(_)
+            | Type::Type(_)
+            | Type::Projection(_)
+            | Type::Never
+            | Type::Tuple(_) => false,
+
+            Type::Builtin(BuiltinType::U8)
+            | Type::Builtin(BuiltinType::U64)
+            | Type::Builtin(BuiltinType::Bool)
+            | Type::Function(_)
+            | Type::Pointer(_) => true,
+        }
     }
 }

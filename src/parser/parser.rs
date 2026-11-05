@@ -1,24 +1,18 @@
 use std::{format, todo, unreachable};
 
 use crate::{
-    error::HayError,
-    lex::{
+    error::HayError, lex::{
         scanner::Scanner,
         token::{
             Intrinsic, Keyword,
             Marker::{self, LeftParen},
             Operator, Token, TokenKind,
         },
-    },
-    parser::{
-        argument::Argument,
-        expr::{ParseExpr, ParseExprKind},
-        signature::Signature,
-        statement::{
+    }, parser::{
+        argument::Argument, expr::{ParseExpr, ParseExprKind, ParseMatchExpr}, signature::Signature, statement::{
             EnumDefinition, FunctionDefinition, InterfaceDefinition, InterfaceFunctionDefinition,
             InterfaceImpl, Statememt, StructDefinition,
-        },
-        typ::{ParamatarizedIdent, ParseType, ParseTypePath},
+        }, typ::{ParamatarizedIdent, ParseType, ParseTypePath},
     },
 };
 
@@ -315,15 +309,14 @@ impl<'src> Parser<'src> {
 
         if self.matches(TokenKind::Marker(Marker::DoubleColon)).is_ok() {
             let ident = self.expect(TokenKind::ident())?;
-            
+
             return Ok(ParseExpr {
                 kind: ParseExprKind::Member {
                     base: *i,
                     member: ident.lexeme,
                 },
-                token
+                token,
             });
-
         }
 
         Ok(ParseExpr {
@@ -617,6 +610,48 @@ impl<'src> Parser<'src> {
         ParseExpr { kind, token }
     }
 
+    fn parse_match_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
+
+        let token = self.expect(TokenKind::Keyword(Keyword::Match)).unwrap();
+        self.strip_whitespace();
+        
+        self.expect(TokenKind::Marker(Marker::LeftBrace))?;
+
+        let mut cases = vec![];
+        let mut finally = None;
+        loop {
+            self.strip_whitespace();
+
+            if self.matches(TokenKind::Keyword(Keyword::Else)).is_ok() {
+                
+                finally = Some(Box::new(self.parse_expr()?));
+                break;
+            }
+
+            let Some(ty) = self.parse_type()? else {
+                break;
+            };
+            
+            let expr = self.parse_expr()?;
+
+            cases.push((ty, expr))
+        }
+
+        self.strip_whitespace();
+        self.expect(TokenKind::Marker(Marker::RightBrace))?;
+
+        Ok(ParseExpr {
+            kind: ParseExprKind::Match(
+                ParseMatchExpr {
+                    cases,
+                    finally,
+                }
+            ),
+            token,
+        })
+
+    }
+
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
         self.strip_whitespace();
         match &self.peek().kind {
@@ -629,6 +664,7 @@ impl<'src> Parser<'src> {
             TokenKind::Keyword(Keyword::As) => self.parse_as_expr(),
             TokenKind::Keyword(Keyword::Call) => Ok(self.parse_call_expr()),
             TokenKind::Keyword(Keyword::If) => self.parse_if_expr(),
+            TokenKind::Keyword(Keyword::Match) => self.parse_match_expr(),
             TokenKind::Keyword(kw) => todo!("Parse {kw} expr"),
             TokenKind::Operator(Operator::Ampersand) => self.parse_take_ref_expr(),
             TokenKind::Operator(_) => Ok(self.parse_operator_expr()),

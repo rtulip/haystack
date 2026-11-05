@@ -1,5 +1,10 @@
 use std::{
-    collections::{HashMap, HashSet}, f32::consts::E, fmt::Debug, format, panic::Location, todo, unreachable, write,
+    collections::{HashMap, HashSet},
+    f32::consts::E,
+    fmt::Debug,
+    format,
+    panic::Location,
+    todo, unreachable, write,
 };
 
 use crate::typecheck::{
@@ -189,6 +194,7 @@ where
                 BuiltinType::U8 => write!(w, "u8"),
                 BuiltinType::U64 => write!(w, "u64"),
                 BuiltinType::Bool => write!(w, "bool"),
+                BuiltinType::CVarArgs => write!(w, "..."),
             },
             Type::Function(function_type) => {
                 let mut s = String::from("fn (");
@@ -570,7 +576,7 @@ where
                     .map(|case| {
                         let (case_unbound, expr) = self.substitute_expr(*case.expr);
                         unbound.extend(case_unbound);
-                        MatchCase::new(case.pattern, case.binding, expr)
+                        MatchCase::new(case.pattern, expr)
                     })
                     .collect();
                 let finally = if let Some(expr) = m.finally {
@@ -602,9 +608,9 @@ where
                     acc.push(e);
                     acc
                 });
-                
+
                 (unbound, Expr::tuple(exprs, (expr.meta.0, expr_tid)))
-            },
+            }
         }
     }
 
@@ -1123,11 +1129,11 @@ where
         expr: Expr<'src, M>,
         stack: &mut Stack,
         env: &mut Environment,
-        lookup: &Lookup
+        lookup: &Lookup,
     ) -> Result<(Expr<'src, (M, TypeId)>, Vec<Constraint<M>>), InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
-        Lookup: MemberLookup
+        Lookup: MemberLookup,
     {
         let e = match expr.expr {
             ExprKind::U8(val) => {
@@ -1362,7 +1368,7 @@ where
 
                 // Make sure that all cases operate on the same enum type
                 let mut variants_covered = vec![false; enum_def.variants.len()];
-                let mut case_binding_tids = vec![None; m.cases.len()];
+                let mut inner_tids = vec![None; m.cases.len()];
                 if !m
                     .cases
                     .iter()
@@ -1387,7 +1393,7 @@ where
                             variants_covered[variant] = true;
                             let tid = enum_def.variants[variant];
                             let tid = tid.map(|tid| self.instantiate_tid(tid, &bindings));
-                            case_binding_tids[i] = tid;
+                            inner_tids[i] = tid;
 
                             true
                         }
@@ -1407,24 +1413,22 @@ where
                     let mut local_env = env.clone();
                     let mut local_stack = stack.clone();
 
-                    if let Some(var) = case.binding {
-                        if case_binding_tids[i].is_none() {
-                            todo!("Error: No data to bind")
-                        }
-                        local_env.bind(var, case_binding_tids[i].unwrap());
+                    if let Some(case_tid) = inner_tids[i] {
+                        local_stack.push(case_tid);
                     }
 
                     let (expr, constrs) =
                         self.infer(*case.expr, &mut local_stack, &mut local_env, lookup)?;
                     constraints.extend(constrs);
                     stacks.push(local_stack);
-                    cases.push(MatchCase::new(case.pattern, case.binding, expr));
+                    cases.push(MatchCase::new(case.pattern, expr));
                 }
 
                 let finally = if let Some(expr) = m.finally {
                     let mut local_env = env.clone();
                     let mut local_stack = stack.clone();
-                    let (expr, constrs) = self.infer(*expr, &mut local_stack, &mut local_env, lookup)?;
+                    let (expr, constrs) =
+                        self.infer(*expr, &mut local_stack, &mut local_env, lookup)?;
                     constraints.extend(constrs);
                     stacks.push(local_stack);
                     Some(expr)
@@ -1490,13 +1494,18 @@ where
 
                 let mut then_stack = stack.clone();
                 let mut then_env = env.clone();
-                let (then, constrs) = self.infer(*iff.then, &mut then_stack, &mut then_env, lookup)?;
+                let (then, constrs) =
+                    self.infer(*iff.then, &mut then_stack, &mut then_env, lookup)?;
                 constraints.extend(constrs);
 
                 let mut otherwise_stack = stack.clone();
                 let mut otherwise_env = env.clone();
-                let (otherwise, constrs) =
-                    self.infer(*iff.otherwise, &mut otherwise_stack, &mut otherwise_env, lookup)?;
+                let (otherwise, constrs) = self.infer(
+                    *iff.otherwise,
+                    &mut otherwise_stack,
+                    &mut otherwise_env,
+                    lookup,
+                )?;
                 constraints.extend(constrs);
 
                 if then_stack.len() != otherwise_stack.len() {
@@ -1723,6 +1732,24 @@ where
         self.lookup.assign_key(var, Some(tid)).map_err(|_| todo!())
     }
 
+
+    fn type_is_c_vararg_compatible(&mut self, env: &Environment, tid: TypeId, meta: &M) -> bool {
+        let Ok((ty, _)) = self.normalize_ty(env, tid, meta) else {
+            return false;
+        }; 
+        match ty {
+            Type::Tuple(tids) => tids
+                .into_iter()
+                .all(|tid| {
+                    let Ok((ty, _)) = self.normalize_ty(env, tid, meta) else {
+                        return false;
+                    };
+                    ty.is_c_element()
+                }),
+            ty => ty.is_c_element()
+        }
+    }
+
     pub fn unify_ty_ty(
         &mut self,
         env: &Environment,
@@ -1738,6 +1765,12 @@ where
         match (left, right) {
             (a, b) if a == b => Ok(()),
             (Type::Builtin(left), Type::Builtin(right)) if left == right => Ok(()),
+            (Type::Builtin(BuiltinType::CVarArgs), _)
+                if self.type_is_c_vararg_compatible(env, right_tid, meta) =>
+            {
+                Ok(())
+            }
+            (_, Type::Builtin(BuiltinType::CVarArgs)) => unreachable!("Users shouldn't be able to construct `...`"),
             (Type::Builtin(_), Type::Builtin(_)) => Err(InferenceErrorKind::TypesIncompatible {
                 expected: left_tid,
                 found: right_tid,
@@ -2597,7 +2630,7 @@ where
         stack: &Stack,
         target: &Stack,
         env: &mut Environment,
-        lookup: &Lookup
+        lookup: &Lookup,
     ) -> Result<(Expr<'src, (M, TypeId)>, HashSet<TypeVar>), InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,

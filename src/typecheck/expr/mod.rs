@@ -22,15 +22,13 @@ pub enum MatchPattern {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MatchCase<'src, Meta> {
     pub pattern: MatchPattern,
-    pub binding: Option<Var>,
     pub expr: Box<Expr<'src, Meta>>,
 }
 
 impl<'src, Meta> MatchCase<'src, Meta> {
-    pub fn new(pattern: MatchPattern, binding: Option<Var>, expr: Expr<'src, Meta>) -> Self {
+    pub fn new(pattern: MatchPattern, expr: Expr<'src, Meta>) -> Self {
         Self {
             pattern,
-            binding,
             expr: Box::new(expr),
         }
     }
@@ -76,7 +74,7 @@ pub enum ExprKind<'src, Meta> {
     UncheckedCast,
     Add(TypeId),
     Pack,
-    NamedMemberAccess {var: Var, member: &'src str },
+    NamedMemberAccess { var: Var, member: &'src str },
     MemberAccess { var: Var, member: usize },
     Match(MatchExpr<'src, Meta>),
     If(IfExpr<'src, Meta>),

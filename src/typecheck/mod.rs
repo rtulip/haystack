@@ -13,8 +13,11 @@ use crate::{
     }, typecheck::{
         constraint::ConstraintOrigin, environment::{
             Coherence, Environment, Interface, InterfaceImpl, Scheme, TypeClassId, TypePredicate,
-        }, expr::{Expr, Var}, func::Function, typ::{
-            typ::{EnumDef, EnumType, FunctionType, Mutability, Projection, StructDef, Type},
+        }, expr::{Expr, MatchCase, MatchExpr, MatchPattern, Var}, func::Function, typ::{
+            typ::{
+                BuiltinType, EnumDef, EnumType, FunctionType, Mutability, Projection, StructDef,
+                Type,
+            },
             type_id::{EnumId, StructId, TypeId},
             type_var::TypeVar,
         }, typestore::{
@@ -165,6 +168,10 @@ impl<'src> Scope<'src> {
             ("u8".to_owned(), (typestore.intern(Type::u8()), None)),
             ("u64".to_owned(), (typestore.intern(Type::u64()), None)),
             ("bool".to_owned(), (typestore.intern(Type::bool()), None)),
+            (
+                "...".to_owned(),
+                (typestore.intern(Type::Builtin(BuiltinType::CVarArgs)), None),
+            ),
         ]);
 
         Scope {
@@ -532,13 +539,11 @@ impl<'src> TypeCheck<'src> {
                 Ok(Expr::ident(var, expr.token.clone()))
             }
             ParseExprKind::Member { base, member } => {
-
                 let Some((var, _)) = self.scope.get_var(base) else {
                     todo!("No var found for `{base}`")
                 };
 
                 Ok(Expr::named_member_access(var, member, expr.token.clone()))
-
             }
             ParseExprKind::Literal(literal) => match literal {
                 Literal::Bool(b) => Ok(Expr::bool(*b, expr.token.clone())),
@@ -657,6 +662,26 @@ impl<'src> TypeCheck<'src> {
 
                 Ok(Expr::iff(then, otherwise, expr.token.clone()))
             }
+            ParseExprKind::Match(m) => {
+
+                let mut cases = vec![];
+                for (ty, expr) in &m.cases {
+
+                    let tid= self.get_tid(ty)?;
+                    let expr = self.lower_expr(expr)?;
+
+                    cases.push(MatchCase::new(MatchPattern::Variant(tid), expr));
+
+                }
+
+                let finally = match &m.finally {
+                    Some(expr) => Some(self.lower_expr(&expr)?),
+                    None => None,
+                };
+
+                Ok(Expr::match_(MatchExpr::new(cases, finally), expr.token.clone()))
+
+            },
         }
     }
 
@@ -707,7 +732,12 @@ impl<'src> TypeCheck<'src> {
                     todo!()
                 }
             }
-            Type::Builtin(_) => todo!(),
+            Type::Builtin(b) => match b {
+                BuiltinType::U8 => todo!(),
+                BuiltinType::U64 => todo!(),
+                BuiltinType::Bool => todo!(),
+                BuiltinType::CVarArgs => "...".into(),
+            },
             Type::Function(func) => {
                 let mut s = format!("fn{}", self.format_stack(&func.input, '(', ')'));
                 if !func.output.is_empty() {
@@ -1438,11 +1468,17 @@ mod tests {
     use std::assert_eq;
 
     use crate::typecheck::{
-        constraint::ConstraintOrigin, environment::{Coherence, Environment, Interface, InterfaceImpl, Scheme, TypePredicate}, expr::{Expr, MatchCase, MatchExpr, MatchPattern, Var}, func::Function, typ::{
+        constraint::ConstraintOrigin,
+        environment::{Coherence, Environment, Interface, InterfaceImpl, Scheme, TypePredicate},
+        expr::{Expr, MatchCase, MatchExpr, MatchPattern, Var},
+        func::Function,
+        typ::{
             typ::{EnumDef, FunctionType, Mutability, PointerType, Projection, StructDef, Type},
             type_id::TypeId,
-        }, typestore::{
-            MemberLookup, TypeStore, inference::{InferenceError, InferenceErrorKind},
+        },
+        typestore::{
+            inference::{InferenceError, InferenceErrorKind},
+            MemberLookup, TypeStore,
         },
     };
 
@@ -1451,7 +1487,11 @@ mod tests {
     const LOOKUP: () = ();
 
     impl MemberLookup for () {
-        fn get_member_idx(&self, sid: super::typ::type_id::StructId, member: &str) -> Option<usize> {
+        fn get_member_idx(
+            &self,
+            sid: super::typ::type_id::StructId,
+            member: &str,
+        ) -> Option<usize> {
             None
         }
     }
@@ -2138,7 +2178,9 @@ mod tests {
         let type_of_scheme = Scheme::new([t_tyvar], type_of_tid, []);
 
         env.bind_scheme(type_of, type_of_scheme);
-        assert!(type_of_impl.type_check(&mut typestore, &env, &LOOKUP).is_ok());
+        assert!(type_of_impl
+            .type_check(&mut typestore, &env, &LOOKUP)
+            .is_ok());
 
         let u8_tid = typestore.intern(Type::u8());
         let u8_t_tid = typestore.metatype(u8_tid, None, &META).unwrap();
@@ -2151,7 +2193,9 @@ mod tests {
             Expr::block([Expr::u8(0, ()), Expr::ident(type_of, ())], ()),
         );
 
-        assert!(call_type_of.type_check(&mut typestore, &env, &LOOKUP).is_ok());
+        assert!(call_type_of
+            .type_check(&mut typestore, &env, &LOOKUP)
+            .is_ok());
     }
 
     #[test]
@@ -2454,7 +2498,9 @@ mod tests {
         );
 
         let u8_ptr_print = Function::new([u8_ptr_tid], [], [], [], Expr::ident(print, ()));
-        assert!(u8_ptr_print.type_check(&mut typestore, &env, &LOOKUP).is_ok());
+        assert!(u8_ptr_print
+            .type_check(&mut typestore, &env, &LOOKUP)
+            .is_ok());
 
         let bool_ptr_print = Function::new([bool_ptr_tid], [], [], [], Expr::ident(print, ()));
         assert_eq!(
@@ -2474,7 +2520,9 @@ mod tests {
 
         let u8_ptr_ptr_print = Function::new([u8_ptr_ptr_tid], [], [], [], Expr::ident(print, ()));
 
-        assert!(u8_ptr_ptr_print.type_check(&mut typestore, &env, &LOOKUP).is_ok());
+        assert!(u8_ptr_ptr_print
+            .type_check(&mut typestore, &env, &LOOKUP)
+            .is_ok());
 
         let bool_ptr_ptr_tid = typestore.pointer(bool_ptr_tid, Mutability::Const);
 
@@ -2842,7 +2890,9 @@ mod tests {
             Expr::block([Expr::typ(option_none_ty_tid, ()), Expr::pack(())], ()),
         );
 
-        assert!(option_none.type_check(&mut typestore, &env, &LOOKUP).is_ok());
+        assert!(option_none
+            .type_check(&mut typestore, &env, &LOOKUP)
+            .is_ok());
     }
 
     #[test]
@@ -2885,7 +2935,9 @@ mod tests {
             Expr::block([Expr::typ(option_some_ty_tid, ()), Expr::pack(())], ()),
         );
 
-        assert!(option_some.type_check(&mut typestore, &env, &LOOKUP).is_ok());
+        assert!(option_some
+            .type_check(&mut typestore, &env, &LOOKUP)
+            .is_ok());
     }
 
     #[test]
@@ -3054,7 +3106,9 @@ mod tests {
             ),
         );
 
-        assert!(unwrap_or_default.type_check(&mut typestore, &env, &LOOKUP).is_ok());
+        assert!(unwrap_or_default
+            .type_check(&mut typestore, &env, &LOOKUP)
+            .is_ok());
     }
 
     #[test]

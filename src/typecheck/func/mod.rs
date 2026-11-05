@@ -1,7 +1,10 @@
 use std::{fmt::Debug, todo, vec};
 
 use crate::typecheck::{
-    environment::{Coherence, Environment, InterfaceImpl, TypePredicate}, expr::Expr, typ::{typ::FunctionType, type_id::TypeId, type_var::TypeVar}, typestore::{MemberLookup, TypeStore, inference::InferenceError},
+    environment::{Coherence, Environment, InterfaceImpl, TypePredicate},
+    expr::Expr,
+    typ::{typ::FunctionType, type_id::TypeId, type_var::TypeVar},
+    typestore::{inference::InferenceError, MemberLookup, TypeStore},
 };
 
 use super::constraint::ConstraintOrigin;
@@ -46,11 +49,11 @@ where
         self,
         typestore: &mut TypeStore<Meta>,
         env: &Environment,
-        lookup: &Lookup
+        lookup: &Lookup,
     ) -> Result<Function<'src, (Meta, TypeId)>, InferenceError<Meta>>
     where
         Meta: Debug + Clone + PartialEq + Eq,
-        Lookup: MemberLookup
+        Lookup: MemberLookup,
     {
         typestore.solidify_vars(&self.params)?;
 

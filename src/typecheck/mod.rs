@@ -1438,22 +1438,23 @@ mod tests {
     use std::assert_eq;
 
     use crate::typecheck::{
-        constraint::ConstraintOrigin,
-        environment::{Coherence, Environment, Interface, InterfaceImpl, Scheme, TypePredicate},
-        expr::{Expr, MatchCase, MatchExpr, MatchPattern, Var},
-        func::Function,
-        typ::{
+        constraint::ConstraintOrigin, environment::{Coherence, Environment, Interface, InterfaceImpl, Scheme, TypePredicate}, expr::{Expr, MatchCase, MatchExpr, MatchPattern, Var}, func::Function, typ::{
             typ::{EnumDef, FunctionType, Mutability, PointerType, Projection, StructDef, Type},
             type_id::TypeId,
-        },
-        typestore::{
-            inference::{InferenceError, InferenceErrorKind},
-            TypeStore,
+        }, typestore::{
+            MemberLookup, TypeStore, inference::{InferenceError, InferenceErrorKind},
         },
     };
 
     const META: () = ();
     const ORIGIN: ConstraintOrigin = ConstraintOrigin::ConflictingImpls;
+    const LOOKUP: () = ();
+
+    impl MemberLookup for () {
+        fn get_member_idx(&self, sid: super::typ::type_id::StructId, member: &str) -> Option<usize> {
+            None
+        }
+    }
 
     #[test]
     fn dup() {
@@ -1480,7 +1481,7 @@ mod tests {
             ),
         );
 
-        let f = dup.type_check(&mut typestore, &env);
+        let f = dup.type_check(&mut typestore, &env, &LOOKUP);
         assert!(f.is_ok(), "{f:?}");
     }
 
@@ -1508,7 +1509,7 @@ mod tests {
 
         let rigid = typestore.intern(Type::RigidTypeVar(typevar));
         let u8_tid = typestore.intern(Type::u8());
-        let f = bad_dup.type_check(&mut typestore, &env);
+        let f = bad_dup.type_check(&mut typestore, &env, &LOOKUP);
         assert_eq!(
             f,
             Err(InferenceError::type_param_constrained(
@@ -1560,7 +1561,7 @@ mod tests {
             Expr::block([Expr::u8(0, ()), Expr::ident(dup, ())], ()),
         );
 
-        let f = test.type_check(&mut typestore, &env);
+        let f = test.type_check(&mut typestore, &env, &LOOKUP);
         assert!(f.is_ok(), "{f:?}");
     }
 
@@ -1596,7 +1597,7 @@ mod tests {
         let target = vec![bool_tid];
 
         assert!(typestore
-            .type_check(expr, &stack, &target, &mut env)
+            .type_check(expr, &stack, &target, &mut env, &LOOKUP)
             .is_ok())
     }
 
@@ -1630,7 +1631,7 @@ mod tests {
         let target = vec![];
 
         assert_eq!(
-            typestore.type_check(expr, &stack, &target, &mut env),
+            typestore.type_check(expr, &stack, &target, &mut env, &LOOKUP),
             Err(InferenceError::not_enough_args(
                 vec![u8_tid],
                 vec![],
@@ -1673,7 +1674,7 @@ mod tests {
             ),
         );
 
-        assert!(swap.type_check(&mut typestore, &env).is_ok());
+        assert!(swap.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]
@@ -1706,7 +1707,7 @@ mod tests {
             ),
         );
 
-        match swap.type_check(&mut typestore, &env) {
+        match swap.type_check(&mut typestore, &env, &LOOKUP) {
             Err(InferenceError {
                 kind: InferenceErrorKind::TypeParameterConstrained { var, .. },
                 ..
@@ -1755,7 +1756,7 @@ mod tests {
         );
 
         assert!(matches!(
-            test.type_check(&mut typestore, &env),
+            test.type_check(&mut typestore, &env, &LOOKUP),
             Err(InferenceError {
                 kind: InferenceErrorKind::UnboundVar(_),
                 ..
@@ -1800,7 +1801,7 @@ mod tests {
                 (),
             ),
         );
-        assert!(test.type_check(&mut typestore, &env).is_ok());
+        assert!(test.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]
@@ -1813,7 +1814,7 @@ mod tests {
         let test = Function::new([], [u8_tid], [], [], Expr::bool(true, ()));
 
         assert_eq!(
-            test.type_check(&mut typestore, &env),
+            test.type_check(&mut typestore, &env, &LOOKUP),
             Err(InferenceError::types_incompatible(
                 u8_tid,
                 bool_tid,
@@ -1852,7 +1853,7 @@ mod tests {
             ),
         );
 
-        assert!(test.type_check(&mut typestore, &env).is_ok());
+        assert!(test.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]
@@ -1885,7 +1886,7 @@ mod tests {
                 (),
             ),
         );
-        assert!(test.type_check(&mut typestore, &env).is_ok());
+        assert!(test.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]
@@ -1910,7 +1911,7 @@ mod tests {
         );
 
         assert_eq!(
-            test.type_check(&mut typestore, &env),
+            test.type_check(&mut typestore, &env, &LOOKUP),
             Err(InferenceError::mutable_ref_to_fn(
                 f,
                 &ConstraintOrigin::TakeRef {
@@ -1950,7 +1951,7 @@ mod tests {
         );
 
         assert_eq!(
-            test_not_enough_args.type_check(&mut typestore, &env),
+            test_not_enough_args.type_check(&mut typestore, &env, &LOOKUP),
             Err(InferenceError::not_enough_args(
                 vec![u8_tid],
                 vec![],
@@ -1978,7 +1979,7 @@ mod tests {
         );
 
         assert_eq!(
-            test_bad_args.type_check(&mut typestore, &env),
+            test_bad_args.type_check(&mut typestore, &env, &LOOKUP),
             Err(InferenceError::types_incompatible(
                 u8_tid,
                 bool_tid,
@@ -2011,7 +2012,7 @@ mod tests {
 
         let test = Function::new([t_tid], [t_ptr_tid], [t_typevar], [], Expr::ident(foo, ()));
 
-        assert!(test.type_check(&mut typestore, &env).is_ok());
+        assert!(test.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]
@@ -2040,7 +2041,7 @@ mod tests {
             Expr::ident(take_const_ptr, ()),
         );
 
-        assert!(test1.type_check(&mut typestore, &env).is_ok());
+        assert!(test1.type_check(&mut typestore, &env, &LOOKUP).is_ok());
 
         let identity = Var(1);
         let t_tyvar = typestore.fresh_type_var();
@@ -2060,7 +2061,7 @@ mod tests {
             [],
             Expr::block([Expr::ident(identity, ()), Expr::ident(identity, ())], ()),
         );
-        assert!(test2.type_check(&mut typestore, &env).is_ok());
+        assert!(test2.type_check(&mut typestore, &env, &LOOKUP).is_ok());
 
         let test3 = Function::new(
             [u8_const_ptr_tid],
@@ -2070,7 +2071,7 @@ mod tests {
             Expr::block([], ()),
         );
         assert_eq!(
-            test3.type_check(&mut typestore, &env),
+            test3.type_check(&mut typestore, &env, &LOOKUP),
             Err(InferenceError::types_incompatible(
                 u8_mut_ptr_tid,
                 u8_const_ptr_tid,
@@ -2109,7 +2110,7 @@ mod tests {
             [],
             Expr::block([Expr::typ(u8_t_tid, ()), Expr::ident(sizeof, ())], ()),
         );
-        assert!(test.type_check(&mut typestore, &env).is_ok());
+        assert!(test.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]
@@ -2137,7 +2138,7 @@ mod tests {
         let type_of_scheme = Scheme::new([t_tyvar], type_of_tid, []);
 
         env.bind_scheme(type_of, type_of_scheme);
-        assert!(type_of_impl.type_check(&mut typestore, &env).is_ok());
+        assert!(type_of_impl.type_check(&mut typestore, &env, &LOOKUP).is_ok());
 
         let u8_tid = typestore.intern(Type::u8());
         let u8_t_tid = typestore.metatype(u8_tid, None, &META).unwrap();
@@ -2150,7 +2151,7 @@ mod tests {
             Expr::block([Expr::u8(0, ()), Expr::ident(type_of, ())], ()),
         );
 
-        assert!(call_type_of.type_check(&mut typestore, &env).is_ok());
+        assert!(call_type_of.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]
@@ -2188,7 +2189,7 @@ mod tests {
 
         let test = Function::new([u8_tid], [], [], [], Expr::ident(Var(0), ()));
         assert_eq!(
-            test.type_check(&mut typestore, &env),
+            test.type_check(&mut typestore, &env, &LOOKUP),
             Err(InferenceError::predicate_not_met(
                 foo_cid,
                 vec![u8_tid],
@@ -2250,7 +2251,7 @@ mod tests {
         env.bind_scheme(bar, bar_scheme);
 
         let test = Function::new([u8_tid], [], [], [], Expr::ident(Var(0), ()));
-        assert!(test.type_check(&mut typestore, &env).is_ok());
+        assert!(test.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]
@@ -2339,11 +2340,11 @@ mod tests {
         let bool_ptr_tid = typestore.pointer(bool_tid, Mutability::Const);
 
         let test = Function::new([u8_ptr_tid], [bool_ptr_tid], [], [], Expr::ident(cast, ()));
-        assert!(test.type_check(&mut typestore, &env).is_ok());
+        assert!(test.type_check(&mut typestore, &env, &LOOKUP).is_ok());
 
         let test = Function::new([u8_tid], [bool_ptr_tid], [], [], Expr::ident(cast, ()));
         assert_eq!(
-            test.type_check(&mut typestore, &env),
+            test.type_check(&mut typestore, &env, &LOOKUP),
             Err(InferenceError::predicate_not_met(
                 cast_cid,
                 vec![u8_tid, bool_ptr_tid],
@@ -2357,7 +2358,7 @@ mod tests {
 
         let test = Function::new([u8_ptr_tid], [bool_tid], [], [], Expr::ident(cast, ()));
         assert_eq!(
-            test.type_check(&mut typestore, &env),
+            test.type_check(&mut typestore, &env, &LOOKUP),
             Err(InferenceError::predicate_not_met(
                 cast_cid,
                 vec![u8_ptr_tid, bool_tid],
@@ -2436,11 +2437,11 @@ mod tests {
         env.bind_scheme(print, print_scheme);
 
         let u8_print = Function::new([u8_tid], [], [], [], Expr::ident(print, ()));
-        assert!(u8_print.type_check(&mut typestore, &env).is_ok());
+        assert!(u8_print.type_check(&mut typestore, &env, &LOOKUP).is_ok());
 
         let bool_print = Function::new([bool_tid], [], [], [], Expr::ident(print, ()));
         assert_eq!(
-            bool_print.type_check(&mut typestore, &env),
+            bool_print.type_check(&mut typestore, &env, &LOOKUP),
             Err(InferenceError::predicate_not_met(
                 print_cid,
                 vec![bool_tid],
@@ -2453,11 +2454,11 @@ mod tests {
         );
 
         let u8_ptr_print = Function::new([u8_ptr_tid], [], [], [], Expr::ident(print, ()));
-        assert!(u8_ptr_print.type_check(&mut typestore, &env).is_ok());
+        assert!(u8_ptr_print.type_check(&mut typestore, &env, &LOOKUP).is_ok());
 
         let bool_ptr_print = Function::new([bool_ptr_tid], [], [], [], Expr::ident(print, ()));
         assert_eq!(
-            bool_ptr_print.type_check(&mut typestore, &env),
+            bool_ptr_print.type_check(&mut typestore, &env, &LOOKUP),
             Err(InferenceError::predicate_not_met(
                 print_cid,
                 vec![bool_ptr_tid],
@@ -2473,7 +2474,7 @@ mod tests {
 
         let u8_ptr_ptr_print = Function::new([u8_ptr_ptr_tid], [], [], [], Expr::ident(print, ()));
 
-        assert!(u8_ptr_ptr_print.type_check(&mut typestore, &env).is_ok());
+        assert!(u8_ptr_ptr_print.type_check(&mut typestore, &env, &LOOKUP).is_ok());
 
         let bool_ptr_ptr_tid = typestore.pointer(bool_ptr_tid, Mutability::Const);
 
@@ -2481,7 +2482,7 @@ mod tests {
             Function::new([bool_ptr_ptr_tid], [], [], [], Expr::ident(print, ()));
 
         assert_eq!(
-            bool_ptr_ptr_print.type_check(&mut typestore, &env),
+            bool_ptr_ptr_print.type_check(&mut typestore, &env, &LOOKUP),
             Err(InferenceError::predicate_not_met(
                 print_cid,
                 vec![bool_ptr_ptr_tid],
@@ -2567,10 +2568,10 @@ mod tests {
             .is_ok());
 
         let main = Function::new([u8_tid], [], [], [], Expr::ident(print, ()));
-        assert!(main.type_check(&mut typestore, &env).is_ok());
+        assert!(main.type_check(&mut typestore, &env, &LOOKUP).is_ok());
         let main = Function::new([bool_tid], [], [], [], Expr::ident(print, ()));
         assert_eq!(
-            main.type_check(&mut typestore, &env),
+            main.type_check(&mut typestore, &env, &LOOKUP),
             Err(InferenceError::predicate_not_met(
                 print_cid,
                 vec![bool_tid],
@@ -2592,7 +2593,7 @@ mod tests {
             [],
             Expr::block([Expr::ident(print, ()), Expr::ident(print, ())], ()),
         );
-        assert!(main.type_check(&mut typestore, &env).is_ok());
+        assert!(main.type_check(&mut typestore, &env, &LOOKUP).is_ok());
 
         let t_tyvar = typestore.fresh_type_var();
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
@@ -2615,7 +2616,7 @@ mod tests {
                 (),
             ),
         );
-        assert!(println.type_check(&mut typestore, &env).is_ok());
+        assert!(println.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]
@@ -2696,7 +2697,7 @@ mod tests {
                 (),
             ),
         );
-        assert!(println.type_check(&mut typestore, &env).is_ok());
+        assert!(println.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]
@@ -2731,7 +2732,7 @@ mod tests {
             }],
             Expr::unchecked_cast(()),
         );
-        assert!(cast.type_check(&mut typestore, &env).is_ok());
+        assert!(cast.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]
@@ -2769,7 +2770,7 @@ mod tests {
             ),
         );
 
-        assert!(example.type_check(&mut typestore, &env).is_ok());
+        assert!(example.type_check(&mut typestore, &env, &LOOKUP).is_ok());
 
         let bad_pack = Function::new(
             [],
@@ -2789,7 +2790,7 @@ mod tests {
 
         let u8_tid = typestore.intern(Type::u8());
         assert_eq!(
-            bad_pack.type_check(&mut typestore, &env),
+            bad_pack.type_check(&mut typestore, &env, &LOOKUP),
             Err(InferenceError::types_incompatible(
                 bool_tid,
                 u8_tid,
@@ -2841,7 +2842,7 @@ mod tests {
             Expr::block([Expr::typ(option_none_ty_tid, ()), Expr::pack(())], ()),
         );
 
-        assert!(option_none.type_check(&mut typestore, &env).is_ok());
+        assert!(option_none.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]
@@ -2884,7 +2885,7 @@ mod tests {
             Expr::block([Expr::typ(option_some_ty_tid, ()), Expr::pack(())], ()),
         );
 
-        assert!(option_some.type_check(&mut typestore, &env).is_ok());
+        assert!(option_some.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]
@@ -2950,7 +2951,7 @@ mod tests {
             ),
         );
         assert_eq!(
-            test.type_check(&mut typestore, &env),
+            test.type_check(&mut typestore, &env, &LOOKUP),
             Err(InferenceError::types_incompatible(
                 option_some_t_tid,
                 option_t_tid,
@@ -2986,7 +2987,7 @@ mod tests {
             ),
         );
 
-        assert!(test.type_check(&mut typestore, &env).is_ok());
+        assert!(test.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]
@@ -3014,7 +3015,7 @@ mod tests {
                 (),
             ),
         );
-        assert!(test.type_check(&mut typestore, &env).is_ok());
+        assert!(test.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]
@@ -3053,7 +3054,7 @@ mod tests {
             ),
         );
 
-        assert!(unwrap_or_default.type_check(&mut typestore, &env).is_ok());
+        assert!(unwrap_or_default.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]
@@ -3121,7 +3122,7 @@ mod tests {
             ),
         );
 
-        assert!(test.type_check(&mut typestore, &env).is_ok());
+        assert!(test.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]
@@ -3171,7 +3172,7 @@ mod tests {
                 (),
             ),
         );
-        assert!(test.type_check(&mut typestore, &env).is_ok());
+        assert!(test.type_check(&mut typestore, &env, &LOOKUP).is_ok());
 
         // Test the inverse to ensure order doesn't matter.
         let test = Function::new(
@@ -3198,7 +3199,7 @@ mod tests {
                 (),
             ),
         );
-        assert!(test.type_check(&mut typestore, &env).is_ok());
+        assert!(test.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     fn option_def(typestore: &mut TypeStore<()>) -> (TypeId, TypeId, TypeId) {
@@ -3283,7 +3284,7 @@ mod tests {
             ),
         );
 
-        assert!(test.type_check(&mut typestore, &env).is_ok());
+        assert!(test.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]
@@ -3349,7 +3350,7 @@ mod tests {
             .is_ok());
 
         let test = Function::new([u8_tid], [bool_tid], [], [], Expr::ident(bar, ()));
-        assert!(test.type_check(&mut typestore, &env).is_ok());
+        assert!(test.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]
@@ -3422,9 +3423,9 @@ mod tests {
         let bool_ptr_tid = typestore.pointer(bool_tid, Mutability::Const);
 
         let test = Function::new([u8_ptr_tid], [u8_tid], [], [], Expr::ident(extract, ()));
-        assert!(test.type_check(&mut typestore, &env).is_ok());
+        assert!(test.type_check(&mut typestore, &env, &LOOKUP).is_ok());
         let test = Function::new([bool_ptr_tid], [bool_tid], [], [], Expr::ident(extract, ()));
-        assert!(test.type_check(&mut typestore, &env).is_ok());
+        assert!(test.type_check(&mut typestore, &env, &LOOKUP).is_ok());
     }
 
     #[test]

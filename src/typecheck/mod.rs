@@ -600,25 +600,32 @@ impl<'src> TypeCheck<'src> {
                 Ok(Expr::take_ref(var, mutability, expr.token.clone()))
             }
             ParseExprKind::If(if_expr) => {
+                self.scope.new_scope();
                 let mut then = vec![];
                 for expr in &if_expr.then {
                     then.push(self.lower_expr(expr)?);
                 }
-
+                self.scope.end_scope();
+                
                 let then = Expr::block(then, expr.token.clone());
 
+                self.scope.new_scope();
                 let mut otherwise = vec![];
                 for expr in &if_expr.finally {
                     otherwise.push(self.lower_expr(expr)?);
                 }
+                self.scope.end_scope();
 
+                
                 let mut otherwise = Expr::block(otherwise, expr.token.clone());
 
                 for branch in if_expr.otherwise.iter().rev() {
+                    self.scope.new_scope();
                     let mut then = vec![];
                     for expr in &branch.body {
                         then.push(self.lower_expr(expr)?);
                     }
+                    self.scope.end_scope();
 
                     let if_expr = Expr::iff(
                         Expr::block(then, branch.token.clone()),
@@ -626,10 +633,12 @@ impl<'src> TypeCheck<'src> {
                         branch.token.clone(),
                     );
 
+                    self.scope.end_scope();
                     let mut block = vec![];
                     for expr in &branch.condition {
                         block.push(self.lower_expr(expr)?);
                     }
+                    self.scope.end_scope();
                     block.push(if_expr);
 
                     otherwise = Expr::block(block, branch.token.clone());

@@ -1,10 +1,7 @@
 use std::{fmt::Debug, todo, vec};
 
 use crate::typecheck::{
-    environment::{Coherence, Environment, InterfaceImpl, TypePredicate},
-    expr::Expr,
-    typ::{typ::FunctionType, type_id::TypeId, type_var::TypeVar},
-    typestore::{inference::InferenceError, TypeStore},
+    environment::{Coherence, Environment, InterfaceImpl, TypePredicate}, expr::Expr, typ::{typ::FunctionType, type_id::TypeId, type_var::TypeVar}, typestore::{MemberLookup, TypeStore, inference::InferenceError},
 };
 
 use super::constraint::ConstraintOrigin;
@@ -45,13 +42,15 @@ where
         }
     }
 
-    pub fn type_check(
+    pub fn type_check<Lookup>(
         self,
         typestore: &mut TypeStore<Meta>,
         env: &Environment,
+        lookup: &Lookup
     ) -> Result<Function<'src, (Meta, TypeId)>, InferenceError<Meta>>
     where
         Meta: Debug + Clone + PartialEq + Eq,
+        Lookup: MemberLookup
     {
         typestore.solidify_vars(&self.params)?;
 
@@ -76,7 +75,7 @@ where
         }
 
         let (expr, unbound) =
-            typestore.type_check(self.expr, &self.ty.input, &self.ty.output, &mut env)?;
+            typestore.type_check(self.expr, &self.ty.input, &self.ty.output, &mut env, lookup)?;
 
         if !unbound.is_empty() {
             let mut vars: Vec<_> = unbound.into_iter().collect();

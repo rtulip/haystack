@@ -305,7 +305,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_ident_expr(&mut self) -> ParseExpr<'src> {
+    fn parse_ident_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
         let token = self.tokens.pop().unwrap();
         let TokenKind::Ident(i) = &token.kind else {
             unreachable!(
@@ -313,10 +313,23 @@ impl<'src> Parser<'src> {
             )
         };
 
-        ParseExpr {
+        if self.matches(TokenKind::Marker(Marker::DoubleColon)).is_ok() {
+            let ident = self.expect(TokenKind::ident())?;
+            
+            return Ok(ParseExpr {
+                kind: ParseExprKind::Member {
+                    base: *i,
+                    member: ident.lexeme,
+                },
+                token
+            });
+
+        }
+
+        Ok(ParseExpr {
             kind: ParseExprKind::Ident(*i),
             token,
-        }
+        })
     }
 
     fn parse_type_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
@@ -607,7 +620,7 @@ impl<'src> Parser<'src> {
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
         self.strip_whitespace();
         match &self.peek().kind {
-            TokenKind::Ident(_) => Ok(self.parse_ident_expr()),
+            TokenKind::Ident(_) => self.parse_ident_expr(),
             TokenKind::Marker(Marker::LeftBrace) => self.parse_block_expr(),
             TokenKind::Marker(Marker::Hash) => self.parse_type_expr(),
             TokenKind::Marker(Marker::LeftParen) => self.parse_tuple_expr(),

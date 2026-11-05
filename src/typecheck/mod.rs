@@ -1,9 +1,7 @@
 use std::{assert_eq, collections::HashMap, format, todo, vec};
 
 use crate::{
-    error::HayError,
-    lex::token::{Intrinsic, Literal, Token},
-    parser::{
+    error::HayError, lex::token::{Intrinsic, Literal, Token}, parser::{
         expr::{ParseExpr, ParseExprKind},
         signature::Signature,
         statement::{
@@ -12,22 +10,15 @@ use crate::{
             StructDefinition,
         },
         typ::{ParamatarizedIdent, ParseType, ParseTypePath},
-    },
-    typecheck::{
-        constraint::ConstraintOrigin,
-        environment::{
+    }, typecheck::{
+        constraint::ConstraintOrigin, environment::{
             Coherence, Environment, Interface, InterfaceImpl, Scheme, TypeClassId, TypePredicate,
-        },
-        expr::{Expr, Var},
-        func::Function,
-        typ::{
+        }, expr::{Expr, Var}, func::Function, typ::{
             typ::{EnumDef, EnumType, FunctionType, Mutability, Projection, StructDef, Type},
             type_id::{EnumId, StructId, TypeId},
             type_var::TypeVar,
-        },
-        typestore::{
-            inference::{InferenceError, InferenceErrorKind},
-            TypeStore,
+        }, typestore::{
+            MemberLookup, TypeStore, inference::{InferenceError, InferenceErrorKind},
         },
     },
 };
@@ -157,6 +148,12 @@ struct Scope<'src> {
     scopes: Vec<ScopeLayer<'src>>,
 }
 
+impl<'src> MemberLookup for Scope<'src> {
+    fn get_member_idx(&self, sid: StructId, member: &str) -> Option<usize> {
+        self.get_member(sid, member)
+    }
+}
+
 enum Scoping {
     Global,
     Local,
@@ -256,7 +253,7 @@ impl<'src> Scope<'src> {
             .map(|scope| *scope.variants.get(&(eid, name)).unwrap())
     }
 
-    fn get_member(&mut self, sid: StructId, name: &'src str) -> Option<usize> {
+    fn get_member(&self, sid: StructId, name: &'src str) -> Option<usize> {
         self.scopes
             .iter()
             .rev()
@@ -533,6 +530,15 @@ impl<'src> TypeCheck<'src> {
                     todo!("No var found for `{ident}`")
                 };
                 Ok(Expr::ident(var, expr.token.clone()))
+            }
+            ParseExprKind::Member { base, member } => {
+
+                let Some((var, _)) = self.scope.get_var(base) else {
+                    todo!("No var found for `{base}`")
+                };
+
+                Ok(Expr::named_member_access(var, member, expr.token.clone()))
+
             }
             ParseExprKind::Literal(literal) => match literal {
                 Literal::Bool(b) => Ok(Expr::bool(*b, expr.token.clone())),
@@ -986,7 +992,7 @@ impl<'src> TypeCheck<'src> {
 
         let f = Function::new(input, output, params, vec![], expr.clone());
         let f = f
-            .type_check(&mut self.typestore, &self.env)
+            .type_check(&mut self.typestore, &self.env, &self.scope)
             .map_err(|e| self.map_inference_err(e))?;
 
         Ok(expr)
@@ -1178,7 +1184,7 @@ impl<'src> TypeCheck<'src> {
 
                 let f = Function::new(input, output, params, vec![], expr);
                 let f = f
-                    .type_check(&mut self.typestore, &self.env)
+                    .type_check(&mut self.typestore, &self.env, &self.scope)
                     .map_err(|e| self.map_inference_err(e))?;
             }
         }

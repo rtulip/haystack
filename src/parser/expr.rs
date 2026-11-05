@@ -17,6 +17,10 @@ pub struct ParseIfExpr<'src> {
 
 pub enum ParseExprKind<'src> {
     Ident(&'src str),
+    Member {
+        base: &'src str, 
+        member: &'src str,
+    },
     Literal(Literal<'src>),
     Block(Vec<ParseExpr<'src>>),
     Type(ParseType<'src>),

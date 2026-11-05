@@ -44,7 +44,6 @@ pub enum Marker {
     RightBracket,
     Colon,
     DoubleColon,
-    Dot,
     Arrow,
     Hash,
 }
@@ -61,7 +60,6 @@ impl std::fmt::Display for Marker {
             Marker::RightBracket => write!(f, "]")?,
             Marker::Colon => write!(f, ":")?,
             Marker::DoubleColon => write!(f, "::")?,
-            Marker::Dot => write!(f, ".")?,
             Marker::Arrow => write!(f, "->")?,
             Marker::Hash => write!(f, "#")?,
         }

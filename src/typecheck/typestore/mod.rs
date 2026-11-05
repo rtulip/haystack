@@ -1,7 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-    format, todo, unreachable, write,
+    collections::{HashMap, HashSet}, f32::consts::E, fmt::Debug, format, panic::Location, todo, unreachable, write,
 };
 
 use crate::typecheck::{
@@ -28,6 +26,10 @@ use super::constraint::ConstraintOrigin;
 pub mod inference;
 
 pub type Stack = Vec<TypeId>;
+
+pub trait MemberLookup {
+    fn get_member_idx(&self, sid: StructId, member: &str) -> Option<usize>;
+}
 
 /// Typestore
 ///
@@ -536,6 +538,7 @@ where
             | ExprKind::Ident(_)
             | ExprKind::Ref { .. }
             | ExprKind::MemberAccess { .. }
+            | ExprKind::NamedMemberAccess { .. }
             | ExprKind::Pack
             | ExprKind::Read
             | ExprKind::Add(_) => (
@@ -592,7 +595,16 @@ where
 
                 (unbound, Expr::iff(then, otherwise, (expr.meta.0, expr_tid)))
             }
-            ExprKind::Tuple(_) => todo!(),
+            ExprKind::Tuple(exprs) => {
+                let exprs = exprs.into_iter().fold(vec![], |mut acc, e| {
+                    let (ub, e) = self.substitute_expr(e);
+                    unbound.extend(ub);
+                    acc.push(e);
+                    acc
+                });
+                
+                (unbound, Expr::tuple(exprs, (expr.meta.0, expr_tid)))
+            },
         }
     }
 
@@ -1106,14 +1118,16 @@ where
     ///
     /// Expressions are also marked with all their constraints in addition to
     /// whatever metadata they had beforehand.
-    fn infer<'src>(
+    fn infer<'src, Lookup>(
         &mut self,
         expr: Expr<'src, M>,
         stack: &mut Stack,
         env: &mut Environment,
+        lookup: &Lookup
     ) -> Result<(Expr<'src, (M, TypeId)>, Vec<Constraint<M>>), InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
+        Lookup: MemberLookup
     {
         let e = match expr.expr {
             ExprKind::U8(val) => {
@@ -1207,7 +1221,7 @@ where
                 let mut local_env = env.clone();
                 let (exprs, constraints) = exprs
                     .into_iter()
-                    .map(|e| self.infer(e, stack, &mut local_env))
+                    .map(|e| self.infer(e, stack, &mut local_env, lookup))
                     .collect::<Result<Vec<_>, _>>()?
                     .into_iter()
                     .fold(
@@ -1278,6 +1292,21 @@ where
                         self.fmt(ty_tid)
                     )
                 }
+            }
+            ExprKind::NamedMemberAccess { var, member } => {
+                let scheme = env.get_var(&var).expect("Vars should be resolvable");
+                let inst = self.freshen(scheme, &expr.meta);
+
+                let Some(Type::Struct(s)) = self.get(inst.tid) else {
+                    todo!("Error can't get member for non-struct")
+                };
+
+                let Some(member_idx) = lookup.get_member_idx(s.sid, member) else {
+                    todo!("Error unknown member")
+                };
+
+                let expr = Expr::member_access(var, member_idx, expr.meta);
+                self.infer(expr, stack, env, lookup)
             }
             ExprKind::MemberAccess { var, member } => {
                 let scheme = env.get_var(&var).expect("Vars should be resolvable");
@@ -1386,7 +1415,7 @@ where
                     }
 
                     let (expr, constrs) =
-                        self.infer(*case.expr, &mut local_stack, &mut local_env)?;
+                        self.infer(*case.expr, &mut local_stack, &mut local_env, lookup)?;
                     constraints.extend(constrs);
                     stacks.push(local_stack);
                     cases.push(MatchCase::new(case.pattern, case.binding, expr));
@@ -1395,7 +1424,7 @@ where
                 let finally = if let Some(expr) = m.finally {
                     let mut local_env = env.clone();
                     let mut local_stack = stack.clone();
-                    let (expr, constrs) = self.infer(*expr, &mut local_stack, &mut local_env)?;
+                    let (expr, constrs) = self.infer(*expr, &mut local_stack, &mut local_env, lookup)?;
                     constraints.extend(constrs);
                     stacks.push(local_stack);
                     Some(expr)
@@ -1461,13 +1490,13 @@ where
 
                 let mut then_stack = stack.clone();
                 let mut then_env = env.clone();
-                let (then, constrs) = self.infer(*iff.then, &mut then_stack, &mut then_env)?;
+                let (then, constrs) = self.infer(*iff.then, &mut then_stack, &mut then_env, lookup)?;
                 constraints.extend(constrs);
 
                 let mut otherwise_stack = stack.clone();
                 let mut otherwise_env = env.clone();
                 let (otherwise, constrs) =
-                    self.infer(*iff.otherwise, &mut otherwise_stack, &mut otherwise_env)?;
+                    self.infer(*iff.otherwise, &mut otherwise_stack, &mut otherwise_env, lookup)?;
                 constraints.extend(constrs);
 
                 if then_stack.len() != otherwise_stack.len() {
@@ -1515,7 +1544,7 @@ where
                 let mut local_env = env.clone();
                 let (exprs, constraints) = exprs
                     .into_iter()
-                    .map(|e| self.infer(e, &mut inner_stack, &mut local_env))
+                    .map(|e| self.infer(e, &mut inner_stack, &mut local_env, lookup))
                     .collect::<Result<Vec<_>, _>>()?
                     .into_iter()
                     .fold(
@@ -2021,7 +2050,7 @@ where
         let (unbound, args) = self.substitute(&args);
 
         if !unbound.is_empty() {
-            return todo!("Can't infer type for predicate");
+            return Ok(None);
         }
         match env.get_impls(&cid) {
             Some(impls) => {
@@ -2562,21 +2591,23 @@ where
         Ok(())
     }
 
-    pub fn type_check<'src>(
+    pub fn type_check<'src, Lookup>(
         &mut self,
         expr: Expr<'src, M>,
         stack: &Stack,
         target: &Stack,
         env: &mut Environment,
+        lookup: &Lookup
     ) -> Result<(Expr<'src, (M, TypeId)>, HashSet<TypeVar>), InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
+        Lookup: MemberLookup,
     {
         // Determine which types are unbound at the start.
 
         let (mut unbound, mut stack) = self.substitute(stack);
         // Get constraints from inference
-        let (out_expr, mut constraints) = self.infer(expr, &mut stack, env)?;
+        let (out_expr, mut constraints) = self.infer(expr, &mut stack, env, lookup)?;
 
         // Add constraint that the target and stack must be equal.
         constraints.extend(Constraint::output_subtyping(

@@ -76,6 +76,7 @@ pub enum ExprKind<'src, Meta> {
     UncheckedCast,
     Add(TypeId),
     Pack,
+    NamedMemberAccess {var: Var, member: &'src str },
     MemberAccess { var: Var, member: usize },
     Match(MatchExpr<'src, Meta>),
     If(IfExpr<'src, Meta>),
@@ -199,6 +200,13 @@ impl<'src, Meta> Expr<'src, Meta> {
     pub fn member_access(var: Var, member: usize, meta: Meta) -> Self {
         Expr {
             expr: ExprKind::MemberAccess { var, member },
+            meta,
+        }
+    }
+
+    pub fn named_member_access(var: Var, member: &'src str, meta: Meta) -> Self {
+        Expr {
+            expr: ExprKind::NamedMemberAccess { var, member },
             meta,
         }
     }

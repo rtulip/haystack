@@ -1,1 +1,2 @@
 extern fn exit(u64) -> [!]
+extern fn printf(&u8 ...) -> [u64]

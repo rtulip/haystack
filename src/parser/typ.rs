@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::lex::token::Token;
+use crate::{lex::token::Token, parser::signature::Signature};
 #[derive(Debug)]
 pub struct ParamatarizedIdent<'src> {
     pub base: Token<'src>,
@@ -18,6 +18,7 @@ pub enum ParseType<'src> {
     Path(ParseTypePath<'src>),
     Tuple(Vec<Self>),
     Never(Token<'src>),
+    Function(Token<'src>, Signature<'src>),
 }
 
 impl<'src> ParseType<'src> {
@@ -28,6 +29,7 @@ impl<'src> ParseType<'src> {
             ParseType::Pointer { inner, mutable } => todo!(),
             ParseType::Tuple(_) => todo!(),
             ParseType::Never(token) => token.clone(),
+            ParseType::Function(token, _) => token.clone(),
         }
     }
 }

@@ -1,7 +1,9 @@
 use std::{assert_eq, collections::HashMap, format, todo, vec};
 
 use crate::{
-    error::HayError, lex::token::{Intrinsic, Literal, Token}, parser::{
+    error::HayError,
+    lex::token::{Intrinsic, Literal, Token},
+    parser::{
         expr::{ParseExpr, ParseExprKind},
         signature::Signature,
         statement::{
@@ -10,18 +12,25 @@ use crate::{
             StructDefinition,
         },
         typ::{ParamatarizedIdent, ParseType, ParseTypePath},
-    }, typecheck::{
-        constraint::ConstraintOrigin, environment::{
+    },
+    typecheck::{
+        constraint::ConstraintOrigin,
+        environment::{
             Coherence, Environment, Interface, InterfaceImpl, Scheme, TypeClassId, TypePredicate,
-        }, expr::{Expr, MatchCase, MatchExpr, MatchPattern, Var}, func::Function, typ::{
+        },
+        expr::{Expr, MatchCase, MatchExpr, MatchPattern, Var},
+        func::Function,
+        typ::{
             typ::{
                 BuiltinType, EnumDef, EnumType, FunctionType, Mutability, Projection, StructDef,
                 Type,
             },
             type_id::{EnumId, StructId, TypeId},
             type_var::TypeVar,
-        }, typestore::{
-            MemberLookup, TypeStore, inference::{InferenceError, InferenceErrorKind},
+        },
+        typestore::{
+            inference::{InferenceError, InferenceErrorKind},
+            MemberLookup, TypeStore,
         },
     },
 };
@@ -510,6 +519,20 @@ impl<'src> TypeCheck<'src> {
                 let tid = self.typestore.tuple(tids);
                 Ok(tid)
             }
+            ParseType::Function(_, sig) => {
+                let mut input = vec![];
+                let mut output = vec![];
+
+                for arg in &sig.input {
+                    input.push(self.get_tid(&arg.typ)?);
+                }
+
+                for ty in &sig.output {
+                    output.push(self.get_tid(&ty)?);
+                }
+
+                Ok(self.typestore.function(FunctionType { input, output }))
+            }
         }
     }
 
@@ -663,15 +686,12 @@ impl<'src> TypeCheck<'src> {
                 Ok(Expr::iff(then, otherwise, expr.token.clone()))
             }
             ParseExprKind::Match(m) => {
-
                 let mut cases = vec![];
                 for (ty, expr) in &m.cases {
-
-                    let tid= self.get_tid(ty)?;
+                    let tid = self.get_tid(ty)?;
                     let expr = self.lower_expr(expr)?;
 
                     cases.push(MatchCase::new(MatchPattern::Variant(tid), expr));
-
                 }
 
                 let finally = match &m.finally {
@@ -679,9 +699,11 @@ impl<'src> TypeCheck<'src> {
                     None => None,
                 };
 
-                Ok(Expr::match_(MatchExpr::new(cases, finally), expr.token.clone()))
-
-            },
+                Ok(Expr::match_(
+                    MatchExpr::new(cases, finally),
+                    expr.token.clone(),
+                ))
+            }
         }
     }
 
@@ -962,6 +984,26 @@ impl<'src> TypeCheck<'src> {
                 ));
 
                 e
+            }
+            (
+                ConstraintOrigin::FunctionCall { input, expected },
+                InferenceErrorKind::TypeParameterConstrained { var, tid },
+            ) => {
+                let var = self.typestore.intern(Type::TypeVar(var));
+
+                HayError::new(
+                    format!(
+                        "Type parameter `{}` constrained during call to `{}`",
+                        self.format_tid(var),
+                        e.meta.lexeme
+                    ),
+                    e.meta.loc,
+                )
+                .with_hint(format!(
+                    "Expected: {}",
+                    self.format_stack(&expected, '[', ']')
+                ))
+                .with_hint(format!("Found   : {}", self.format_stack(&input, '[', ']')))
             }
             (origin, kind) => todo!("Generate Error message for {origin:?}, {kind:?}"),
         }

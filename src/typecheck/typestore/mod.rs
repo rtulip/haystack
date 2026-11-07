@@ -1257,6 +1257,7 @@ where
                     let e = Expr::call((expr.meta, expr_tid));
                     Ok((e, constraints))
                 } else {
+                    eprintln!("{}", self.fmt(tid));
                     todo!("Error can't call a non-function!")
                 }
             }
@@ -1442,6 +1443,10 @@ where
 
                 let len = stacks[0].len();
                 if !stacks.iter().all(|stack| stack.len() == len) {
+                    stacks
+                        .iter()
+                        .for_each(|stack| eprintln!("{}", self.fmt_many(stack)));
+
                     todo!("Error: Stack shapes differ")
                 }
 
@@ -1732,21 +1737,18 @@ where
         self.lookup.assign_key(var, Some(tid)).map_err(|_| todo!())
     }
 
-
     fn type_is_c_vararg_compatible(&mut self, env: &Environment, tid: TypeId, meta: &M) -> bool {
         let Ok((ty, _)) = self.normalize_ty(env, tid, meta) else {
             return false;
-        }; 
+        };
         match ty {
-            Type::Tuple(tids) => tids
-                .into_iter()
-                .all(|tid| {
-                    let Ok((ty, _)) = self.normalize_ty(env, tid, meta) else {
-                        return false;
-                    };
-                    ty.is_c_element()
-                }),
-            ty => ty.is_c_element()
+            Type::Tuple(tids) => tids.into_iter().all(|tid| {
+                let Ok((ty, _)) = self.normalize_ty(env, tid, meta) else {
+                    return false;
+                };
+                ty.is_c_element()
+            }),
+            ty => ty.is_c_element(),
         }
     }
 
@@ -1762,6 +1764,7 @@ where
     {
         let (left, left_tid) = self.normalize_ty(env, unnorm_left, meta)?;
         let (right, right_tid) = self.normalize_ty(env, unnorm_right, meta)?;
+
         match (left, right) {
             (a, b) if a == b => Ok(()),
             (Type::Builtin(left), Type::Builtin(right)) if left == right => Ok(()),
@@ -1770,7 +1773,9 @@ where
             {
                 Ok(())
             }
-            (_, Type::Builtin(BuiltinType::CVarArgs)) => unreachable!("Users shouldn't be able to construct `...`"),
+            (_, Type::Builtin(BuiltinType::CVarArgs)) => {
+                unreachable!("Users shouldn't be able to construct `...`")
+            }
             (Type::Builtin(_), Type::Builtin(_)) => Err(InferenceErrorKind::TypesIncompatible {
                 expected: left_tid,
                 found: right_tid,
@@ -2009,6 +2014,7 @@ where
                     origin: origin.clone(),
                     meta: meta.clone(),
                 })?;
+        
         match (subty, superty) {
             (Type::Never, _) => Ok(()),
             (Type::Pointer(subty_inner), Type::Pointer(superty_inner)) => {
@@ -2062,7 +2068,18 @@ where
 
                 Ok(())
             }
-            (Type::Function(_), Type::Function(_)) => todo!(),
+            (Type::Function(sub_f), Type::Function(super_f)) => {
+                if sub_f.input.len() != super_f.input.len() || sub_f.output.len() != super_f.output.len() {
+                    todo!("Incompatible arity");
+                }
+                for (subty, superty) in sub_f.input.iter().zip(super_f.input.iter()) {
+                    self.check_subtype(env, *superty, *subty, origin, meta)?;
+                }
+                for (subty, superty) in sub_f.output.iter().zip(super_f.output.iter()) {
+                    self.check_subtype(env, *subty, *superty, origin, meta)?;
+                }
+                Ok(())
+            }
             (_, _) => self
                 .unify_ty_ty(env, superty_tid, subty_tid, meta)
                 .map_err(|kind| InferenceError {

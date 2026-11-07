@@ -1,18 +1,24 @@
 use std::{format, todo, unreachable};
 
 use crate::{
-    error::HayError, lex::{
+    error::HayError,
+    lex::{
         scanner::Scanner,
         token::{
             Intrinsic, Keyword,
             Marker::{self, LeftParen},
             Operator, Token, TokenKind,
         },
-    }, parser::{
-        argument::Argument, expr::{ParseExpr, ParseExprKind, ParseMatchExpr}, signature::Signature, statement::{
+    },
+    parser::{
+        argument::Argument,
+        expr::{ParseExpr, ParseExprKind, ParseMatchExpr},
+        signature::Signature,
+        statement::{
             EnumDefinition, FunctionDefinition, InterfaceDefinition, InterfaceFunctionDefinition,
             InterfaceImpl, Statememt, StructDefinition,
-        }, typ::{ParamatarizedIdent, ParseType, ParseTypePath},
+        },
+        typ::{ParamatarizedIdent, ParseType, ParseTypePath},
     },
 };
 
@@ -52,6 +58,13 @@ impl<'src> Parser<'src> {
 
     fn peek(&self) -> &Token<'src> {
         self.tokens.last().unwrap()
+    }
+
+    fn peek_n(&self, n: usize) -> Option<&Token<'src>> {
+        self.tokens
+            .len()
+            .checked_sub(n)
+            .and_then(|idx| self.tokens.get(idx))
     }
 
     fn check(&self, kind: TokenKind<'src>) -> bool {
@@ -168,7 +181,17 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_function_type(&mut self) -> Result<Option<ParseType<'src>>, HayError> {
-        Ok(None)
+        let Some(tok) = self.peek_n(2) else {
+            return Ok(None);
+        };
+        if tok.kind != TokenKind::Marker(Marker::LeftParen) {
+            return Ok(None);
+        }
+
+        let token = self.expect(TokenKind::Keyword(Keyword::Function)).unwrap();
+        let sig = self.parse_function_signature()?;
+
+        Ok(Some(ParseType::Function(token, sig)))
     }
 
     fn parse_type(&mut self) -> Result<Option<ParseType<'src>>, HayError> {
@@ -611,10 +634,9 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_match_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
-
         let token = self.expect(TokenKind::Keyword(Keyword::Match)).unwrap();
         self.strip_whitespace();
-        
+
         self.expect(TokenKind::Marker(Marker::LeftBrace))?;
 
         let mut cases = vec![];
@@ -623,7 +645,6 @@ impl<'src> Parser<'src> {
             self.strip_whitespace();
 
             if self.matches(TokenKind::Keyword(Keyword::Else)).is_ok() {
-                
                 finally = Some(Box::new(self.parse_expr()?));
                 break;
             }
@@ -631,7 +652,7 @@ impl<'src> Parser<'src> {
             let Some(ty) = self.parse_type()? else {
                 break;
             };
-            
+
             let expr = self.parse_expr()?;
 
             cases.push((ty, expr))
@@ -641,15 +662,9 @@ impl<'src> Parser<'src> {
         self.expect(TokenKind::Marker(Marker::RightBrace))?;
 
         Ok(ParseExpr {
-            kind: ParseExprKind::Match(
-                ParseMatchExpr {
-                    cases,
-                    finally,
-                }
-            ),
+            kind: ParseExprKind::Match(ParseMatchExpr { cases, finally }),
             token,
         })
-
     }
 
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {

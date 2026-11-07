@@ -2,6 +2,7 @@ fn drop<T>(T: _) { }
 fn dup<T>(T: t) -> [T T] { t t }
 fn typeof<T>(T: _) -> [Type<T>] #T
 fn hint<T>(T Type<T>) -> [T] drop
+fn swap<A B>(A: a B: b) -> [B A] { b a }
 
 interface Cast<From Into> {
     fn cast<From Into>(From Type<Into>) -> [Into] __unchecked_cast
@@ -15,6 +16,8 @@ struct Str {
     &u8: data
     u64: len
 }
+
+fn Str.cstr(Str: s) -> [&u8] s::data
 
 enum Option<T> {
     T: Some

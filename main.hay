@@ -6,17 +6,57 @@ interface Foo<T> {
     fn baz(T) -> [Bar]
 }
 
-impl Foo<u64> {
-    bool: Bar
-    fn baz(u64) -> [bool] { drop true }
+interface Add<L R> {
+    type: Output
+    fn add(L R) -> [Output]
 }
 
-impl Foo<bool> {
-    u64: Bar
-    fn baz(bool) -> [u64] { drop 12345 }
+impl Add<u64 u64> {
+    u64: Output
+    fn add(u64 u64) -> [u64] __u64_add
 }
-fn take_u64(u64) drop 
+
+fn process<T>(T: _) {} 
+fn fallback() {}
+fn handle_err<E>(E: _) {}
+
+fn example<T E>(Result<Option<T> E>) match {
+    Result::Ok match {
+        Option::Some process
+        Option::None fallback
+    }
+    Result::Err handle_err
+}
+
+fn Option.unwrap<T>(Option<T>) -> [T] match {
+    Option::Some {}
+    Option::None { 1 exit }
+}
+
+fn Option.unwrap_or<T>(T Option<T>) -> [T] match {
+    Option::Some { swap drop }
+    Option::None {}
+}
+
+
+fn Option.Some<T>(T) -> [Option<T>::Some] {
+    #Option::Some pack
+}
+
+fn Option.None<T>() -> [Option<T>::None] {
+    #Option::None pack
+}
+
+fn Option.map<T U>(fn(T) -> [U]: f Option<T>: opt) -> [Option<U>] {
+    opt match {
+        Option::Some { f Option.Some }
+        Option::None Option.None 
+    }
+}
+
+fn transform(u64: _) -> [bool] true
 
 fn main() {
-    12345 baz baz baz baz baz baz take_u64
+    &transform None Option.map
+    drop
 }

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt::{write, Display};
 use std::ops::Range;
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct Loc<S>
 where
     S: PartialEq + Eq,
@@ -34,7 +34,7 @@ where
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Marker {
     LeftBrace,
     RightBrace,
@@ -67,7 +67,7 @@ impl std::fmt::Display for Marker {
     }
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone, Eq, Hash)]
 pub enum Operator {
     Plus,
     Minus,
@@ -159,7 +159,7 @@ impl std::fmt::Display for Operator {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Intrinsic {
     UncheckedCast,
     U64Add,
@@ -176,7 +176,7 @@ impl std::fmt::Display for Intrinsic {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Keyword {
     Function,
     As,
@@ -267,7 +267,7 @@ impl Keyword {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Literal<'src> {
     Bool(bool),
     Char(char),
@@ -276,7 +276,7 @@ pub enum Literal<'src> {
     U64(u64),
 }
 
-#[derive(Debug, Clone, Default, Eq)]
+#[derive(Debug, Clone, Default, Eq, Hash)]
 pub enum TokenKind<'src> {
     Ident(&'src str),
     Marker(Marker),
@@ -346,7 +346,7 @@ impl<'src> std::cmp::PartialEq for TokenKind<'src> {
     }
 }
 
-#[derive(Clone, Default, PartialEq, Eq)]
+#[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct Token<'src> {
     pub kind: TokenKind<'src>,
     pub lexeme: &'src str,

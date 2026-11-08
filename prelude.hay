@@ -1,3 +1,7 @@
+include "c.hay"
+include "print.hay"
+include "str.hay"
+
 fn drop<T>(T: _) { }
 fn dup<T>(T: t) -> [T T] { t t }
 fn typeof<T>(T: _) -> [Type<T>] #T
@@ -12,12 +16,13 @@ impl<T> Cast<T T> {}
 impl<From Into> Cast<&From &Into> {}
 impl Cast<bool u8> {}
 
-struct Str {
-    &u8: data
-    u64: len
+interface GenericExample<T> {
+    fn generic_example<U>(U T) -> [U] drop
 }
 
-fn Str.cstr(Str: s) -> [&u8] s::data
+impl GenericExample<bool> {
+    fn generic_example<T>(T bool) -> [T] drop
+}
 
 enum Option<T> {
     T: Some

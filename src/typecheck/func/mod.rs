@@ -62,7 +62,10 @@ where
         for p in &self.predicates {
             let (unbound, p) = typestore.substitute_predicate(p);
             if !unbound.is_empty() {
-                todo!("I'd expect that predicates are concrete for typechecking functions");
+                todo!(
+                    "{:?}: I'd expect that predicates are concrete for typechecking functions",
+                    self.expr.meta
+                );
             }
 
             let p_impl = InterfaceImpl {

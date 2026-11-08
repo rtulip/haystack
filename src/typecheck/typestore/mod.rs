@@ -1305,7 +1305,11 @@ where
                 let inst = self.freshen(scheme, &expr.meta);
 
                 let Some(Type::Struct(s)) = self.get(inst.tid) else {
-                    todo!("Error can't get member for non-struct")
+                    todo!(
+                        "{:?}: Error can't get member for non-struct: {}",
+                        expr.meta,
+                        self.fmt(inst.tid)
+                    )
                 };
 
                 let Some(member_idx) = lookup.get_member_idx(s.sid, member) else {
@@ -2014,7 +2018,7 @@ where
                     origin: origin.clone(),
                     meta: meta.clone(),
                 })?;
-        
+
         match (subty, superty) {
             (Type::Never, _) => Ok(()),
             (Type::Pointer(subty_inner), Type::Pointer(superty_inner)) => {
@@ -2069,7 +2073,9 @@ where
                 Ok(())
             }
             (Type::Function(sub_f), Type::Function(super_f)) => {
-                if sub_f.input.len() != super_f.input.len() || sub_f.output.len() != super_f.output.len() {
+                if sub_f.input.len() != super_f.input.len()
+                    || sub_f.output.len() != super_f.output.len()
+                {
                     todo!("Incompatible arity");
                 }
                 for (subty, superty) in sub_f.input.iter().zip(super_f.input.iter()) {
@@ -2098,10 +2104,10 @@ where
         meta: &M,
     ) -> Result<Option<QualifiedInterfaceImpl>, InferenceErrorKind> {
         let (unbound, args) = self.substitute(&args);
-
         if !unbound.is_empty() {
             return Ok(None);
         }
+
         match env.get_impls(&cid) {
             Some(impls) => {
                 let mut matches: Vec<_> = impls

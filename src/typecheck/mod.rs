@@ -1,9 +1,10 @@
-use std::{assert_eq, collections::HashMap, format, todo, vec};
+use std::{assert_eq, collections::HashMap, dbg, format, todo, unreachable, vec};
 
 use crate::{
     error::HayError,
     lex::token::{Intrinsic, Literal, Token},
     parser::{
+        argument::Argument,
         expr::{ParseExpr, ParseExprKind},
         signature::Signature,
         statement::{
@@ -48,8 +49,10 @@ pub struct TypeCheck<'src> {
     env: Environment,
     symbols: SymbolTable<'src>,
     scope: Scope<'src>,
+    bindings: HashMap<Token<'src>, Vec<TypeVar>>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct TypeInfo<'src> {
     name: String,
     token: Option<Token<'src>>,
@@ -351,10 +354,12 @@ impl<'src> TypeCheck<'src> {
         Ok(var)
     }
 
-    fn insert_param_ty(&mut self, ty: &ParseType<'src>) -> Result<TypeVar, HayError> {
-        let tyvar = self.typestore.fresh_type_var();
+    fn insert_tyvar_to_scope(
+        &mut self,
+        tyvar: TypeVar,
+        token: Token<'src>,
+    ) -> Result<TypeVar, HayError> {
         let tid = self.typestore.intern(Type::TypeVar(tyvar));
-        let token = ty.token();
 
         if let Some((tid, tok)) = self
             .scope
@@ -373,17 +378,20 @@ impl<'src> TypeCheck<'src> {
 
             return Err(e);
         }
-        assert!(self
-            .symbols
-            .insert_tid(
-                tid,
-                TypeInfo {
-                    name: token.lexeme.into(),
-                    token: Some(token)
-                }
-            )
-            .is_none());
+        let type_info = TypeInfo {
+            name: token.lexeme.into(),
+            token: Some(token),
+        };
+
+        if let Some(info) = self.symbols.insert_tid(tid, type_info.clone()) {
+            assert!(info == type_info)
+        }
         Ok(tyvar)
+    }
+
+    fn insert_param_ty(&mut self, ty: &ParseType<'src>) -> Result<TypeVar, HayError> {
+        let tyvar = self.typestore.fresh_type_var();
+        self.insert_tyvar_to_scope(tyvar, ty.token())
     }
 
     fn get_metatype_tid(&mut self, ident: &ParamatarizedIdent<'src>) -> Result<TypeId, HayError> {
@@ -409,6 +417,9 @@ impl<'src> TypeCheck<'src> {
         if ident.base.lexeme == "Type" {
             return self.get_metatype_tid(ident);
         }
+
+        // eprintln!("{}: Looking for type `{}`", ident.base, ident.base.lexeme);
+        // self.scope.scopes.iter().rev().for_each(|layer| layer.types.keys().for_each(|name| eprintln!("{name}")));
 
         let (base_tid, _) = self
             .scope
@@ -557,13 +568,13 @@ impl<'src> TypeCheck<'src> {
         match &expr.kind {
             ParseExprKind::Ident(ident) => {
                 let Some((var, _)) = self.scope.get_var(ident) else {
-                    todo!("No var found for `{ident}`")
+                    todo!("{}: No var found for `{ident}`", expr.token)
                 };
                 Ok(Expr::ident(var, expr.token.clone()))
             }
             ParseExprKind::Member { base, member } => {
                 let Some((var, _)) = self.scope.get_var(base) else {
-                    todo!("No var found for `{base}`")
+                    todo!("{}: No var found for `{base}`", expr.token)
                 };
 
                 Ok(Expr::named_member_access(var, member, expr.token.clone()))
@@ -672,7 +683,7 @@ impl<'src> TypeCheck<'src> {
                         branch.token.clone(),
                     );
 
-                    self.scope.end_scope();
+                    self.scope.new_scope();
                     let mut block = vec![];
                     for expr in &branch.condition {
                         block.push(self.lower_expr(expr)?);
@@ -817,6 +828,16 @@ impl<'src> TypeCheck<'src> {
             s = format!("{s}{close}");
             s
         }
+    }
+
+    fn format_predicate(&mut self, cid: TypeClassId, args: Vec<TypeId>) -> String {
+        let Some(Token { lexeme, .. }) = self.symbols.interfaces.get(&cid).cloned() else {
+            todo!("Can't fid {cid:?}");
+        };
+
+        let predicate = self.format_stack(&args, '<', '>');
+        format!("{lexeme}{predicate}")
+        // todo!()
     }
 
     fn map_inference_err(&mut self, e: InferenceError<Token<'src>>) -> HayError {
@@ -1005,80 +1026,178 @@ impl<'src> TypeCheck<'src> {
                 ))
                 .with_hint(format!("Found   : {}", self.format_stack(&input, '[', ']')))
             }
+            (
+                ConstraintOrigin::FunctionCall { input, expected },
+                InferenceErrorKind::PredicateNotMet { cid, args },
+            ) => HayError::new(
+                format!(
+                    "Can't call `{}` because predicate `{}` is not satisfied.",
+                    e.meta.lexeme,
+                    self.format_predicate(cid, args)
+                ),
+                e.meta.loc,
+            ),
             (origin, kind) => todo!("Generate Error message for {origin:?}, {kind:?}"),
         }
     }
 
-    fn add_fn_params_to_scope(
+    fn add_params_to_scope(
         &mut self,
-        params: &Vec<ParseType<'src>>,
+        params: &[ParseType<'src>],
+        token: &Token<'src>,
     ) -> Result<Vec<TypeVar>, HayError> {
         let mut tyvars = vec![];
         for ty in params {
             tyvars.push(self.insert_param_ty(ty)?);
         }
+
+        self.bindings.insert(token.clone(), tyvars.clone());
+
         Ok(tyvars)
     }
 
-    fn type_check_function_def(
+    fn create_scheme(
         &mut self,
-        func: &FunctionDefinition<'src>,
-        params: Vec<TypeVar>,
-        var: Option<Var>,
-    ) -> Result<Expr<'src, Token<'src>>, HayError> {
-        // create a new scope for types and identifiers
-        let mut binds = vec![];
-        let mut input = vec![];
-        for arg in &func.signature.input {
-            let tid = self.get_tid(&arg.typ)?;
-            input.push(tid);
+        params: &[ParseType<'src>],
+        inputs: &[Argument<'src>],
+        outputs: &[ParseType<'src>],
+        predicates: &[TypePredicate],
+        token: &Token<'src>,
+    ) -> Result<Scheme, HayError> {
+        let mut tyvar_params = self.add_params_to_scope(params, token)?;
 
-            if let Some(ident) = &arg.ident {
-                let var = self.insert_var(ident, Scoping::Local)?;
-                binds.push(var);
-            }
+        let mut input = vec![];
+        for arg in inputs {
+            let tid = self.get_tid(&arg.typ).map_err(|e| {
+                eprintln!("{token}: Here!");
+                e
+            })?;
+            input.push(tid);
         }
 
         let mut output = vec![];
-        for ty in &func.signature.output {
+        for ty in outputs {
             let tid = self.get_tid(&ty)?;
             output.push(tid);
         }
 
-        if let Some(var) = var {
-            let tid = self.typestore.function(FunctionType {
-                input: input.clone(),
-                output: output.clone(),
-            });
-            let scheme = Scheme::new(params.clone(), tid, vec![]);
-            assert!(self.env.bind_scheme(var, scheme).is_none());
-        }
-        let mut expr = self.lower_expr(&func.expr)?;
+        let tid = self.typestore.function(FunctionType {
+            input: input.clone(),
+            output: output.clone(),
+        });
 
-        if binds.len() != 0 {
-            expr = Expr::block(
-                [Expr::bind(binds, func.expr.token.clone()), expr],
-                func.expr.token.clone(),
-            );
-        }
-
-        let f = Function::new(input, output, params, vec![], expr.clone());
-        let f = f
-            .type_check(&mut self.typestore, &self.env, &self.scope)
-            .map_err(|e| self.map_inference_err(e))?;
-
-        Ok(expr)
+        Ok(Scheme::new(tyvar_params, tid, predicates))
     }
 
     fn bind_function_def(&mut self, func: &FunctionDefinition<'src>) -> Result<(), HayError> {
         // insert this function into the global scope
         let var = self.insert_var(&func.name, Scoping::Global)?;
         self.scope.new_scope();
-        {
-            let params = self.add_fn_params_to_scope(&func.params)?;
-            self.type_check_function_def(func, params, Some(var))?;
-        }
+        let scheme = self.create_scheme(
+            &func.params,
+            &func.signature.input,
+            &func.signature.output,
+            &[],
+            &func.name,
+        )?;
         self.scope.end_scope();
+        if let Some(_) = self.env.bind_scheme(var, scheme) {
+            todo!("repeat binding of scheme")
+        }
+
+        Ok(())
+    }
+
+    fn bind_interface_function_def(
+        &mut self,
+        func: &InterfaceFunctionDefinition<'src>,
+        predicate: &TypePredicate,
+        mut parent_vars: Vec<TypeVar>,
+    ) -> Result<(), HayError> {
+        // insert this function into the global scope
+        let var = self.insert_var(&func.name, Scoping::Global)?;
+
+        self.scope.new_scope();
+        let mut scheme = self.create_scheme(
+            &func.params,
+            &func.signature.input,
+            &func.signature.output,
+            &[predicate.clone()],
+            &func.name,
+        )?;
+
+        parent_vars.extend(scheme.vars);
+        scheme.vars = parent_vars;
+        self.scope.end_scope();
+        if let Some(_) = self.env.bind_scheme(var, scheme) {
+            todo!("repeat binding of scheme")
+        }
+
+        Ok(())
+    }
+
+    fn desugar_bindings(
+        &mut self,
+        token: &Token<'src>,
+        inputs: &[Argument<'src>],
+        expr: &ParseExpr<'src>,
+    ) -> Result<Expr<'src, Token<'src>>, HayError> {
+        let mut binds = vec![];
+        for arg in inputs {
+            if let Some(ident) = &arg.ident {
+                let var = self.insert_var(ident, Scoping::Local)?;
+                binds.push(var);
+            }
+        }
+
+        let body = self.lower_expr(&expr)?;
+        let expr = Expr::block([Expr::bind(binds, token.clone()), body], token.clone());
+
+        Ok(expr)
+    }
+
+    fn create_function(
+        &self,
+        name: &'src str,
+        expr: Expr<'src, Token<'src>>,
+    ) -> Function<'src, Token<'src>> {
+        let var = self.scope.get_var(name).unwrap().0;
+        let scheme = self.env.get_var(&var).unwrap().clone();
+        let Type::Function(f) = self.typestore.get(scheme.tid).cloned().unwrap() else {
+            unreachable!()
+        };
+        Function::new(f.input, f.output, scheme.vars, scheme.predicates, expr)
+    }
+
+    fn rebind_params(
+        &mut self,
+        token: &Token<'src>,
+        params: &[ParseType<'src>],
+    ) -> Result<Vec<TypeVar>, HayError> {
+        let Some(tyvars) = self.bindings.get(token).cloned() else {
+            unreachable!("{token}: Params should have been bound to their origin");
+        };
+
+        assert!(tyvars.len() == params.len());
+        for (tyvar, ty) in tyvars.iter().zip(params.iter()) {
+            self.insert_tyvar_to_scope(*tyvar, ty.token())?;
+        }
+
+        Ok(tyvars)
+    }
+
+    fn type_check_function_def(&mut self, func: &FunctionDefinition<'src>) -> Result<(), HayError> {
+        self.scope.new_scope();
+        let vars = self.bindings.get(&func.name).cloned().unwrap();
+
+        let params = self.rebind_params(&func.name, &func.params)?;
+
+        let expr = self.desugar_bindings(&func.name, &func.signature.input, &func.expr)?;
+        let f = self.create_function(&func.name.lexeme, expr);
+        f.type_check(&mut self.typestore, &self.env, &self.scope)
+            .map_err(|e| self.map_inference_err(e))?;
+        self.scope.end_scope();
+
         Ok(())
     }
 
@@ -1087,24 +1206,20 @@ impl<'src> TypeCheck<'src> {
         let symbols = SymbolTable::new(&mut typestore);
         let scope = Scope::new(&mut typestore);
         let env = Environment::new();
-
+        let bindings = HashMap::new();
         Self {
             typestore,
             env,
             symbols,
             scope,
+            bindings,
         }
     }
 
     fn bind_struct_def(&mut self, s: &StructDefinition<'src>) -> Result<(), HayError> {
         // Only have the vars known within the scope of the member definition.
         self.scope.new_scope();
-
-        let vars = s
-            .params
-            .iter()
-            .map(|ty| self.insert_param_ty(ty))
-            .collect::<Result<Vec<_>, _>>()?;
+        let vars = self.add_params_to_scope(&s.params, &s.name)?;
         let members = s
             .members
             .iter()
@@ -1152,12 +1267,7 @@ impl<'src> TypeCheck<'src> {
     fn bind_enum_def(&mut self, e: &EnumDefinition<'src>) -> Result<(), HayError> {
         // Only have the vars known within the scope of the member definition.
         self.scope.new_scope();
-
-        let vars = e
-            .params
-            .iter()
-            .map(|ty| self.insert_param_ty(ty))
-            .collect::<Result<Vec<_>, _>>()?;
+        let vars = self.add_params_to_scope(&e.params, &e.name)?;
 
         let mut variants = vec![];
         for (ty, _) in &e.variants {
@@ -1205,75 +1315,11 @@ impl<'src> TypeCheck<'src> {
         Ok(())
     }
 
-    fn bind_interface_function_def(
+    fn create_interface(
         &mut self,
-        func: &InterfaceFunctionDefinition<'src>,
-        var: Var,
-        predicate: &TypePredicate,
-        params: &Vec<TypeVar>,
-    ) -> Result<(), HayError> {
-        // create a new scope for types and identifiers
-        self.scope.new_scope();
-        {
-            let mut params = params.clone();
-            for ty in &func.params {
-                params.push(self.insert_param_ty(ty)?);
-            }
-
-            let mut binds = vec![];
-            let mut input = vec![];
-            for arg in &func.signature.input {
-                let tid = self.get_tid(&arg.typ)?;
-                input.push(tid);
-
-                if let Some(ident) = &arg.ident {
-                    let var = self.insert_var(ident, Scoping::Local)?;
-                    binds.push(var);
-                }
-            }
-
-            let mut output = vec![];
-            for ty in &func.signature.output {
-                let tid = self.get_tid(&ty)?;
-                output.push(tid);
-            }
-
-            let tid = self.typestore.function(FunctionType {
-                input: input.clone(),
-                output: output.clone(),
-            });
-            let scheme = Scheme::new(params.clone(), tid, vec![predicate.clone()]);
-            assert!(self.env.bind_scheme(var, scheme).is_none());
-
-            if let Some(expr) = &func.expr {
-                let mut expr = self.lower_expr(&expr)?;
-
-                let meta = expr.meta.clone();
-
-                if binds.len() != 0 {
-                    expr = Expr::block([Expr::bind(binds, meta.clone()), expr], meta.clone());
-                }
-
-                let f = Function::new(input, output, params, vec![], expr);
-                let f = f
-                    .type_check(&mut self.typestore, &self.env, &self.scope)
-                    .map_err(|e| self.map_inference_err(e))?;
-            }
-        }
-        self.scope.end_scope();
-        Ok(())
-    }
-
-    fn bind_interface_def(&mut self, iface: &InterfaceDefinition<'src>) -> Result<(), HayError> {
-        // Only have the vars known within the scope of the member definition.
-        self.scope.new_scope();
-
-        let vars = iface
-            .params
-            .iter()
-            .map(|ty| self.insert_param_ty(ty))
-            .collect::<Result<Vec<_>, _>>()?;
-
+        iface: &InterfaceDefinition<'src>,
+    ) -> Result<(Vec<TypeVar>, Vec<TypeId>, TypeClassId), HayError> {
+        let vars = self.add_params_to_scope(&iface.params, &iface.name)?;
         let var_tids: Vec<_> = vars
             .iter()
             .map(|tyvar| self.typestore.intern(Type::TypeVar(*tyvar)))
@@ -1289,11 +1335,18 @@ impl<'src> TypeCheck<'src> {
             },
         };
 
-        let cid = self.env.add_typeclass(interface);
+        Ok((vars, var_tids, self.env.add_typeclass(interface)))
+    }
 
-        let mut associated_types = vec![];
-        for (idx, name) in iface.associated_types.iter().enumerate() {
-            associated_types.push(name.lexeme);
+    fn create_associated_type_name_list(
+        &mut self,
+        associated_types: &[Token<'src>],
+        cid: TypeClassId,
+        var_tids: &Vec<TypeId>,
+    ) -> Vec<&'src str> {
+        let mut type_names = vec![];
+        for (idx, name) in associated_types.iter().enumerate() {
+            type_names.push(name.lexeme);
             let p = Projection {
                 cid,
                 args: var_tids.clone(),
@@ -1301,52 +1354,54 @@ impl<'src> TypeCheck<'src> {
             };
 
             let tid = self.typestore.intern(Type::Projection(p));
-
             if let Some(_) = self.scope.insert_tid(name.lexeme.into(), tid, name.clone()) {
                 todo!("")
             }
         }
 
+        type_names
+    }
+
+    fn create_interface_fn_lookup(
+        &mut self,
+        funcs: &[InterfaceFunctionDefinition<'src>],
+    ) -> Result<InterfaceFnsLookup<'src>, HayError> {
         let mut fn_lookup = InterfaceFnsLookup::new();
-        for func in &iface.funcs {
+        for func in funcs {
+            self.scope.new_scope();
+            self.rebind_params(&func.name, &func.params);
             let tid = self.get_function_tid(&func.signature)?;
-            match &func.expr {
-                Some(expr) => {
-                    let expr = self.lower_expr(expr)?;
-                    if fn_lookup
-                        .insert(
-                            func.name.lexeme,
-                            InterfaceFnInfo {
-                                tid,
-                                body: Some(expr),
-                            },
-                        )
-                        .is_some()
-                    {
-                        todo!("re-definition of interface function")
-                    }
-                }
-                None => {
-                    if fn_lookup
-                        .insert(func.name.lexeme, InterfaceFnInfo { tid, body: None })
-                        .is_some()
-                    {
-                        todo!("re-definition of interface function")
-                    }
-                }
+            if fn_lookup
+                .insert(func.name.lexeme, InterfaceFnInfo { tid, body: None })
+                .is_some()
+            {
+                todo!("re-definition of interface function")
             }
+            self.scope.end_scope();
+        }
+        Ok(fn_lookup)
+    }
+
+    fn bind_interface_def(&mut self, iface: &InterfaceDefinition<'src>) -> Result<(), HayError> {
+        // Only have the vars known within the scope of the member definition.
+        self.scope.new_scope();
+
+        let (vars, var_tids, cid) = self.create_interface(iface)?;
+        if self.symbols.insert_cid(cid, iface.name.clone()).is_some() {
+            todo!("Error interface of this cid already exists")
         }
 
         let predicate = TypePredicate {
             cid,
-            args: var_tids,
+            args: var_tids.clone(),
         };
 
+        let associated_types =
+            self.create_associated_type_name_list(&iface.associated_types, cid, &var_tids);
         for func in &iface.funcs {
-            // insert this function into the global scope
-            let var = self.insert_var(&func.name, Scoping::Global)?;
-            self.bind_interface_function_def(func, var, &predicate, &vars)?;
+            self.bind_interface_function_def(func, &predicate, vars.clone())?;
         }
+        let fn_lookup = self.create_interface_fn_lookup(&iface.funcs)?;
 
         self.scope.end_scope();
 
@@ -1360,30 +1415,53 @@ impl<'src> TypeCheck<'src> {
         ) {
             todo!("error interface of this name already exists")
         }
-        if self.symbols.insert_cid(cid, iface.name.clone()).is_some() {
-            todo!("Error interface of this cid already exists")
-        }
 
         Ok(())
     }
 
-    fn bind_interface_impl(
+    fn type_check_interface_def(
+        &mut self,
+        iface: &InterfaceDefinition<'src>,
+    ) -> Result<(), HayError> {
+        let mut iface_info = self.scope.get_cid(&iface.name.lexeme).cloned().unwrap();
+
+        self.scope.new_scope();
+        let parent_params = self.rebind_params(&iface.name, &iface.params)?;
+
+        for func in &iface.funcs {
+            if let Some(expr) = &func.expr {
+                self.scope.new_scope();
+                let mut params = self.rebind_params(&func.name, &func.params)?;
+                params = parent_params
+                    .clone()
+                    .into_iter()
+                    .chain(params.into_iter())
+                    .collect();
+                let (var, _) = self.scope.get_var(&func.name.lexeme).unwrap();
+                let predicates = self.env.get_var(&var).unwrap().predicates.clone();
+                let expr = self.type_check_function(
+                    &func.name,
+                    &func.signature,
+                    &params,
+                    &predicates,
+                    &expr,
+                )?;
+                self.scope.end_scope();
+
+                iface_info.fns.get_mut(&func.name.lexeme).unwrap().body = Some(expr);
+            }
+        }
+        self.scope.end_scope();
+
+        Ok(())
+    }
+
+    fn create_interface_impl(
         &mut self,
         iface_impl: &ParseInterfaceImpl<'src>,
-    ) -> Result<(), HayError> {
-        self.scope.new_scope();
-
-        let vars = iface_impl
-            .params
-            .iter()
-            .map(|ty| self.insert_param_ty(ty))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let mut info = match self.scope.get_cid(iface_impl.name.lexeme) {
-            Some(info) => info.clone(),
-            None => todo!("???"),
-        };
-
+        info: &InterfaceInfo<'src>,
+    ) -> Result<InterfaceImpl, HayError> {
+        let vars = self.add_params_to_scope(&iface_impl.params, &iface_impl.name)?;
         let mut args = vec![];
         for ty in &iface_impl.args {
             args.push(self.get_tid(ty)?)
@@ -1413,6 +1491,20 @@ impl<'src> TypeCheck<'src> {
                 Coherence::Unique
             },
         };
+
+        Ok(interface_impl)
+    }
+
+    fn bind_interface_impl(
+        &mut self,
+        iface_impl: &ParseInterfaceImpl<'src>,
+    ) -> Result<(), HayError> {
+        let Some(mut info) = self.scope.get_cid(iface_impl.name.lexeme).cloned() else {
+            todo!()
+        };
+
+        self.scope.new_scope();
+        let interface_impl = self.create_interface_impl(iface_impl, &info)?;
         self.scope.end_scope();
 
         self.env
@@ -1424,47 +1516,52 @@ impl<'src> TypeCheck<'src> {
             )
             .map_err(|e| self.map_inference_err(e))?;
 
+        Ok(())
+    }
+
+    fn type_check_function(
+        &mut self,
+        name: &Token<'src>,
+        signature: &Signature<'src>,
+        params: &[TypeVar],
+        predicates: &[TypePredicate],
+        expr: &ParseExpr<'src>,
+    ) -> Result<Expr<'src, Token<'src>>, HayError> {
+        let tid = self.get_function_tid(&signature)?;
+        let Type::Function(f) = self.typestore.get(tid).unwrap().clone() else {
+            unreachable!();
+        };
+        let expr = self.desugar_bindings(&name, &signature.input, &expr)?;
+
+        Function::new(f.input, f.output, params, predicates, expr.clone())
+            .type_check(&mut self.typestore, &self.env, &self.scope)
+            .map_err(|e| self.map_inference_err(e))?;
+
+        Ok(expr)
+    }
+
+    fn type_check_interface_impl(
+        &mut self,
+        iface_impl: &ParseInterfaceImpl<'src>,
+    ) -> Result<(), HayError> {
+        self.scope.new_scope();
+        let parent_params = self.rebind_params(&iface_impl.name, &iface_impl.params)?;
+
         for func in &iface_impl.impls {
-            let Some(fn_info) = info.fns.get(&func.name.lexeme) else {
-                todo!("Unexpected function in interface")
-            };
-
             self.scope.new_scope();
-            let expr = {
-                let params = self.add_fn_params_to_scope(&func.params)?;
 
-                // TODO: Check that implementations match the function definition.
+            let mut params = self.add_params_to_scope(&func.params, &func.name)?;
+            params = parent_params
+                .clone()
+                .into_iter()
+                .chain(params.into_iter())
+                .collect();
 
-                let expr = self.lower_expr(&func.expr)?;
-
-                self.type_check_function_def(func, params, None)?
-            };
+            let expr =
+                self.type_check_function(&func.name, &func.signature, &params, &[], &func.expr)?;
             self.scope.end_scope();
-
-            info.fns.insert(
-                &func.name.lexeme,
-                InterfaceFnInfo {
-                    tid: fn_info.tid,
-                    body: Some(expr),
-                },
-            );
         }
-
-        for (fn_name, fn_info) in &info.fns {
-            if fn_info.body.is_none() {
-                return Err(HayError::new(
-                    format!(
-                        "Missing implementation for `fn {fn_name}{}`",
-                        &self.format_tid(fn_info.tid)[2..]
-                    ),
-                    iface_impl.name.loc.clone(),
-                )
-                .with_hint(format!(
-                    "Required by interface `{}`",
-                    iface_impl.name.lexeme
-                )));
-            }
-        }
+        self.scope.end_scope();
 
         Ok(())
     }
@@ -1487,19 +1584,45 @@ impl<'src> TypeCheck<'src> {
         Ok(())
     }
 
+    fn create_bindings(&mut self, statements: &[Statememt<'src>]) -> Result<(), HayError> {
+        for statement in statements {
+            match statement {
+                Statememt::StructDefinition(s) => self.bind_struct_def(s)?,
+                Statememt::EnumDefinition(e) => self.bind_enum_def(e)?,
+                Statememt::FunctionDefinition(func) => self.bind_function_def(func)?,
+                Statememt::InterfaceDefinition(iface) => self.bind_interface_def(iface)?,
+                Statememt::InterfaceImpl(iface_impl) => self.bind_interface_impl(iface_impl)?,
+                Statememt::ExternFunctionDeclaratoin(func) => {
+                    self.bind_function_declaration(func)?
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn type_check_statements(&mut self, statements: &[Statememt<'src>]) -> Result<(), HayError> {
+        for statement in statements {
+            match statement {
+                Statememt::StructDefinition(s) => (),
+                Statememt::EnumDefinition(e) => (),
+                Statememt::FunctionDefinition(func) => self.type_check_function_def(func)?,
+                Statememt::InterfaceDefinition(iface) => self.type_check_interface_def(iface)?,
+                Statememt::InterfaceImpl(iface_impl) => {
+                    self.type_check_interface_impl(iface_impl)?
+                }
+                Statememt::ExternFunctionDeclaratoin(func) => (),
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn build_world(mut statements: Vec<Statememt<'src>>) -> Result<(), HayError> {
         let mut tc = TypeCheck::new();
 
-        for statement in &statements {
-            match statement {
-                Statememt::StructDefinition(s) => tc.bind_struct_def(s)?,
-                Statememt::EnumDefinition(e) => tc.bind_enum_def(e)?,
-                Statememt::FunctionDefinition(func) => tc.bind_function_def(func)?,
-                Statememt::InterfaceDefinition(iface) => tc.bind_interface_def(iface)?,
-                Statememt::InterfaceImpl(iface_impl) => tc.bind_interface_impl(iface_impl)?,
-                Statememt::ExternFunctionDeclaratoin(func) => tc.bind_function_declaration(func)?,
-            }
-        }
+        tc.create_bindings(&statements)?;
+        tc.type_check_statements(&statements)?;
 
         Ok(())
     }

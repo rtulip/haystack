@@ -1479,17 +1479,19 @@ impl<'src> TypeCheck<'src> {
             }
         }
 
+        let coherence = if iface_impl.impls.is_empty() && associated_types.len() == 0 {
+            Coherence::Overlapping
+        } else {
+            Coherence::Unique
+        };
+
         let interface_impl = InterfaceImpl {
             cid: info.cid,
             vars,
             args,
             associated_types,
             predicates: vec![],
-            coherence: if iface_impl.impls.is_empty() {
-                Coherence::Overlapping
-            } else {
-                Coherence::Unique
-            },
+            coherence,
         };
 
         Ok(interface_impl)

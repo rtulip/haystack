@@ -3256,12 +3256,13 @@ mod tests {
                     [
                         MatchCase::new(
                             MatchPattern::Variant(option_u8_some_tid),
-                            Some(Var(0)),
-                            Expr::block([Expr::bind(Var(1), ()), Expr::ident(Var(0), ())], ()),
+                            Expr::block(
+                                [Expr::bind([Var(0), Var(1)], ()), Expr::ident(Var(1), ())],
+                                (),
+                            ),
                         ),
                         MatchCase::new(
                             MatchPattern::Variant(option_u8_none_tid),
-                            None,
                             Expr::block([], ()),
                         ),
                     ],
@@ -3319,7 +3320,6 @@ mod tests {
                     [
                         MatchCase::new(
                             MatchPattern::Variant(foo_bar_tid),
-                            None,
                             Expr::block(
                                 [
                                     Expr::u8(0, ()),
@@ -3331,7 +3331,6 @@ mod tests {
                         ),
                         MatchCase::new(
                             MatchPattern::Variant(foo_baz_tid),
-                            None,
                             Expr::block([Expr::typ(option_none_ty_tid, ()), Expr::pack(())], ()),
                         ),
                     ],
@@ -3347,12 +3346,11 @@ mod tests {
     #[test]
     fn match_supertyping_pointers() {
         // enum Foo { u8: Bar u8: Baz }
-        // fn test(Foo) {
+        // fn test(Foo) -> [&u8] {
         //     match {
-        //         Foo::Bar as [v] &mut v
-        //         Foo::Baz as [v] &v
+        //         Foo::Bar { as [v] &mut v }
+        //         Foo::Baz { as [v] &v }
         //     }
-        //     as [_]
         // }
 
         let mut typestore = TypeStore::new();
@@ -3377,13 +3375,23 @@ mod tests {
                     [
                         MatchCase::new(
                             MatchPattern::Variant(foo_bar_tid),
-                            Some(Var(0)),
-                            Expr::take_ref(Var(0), Mutability::Mutable, ()),
+                            Expr::block(
+                                [
+                                    Expr::bind(Var(0), META),
+                                    Expr::take_ref(Var(0), Mutability::Mutable, META),
+                                ],
+                                META,
+                            ),
                         ),
                         MatchCase::new(
                             MatchPattern::Variant(foo_baz_tid),
-                            Some(Var(0)),
-                            Expr::take_ref(Var(0), Mutability::Const, ()),
+                            Expr::block(
+                                [
+                                    Expr::bind(Var(0), META),
+                                    Expr::take_ref(Var(0), Mutability::Const, META),
+                                ],
+                                META,
+                            ),
                         ),
                     ],
                     None,
@@ -3404,13 +3412,23 @@ mod tests {
                     [
                         MatchCase::new(
                             MatchPattern::Variant(foo_bar_tid),
-                            Some(Var(0)),
-                            Expr::take_ref(Var(0), Mutability::Const, ()),
+                            Expr::block(
+                                [
+                                    Expr::bind(Var(0), META),
+                                    Expr::take_ref(Var(0), Mutability::Const, META),
+                                ],
+                                META,
+                            ),
                         ),
                         MatchCase::new(
                             MatchPattern::Variant(foo_baz_tid),
-                            Some(Var(0)),
-                            Expr::take_ref(Var(0), Mutability::Mutable, ()),
+                            Expr::block(
+                                [
+                                    Expr::bind(Var(0), META),
+                                    Expr::take_ref(Var(0), Mutability::Mutable, META),
+                                ],
+                                META,
+                            ),
                         ),
                     ],
                     None,
@@ -3466,7 +3484,6 @@ mod tests {
                     [
                         MatchCase::new(
                             MatchPattern::Variant(foo_bar),
-                            None,
                             Expr::block(
                                 [
                                     Expr::typ(
@@ -3484,7 +3501,6 @@ mod tests {
                         ),
                         MatchCase::new(
                             MatchPattern::Variant(foo_baz),
-                            None,
                             Expr::block(
                                 [
                                     Expr::u8(0, ()),

@@ -2772,6 +2772,50 @@ where
         }
     }
 
+    pub fn replace(&mut self, tid: TypeId, replacements: &HashMap<TypeVar, TypeId>) -> TypeId {
+        match self.get(tid).unwrap() {
+            Type::TypeVar(tyvar) => {
+                if let Some(tid) = replacements.get(tyvar) {
+                    *tid
+                } else {
+                    tid
+                }
+            }
+            Type::RigidTypeVar(type_var) => todo!(),
+            Type::Builtin(builtin_type) => todo!(),
+            Type::Function(func) => {
+                let mut func = func.clone();
+                func.input = func
+                    .input
+                    .into_iter()
+                    .map(|tid| self.replace(tid, replacements))
+                    .collect();
+                func.output = func
+                    .output
+                    .into_iter()
+                    .map(|tid| self.replace(tid, replacements))
+                    .collect();
+                self.function(func)
+            }
+            Type::Pointer(pointer_type) => todo!(),
+            Type::Struct(struct_type) => todo!(),
+            Type::Enum(enum_type) => todo!(),
+            Type::Tuple(type_ids) => todo!(),
+            Type::Variant(variant_type) => todo!(),
+            Type::Type(type_id) => todo!(),
+            Type::Projection(p) => {
+                let mut p = p.clone();
+                p.args = p
+                    .args
+                    .into_iter()
+                    .map(|tid| self.replace(tid, replacements))
+                    .collect();
+                self.intern(Type::Projection(p))
+            }
+            Type::Never => todo!(),
+        }
+    }
+
     pub fn get_enum_variant(
         &mut self,
         enum_tid: TypeId,

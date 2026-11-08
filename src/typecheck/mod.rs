@@ -1540,17 +1540,79 @@ impl<'src> TypeCheck<'src> {
         Ok(expr)
     }
 
+    fn validate_interface_function_signature(
+        &mut self,
+        iface_impl: &ParseInterfaceImpl<'src>,
+        func: &FunctionDefinition<'src>,
+        args: Vec<TypeId>,
+    ) -> Result<(), HayError> {
+        let Some((var, origin)) = self.scope.get_var(&func.name.lexeme) else {
+            todo!()
+        };
+        let Some(scheme) = self.env.get_var(&var) else {
+            todo!()
+        };
+
+        if (scheme.vars.len() != args.len()) {
+            todo!()
+        }
+
+        let replacements =
+            HashMap::from_iter(scheme.vars.clone().into_iter().zip(args.into_iter()));
+
+        let expected_tid = self.typestore.replace(scheme.tid, &replacements);
+        let expected_tid = self
+            .typestore
+            .normalize_ty(&mut self.env, expected_tid, &func.name)
+            .map_err(|_| todo!())?
+            .1;
+        let tid = self.get_function_tid(&func.signature)?;
+        let tid = self
+            .typestore
+            .normalize_ty(&mut self.env, tid, &func.name)
+            .map_err(|_| todo!())?
+            .1;
+
+        if expected_tid != tid {
+            return Err(HayError::new(
+                format!(
+                    "Incompatible function signature for interface function `{}`",
+                    func.name.lexeme
+                ),
+                func.name.loc.clone(),
+            )
+            .with_hint(format!(
+                "`{}` defined here: {}",
+                func.name.lexeme,
+                origin.loc.clone()
+            ))
+            .with_hint(format!("Expected: {}", self.format_tid(expected_tid)))
+            .with_hint(format!("Found   : {}", self.format_tid(tid))));
+        }
+
+        Ok(())
+    }
+
     fn type_check_interface_impl(
         &mut self,
         iface_impl: &ParseInterfaceImpl<'src>,
     ) -> Result<(), HayError> {
         self.scope.new_scope();
         let parent_params = self.rebind_params(&iface_impl.name, &iface_impl.params)?;
+        let mut parent_args = vec![];
+        for ty in &iface_impl.args {
+            parent_args.push(self.get_tid(ty)?);
+        }
 
         for func in &iface_impl.impls {
             self.scope.new_scope();
 
             let mut params = self.add_params_to_scope(&func.params, &func.name)?;
+            let mut args = vec![];
+            for ty in &func.params {
+                args.push(self.get_tid(ty)?);
+            }
+
             params = parent_params
                 .clone()
                 .into_iter()
@@ -1559,6 +1621,15 @@ impl<'src> TypeCheck<'src> {
 
             let expr =
                 self.type_check_function(&func.name, &func.signature, &params, &[], &func.expr)?;
+
+            let args = parent_args
+                .clone()
+                .into_iter()
+                .chain(args.into_iter())
+                .collect();
+
+            self.validate_interface_function_signature(iface_impl, func, args)?;
+
             self.scope.end_scope();
         }
         self.scope.end_scope();

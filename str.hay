@@ -1,0 +1,14 @@
+struct Str {
+    &u8: data
+    u64: len
+}
+
+fn Str.cstr(Str: s) -> [&u8] s::data
+
+impl Print<Str> {
+    fn print(Str: s) { 
+        ("%.*s" Str.cstr)
+        (s::len s::data)
+        printf as [_]
+    }
+}

@@ -21,7 +21,7 @@ fn main() -> Result<(), HayError> {
     let tokens = Scanner::new(file, &source).scan_tokens()?;
     let statements = Parser::parse(tokens)?;
 
-    TypeCheck::build_world(statements)?;
+    let (world, typestore) = TypeCheck::build_world(statements)?;
 
     Ok(())
 }

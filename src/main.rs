@@ -30,11 +30,15 @@ fn main() -> Result<(), HayError> {
     let (types, fns) = world.monomorphize(&mut typestore, &mut env, entry);
 
     for tid in types {
-        eprintln!("{}", typestore.fmt(tid))
+        eprintln!("{tid:?}: {}", typestore.fmt(tid))
     }
 
     for (var, f) in fns {
-        eprintln!("{}: {}", f.expr.meta.0.loc, typestore.fmt(f.expr.meta.1));
+        eprintln!(
+            "{}: {var:?} {}",
+            f.expr.meta.0.loc,
+            typestore.fmt(f.expr.meta.1)
+        );
     }
 
     Ok(())

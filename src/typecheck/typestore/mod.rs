@@ -2898,7 +2898,6 @@ where
     }
 
     pub fn is_free(&self, tid: &TypeId) -> bool {
-        
         match &self.types[tid.0] {
             Type::TypeVar(_) => true,
             Type::RigidTypeVar(_) => true,

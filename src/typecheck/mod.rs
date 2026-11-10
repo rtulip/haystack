@@ -400,11 +400,6 @@ impl<'src> TypeCheck<'src> {
 
     fn insert_param_ty(&mut self, ty: &ParseType<'src>) -> Result<TypeVar, HayError> {
         let tyvar = self.typestore.fresh_type_var();
-        let token = ty.token();
-        eprintln!(
-            "{} Inserting type var `{}` into scope: {tyvar:?}",
-            token.loc, token.lexeme
-        );
         self.insert_tyvar_to_scope(tyvar, ty.token())
     }
 
@@ -431,9 +426,6 @@ impl<'src> TypeCheck<'src> {
         if ident.base.lexeme == "Type" {
             return self.get_metatype_tid(ident);
         }
-
-        // eprintln!("{}: Looking for type `{}`", ident.base, ident.base.lexeme);
-        // self.scope.scopes.iter().rev().for_each(|layer| layer.types.keys().for_each(|name| eprintln!("{name}")));
 
         let (base_tid, _) = self
             .scope
@@ -1755,7 +1747,6 @@ impl<'src> TypeCheck<'src> {
         for (name, fn_info) in info.fns {
             self.scope.new_scope();
 
-            eprintln!("Populating default impls: {:?}", &fn_info.params);
 
             let mut params = self.add_params_to_scope(&fn_info.params, &fn_info.token)?;
             let mut args = vec![];
@@ -1786,7 +1777,6 @@ impl<'src> TypeCheck<'src> {
         }
 
         for fn_impl in &iface_impl.impls {
-            eprintln!("Populating specified impls: {:?}", &fn_impl.params);
 
             self.scope.new_scope();
 
@@ -1863,8 +1853,6 @@ impl<'src> TypeCheck<'src> {
             self.scope.new_scope();
             let mut params = self.rebind_params(&fn_info.token, &fn_info.params)?;
 
-            eprintln!("params: {:?}", &params);
-
             params = parent_params
                 .clone()
                 .into_iter()
@@ -1874,8 +1862,6 @@ impl<'src> TypeCheck<'src> {
             let Type::Function(f) = self.typestore.get(fn_info.tid).unwrap().clone() else {
                 unreachable!();
             };
-
-            eprintln!("{}: type checking {}", &fn_info.token.loc, name);
 
             let f = Function::new(
                 f.input,
@@ -2046,39 +2032,76 @@ impl<'a, 'src> MonoContext<'a, 'src> {
         }
     }
 
-    fn request_type(&mut self, tid: TypeId, substitutions: &HashMap<TypeVar, TypeId>) -> TypeId {
-        let tid = self.typestore.replace(tid, substitutions);
-        if !self.typestore.is_free(&tid) {
-            match &self.typestore.get(tid).unwrap() {
-                Type::TypeVar(type_var) => todo!(),
-                Type::RigidTypeVar(type_var) => todo!(),
+    fn request_type_inner(&self, tid: &TypeId) -> HashSet<TypeId> {
+        if self.types.contains(tid) {
+            return HashSet::new();
+        }
+
+        let mut concrete = HashSet::new();
+        if !self.typestore.is_free(tid) {
+            concrete.insert(*tid);
+
+            match &self.typestore.get(*tid).unwrap() {
+                Type::TypeVar(_) | Type::RigidTypeVar(_) => {
+                    concrete.insert(*tid);
+                }
                 Type::Builtin(_) => (),
                 Type::Function(f) => {
-                    for tid in &f.input {
-                        self.types.insert(*tid);
-                    }
+                    f.input
+                        .iter()
+                        .chain(f.output.iter())
+                        .for_each((|tid| concrete.extend(self.request_type_inner(tid))));
+                }
+                Type::Pointer(pointer_type) => {
+                    concrete.extend(self.request_type_inner(&pointer_type.tid));
+                }
+                Type::Struct(s) => {
+                    s.args
+                        .iter()
+                        .for_each(|tid| concrete.extend(self.request_type_inner(tid)));
 
-                    for tid in &f.output {
-                        self.types.insert(*tid);
-                    }
+                    let def = self.typestore.get_struct_def(s.sid);
+                    def.members
+                        .iter()
+                        .for_each(|tid| concrete.extend(self.request_type_inner(&tid)));
                 }
-                Type::Pointer(pointer_type) => todo!(),
-                Type::Struct(struct_type) => todo!(),
-                Type::Enum(enum_type) => todo!(),
+                Type::Enum(e) => {
+                    e.args
+                        .iter()
+                        .for_each(|tid| concrete.extend(self.request_type_inner(tid)));
+
+                    let def = self.typestore.get_enum_def(e.eid);
+                    def.variants.iter().for_each(|maybe_tid| {
+                        maybe_tid.map(|tid| concrete.extend(self.request_type_inner(&tid)));
+                    });
+                }
                 Type::Tuple(type_ids) => todo!(),
-                Type::Variant(variant_type) => {
-                    for tid in &variant_type.args {
-                        self.types.insert(*tid);
-                    }
+                Type::Variant(v) => {
+                    v.args
+                        .iter()
+                        .for_each(|tid| concrete.extend(self.request_type_inner(tid)));
+
+                    let def = self.typestore.get_enum_def(v.eid);
+                    def.variants.iter().for_each(|maybe_tid| {
+                        maybe_tid.map(|tid| concrete.extend(self.request_type_inner(&tid)));
+                    });
                 }
-                Type::Type(type_id) => {
-                    self.types.insert(*type_id);
+                Type::Type(tid) => {
+                    concrete.extend(self.request_type_inner(tid));
                 }
                 Type::Projection(projection) => todo!(),
                 Type::Never => todo!(),
             };
-            self.types.insert(tid);
-        }
+        };
+
+        concrete
+    }
+
+    fn request_type(&mut self, tid: TypeId, substitutions: &HashMap<TypeVar, TypeId>) -> TypeId {
+        let tid = self.typestore.replace(tid, substitutions);
+
+        let new_types = self.request_type_inner(&tid);
+        self.types.extend(new_types);
 
         tid
     }
@@ -2103,10 +2126,6 @@ impl<'a, 'src> MonoContext<'a, 'src> {
 
     fn monomorphize_function(&mut self, instance: FunctionInstance) {
         let original = &self.world.functions[&instance.var];
-        eprintln!(
-            "{}: Monomorphizing fn {}",
-            original.expr.meta.0.loc, original.expr.meta.0.lexeme
-        );
         let mono_var = self.instances[&instance];
 
         assert_eq!(original.params.len(), instance.args.len());
@@ -2152,7 +2171,6 @@ impl<'a, 'src> MonoContext<'a, 'src> {
         expr: Expr<'src, (Token<'src>, TypeId)>,
         substitutions: &HashMap<TypeVar, TypeId>,
     ) -> Expr<'src, (Token<'src>, TypeId)> {
-        eprintln!("{}: Monomorphizing: {}.", expr.meta.0.loc, expr.meta.0.kind);
 
         let token = expr.meta.0;
         let tid = self.request_type(expr.meta.1, substitutions);

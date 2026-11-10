@@ -2774,15 +2774,14 @@ where
 
     pub fn replace(&mut self, tid: TypeId, replacements: &HashMap<TypeVar, TypeId>) -> TypeId {
         match self.get(tid).unwrap() {
-            Type::TypeVar(tyvar) => {
+            Type::TypeVar(tyvar) | Type::RigidTypeVar(tyvar) => {
                 if let Some(tid) = replacements.get(tyvar) {
                     *tid
                 } else {
                     tid
                 }
             }
-            Type::RigidTypeVar(type_var) => todo!(),
-            Type::Builtin(builtin_type) => todo!(),
+            Type::Builtin(_) => tid,
             Type::Function(func) => {
                 let mut func = func.clone();
                 func.input = func
@@ -2798,11 +2797,42 @@ where
                 self.function(func)
             }
             Type::Pointer(pointer_type) => todo!(),
-            Type::Struct(struct_type) => todo!(),
-            Type::Enum(enum_type) => todo!(),
+            Type::Struct(s) => {
+                let s = s.clone();
+                let args = s
+                    .args
+                    .into_iter()
+                    .map(|tid| self.replace(tid, replacements))
+                    .collect();
+                self.intern(Type::Struct(StructType { sid: s.sid, args }))
+            }
+            Type::Enum(e) => {
+                let e = e.clone();
+                let args = e
+                    .args
+                    .into_iter()
+                    .map(|tid| self.replace(tid, replacements))
+                    .collect();
+                self.intern(Type::Enum(EnumType { eid: e.eid, args }))
+            }
             Type::Tuple(type_ids) => todo!(),
-            Type::Variant(variant_type) => todo!(),
-            Type::Type(type_id) => todo!(),
+            Type::Variant(v) => {
+                let v = v.clone();
+                let args = v
+                    .args
+                    .into_iter()
+                    .map(|tid| self.replace(tid, replacements))
+                    .collect();
+                self.intern(Type::Variant(VariantType {
+                    eid: v.eid,
+                    args,
+                    variant: v.variant,
+                }))
+            }
+            Type::Type(type_id) => {
+                let inner = self.replace(*type_id, replacements);
+                self.intern(Type::Type(inner))
+            }
             Type::Projection(p) => {
                 let mut p = p.clone();
                 p.args = p
@@ -2867,33 +2897,33 @@ where
         Ok(self.intern(Type::Type(tid)))
     }
 
-    pub fn free_vars(&self, tid: TypeId) -> HashSet<TypeVar> {
-        match &self.types[tid.0] {
-            Type::TypeVar(tyvar) => HashSet::from([*tyvar]),
-            Type::RigidTypeVar(type_var) => todo!(),
-            Type::Builtin(_) | Type::Never => HashSet::new(),
-            Type::Function(func) => HashSet::from_iter(
-                func.input
-                    .iter()
-                    .chain(func.output.iter())
-                    .map(|tid| self.free_vars(*tid))
-                    .flatten(),
-            ),
-            Type::Pointer(ptr) => self.free_vars(ptr.tid),
-            Type::Struct(s) => {
-                HashSet::from_iter(s.args.iter().map(|tid| self.free_vars(*tid)).flatten())
-            }
-            Type::Enum(e) => {
-                HashSet::from_iter(e.args.iter().map(|tid| self.free_vars(*tid)).flatten())
-            }
-            Type::Variant(v) => {
-                HashSet::from_iter(v.args.iter().map(|tid| self.free_vars(*tid)).flatten())
-            }
-            Type::Tuple(tids) => {
-                HashSet::from_iter(tids.iter().map(|tid| self.free_vars(*tid)).flatten())
-            }
-            Type::Type(tid) => self.free_vars(*tid),
-            Type::Projection(_) => todo!(),
+    pub fn assign_vars_from_concrete(
+        &mut self,
+        env: &Environment,
+        scheme: &Scheme,
+        tid: TypeId,
+        meta: &M,
+    ) -> Result<Vec<TypeId>, InferenceErrorKind> {
+        let mut fresh = HashMap::new();
+
+        let vars: Vec<_> = scheme
+            .vars
+            .iter()
+            .map(|var| {
+                self.freshen_type_var(*var, &mut fresh, meta)
+            })
+            .collect();
+        let scheme_tid = self.freshen_tid(scheme.tid, &mut fresh, meta);
+
+        let tid = self.freshen_tid(tid, &mut HashMap::new(), meta);
+
+        self.unify_ty_ty(env, scheme_tid, tid, meta);
+
+        let mut tids = vec![];
+        for tid in vars {
+            tids.push(self.normalize_ty(env, tid, meta)?.1);
         }
+            
+        Ok(tids)
     }
 }

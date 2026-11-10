@@ -21,7 +21,19 @@ fn main() -> Result<(), HayError> {
     let tokens = Scanner::new(file, &source).scan_tokens()?;
     let statements = Parser::parse(tokens)?;
 
-    let (world, typestore) = TypeCheck::build_world(statements)?;
+    let (world, mut typestore, mut env, entry) = TypeCheck::build_world(statements)?;
+    let Some(entry) = entry else {
+        eprintln!("No main function found. Exiting after type checking");
+        return Ok(());
+    };
+
+    let (types, fns) = world.monomorphize(&mut typestore, &mut env, entry);
+
+    dbg!(types);
+
+    for (var, f) in fns {
+        eprintln!("{}: {}", f.expr.meta.0.loc, typestore.fmt(f.expr.meta.1));
+    }
 
     Ok(())
 }

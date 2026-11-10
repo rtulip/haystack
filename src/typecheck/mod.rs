@@ -1,4 +1,8 @@
-use std::{assert_eq, collections::{HashMap, HashSet}, dbg, format, todo, unreachable, vec};
+use std::{
+    assert_eq,
+    collections::{HashMap, HashSet},
+    dbg, format, todo, unreachable, vec,
+};
 
 use crate::{
     error::HayError,
@@ -19,7 +23,7 @@ use crate::{
         environment::{
             Coherence, Environment, Interface, InterfaceImpl, Scheme, TypeClassId, TypePredicate,
         },
-        expr::{Expr, MatchCase, MatchExpr, MatchPattern, Var},
+        expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Var},
         func::Function,
         typ::{
             typ::{
@@ -140,7 +144,10 @@ impl<'src> SymbolTable<'src> {
 
 #[derive(Debug, Clone)]
 struct InterfaceFnInfo<'src> {
+    token: Token<'src>,
     tid: TypeId,
+    params: Vec<ParseType<'src>>,
+    predicates: Vec<TypePredicate>,
     body: Option<Expr<'src, Token<'src>>>,
 }
 
@@ -393,6 +400,11 @@ impl<'src> TypeCheck<'src> {
 
     fn insert_param_ty(&mut self, ty: &ParseType<'src>) -> Result<TypeVar, HayError> {
         let tyvar = self.typestore.fresh_type_var();
+        let token = ty.token();
+        eprintln!(
+            "{} Inserting type var `{}` into scope: {tyvar:?}",
+            token.loc, token.lexeme
+        );
         self.insert_tyvar_to_scope(tyvar, ty.token())
     }
 
@@ -952,7 +964,7 @@ impl<'src> TypeCheck<'src> {
                         "Consider providing a type hint:\n            `{} #u64 hint`",
                         token.lexeme
                     )),
-                    None => todo!("{tid:?}"),
+                    None => todo!("{:?}", self.symbols.types.get(&tid)),
                 }
             }
             (
@@ -1070,10 +1082,7 @@ impl<'src> TypeCheck<'src> {
 
         let mut input = vec![];
         for arg in inputs {
-            let tid = self.get_tid(&arg.typ).map_err(|e| {
-                eprintln!("{token}: Here!");
-                e
-            })?;
+            let tid = self.get_tid(&arg.typ)?;
             input.push(tid);
         }
 
@@ -1375,6 +1384,7 @@ impl<'src> TypeCheck<'src> {
     fn create_interface_fn_lookup(
         &mut self,
         funcs: &[InterfaceFunctionDefinition<'src>],
+        predicate: &TypePredicate,
     ) -> Result<InterfaceFnsLookup<'src>, HayError> {
         let mut fn_lookup = InterfaceFnsLookup::new();
         for func in funcs {
@@ -1382,7 +1392,16 @@ impl<'src> TypeCheck<'src> {
             self.rebind_params(&func.name, &func.params);
             let tid = self.get_function_tid(&func.signature)?;
             if fn_lookup
-                .insert(func.name.lexeme, InterfaceFnInfo { tid, body: None })
+                .insert(
+                    func.name.lexeme,
+                    InterfaceFnInfo {
+                        token: func.name.clone(),
+                        tid,
+                        params: func.params.clone(),
+                        predicates: vec![predicate.clone()],
+                        body: None,
+                    },
+                )
                 .is_some()
             {
                 todo!("re-definition of interface function")
@@ -1411,7 +1430,7 @@ impl<'src> TypeCheck<'src> {
         for func in &iface.funcs {
             self.bind_interface_function_def(func, &predicate, vars.clone())?;
         }
-        let fn_lookup = self.create_interface_fn_lookup(&iface.funcs)?;
+        let fn_lookup = self.create_interface_fn_lookup(&iface.funcs, &predicate)?;
 
         self.scope.end_scope();
 
@@ -1432,7 +1451,7 @@ impl<'src> TypeCheck<'src> {
     fn type_check_interface_def(
         &mut self,
         iface: &InterfaceDefinition<'src>,
-    ) -> Result<Vec<(Var, TypedFunction<'src>)>, HayError> {
+    ) -> Result<(Vec<(Var, Option<TypedFunction<'src>>)>, TypeClassId), HayError> {
         let mut iface_info = self.scope.get_cid(&iface.name.lexeme).cloned().unwrap();
 
         self.scope.new_scope();
@@ -1462,14 +1481,16 @@ impl<'src> TypeCheck<'src> {
 
                 iface_info.fns.get_mut(&func.name.lexeme).unwrap().body = Some(expr);
 
-                default_impls.push((var, typed_func));
+                default_impls.push((var, Some(typed_func)));
+            } else {
+                default_impls.push((self.env.fresh_var(), None));
             }
         }
         self.scope.end_scope();
-
+        let cid = iface_info.cid;
         self.scope.insert_cid(&iface.name.lexeme, iface_info);
 
-        Ok(default_impls)
+        Ok((default_impls, cid))
     }
 
     fn create_interface_impl(
@@ -1558,13 +1579,12 @@ impl<'src> TypeCheck<'src> {
         Ok((expr, f))
     }
 
-    fn validate_interface_function_signature(
+    fn create_interface_replacements(
         &mut self,
-        iface_impl: &ParseInterfaceImpl<'src>,
-        func: &FunctionDefinition<'src>,
+        name: &'src str,
         args: Vec<TypeId>,
-    ) -> Result<(), HayError> {
-        let Some((var, origin)) = self.scope.get_var(&func.name.lexeme) else {
+    ) -> Result<HashMap<TypeVar, TypeId>, HayError> {
+        let Some((var, origin)) = self.scope.get_var(&name) else {
             todo!()
         };
         let Some(scheme) = self.env.get_var(&var) else {
@@ -1575,19 +1595,27 @@ impl<'src> TypeCheck<'src> {
             todo!()
         }
 
-        let replacements =
-            HashMap::from_iter(scheme.vars.clone().into_iter().zip(args.into_iter()));
+        Ok(HashMap::from_iter(
+            scheme.vars.clone().into_iter().zip(args.into_iter()),
+        ))
+    }
 
-        let expected_tid = self.typestore.replace(scheme.tid, &replacements);
+    fn validate_interface_function_signature(
+        &mut self,
+        token: &Token<'src>,
+        expected_tid: TypeId,
+        tid: TypeId,
+        replacements: &HashMap<TypeVar, TypeId>,
+    ) -> Result<(), HayError> {
+        let expected_tid = self.typestore.replace(expected_tid, &replacements);
         let expected_tid = self
             .typestore
-            .normalize_ty(&mut self.env, expected_tid, &func.name)
+            .normalize_ty(&mut self.env, expected_tid, token)
             .map_err(|_| todo!())?
             .1;
-        let tid = self.get_function_tid(&func.signature)?;
         let tid = self
             .typestore
-            .normalize_ty(&mut self.env, tid, &func.name)
+            .normalize_ty(&mut self.env, tid, token)
             .map_err(|_| todo!())?
             .1;
 
@@ -1595,23 +1623,24 @@ impl<'src> TypeCheck<'src> {
             return Err(HayError::new(
                 format!(
                     "Incompatible function signature for interface function `{}`",
-                    func.name.lexeme
+                    token.lexeme
                 ),
-                func.name.loc.clone(),
+                token.loc.clone(),
             )
-            .with_hint(format!(
-                "`{}` defined here: {}",
-                func.name.lexeme,
-                origin.loc.clone()
-            ))
+            // .with_hint(format!(
+            //     "`{}` defined here: {}",
+            //     func.name.lexeme,
+            //     origin.loc.clone()
+            // ))
             .with_hint(format!("Expected: {}", self.format_tid(expected_tid)))
             .with_hint(format!("Found   : {}", self.format_tid(tid))));
+            todo!()
         }
 
         Ok(())
     }
 
-    fn type_check_interface_impl(
+    fn type_check_interface_impl_(
         &mut self,
         iface_impl: &ParseInterfaceImpl<'src>,
     ) -> Result<
@@ -1676,13 +1705,13 @@ impl<'src> TypeCheck<'src> {
             let (expr, typed_func) =
                 self.type_check_function(&func.name, &func.signature, &params, &[], &func.expr)?;
 
-            let args = parent_args
-                .clone()
-                .into_iter()
-                .chain(args.into_iter())
-                .collect();
+            // let args = parent_args
+            //     .clone()
+            //     .into_iter()
+            //     .chain(args.into_iter())
+            //     .collect();
 
-            self.validate_interface_function_signature(iface_impl, func, args)?;
+            // self.validate_interface_function_signature(iface_impl, func, args)?;
 
             self.scope.end_scope();
 
@@ -1696,6 +1725,181 @@ impl<'src> TypeCheck<'src> {
         self.scope.end_scope();
 
         Ok((cid, typed_impl, typed_functions))
+    }
+
+    fn type_check_interface_impl(
+        &mut self,
+        iface_impl: &ParseInterfaceImpl<'src>,
+    ) -> Result<
+        (
+            TypeClassId,
+            TypedInterfaceImpl,
+            Vec<(Var, TypedFunction<'src>)>,
+        ),
+        HayError,
+    > {
+        let info: InterfaceInfo<'_> = self
+            .scope
+            .get_cid(&iface_impl.name.lexeme)
+            .cloned()
+            .unwrap();
+
+        self.scope.new_scope();
+        let parent_params = self.rebind_params(&iface_impl.name, &iface_impl.params)?;
+        let mut parent_args = vec![];
+        for ty in &iface_impl.args {
+            parent_args.push(self.get_tid(ty)?);
+        }
+
+        let mut impls = HashMap::new();
+        for (name, fn_info) in info.fns {
+            self.scope.new_scope();
+
+            eprintln!("Populating default impls: {:?}", &fn_info.params);
+
+            let mut params = self.add_params_to_scope(&fn_info.params, &fn_info.token)?;
+            let mut args = vec![];
+            for ty in &fn_info.params {
+                args.push(self.get_tid(ty)?);
+            }
+            let args = parent_args
+                .clone()
+                .into_iter()
+                .chain(args.into_iter())
+                .collect();
+
+            let replacements = self.create_interface_replacements(name, args)?;
+            let tid = self.typestore.replace(fn_info.tid, &replacements);
+
+            impls.insert(
+                name,
+                InterfaceFnInfo {
+                    token: fn_info.token,
+                    tid,
+                    params: fn_info.params,
+                    predicates: fn_info.predicates,
+                    body: fn_info.body,
+                },
+            );
+
+            self.scope.end_scope();
+        }
+
+        for fn_impl in &iface_impl.impls {
+            eprintln!("Populating specified impls: {:?}", &fn_impl.params);
+
+            self.scope.new_scope();
+
+            self.add_params_to_scope(&fn_impl.params, &fn_impl.name)?;
+
+            let mut args = vec![];
+            for ty in &fn_impl.params {
+                args.push(self.get_tid(ty)?);
+            }
+            let args = parent_args
+                .clone()
+                .into_iter()
+                .chain(args.into_iter())
+                .collect();
+            let replacements = self.create_interface_replacements(&fn_impl.name.lexeme, args)?;
+            let tid = self.get_function_tid(&fn_impl.signature)?;
+            let Some((var, _)) = self.scope.get_var(&fn_impl.name.lexeme) else {
+                todo!()
+            };
+            let Some(Scheme {
+                tid: expected_tid, ..
+            }) = self.env.get_var(&var)
+            else {
+                todo!()
+            };
+            self.validate_interface_function_signature(
+                &fn_impl.name,
+                *expected_tid,
+                tid,
+                &replacements,
+            )?;
+
+            let expr =
+                self.desugar_bindings(&fn_impl.name, &fn_impl.signature.input, &fn_impl.expr)?;
+
+            assert!(impls
+                .insert(
+                    fn_impl.name.lexeme,
+                    InterfaceFnInfo {
+                        token: fn_impl.name.clone(),
+                        tid,
+                        params: fn_impl.params.clone(),
+                        predicates: vec![],
+                        body: Some(expr)
+                    }
+                )
+                .is_some());
+
+            self.scope.end_scope();
+        }
+
+        let mut typed_functions = vec![];
+        let mut typed_impl = TypedInterfaceImpl {
+            args: parent_args,
+            associated_types: info
+                .associated_types
+                .iter()
+                .map(|type_name| {
+                    match iface_impl
+                        .associated_types
+                        .iter()
+                        .find(|(name, _)| name.lexeme == *type_name)
+                    {
+                        Some((_, ty)) => self.get_tid(ty),
+                        None => todo!("Error: Unexpected associated type"),
+                    }
+                })
+                .collect::<Result<_, _>>()?,
+
+            fn_map: HashMap::new(),
+        };
+
+        for (name, fn_info) in impls {
+            self.scope.new_scope();
+            let mut params = self.rebind_params(&fn_info.token, &fn_info.params)?;
+
+            eprintln!("params: {:?}", &params);
+
+            params = parent_params
+                .clone()
+                .into_iter()
+                .chain(params.into_iter())
+                .collect();
+
+            let Type::Function(f) = self.typestore.get(fn_info.tid).unwrap().clone() else {
+                unreachable!();
+            };
+
+            eprintln!("{}: type checking {}", &fn_info.token.loc, name);
+
+            let f = Function::new(
+                f.input,
+                f.output,
+                params,
+                fn_info.predicates,
+                fn_info.body.unwrap(),
+            )
+            .type_check(&mut self.typestore, &self.env, &self.scope)
+            .map_err(|e| self.map_inference_err(e))
+            .unwrap();
+
+            let (var, _) = self.scope.get_var(name).unwrap();
+            let fresh_var = self.env.fresh_var();
+
+            typed_impl.fn_map.insert(var, fresh_var);
+            typed_functions.push((fresh_var, f));
+
+            self.scope.end_scope();
+        }
+
+        self.scope.end_scope();
+
+        Ok((info.cid, typed_impl, typed_functions))
     }
 
     fn bind_function_declaration(
@@ -1747,9 +1951,12 @@ impl<'src> TypeCheck<'src> {
                     world.add_func(var, func);
                 }
                 Statememt::InterfaceDefinition(iface) => {
-                    let default_impls = self.type_check_interface_def(iface)?;
-                    for (var, func) in default_impls {
-                        world.add_func(var, func);
+                    let (impls, cid) = self.type_check_interface_def(iface)?;
+                    for (var, func) in impls {
+                        world.interface_fns.insert(var, cid);
+                        if let Some(func) = func {
+                            world.add_func(var, func);
+                        }
                     }
                 }
                 Statememt::InterfaceImpl(iface_impl) => {
@@ -1768,13 +1975,23 @@ impl<'src> TypeCheck<'src> {
 
     pub fn build_world(
         mut statements: Vec<Statememt<'src>>,
-    ) -> Result<(TypedWorld<'src>, TypeStore<Token<'src>>), HayError> {
+    ) -> Result<
+        (
+            TypedWorld<'src>,
+            TypeStore<Token<'src>>,
+            Environment,
+            Option<Var>,
+        ),
+        HayError,
+    > {
         let mut tc = TypeCheck::new();
         let mut world = TypedWorld::default();
         tc.create_bindings(&statements)?;
         tc.type_check_statements(&statements, &mut world)?;
 
-        Ok((world, tc.typestore))
+        let entry = tc.scope.get_var("main").map(|(var, _)| var);
+
+        Ok((world, tc.typestore, tc.env, entry))
     }
 }
 
@@ -1785,11 +2002,246 @@ pub struct TypedInterfaceImpl {
     fn_map: HashMap<Var, Var>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct FunctionInstance {
+    var: Var,
+    args: Vec<TypeId>,
+}
+
+struct MonoContext<'a, 'src> {
+    world: &'a TypedWorld<'src>,
+    env: &'a mut Environment,
+    typestore: &'a mut TypeStore<Token<'src>>,
+
+    // Each concrete specialization gets a unique Var.
+    instances: HashMap<FunctionInstance, Var>,
+
+    // Instances waiting to be processed.
+    pending: Vec<FunctionInstance>,
+
+    // Monomorphized functions.
+    functions: Vec<(Var, TypedFunction<'src>)>,
+
+    // Concrete types required by the program.
+    types: HashSet<TypeId>,
+}
+
+impl<'a, 'src> MonoContext<'a, 'src> {
+    fn new(
+        world: &'a TypedWorld<'src>,
+        env: &'a mut Environment,
+        typestore: &'a mut TypeStore<Token<'src>>,
+    ) -> Self {
+        Self {
+            world,
+            env,
+            typestore,
+            instances: HashMap::new(),
+            pending: vec![],
+            functions: vec![],
+            types: HashSet::new(),
+        }
+    }
+
+    fn request_function(&mut self, instance: FunctionInstance) -> Var {
+        // Already requested or generated.
+        if let Some(var) = self.instances.get(&instance) {
+            return *var;
+        }
+
+        // Allocate a new function identity.
+        let mono_var = self.env.fresh_var();
+
+        // Register BEFORE processing its body.
+        self.instances.insert(instance.clone(), mono_var);
+
+        // Schedule the specialization.
+        self.pending.push(instance);
+
+        mono_var
+    }
+
+    fn monomorphize_function(&mut self, instance: FunctionInstance) {
+        let original = &self.world.functions[&instance.var];
+        eprintln!(
+            "{}: Monomorphizing fn {}",
+            original.expr.meta.0.loc, original.expr.meta.0.lexeme
+        );
+        let mono_var = self.instances[&instance];
+
+        // assert_eq!(original.params.len(), instance.args.len());
+
+        let substitutions = HashMap::from_iter(
+            original
+                .params
+                .iter()
+                .zip(instance.args.iter())
+                .map(|(var, tid)| (*var, *tid)),
+        );
+
+        let tid = self.typestore.replace(original.expr.meta.1, &substitutions);
+
+        // Specialize the function body.
+        let expr = self.monomorphize_expr(original.expr.clone(), &substitutions);
+
+        let Type::Function(FunctionType { input, output }) =
+            self.typestore.get(tid).cloned().unwrap()
+        else {
+            unreachable!()
+        };
+
+        let func = Function::new(input, output, vec![], vec![], expr);
+
+        self.functions.push((mono_var, func));
+    }
+
+    fn monomorphize_pattern(
+        &mut self,
+        pattern: MatchPattern,
+        replacements: &HashMap<TypeVar, TypeId>,
+    ) -> MatchPattern {
+        match pattern {
+            MatchPattern::Variant(tid) => {
+                MatchPattern::Variant(self.typestore.replace(tid, replacements))
+            }
+        }
+    }
+
+    fn monomorphize_expr(
+        &mut self,
+        expr: Expr<'src, (Token<'src>, TypeId)>,
+        substitutions: &HashMap<TypeVar, TypeId>,
+    ) -> Expr<'src, (Token<'src>, TypeId)> {
+        eprintln!("{}: Monomorphizing: {}.", expr.meta.0.loc, expr.meta.0.kind);
+
+        let token = expr.meta.0;
+        let tid = self.typestore.replace(expr.meta.1, substitutions);
+
+        let kind = match expr.expr {
+            ExprKind::U8(_)
+            | ExprKind::U64(_)
+            | ExprKind::Bool(_)
+            | ExprKind::String(_)
+            | ExprKind::Bind(_)
+            | ExprKind::Pack => expr.expr,
+
+            ExprKind::Ident(var) => {
+                if self.world.functions.contains_key(&var) {
+                    ExprKind::Ident(self.resolve_function_instance(&token, var, tid, substitutions))
+                } else {
+                    ExprKind::Ident(var)
+                }
+            }
+            ExprKind::Ref { var, mutability } => {
+                if self.world.functions.contains_key(&var) {
+                    ExprKind::Ref {
+                        var: self.resolve_function_instance(&token, var, tid, substitutions),
+                        mutability,
+                    }
+                } else {
+                    ExprKind::Ref { var, mutability }
+                }
+            }
+            ExprKind::Block(exprs) => ExprKind::Block(
+                exprs
+                    .into_iter()
+                    .map(|e| self.monomorphize_expr(e, substitutions))
+                    .collect(),
+            ),
+            ExprKind::Tuple(exprs) => todo!(),
+
+            ExprKind::Call => todo!(),
+            ExprKind::Type(tid) => ExprKind::Type(self.typestore.replace(tid, substitutions)),
+            ExprKind::UncheckedCast => todo!(),
+            ExprKind::Add(type_id) => todo!(),
+            ExprKind::NamedMemberAccess { var, member } => todo!(),
+            ExprKind::MemberAccess { var, member } => todo!(),
+            ExprKind::Match(match_expr) => {
+                let cases = match_expr
+                    .cases
+                    .into_iter()
+                    .map(|case| {
+                        let pattern = self.monomorphize_pattern(case.pattern, substitutions);
+                        let expr = self.monomorphize_expr(*case.expr, substitutions);
+                        MatchCase::new(pattern, expr)
+                    })
+                    .collect();
+                let finally = match_expr
+                    .finally
+                    .map(|expr| Box::new(self.monomorphize_expr(*expr, substitutions)));
+
+                ExprKind::Match(MatchExpr { cases, finally })
+            }
+            ExprKind::If(if_expr) => todo!(),
+            ExprKind::Read => todo!(),
+        };
+
+        Expr { expr: kind, meta: (token, tid) }
+    }
+
+    fn infer_function_args(
+        &mut self,
+        token: &Token<'src>,
+        var: Var,
+        instantiated_tid: TypeId,
+        substitutions: &HashMap<TypeVar, TypeId>,
+    ) -> Vec<TypeId> {
+        let scheme = self.env.get_var(&var).unwrap().clone();
+
+        let concrete_tid = self.typestore.replace(instantiated_tid, substitutions);
+
+        // Pattern: fn(T) -> T
+        // Actual:  fn(u64) -> u64
+        //
+        // Result: T -> u64
+        let inferred = self
+            .typestore
+            .assign_vars_from_concrete(&mut self.env, &scheme, concrete_tid, token).unwrap();
+
+        scheme.vars.iter().enumerate().map(|(idx, _)| inferred[idx]).collect()
+    }
+
+    fn resolve_function_instance(
+        &mut self,
+        token: &Token<'src>,
+        var: Var,
+        instantiated_tid: TypeId,
+        substitutions: &HashMap<TypeVar, TypeId>,
+    ) -> Var {
+        // Recover the concrete type arguments used at this reference.
+        let args = self.infer_function_args(token, var, instantiated_tid, substitutions);
+
+        let instance = if let Some(cid) = self.world.interface_fns.get(&var) {
+            let mut instance = None;
+            for typed_impl in self.world.interface_impls.get(cid).unwrap() {
+                let mapped_var = typed_impl.fn_map.get(&var).unwrap();
+                let tid = self.world.functions.get(&mapped_var).unwrap().expr.meta.1;
+                if tid == instantiated_tid {
+                    instance = Some(FunctionInstance {
+                        var: *mapped_var,
+                        args: typed_impl.args.clone(),
+                    });
+                    break;
+                }
+            }
+
+            match instance {
+                Some(instance) => instance,
+                None => todo!(),
+            }
+        } else {
+            FunctionInstance { var, args }
+        };
+
+        self.request_function(instance)
+    }
+}
 
 #[derive(Default)]
 pub struct TypedWorld<'src> {
     functions: HashMap<Var, TypedFunction<'src>>,
     interface_impls: HashMap<TypeClassId, Vec<TypedInterfaceImpl>>,
+    interface_fns: HashMap<Var, TypeClassId>,
 }
 
 impl<'src> TypedWorld<'src> {
@@ -1805,8 +2257,26 @@ impl<'src> TypedWorld<'src> {
         }
     }
 
-    pub fn monomorphize(mut self, typestore: &mut TypeStore<Token<'src>>, entry: Var) -> (HashSet<TypeId>, Vec<(Var, TypedFunction<'src>)>) {
-        todo!()
+    pub fn monomorphize(
+        mut self,
+        typestore: &mut TypeStore<Token<'src>>,
+        env: &mut Environment,
+        entry: Var,
+    ) -> (HashSet<TypeId>, Vec<(Var, TypedFunction<'src>)>) {
+        let mut ctx = MonoContext::new(&self, env, typestore);
+
+        // Register the entry point with no generic arguments.
+        ctx.request_function(FunctionInstance {
+            var: entry,
+            args: vec![],
+        });
+
+        // Process each requested specialization.
+        while let Some(instance) = ctx.pending.pop() {
+            ctx.monomorphize_function(instance);
+        }
+
+        (ctx.types, ctx.functions)
     }
 }
 

@@ -9,7 +9,7 @@ use crate::typecheck::{
 
 use super::constraint::ConstraintOrigin;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Function<'src, Meta> {
     pub ty: FunctionType,
     pub params: Vec<TypeVar>,

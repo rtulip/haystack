@@ -1,17 +1,17 @@
 use std::fmt::Display;
 
 use crate::{lex::token::Token, parser::signature::Signature};
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParamatarizedIdent<'src> {
     pub base: Token<'src>,
     pub params: Vec<ParseType<'src>>,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParseTypePath<'src> {
     pub path: Vec<ParamatarizedIdent<'src>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ParseType<'src> {
     Simple(ParamatarizedIdent<'src>),
     Pointer { inner: Box<Self>, mutable: bool },

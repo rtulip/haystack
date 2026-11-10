@@ -2897,6 +2897,28 @@ where
         Ok(self.intern(Type::Type(tid)))
     }
 
+    pub fn is_free(&self, tid: &TypeId) -> bool {
+        
+        match &self.types[tid.0] {
+            Type::TypeVar(_) => true,
+            Type::RigidTypeVar(_) => true,
+            Type::Builtin(_) => false,
+            Type::Function(func) => func
+                .input
+                .iter()
+                .chain(func.output.iter())
+                .any(|tid| self.is_free(tid)),
+            Type::Pointer(p) => self.is_free(&p.tid),
+            Type::Struct(s) => s.args.iter().any(|tid| self.is_free(tid)),
+            Type::Enum(e) => e.args.iter().any(|tid| self.is_free(tid)),
+            Type::Tuple(tids) => tids.iter().any(|tid| self.is_free(tid)),
+            Type::Variant(v) => v.args.iter().any(|tid| self.is_free(tid)),
+            Type::Type(tid) => self.is_free(tid),
+            Type::Projection(_) => todo!(),
+            Type::Never => todo!(),
+        }
+    }
+
     pub fn assign_vars_from_concrete(
         &mut self,
         env: &Environment,
@@ -2909,9 +2931,7 @@ where
         let vars: Vec<_> = scheme
             .vars
             .iter()
-            .map(|var| {
-                self.freshen_type_var(*var, &mut fresh, meta)
-            })
+            .map(|var| self.freshen_type_var(*var, &mut fresh, meta))
             .collect();
         let scheme_tid = self.freshen_tid(scheme.tid, &mut fresh, meta);
 
@@ -2923,7 +2943,7 @@ where
         for tid in vars {
             tids.push(self.normalize_ty(env, tid, meta)?.1);
         }
-            
+
         Ok(tids)
     }
 }

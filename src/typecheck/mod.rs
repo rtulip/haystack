@@ -1880,8 +1880,8 @@ impl<'src> TypeCheck<'src> {
             let f = Function::new(
                 f.input,
                 f.output,
-                params,
-                fn_info.predicates,
+                params.clone(),
+                fn_info.predicates.clone(),
                 fn_info.body.unwrap(),
             )
             .type_check(&mut self.typestore, &self.env, &self.scope)
@@ -1890,6 +1890,9 @@ impl<'src> TypeCheck<'src> {
 
             let (var, _) = self.scope.get_var(name).unwrap();
             let fresh_var = self.env.fresh_var();
+
+            let scheme = Scheme::new(params, f.expr.meta.1, fn_info.predicates);
+            self.env.bind_scheme(fresh_var, scheme);
 
             typed_impl.fn_map.insert(var, fresh_var);
             typed_functions.push((fresh_var, f));
@@ -2043,6 +2046,43 @@ impl<'a, 'src> MonoContext<'a, 'src> {
         }
     }
 
+    fn request_type(&mut self, tid: TypeId, substitutions: &HashMap<TypeVar, TypeId>) -> TypeId {
+        let tid = self.typestore.replace(tid, substitutions);
+        if !self.typestore.is_free(&tid) {
+            match &self.typestore.get(tid).unwrap() {
+                Type::TypeVar(type_var) => todo!(),
+                Type::RigidTypeVar(type_var) => todo!(),
+                Type::Builtin(_) => (),
+                Type::Function(f) => {
+                    for tid in &f.input {
+                        self.types.insert(*tid);
+                    }
+
+                    for tid in &f.output {
+                        self.types.insert(*tid);
+                    }
+                }
+                Type::Pointer(pointer_type) => todo!(),
+                Type::Struct(struct_type) => todo!(),
+                Type::Enum(enum_type) => todo!(),
+                Type::Tuple(type_ids) => todo!(),
+                Type::Variant(variant_type) => {
+                    for tid in &variant_type.args {
+                        self.types.insert(*tid);
+                    }
+                }
+                Type::Type(type_id) => {
+                    self.types.insert(*type_id);
+                }
+                Type::Projection(projection) => todo!(),
+                Type::Never => todo!(),
+            };
+            self.types.insert(tid);
+        }
+
+        tid
+    }
+
     fn request_function(&mut self, instance: FunctionInstance) -> Var {
         // Already requested or generated.
         if let Some(var) = self.instances.get(&instance) {
@@ -2069,7 +2109,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
         );
         let mono_var = self.instances[&instance];
 
-        // assert_eq!(original.params.len(), instance.args.len());
+        assert_eq!(original.params.len(), instance.args.len());
 
         let substitutions = HashMap::from_iter(
             original
@@ -2079,7 +2119,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                 .map(|(var, tid)| (*var, *tid)),
         );
 
-        let tid = self.typestore.replace(original.expr.meta.1, &substitutions);
+        let tid = self.request_type(original.expr.meta.1, &substitutions);
 
         // Specialize the function body.
         let expr = self.monomorphize_expr(original.expr.clone(), &substitutions);
@@ -2102,7 +2142,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
     ) -> MatchPattern {
         match pattern {
             MatchPattern::Variant(tid) => {
-                MatchPattern::Variant(self.typestore.replace(tid, replacements))
+                MatchPattern::Variant(self.request_type(tid, replacements))
             }
         }
     }
@@ -2115,7 +2155,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
         eprintln!("{}: Monomorphizing: {}.", expr.meta.0.loc, expr.meta.0.kind);
 
         let token = expr.meta.0;
-        let tid = self.typestore.replace(expr.meta.1, substitutions);
+        let tid = self.request_type(expr.meta.1, substitutions);
 
         let kind = match expr.expr {
             ExprKind::U8(_)
@@ -2151,7 +2191,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             ExprKind::Tuple(exprs) => todo!(),
 
             ExprKind::Call => todo!(),
-            ExprKind::Type(tid) => ExprKind::Type(self.typestore.replace(tid, substitutions)),
+            ExprKind::Type(tid) => ExprKind::Type(self.request_type(tid, substitutions)),
             ExprKind::UncheckedCast => todo!(),
             ExprKind::Add(type_id) => todo!(),
             ExprKind::NamedMemberAccess { var, member } => todo!(),
@@ -2176,7 +2216,10 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             ExprKind::Read => todo!(),
         };
 
-        Expr { expr: kind, meta: (token, tid) }
+        Expr {
+            expr: kind,
+            meta: (token, tid),
+        }
     }
 
     fn infer_function_args(
@@ -2188,7 +2231,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
     ) -> Vec<TypeId> {
         let scheme = self.env.get_var(&var).unwrap().clone();
 
-        let concrete_tid = self.typestore.replace(instantiated_tid, substitutions);
+        let concrete_tid = self.request_type(instantiated_tid, substitutions);
 
         // Pattern: fn(T) -> T
         // Actual:  fn(u64) -> u64
@@ -2196,9 +2239,15 @@ impl<'a, 'src> MonoContext<'a, 'src> {
         // Result: T -> u64
         let inferred = self
             .typestore
-            .assign_vars_from_concrete(&mut self.env, &scheme, concrete_tid, token).unwrap();
+            .assign_vars_from_concrete(&mut self.env, &scheme, concrete_tid, token)
+            .unwrap();
 
-        scheme.vars.iter().enumerate().map(|(idx, _)| inferred[idx]).collect()
+        scheme
+            .vars
+            .iter()
+            .enumerate()
+            .map(|(idx, _)| inferred[idx])
+            .collect()
     }
 
     fn resolve_function_instance(
@@ -2209,17 +2258,18 @@ impl<'a, 'src> MonoContext<'a, 'src> {
         substitutions: &HashMap<TypeVar, TypeId>,
     ) -> Var {
         // Recover the concrete type arguments used at this reference.
-        let args = self.infer_function_args(token, var, instantiated_tid, substitutions);
 
         let instance = if let Some(cid) = self.world.interface_fns.get(&var) {
             let mut instance = None;
             for typed_impl in self.world.interface_impls.get(cid).unwrap() {
                 let mapped_var = typed_impl.fn_map.get(&var).unwrap();
+                let args =
+                    self.infer_function_args(token, *mapped_var, instantiated_tid, substitutions);
                 let tid = self.world.functions.get(&mapped_var).unwrap().expr.meta.1;
                 if tid == instantiated_tid {
                     instance = Some(FunctionInstance {
                         var: *mapped_var,
-                        args: typed_impl.args.clone(),
+                        args,
                     });
                     break;
                 }
@@ -2230,6 +2280,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                 None => todo!(),
             }
         } else {
+            let args = self.infer_function_args(token, var, instantiated_tid, substitutions);
             FunctionInstance { var, args }
         };
 

@@ -48,7 +48,7 @@ pub mod typ;
 pub mod typestore;
 pub mod union_find;
 
-type TypedFunction<'src> = Function<'src, (Token<'src>, TypeId)>;
+pub type TypedFunction<'src> = Function<'src, (Token<'src>, TypeId)>;
 
 pub struct TypeCheck<'src> {
     typestore: TypeStore<Token<'src>>,
@@ -1747,7 +1747,6 @@ impl<'src> TypeCheck<'src> {
         for (name, fn_info) in info.fns {
             self.scope.new_scope();
 
-
             let mut params = self.add_params_to_scope(&fn_info.params, &fn_info.token)?;
             let mut args = vec![];
             for ty in &fn_info.params {
@@ -1777,7 +1776,6 @@ impl<'src> TypeCheck<'src> {
         }
 
         for fn_impl in &iface_impl.impls {
-
             self.scope.new_scope();
 
             self.add_params_to_scope(&fn_impl.params, &fn_impl.name)?;
@@ -2032,62 +2030,88 @@ impl<'a, 'src> MonoContext<'a, 'src> {
         }
     }
 
-    fn request_type_inner(&self, tid: &TypeId) -> HashSet<TypeId> {
-        if self.types.contains(tid) {
+    fn request_type_inner(
+        &mut self,
+        tid: TypeId,
+        substitutions: &HashMap<TypeVar, TypeId>,
+    ) -> HashSet<TypeId> {
+        let tid = self.typestore.replace(tid, substitutions);
+        if self.types.contains(&tid) {
             return HashSet::new();
         }
 
-        let mut concrete = HashSet::new();
-        if !self.typestore.is_free(tid) {
-            concrete.insert(*tid);
+        eprintln!("{}: Requesting Type: {}", tid.0, self.typestore.fmt(tid));
 
-            match &self.typestore.get(*tid).unwrap() {
+        let mut concrete = HashSet::new();
+        if !self.typestore.is_free(&tid) {
+            eprintln!(
+                "    {} is not free. Adding it to the world",
+                self.typestore.fmt(tid)
+            );
+            concrete.insert(tid);
+
+            match &self.typestore.get(tid).unwrap().clone() {
                 Type::TypeVar(_) | Type::RigidTypeVar(_) => {
-                    concrete.insert(*tid);
+                    concrete.insert(tid);
                 }
                 Type::Builtin(_) => (),
                 Type::Function(f) => {
-                    f.input
-                        .iter()
-                        .chain(f.output.iter())
-                        .for_each((|tid| concrete.extend(self.request_type_inner(tid))));
+                    f.input.iter().chain(f.output.iter()).for_each(
+                        (|tid| concrete.extend(self.request_type_inner(*tid, substitutions))),
+                    );
                 }
                 Type::Pointer(pointer_type) => {
-                    concrete.extend(self.request_type_inner(&pointer_type.tid));
+                    concrete.extend(self.request_type_inner(pointer_type.tid, substitutions));
                 }
                 Type::Struct(s) => {
-                    s.args
+                    let s = s.clone();
+                    let args: Vec<_> = s
+                        .args
                         .iter()
-                        .for_each(|tid| concrete.extend(self.request_type_inner(tid)));
+                        .map(|tid| {
+                            concrete.extend(self.request_type_inner(*tid, substitutions));
+                            self.typestore.replace(*tid, substitutions)
+                        })
+                        .collect();
 
-                    let def = self.typestore.get_struct_def(s.sid);
-                    def.members
-                        .iter()
-                        .for_each(|tid| concrete.extend(self.request_type_inner(&tid)));
+                    let members = self.typestore.get_struct_members(s.clone());
+                    members
+                        .into_iter()
+                        .for_each(|tid| concrete.extend(self.request_type_inner(tid, &substitutions)));
                 }
                 Type::Enum(e) => {
-                    e.args
+                    eprintln!("    Looking at enum variants");
+                    let args: Vec<_> = e
+                        .args
                         .iter()
-                        .for_each(|tid| concrete.extend(self.request_type_inner(tid)));
-
-                    let def = self.typestore.get_enum_def(e.eid);
-                    def.variants.iter().for_each(|maybe_tid| {
-                        maybe_tid.map(|tid| concrete.extend(self.request_type_inner(&tid)));
+                        .map(|tid| {
+                            concrete.extend(self.request_type_inner(*tid, substitutions));
+                            self.typestore.replace(*tid, substitutions)
+                        })
+                        .collect();
+                    let variants = self.typestore.get_enum_variants(e.clone());
+                    variants.into_iter().for_each(|tid| {
+                        if let Some(tid) = tid {
+                            concrete.extend(self.request_type_inner(tid, &substitutions))
+                        }
                     });
+                    eprintln!("    Done with variants");
                 }
                 Type::Tuple(type_ids) => todo!(),
                 Type::Variant(v) => {
-                    v.args
-                        .iter()
-                        .for_each(|tid| concrete.extend(self.request_type_inner(tid)));
+                    v.args.iter().for_each(|tid| {
+                        concrete.extend(self.request_type_inner(*tid, substitutions))
+                    });
 
-                    let def = self.typestore.get_enum_def(v.eid);
-                    def.variants.iter().for_each(|maybe_tid| {
-                        maybe_tid.map(|tid| concrete.extend(self.request_type_inner(&tid)));
+                    let variants = self.typestore.get_enum_def(v.eid).variants.clone();
+                    variants.into_iter().for_each(|maybe_tid| {
+                        maybe_tid.map(|tid| {
+                            concrete.extend(self.request_type_inner(tid, substitutions))
+                        });
                     });
                 }
                 Type::Type(tid) => {
-                    concrete.extend(self.request_type_inner(tid));
+                    concrete.extend(self.request_type_inner(*tid, substitutions));
                 }
                 Type::Projection(projection) => todo!(),
                 Type::Never => todo!(),
@@ -2100,7 +2124,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
     fn request_type(&mut self, tid: TypeId, substitutions: &HashMap<TypeVar, TypeId>) -> TypeId {
         let tid = self.typestore.replace(tid, substitutions);
 
-        let new_types = self.request_type_inner(&tid);
+        let new_types = self.request_type_inner(tid, substitutions);
         self.types.extend(new_types);
 
         tid
@@ -2171,7 +2195,6 @@ impl<'a, 'src> MonoContext<'a, 'src> {
         expr: Expr<'src, (Token<'src>, TypeId)>,
         substitutions: &HashMap<TypeVar, TypeId>,
     ) -> Expr<'src, (Token<'src>, TypeId)> {
-
         let token = expr.meta.0;
         let tid = self.request_type(expr.meta.1, substitutions);
 
@@ -2331,7 +2354,7 @@ impl<'src> TypedWorld<'src> {
         typestore: &mut TypeStore<Token<'src>>,
         env: &mut Environment,
         entry: Var,
-    ) -> (HashSet<TypeId>, Vec<(Var, TypedFunction<'src>)>) {
+    ) -> (Vec<TypeId>, Vec<(Var, TypedFunction<'src>)>) {
         let mut ctx = MonoContext::new(&self, env, typestore);
 
         // Register the entry point with no generic arguments.
@@ -2345,7 +2368,10 @@ impl<'src> TypedWorld<'src> {
             ctx.monomorphize_function(instance);
         }
 
-        (ctx.types, ctx.functions)
+        let mut types = Vec::from_iter(ctx.types.into_iter());
+        types.sort();
+
+        (types, ctx.functions)
     }
 }
 

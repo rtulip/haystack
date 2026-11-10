@@ -1,11 +1,13 @@
 #![allow(unused)]
 use crate::{
+    codegen::CCodeGen,
     error::HayError,
     lex::{scanner::Scanner, token::Loc},
     parser::parser::Parser,
     typecheck::TypeCheck,
 };
 
+mod codegen;
 mod error;
 mod lex;
 mod parser;
@@ -29,17 +31,10 @@ fn main() -> Result<(), HayError> {
 
     let (types, fns) = world.monomorphize(&mut typestore, &mut env, entry);
 
-    for tid in types {
-        eprintln!("{tid:?}: {}", typestore.fmt(tid))
-    }
+    let mut s = String::new();
+    CCodeGen::generate(&mut s, &mut typestore, &types, &fns).unwrap();
 
-    for (var, f) in fns {
-        eprintln!(
-            "{}: {var:?} {}",
-            f.expr.meta.0.loc,
-            typestore.fmt(f.expr.meta.1)
-        );
-    }
+    println!("{s}");
 
     Ok(())
 }

@@ -96,6 +96,34 @@ where
         &self.enums[eid.0]
     }
 
+    pub fn get_enum_variants(&mut self, e: EnumType) -> Vec<Option<TypeId>> {
+        let def = self.get_enum_def(e.eid).clone();
+        assert!(def.vars.len() == e.args.len());
+        let subs = HashMap::from_iter(def.vars.into_iter().zip(e.args.into_iter()));
+
+        def.variants
+            .into_iter()
+            .map(|tid| {
+                if let Some(tid) = tid {
+                    Some(self.replace(tid, &subs))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    pub fn get_struct_members(&mut self, s: StructType) -> Vec<TypeId> {
+        let def = self.get_struct_def(s.sid).clone();
+        assert!(def.vars.len() == s.args.len());
+        let subs = HashMap::from_iter(def.vars.into_iter().zip(s.args.into_iter()));
+
+        def.members
+            .into_iter()
+            .map(|tid| self.replace(tid, &subs))
+            .collect()
+    }
+
     pub fn add_struct(&mut self, def: StructDef) -> (TypeId, StructId) {
         let sid = StructId(self.structs.len());
         let s = StructType {
@@ -2796,7 +2824,11 @@ where
                     .collect();
                 self.function(func)
             }
-            Type::Pointer(pointer_type) => todo!(),
+            Type::Pointer(p) => {
+                let p = p.clone();
+                let tid = self.replace(p.tid, replacements);
+                self.pointer(tid, p.mutability)
+            }
             Type::Struct(s) => {
                 let s = s.clone();
                 let args = s

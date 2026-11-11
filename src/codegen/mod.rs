@@ -69,8 +69,12 @@ where
             Type::RigidTypeVar(_) => todo!(),
             Type::Builtin(_) => (),
             Type::Function(f) => {
-                writeln!(self.w, "struct {};", Self::format_function_input(*tid))?;
-                writeln!(self.w, "struct {};", Self::format_function_output(*tid))?;
+                if (!f.input.is_empty()) {
+                    writeln!(self.w, "struct {};", Self::format_function_input(*tid))?;
+                }
+                if !f.output.is_empty() {
+                    writeln!(self.w, "struct {};", Self::format_function_output(*tid))?;
+                }
             }
             Type::Pointer(_) => (),
             Type::Struct(s) => {
@@ -97,6 +101,10 @@ where
     }
 
     fn declare_function_input(&mut self, tid: TypeId, input: &[TypeId]) -> std::fmt::Result {
+        if input.is_empty() {
+            return writeln!(self.w, "typedef void {};", Self::format_function_input(tid));
+        }
+
         writeln!(
             self.w,
             "typedef struct {} {{",
@@ -110,6 +118,10 @@ where
     }
 
     fn declare_function_output(&mut self, tid: TypeId, output: &[TypeId]) -> std::fmt::Result {
+        if output.is_empty() {
+            return writeln!(self.w, "typedef void {};", Self::format_function_output(tid));
+        }
+
         writeln!(
             self.w,
             "typedef struct {} {{",

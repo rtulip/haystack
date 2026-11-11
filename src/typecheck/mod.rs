@@ -2075,9 +2075,9 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                         .collect();
 
                     let members = self.typestore.get_struct_members(s.clone());
-                    members
-                        .into_iter()
-                        .for_each(|tid| concrete.extend(self.request_type_inner(tid, &substitutions)));
+                    members.into_iter().for_each(|tid| {
+                        concrete.extend(self.request_type_inner(tid, &substitutions))
+                    });
                 }
                 Type::Enum(e) => {
                     eprintln!("    Looking at enum variants");
@@ -2089,7 +2089,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                             self.typestore.replace(*tid, substitutions)
                         })
                         .collect();
-                    let variants = self.typestore.get_enum_variants(e.clone());
+                    let variants = self.typestore.get_enum_variants(e.eid, e.args.clone());
                     variants.into_iter().for_each(|tid| {
                         if let Some(tid) = tid {
                             concrete.extend(self.request_type_inner(tid, &substitutions))

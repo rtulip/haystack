@@ -96,10 +96,10 @@ where
         &self.enums[eid.0]
     }
 
-    pub fn get_enum_variants(&mut self, e: EnumType) -> Vec<Option<TypeId>> {
-        let def = self.get_enum_def(e.eid).clone();
-        assert!(def.vars.len() == e.args.len());
-        let subs = HashMap::from_iter(def.vars.into_iter().zip(e.args.into_iter()));
+    pub fn get_enum_variants(&mut self, eid: EnumId, args: Vec<TypeId>) -> Vec<Option<TypeId>> {
+        let def = self.get_enum_def(eid).clone();
+        assert!(def.vars.len() == args.len());
+        let subs = HashMap::from_iter(def.vars.into_iter().zip(args.into_iter()));
 
         def.variants
             .into_iter()

@@ -973,10 +973,7 @@ where
         } else {
             // If an identifier _isn't_ a funciton, then add the value to the stack.
             stack.push(inst.tid);
-            let tid = self.function(FunctionType {
-                input: vec![],
-                output: vec![inst.tid],
-            });
+            let tid = inst.tid;
             let constraints = inst
                 .predicates
                 .into_iter()

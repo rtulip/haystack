@@ -1,7 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
-    fmt::Write,
-    format, matches, todo, unreachable, vec, writeln,
+    collections::{HashMap, HashSet}, eprintln, fmt::Write, format, matches, todo, unreachable, vec, writeln,
 };
 
 use crate::{
@@ -206,8 +204,10 @@ where
             }
             Type::Enum(e) => {
                 let eid = e.eid;
-                let variants = self.typestore.get_enum_variants(e.eid, e.args.clone());
+                eprintln!("Enum: {eid:?} -- Args: {:?}", &e.args);
 
+                let variants = self.typestore.get_enum_variants(e.eid, e.args.clone());
+                eprintln!("    {variants:?}");
                 writeln!(
                     self.w,
                     "typedef struct {} {{",
@@ -395,8 +395,12 @@ where
         input: usize,
         tid: TypeId,
         case: &MatchCase<'src, (Token<'src>, TypeId)>,
+        first: bool,
         stack_idents: &mut Vec<usize>,
     ) -> std::fmt::Result {
+        
+        let case_tid = case.expr.meta.1;
+        let FunctionType { input: case_input, output: case_output } = self.get_stack_effect(case_tid);
         match case.pattern {
             MatchPattern::Variant(variant_tid) => {
                 let Type::Variant(variant) = self.typestore.get(variant_tid).unwrap().clone()
@@ -404,28 +408,29 @@ where
                     unreachable!()
                 };
 
-                let enum_def = self.typestore.get_enum_variants(variant.eid, variant.args);
-
                 writeln!(
                     self.w,
-                    "    if ({}.tag == {}) {{",
+                    "    {}if ({}.tag == {}) {{",
+                    if first { "" } else { "else " },
                     Self::format_stack_ident(input),
                     Self::format_enum_tag(variant.eid, tid, variant.variant)
                 )?;
-                if let Some(inner_tid) = enum_def[variant.variant] {
+
+                if !case_input.is_empty() {
+
                     let ident = self.next_stack_ident();
                     stack_idents.push(ident);
 
                     writeln!(
                         self.w,
-                        "    const {} {} = {}.value._{}",
-                        Self::format_tid(inner_tid),
+                        "    const {} {} = {}.value._{};",
+                        Self::format_tid(case_input[0]),
                         Self::format_stack_ident(ident),
                         Self::format_stack_ident(input),
                         variant.variant
                     )?;
                 }
-
+                
                 self.generate_expr(&case.expr, stack_idents)?;
                 writeln!(self.w, "    }}")?;
             }
@@ -446,8 +451,10 @@ where
 
         assert!(input.len() == 1);
 
+        let mut first = true;
         for case in &match_expr.cases {
-            self.generate_match_case(enum_input, input[0], &case, stack_idents)?;
+            self.generate_match_case(enum_input, input[0], &case, first, stack_idents)?;
+            first = false;
         }
         if let Some(finally) = &match_expr.finally {
             todo!();
@@ -500,7 +507,17 @@ where
                     Type::Function(_) => {
                         self.generate_function_call(tid, var, stack_idents)?;
                     }
-                    _ => todo!(),
+                    _ => {
+                        let ident = self.next_stack_ident();
+                        stack_idents.push(ident);
+                        writeln!(
+                            self.w,
+                            "    const {} {} = {};",
+                            Self::format_tid(tid),
+                            Self::format_stack_ident(ident),
+                            Self::format_var(*var)
+                        );
+                    }
                 }
             }
             crate::typecheck::expr::ExprKind::Ref { var, mutability } => {

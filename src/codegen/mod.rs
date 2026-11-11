@@ -7,9 +7,10 @@ use std::{
 use crate::{
     lex::token::Token,
     typecheck::{
-        expr::Var,
+        expr::{Expr, MatchCase, MatchExpr, MatchPattern, Var},
+        func,
         typ::{
-            typ::{BuiltinType, EnumDef, EnumType, Mutability, Type, VariantType},
+            typ::{BuiltinType, EnumDef, EnumType, FunctionType, Mutability, Type, VariantType},
             type_id::{EnumId, StructId, TypeId},
         },
         typestore::TypeStore,
@@ -25,12 +26,17 @@ where
     types: &'a Vec<TypeId>,
     fns: &'a [(Var, TypedFunction<'src>)],
     w: &'a mut W,
+    ident_count: usize,
 }
 
 impl<'a, 'src, W> CCodeGen<'a, 'src, W>
 where
     W: Write,
 {
+    fn format_stack_ident(n: usize) -> String {
+        format!("anon_{n}")
+    }
+
     fn format_enum_id(eid: EnumId, tid: TypeId) -> String {
         format!("haystack_enum_{}_{}", eid.0, tid.0)
     }
@@ -63,6 +69,10 @@ where
         String::from("metatype")
     }
 
+    fn format_var(var: Var) -> String {
+        format!("haystack_var_{}", var.0)
+    }
+
     fn forward_declare_tid(&mut self, tid: &TypeId) -> std::fmt::Result {
         match self.typestore.get(*tid).unwrap() {
             Type::TypeVar(_) => todo!(),
@@ -92,6 +102,13 @@ where
         Ok(())
     }
 
+    fn format_mutability(mutability: Mutability) -> &'static str {
+        match mutability {
+            Mutability::Mutable => "",
+            Mutability::Const => "const ",
+        }
+    }
+
     fn forward_declare_types(&mut self) -> std::fmt::Result {
         for tid in self.types {
             self.forward_declare_tid(tid)?;
@@ -119,7 +136,11 @@ where
 
     fn declare_function_output(&mut self, tid: TypeId, output: &[TypeId]) -> std::fmt::Result {
         if output.is_empty() {
-            return writeln!(self.w, "typedef void {};", Self::format_function_output(tid));
+            return writeln!(
+                self.w,
+                "typedef void {};",
+                Self::format_function_output(tid)
+            );
         }
 
         writeln!(
@@ -160,11 +181,7 @@ where
                 )?;
             }
             Type::Pointer(p) => {
-                let modifier = if p.mutability == Mutability::Mutable {
-                    ""
-                } else {
-                    "const "
-                };
+                let modifier = Self::format_mutability(p.mutability);
 
                 writeln!(
                     self.w,
@@ -257,6 +274,396 @@ where
         self.declare_metatypes(&metatypes)?;
         for tid in self.types {
             self.declare_tid(*tid)?;
+        }
+
+        Ok(())
+    }
+
+    fn forward_declare_functions(&mut self) -> std::fmt::Result {
+        for (var, func) in self.fns {
+            let tid = func.expr.meta.1;
+            writeln!(
+                self.w,
+                "{} {}({});",
+                Self::format_function_output(tid),
+                Self::format_var(*var),
+                Self::format_function_input(tid)
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn get_stack_effect(&self, tid: TypeId) -> FunctionType {
+        let Type::Function(f) = self.typestore.get(tid).cloned().unwrap() else {
+            unreachable!();
+        };
+
+        f
+    }
+
+    fn generate_input_binding(
+        &mut self,
+        tid: TypeId,
+        input: &[TypeId],
+        stack_idents: &mut Vec<usize>,
+    ) -> Result<Option<usize>, std::fmt::Error> {
+        if input.len() == 0 {
+            return Ok(None);
+        }
+
+        let ident = self.next_stack_ident();
+        writeln!(
+            self.w,
+            "    {} {} = {{",
+            Self::format_function_input(tid),
+            Self::format_stack_ident(ident)
+        )?;
+        for (idx, tid) in input.iter().enumerate().rev() {
+            let ident = stack_idents.pop().unwrap();
+            writeln!(
+                self.w,
+                "        ._{idx} = {},",
+                Self::format_stack_ident(ident)
+            )?;
+        }
+        writeln!(self.w, "    }};")?;
+        Ok(Some(ident))
+    }
+
+    fn generate_output_unbinding(
+        &mut self,
+        output_ident: usize,
+        output: &[TypeId],
+        stack_idents: &mut Vec<usize>,
+    ) -> std::fmt::Result {
+        for (idx, tid) in output.iter().enumerate() {
+            let ident = self.next_stack_ident();
+            writeln!(
+                self.w,
+                "    const {} {} = {}._{idx};",
+                Self::format_tid(*tid),
+                Self::format_stack_ident(ident),
+                Self::format_stack_ident(output_ident)
+            )?;
+            stack_idents.push(ident);
+        }
+        Ok(())
+    }
+
+    fn generate_function_call(
+        &mut self,
+        tid: TypeId,
+        var: &Var,
+        stack_idents: &mut Vec<usize>,
+    ) -> std::fmt::Result {
+        let func = self.get_stack_effect(tid);
+        let input = self.generate_input_binding(tid, &func.input, stack_idents)?;
+
+        let (output_prefix, output) = match func.output.len() {
+            0 => (String::new(), None),
+            _ => {
+                let output = self.next_stack_ident();
+                (
+                    format!(
+                        "const {} {} = ",
+                        Self::format_function_output(tid),
+                        Self::format_stack_ident(output)
+                    ),
+                    Some(output),
+                )
+            }
+        };
+
+        writeln!(
+            self.w,
+            "    {output_prefix}{}({});",
+            Self::format_var(*var),
+            match input {
+                Some(input) => Self::format_stack_ident(input),
+                None => "".into(),
+            },
+        )?;
+        if let Some(output) = output {
+            self.generate_output_unbinding(output, &func.output, stack_idents)?;
+        }
+        Ok(())
+    }
+
+    fn generate_match_case(
+        &mut self,
+        input: usize,
+        tid: TypeId,
+        case: &MatchCase<'src, (Token<'src>, TypeId)>,
+        stack_idents: &mut Vec<usize>,
+    ) -> std::fmt::Result {
+        match case.pattern {
+            MatchPattern::Variant(variant_tid) => {
+                let Type::Variant(variant) = self.typestore.get(variant_tid).unwrap().clone()
+                else {
+                    unreachable!()
+                };
+
+                let enum_def = self.typestore.get_enum_variants(variant.eid, variant.args);
+
+                writeln!(
+                    self.w,
+                    "    if ({}.tag == {}) {{",
+                    Self::format_stack_ident(input),
+                    Self::format_enum_tag(variant.eid, tid, variant.variant)
+                )?;
+                if let Some(inner_tid) = enum_def[variant.variant] {
+                    let ident = self.next_stack_ident();
+                    stack_idents.push(ident);
+
+                    writeln!(
+                        self.w,
+                        "    const {} {} = {}.value._{}",
+                        Self::format_tid(inner_tid),
+                        Self::format_stack_ident(ident),
+                        Self::format_stack_ident(input),
+                        variant.variant
+                    )?;
+                }
+
+                self.generate_expr(&case.expr, stack_idents)?;
+                writeln!(self.w, "    }}")?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn generate_match_expr(
+        &mut self,
+        tid: TypeId,
+        match_expr: &MatchExpr<'src, (Token<'src>, TypeId)>,
+        stack_idents: &mut Vec<usize>,
+    ) -> std::fmt::Result {
+        let enum_input = stack_idents.pop().unwrap();
+
+        let FunctionType { input, output } = self.get_stack_effect(tid);
+
+        assert!(input.len() == 1);
+
+        for case in &match_expr.cases {
+            self.generate_match_case(enum_input, input[0], &case, stack_idents)?;
+        }
+        if let Some(finally) = &match_expr.finally {
+            todo!();
+        }
+
+        Ok(())
+    }
+
+    fn generate_expr(
+        &mut self,
+        expr: &Expr<'src, (Token<'src>, TypeId)>,
+        stack_idents: &mut Vec<usize>,
+    ) -> std::fmt::Result {
+        let tid = expr.meta.1;
+        match &expr.expr {
+            crate::typecheck::expr::ExprKind::U8(_) => todo!(),
+            crate::typecheck::expr::ExprKind::U64(_) => todo!(),
+            crate::typecheck::expr::ExprKind::Bool(b) => {
+                let ident = self.next_stack_ident();
+                stack_idents.push(ident);
+
+                writeln!(
+                    self.w,
+                    "    const {} {} = {b};",
+                    Self::format_tid(tid),
+                    Self::format_stack_ident(ident)
+                )?;
+            }
+            crate::typecheck::expr::ExprKind::String(s) => {
+                let ident = self.next_stack_ident();
+
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(output.len() == 1);
+                assert!(input.len() == 0);
+
+                writeln!(
+                    self.w,
+                    "    const {} {} = {{",
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(ident)
+                )?;
+                writeln!(self.w, "        ._0 = \"{s}\",")?;
+                writeln!(self.w, "        ._1 = sizeof(\"{s}\"),")?;
+                writeln!(self.w, "    }};")?;
+
+                stack_idents.push(ident);
+            }
+            crate::typecheck::expr::ExprKind::Ident(var) => {
+                match self.typestore.get(expr.meta.1).unwrap() {
+                    Type::Function(_) => {
+                        self.generate_function_call(tid, var, stack_idents)?;
+                    }
+                    _ => todo!(),
+                }
+            }
+            crate::typecheck::expr::ExprKind::Ref { var, mutability } => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() == 0);
+                assert!(output.len() == 1);
+                let ident = self.next_stack_ident();
+                writeln!(
+                    self.w,
+                    "    {}{}* {} = &{};",
+                    Self::format_mutability(*mutability),
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(ident),
+                    Self::format_var(*var)
+                )?;
+
+                stack_idents.push(ident);
+            }
+            crate::typecheck::expr::ExprKind::Block(exprs) => {
+                writeln!(self.w, "    {{")?;
+                for expr in exprs {
+                    self.generate_expr(expr, stack_idents)?;
+                }
+                writeln!(self.w, "    }}")?;
+            }
+            crate::typecheck::expr::ExprKind::Tuple(exprs) => todo!(),
+            crate::typecheck::expr::ExprKind::Bind(vars) => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() == vars.len());
+                assert!(output.len() == 0);
+                assert!(vars.len() <= stack_idents.len());
+
+                for (tid, var) in input.into_iter().zip(vars.iter()).rev() {
+                    let ident = stack_idents.pop().unwrap();
+                    writeln!(
+                        self.w,
+                        "    {} {} = {};",
+                        Self::format_tid(tid),
+                        Self::format_var(*var),
+                        Self::format_stack_ident(ident)
+                    )?;
+                }
+            }
+            crate::typecheck::expr::ExprKind::Call => todo!(),
+            crate::typecheck::expr::ExprKind::Type(tid) => {
+                let ident = self.next_stack_ident();
+                stack_idents.push(ident);
+                writeln!(
+                    self.w,
+                    "    const {} {} = {};",
+                    Self::format_metatype_tid(),
+                    Self::format_stack_ident(ident),
+                    Self::format_metatype(*tid)
+                )?
+            }
+            crate::typecheck::expr::ExprKind::UncheckedCast => todo!(),
+            crate::typecheck::expr::ExprKind::Add(type_id) => todo!(),
+            crate::typecheck::expr::ExprKind::Pack => {
+                let FunctionType { mut input, output } = self.get_stack_effect(tid);
+                assert!(output.len() == 1);
+
+                // discard the metatype
+                stack_idents.pop();
+                input.pop();
+
+                match self.typestore.get(output[0]).unwrap().clone() {
+                    Type::Struct(struct_type) => todo!(),
+                    Type::Variant(variant) => {
+                        assert!(input.len() <= 1);
+
+                        let input_tid = input.pop();
+                        let ident = self.next_stack_ident();
+                        writeln!(
+                            self.w,
+                            "    const {} {} = {{",
+                            Self::format_tid(output[0]),
+                            Self::format_stack_ident(ident)
+                        )?;
+                        writeln!(
+                            self.w,
+                            "        .tag = {},",
+                            Self::format_enum_tag(variant.eid, output[0], variant.variant)
+                        )?;
+                        if let Some(_) = input_tid {
+                            let input_ident = stack_idents.pop().unwrap();
+                            writeln!(
+                                self.w,
+                                "        .value._{} = {},",
+                                variant.variant,
+                                Self::format_stack_ident(input_ident)
+                            )?;
+                        }
+                        writeln!(self.w, "    }};")
+                    }
+                    _ => unreachable!(),
+                };
+            }
+            crate::typecheck::expr::ExprKind::NamedMemberAccess { var, member } => todo!(),
+            crate::typecheck::expr::ExprKind::MemberAccess { var, member } => todo!(),
+            crate::typecheck::expr::ExprKind::Match(match_expr) => {
+                self.generate_match_expr(tid, &match_expr, stack_idents)?
+            }
+            crate::typecheck::expr::ExprKind::If(if_expr) => todo!(),
+            crate::typecheck::expr::ExprKind::Read => todo!(),
+        }
+
+        Ok(())
+    }
+
+    fn next_stack_ident(&mut self) -> usize {
+        let ident = self.ident_count;
+        self.ident_count += 1;
+        ident
+    }
+
+    fn generate_input_unbinding(
+        &mut self,
+        input: &[TypeId],
+    ) -> Result<Vec<usize>, std::fmt::Error> {
+        let mut stack = vec![];
+        for (idx, tid) in input.iter().enumerate() {
+            let stack_ident = self.next_stack_ident();
+            writeln!(
+                self.w,
+                "    const {} {} = input._{idx};",
+                Self::format_tid(*tid),
+                Self::format_stack_ident(stack_ident)
+            )?;
+            stack.push(stack_ident)
+        }
+
+        Ok(stack)
+    }
+
+    fn declare_function(&mut self, var: &Var, func: &TypedFunction<'src>) -> std::fmt::Result {
+        let tid = func.expr.meta.1;
+        let Type::Function(FunctionType { input, output }) =
+            self.typestore.get(tid).unwrap().clone()
+        else {
+            unreachable!();
+        };
+
+        writeln!(
+            self.w,
+            "{} {}({}{}) {{",
+            Self::format_function_output(tid),
+            Self::format_var(*var),
+            Self::format_function_input(tid),
+            match input.len() {
+                0 => "",
+                _ => " input",
+            }
+        )?;
+        let mut stack = self.generate_input_unbinding(&input)?;
+        self.generate_expr(&func.expr, &mut stack)?;
+        writeln!(self.w, "}}");
+
+        Ok(())
+    }
+
+    fn declare_functions(&mut self) -> std::fmt::Result {
+        for (var, func) in self.fns {
+            self.declare_function(var, func)?;
         }
 
         Ok(())
@@ -361,6 +768,7 @@ where
             types: &types,
             fns,
             w,
+            ident_count: 0,
         };
 
         writeln!(&mut gen.w, "#include <stdint.h>")?;
@@ -368,6 +776,10 @@ where
         gen.forward_declare_types()?;
         writeln!(&mut gen.w);
         gen.declare_types()?;
+        writeln!(&mut gen.w);
+        gen.forward_declare_functions()?;
+        writeln!(&mut gen.w);
+        gen.declare_functions()?;
 
         Ok(())
     }

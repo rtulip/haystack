@@ -1,5 +1,8 @@
 use std::{
-    collections::{HashMap, HashSet}, eprintln, fmt::Write, format, matches, todo, unreachable, vec, writeln,
+    collections::{HashMap, HashSet},
+    eprintln,
+    fmt::Write,
+    format, matches, todo, unreachable, vec, writeln,
 };
 
 use crate::{
@@ -398,9 +401,11 @@ where
         first: bool,
         stack_idents: &mut Vec<usize>,
     ) -> std::fmt::Result {
-        
         let case_tid = case.expr.meta.1;
-        let FunctionType { input: case_input, output: case_output } = self.get_stack_effect(case_tid);
+        let FunctionType {
+            input: case_input,
+            output: case_output,
+        } = self.get_stack_effect(case_tid);
         match case.pattern {
             MatchPattern::Variant(variant_tid) => {
                 let Type::Variant(variant) = self.typestore.get(variant_tid).unwrap().clone()
@@ -417,7 +422,6 @@ where
                 )?;
 
                 if !case_input.is_empty() {
-
                     let ident = self.next_stack_ident();
                     stack_idents.push(ident);
 
@@ -430,7 +434,7 @@ where
                         variant.variant
                     )?;
                 }
-                
+
                 self.generate_expr(&case.expr, stack_idents)?;
                 writeln!(self.w, "    }}")?;
             }
@@ -588,6 +592,11 @@ where
                     Type::Variant(variant) => {
                         assert!(input.len() <= 1);
 
+                        let parent_tid = self.typestore.intern(Type::Enum(EnumType {
+                            eid: variant.eid,
+                            args: variant.args.clone(),
+                        }));
+
                         let input_tid = input.pop();
                         let ident = self.next_stack_ident();
                         writeln!(
@@ -599,7 +608,7 @@ where
                         writeln!(
                             self.w,
                             "        .tag = {},",
-                            Self::format_enum_tag(variant.eid, output[0], variant.variant)
+                            Self::format_enum_tag(variant.eid, parent_tid, variant.variant)
                         )?;
                         if let Some(_) = input_tid {
                             let input_ident = stack_idents.pop().unwrap();

@@ -219,7 +219,7 @@ impl<'src> Scanner<'src> {
         self.advance();
 
         let s = &self.source[self.start + 1..self.current - 1];
-        self.add_token(TokenKind::Literal(Literal::String("")));
+        self.add_token(TokenKind::Literal(Literal::String(s)));
 
         Ok(())
     }

@@ -1,4 +1,4 @@
-use std::vec;
+use std::{collections::HashMap, vec};
 
 use crate::typecheck::typ::{
     typ::{BuiltinType, Mutability},
@@ -38,6 +38,17 @@ impl<'src, Meta> MatchCase<'src, Meta> {
 pub struct MatchExpr<'src, Meta> {
     pub cases: Vec<MatchCase<'src, Meta>>,
     pub finally: Option<Box<Expr<'src, Meta>>>,
+}
+
+impl<'src, Meta> MatchExpr<'src, Meta> {
+    fn map_vars(&mut self, var_map: &HashMap<Var, Var>) {
+        self.cases
+            .iter_mut()
+            .for_each(|case| case.expr.map_vars(var_map));
+        if let Some(expr) = &mut self.finally {
+            expr.map_vars(var_map);
+        }
+    }
 }
 
 impl<'src, Meta> MatchExpr<'src, Meta> {
@@ -223,6 +234,41 @@ impl<'src, Meta> Expr<'src, Meta> {
                 otherwise: Box::new(otherwise),
             }),
             meta: meta,
+        }
+    }
+
+    pub fn map_vars(&mut self, var_map: &HashMap<Var, Var>) {
+        match &mut self.expr {
+            ExprKind::U8(_)
+            | ExprKind::U64(_)
+            | ExprKind::Bool(_)
+            | ExprKind::String(_)
+            | ExprKind::Call
+            | ExprKind::Type(_)
+            | ExprKind::UncheckedCast
+            | ExprKind::Add(_)
+            | ExprKind::Read
+            | ExprKind::Pack => (),
+
+            ExprKind::NamedMemberAccess { var, .. }
+            | ExprKind::MemberAccess { var, .. }
+            | ExprKind::Ref { var, .. }
+            | ExprKind::Ident(var) => match var_map.get(var) {
+                Some(new_var) => *var = *new_var,
+                None => (),
+            },
+            ExprKind::Block(exprs) | ExprKind::Tuple(exprs) => {
+                exprs.iter_mut().for_each(|e| e.map_vars(var_map));
+            }
+            ExprKind::Bind(vars) => vars.iter_mut().for_each(|var| match var_map.get(var) {
+                Some(new_var) => *var = *new_var,
+                None => (),
+            }),
+            ExprKind::Match(match_expr) => match_expr.map_vars(var_map),
+            ExprKind::If(if_expr) => {
+                if_expr.then.map_vars(var_map);
+                if_expr.otherwise.map_vars(var_map);
+            }
         }
     }
 }

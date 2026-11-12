@@ -1886,6 +1886,10 @@ impl<'src> TypeCheck<'src> {
 
         self.scope.end_scope();
 
+        typed_functions
+            .iter_mut()
+            .for_each(|(_, expr)| expr.expr.map_vars(&typed_impl.fn_map));
+
         Ok((info.cid, typed_impl, typed_functions))
     }
 
@@ -2097,7 +2101,9 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                     });
                     eprintln!("    Done with variants");
                 }
-                Type::Tuple(type_ids) => todo!(),
+                Type::Tuple(tids) => tids
+                    .iter()
+                    .for_each(|tid| concrete.extend(self.request_type_inner(*tid, substitutions))),
                 Type::Variant(v) => {
                     v.args.iter().for_each(|tid| {
                         concrete.extend(self.request_type_inner(*tid, substitutions))
@@ -2204,7 +2210,8 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             | ExprKind::Bool(_)
             | ExprKind::String(_)
             | ExprKind::Bind(_)
-            | ExprKind::Pack => expr.expr,
+            | ExprKind::Pack
+            | ExprKind::MemberAccess { .. } => expr.expr,
 
             ExprKind::Ident(var) => {
                 if self.world.functions.contains_key(&var) {
@@ -2229,14 +2236,18 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                     .map(|e| self.monomorphize_expr(e, substitutions))
                     .collect(),
             ),
-            ExprKind::Tuple(exprs) => todo!(),
+            ExprKind::Tuple(exprs) => ExprKind::Tuple(
+                exprs
+                    .into_iter()
+                    .map(|e| self.monomorphize_expr(e, substitutions))
+                    .collect(),
+            ),
 
             ExprKind::Call => todo!(),
             ExprKind::Type(tid) => ExprKind::Type(self.request_type(tid, substitutions)),
             ExprKind::UncheckedCast => todo!(),
             ExprKind::Add(type_id) => todo!(),
-            ExprKind::NamedMemberAccess { var, member } => todo!(),
-            ExprKind::MemberAccess { var, member } => todo!(),
+            ExprKind::NamedMemberAccess { var, member } => unreachable!(),
             ExprKind::Match(match_expr) => {
                 let cases = match_expr
                     .cases

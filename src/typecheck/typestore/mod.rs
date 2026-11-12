@@ -2844,7 +2844,14 @@ where
                     .collect();
                 self.intern(Type::Enum(EnumType { eid: e.eid, args }))
             }
-            Type::Tuple(type_ids) => todo!(),
+            Type::Tuple(tids) => {
+                let tids = tids
+                    .clone()
+                    .into_iter()
+                    .map(|tid| self.replace(tid, replacements))
+                    .collect();
+                self.intern(Type::Tuple(tids))
+            }
             Type::Variant(v) => {
                 let v = v.clone();
                 let args = v

@@ -6,16 +6,11 @@ use std::{
 };
 
 use crate::{
-    lex::token::Token,
-    typecheck::{
-        expr::{Expr, MatchCase, MatchExpr, MatchPattern, Var},
-        func,
-        typ::{
+    lex::token::Token, typecheck::{
+        TypedFunction, expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Var}, func, typ::{
             typ::{BuiltinType, EnumDef, EnumType, FunctionType, Mutability, Type, VariantType},
             type_id::{EnumId, StructId, TypeId},
-        },
-        typestore::TypeStore,
-        TypedFunction,
+        }, typestore::TypeStore,
     },
 };
 
@@ -474,9 +469,9 @@ where
     ) -> std::fmt::Result {
         let tid = expr.meta.1;
         match &expr.expr {
-            crate::typecheck::expr::ExprKind::U8(_) => todo!(),
-            crate::typecheck::expr::ExprKind::U64(_) => todo!(),
-            crate::typecheck::expr::ExprKind::Bool(b) => {
+            ExprKind::U8(_) => todo!(),
+            ExprKind::U64(_) => todo!(),
+            ExprKind::Bool(b) => {
                 let ident = self.next_stack_ident();
                 stack_idents.push(ident);
 
@@ -487,7 +482,7 @@ where
                     Self::format_stack_ident(ident)
                 )?;
             }
-            crate::typecheck::expr::ExprKind::String(s) => {
+            ExprKind::String(s) => {
                 let ident = self.next_stack_ident();
 
                 let FunctionType { input, output } = self.get_stack_effect(tid);
@@ -506,7 +501,7 @@ where
 
                 stack_idents.push(ident);
             }
-            crate::typecheck::expr::ExprKind::Ident(var) => {
+            ExprKind::Ident(var) => {
                 match self.typestore.get(expr.meta.1).unwrap() {
                     Type::Function(_) => {
                         self.generate_function_call(tid, var, stack_idents)?;
@@ -524,7 +519,7 @@ where
                     }
                 }
             }
-            crate::typecheck::expr::ExprKind::Ref { var, mutability } => {
+            ExprKind::Ref { var, mutability } => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 0);
                 assert!(output.len() == 1);
@@ -540,15 +535,37 @@ where
 
                 stack_idents.push(ident);
             }
-            crate::typecheck::expr::ExprKind::Block(exprs) => {
+            ExprKind::Block(exprs) => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                
+                let mut idents = vec![];
+                for tid in &output {
+
+                    let ident = self.next_stack_ident();
+                    idents.push(ident);
+                    writeln!(self.w, "    {} {};", Self::format_tid(*tid), Self::format_stack_ident(ident));
+                }
+
                 writeln!(self.w, "    {{")?;
                 for expr in exprs {
                     self.generate_expr(expr, stack_idents)?;
                 }
+                
+
+                for outvar in idents.iter().rev() {
+                    let invar = stack_idents.pop().unwrap();
+                    writeln!(self.w, "    {} = {};", Self::format_stack_ident(*outvar), Self::format_stack_ident(invar))?;
+                }
+
+                for outvar in idents {
+                    stack_idents.push(outvar);
+                }
+
                 writeln!(self.w, "    }}")?;
+
             }
-            crate::typecheck::expr::ExprKind::Tuple(exprs) => todo!(),
-            crate::typecheck::expr::ExprKind::Bind(vars) => {
+            ExprKind::Tuple(exprs) => todo!(),
+            ExprKind::Bind(vars) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == vars.len());
                 assert!(output.len() == 0);
@@ -565,8 +582,8 @@ where
                     )?;
                 }
             }
-            crate::typecheck::expr::ExprKind::Call => todo!(),
-            crate::typecheck::expr::ExprKind::Type(tid) => {
+            ExprKind::Call => todo!(),
+            ExprKind::Type(tid) => {
                 let ident = self.next_stack_ident();
                 stack_idents.push(ident);
                 writeln!(
@@ -577,9 +594,9 @@ where
                     Self::format_metatype(*tid)
                 )?
             }
-            crate::typecheck::expr::ExprKind::UncheckedCast => todo!(),
-            crate::typecheck::expr::ExprKind::Add(type_id) => todo!(),
-            crate::typecheck::expr::ExprKind::Pack => {
+            ExprKind::UncheckedCast => todo!(),
+            ExprKind::Add(type_id) => todo!(),
+            ExprKind::Pack => {
                 let FunctionType { mut input, output } = self.get_stack_effect(tid);
                 assert!(output.len() == 1);
 
@@ -619,18 +636,20 @@ where
                                 Self::format_stack_ident(input_ident)
                             )?;
                         }
-                        writeln!(self.w, "    }};")
+                        writeln!(self.w, "    }};")?;
+
+                        stack_idents.push(ident);
                     }
                     _ => unreachable!(),
                 };
             }
-            crate::typecheck::expr::ExprKind::NamedMemberAccess { var, member } => todo!(),
-            crate::typecheck::expr::ExprKind::MemberAccess { var, member } => todo!(),
-            crate::typecheck::expr::ExprKind::Match(match_expr) => {
+            ExprKind::NamedMemberAccess { var, member } => todo!(),
+            ExprKind::MemberAccess { var, member } => todo!(),
+            ExprKind::Match(match_expr) => {
                 self.generate_match_expr(tid, &match_expr, stack_idents)?
             }
-            crate::typecheck::expr::ExprKind::If(if_expr) => todo!(),
-            crate::typecheck::expr::ExprKind::Read => todo!(),
+            ExprKind::If(if_expr) => todo!(),
+            ExprKind::Read => todo!(),
         }
 
         Ok(())

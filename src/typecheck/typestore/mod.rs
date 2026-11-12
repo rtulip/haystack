@@ -966,10 +966,11 @@ where
         let inst = self.freshen(scheme, &meta);
 
         let (tid, constraints) = if let Some(func) = self.get_func(&inst.tid).cloned() {
-            (
-                inst.tid,
-                self.infer_fn_call(&func, inst.predicates, stack, &meta),
-            )
+            let input = stack.clone();
+            let constraints = self.infer_fn_call(&func, inst.predicates, stack, &meta);
+            let output = stack.clone();
+            let tid = self.function(FunctionType { input, output });
+            (tid, constraints)
         } else {
             // If an identifier _isn't_ a funciton, then add the value to the stack.
             stack.push(inst.tid);
@@ -2937,6 +2938,7 @@ where
         match &self.types[tid.0] {
             Type::TypeVar(_) => true,
             Type::RigidTypeVar(_) => true,
+            Type::Builtin(BuiltinType::CVarArgs) => true,
             Type::Builtin(_) => false,
             Type::Function(func) => func
                 .input

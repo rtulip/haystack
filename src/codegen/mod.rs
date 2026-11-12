@@ -26,6 +26,7 @@ where
     typestore: &'a mut TypeStore<Token<'src>>,
     types: &'a Vec<TypeId>,
     fns: &'a [(Var, TypedFunction<'src>)],
+    externs: &'a HashMap<Var, (&'src str, TypeId)>,
     w: &'a mut W,
     ident_count: usize,
 }
@@ -116,6 +117,63 @@ where
         }
     }
 
+    fn format_c_compat_type(&self, tid: TypeId) -> String {
+        match self.typestore.get(tid).unwrap() {
+            Type::Builtin(b) => match b {
+                BuiltinType::U8 => format!("uint8_t"),
+                BuiltinType::U64 => format!("uint64_t"),
+                BuiltinType::Bool => format!("bool"),
+                BuiltinType::CVarArgs => format!("..."),
+            },
+            Type::Function(function_type) => todo!(),
+            Type::Pointer(p) => {
+                let modifier = Self::format_mutability(p.mutability);
+                format!("{modifier}{}*", self.format_c_compat_type(p.tid))
+            }
+            Type::Never => format!("void"),
+            ty => unreachable!("{ty:?}"),
+        }
+    }
+
+    fn format_c_compat_args(&self, tids: &[TypeId]) -> String {
+        if tids.is_empty() {
+            return String::new();
+        }
+
+        if tids.len() == 1 {
+            return self.format_c_compat_type(tids[0]);
+        }
+
+        let mut output = self.format_c_compat_type(tids[0]);
+
+        for tid in &tids[1..] {
+            output = format!("{output}, {}", self.format_c_compat_type(*tid));
+        }
+
+        output
+    }
+
+    fn declare_extern_fn(&mut self, name: &str, tid: TypeId) -> std::fmt::Result {
+        let FunctionType { input, output } = self.get_stack_effect(tid);
+
+        assert!(output.len() == 1);
+
+        writeln!(
+            self.w,
+            "extern {} {name}({});",
+            Self::format_c_compat_type(&self, output[0]),
+            Self::format_c_compat_args(&self, &input)
+        )?;
+        Ok(())
+    }
+
+    fn declare_externs(&mut self, extern_fns: &'a [(Var, &'src str, TypeId)]) -> std::fmt::Result {
+        for (_, name, tid) in extern_fns {
+            self.declare_extern_fn(name, *tid)?;
+        }
+        Ok(())
+    }
+
     fn forward_declare_types(&mut self) -> std::fmt::Result {
         for tid in self.types {
             self.forward_declare_tid(tid)?;
@@ -170,7 +228,7 @@ where
                     BuiltinType::U8 => "uint8_t",
                     BuiltinType::U64 => "uint64_t",
                     BuiltinType::Bool => "bool",
-                    BuiltinType::CVarArgs => return Ok(()),
+                    BuiltinType::CVarArgs => unreachable!(),
                 };
 
                 writeln!(self.w, "typedef {c_type} {};", Self::format_tid(tid));
@@ -272,6 +330,10 @@ where
     }
 
     fn declare_metatypes(&mut self, metatypes: &[&TypeId]) -> std::fmt::Result {
+        if metatypes.is_empty() {
+            return Ok(())
+        }
+        
         writeln!(self.w, "typedef enum {{")?;
         for tid in metatypes {
             writeln!(self.w, "    {},", Self::format_metatype(**tid))?;
@@ -366,14 +428,85 @@ where
         Ok(())
     }
 
-    fn generate_variadic_function_call(&mut self, var: &Var, input: &[TypeId], stack_idents: &mut Vec<usize>) -> std::fmt::Result {
+    fn format_extern_input(&self, extern_tid: TypeId, tid: TypeId, ident: usize) -> String {
+        match self.typestore.get(extern_tid).unwrap() {
+            Type::Builtin(BuiltinType::CVarArgs) => match self.typestore.get(tid).unwrap() {
+                Type::Tuple(tids) => {
+                    if tids.is_empty() {
+                        return String::new();
+                    }
 
-        
-        dbg!(input);
-        dbg!(stack_idents);
+                    tids[1..].iter().enumerate().fold(
+                        format!("{}._0", Self::format_stack_ident(ident)),
+                        |acc, (idx, _)| {
+                            format!("{acc}, {}._{idx}", Self::format_stack_ident(ident))
+                        },
+                    )
+                }
+                ty => todo!("{ty:?}"),
+            },
+            _ => Self::format_stack_ident(ident),
+        }
+    }
 
+    fn format_extern_function_inputs(
+        &self,
+        input: Vec<TypeId>,
+        monomorphized_input: Vec<TypeId>,
+        stack_idents: &mut Vec<usize>,
+    ) -> String {
+        if input.is_empty() {
+            return String::new();
+        }
 
-        todo!()
+        assert!(input.len() == stack_idents.len());
+        assert!(monomorphized_input.len() == stack_idents.len());
+        let idents = stack_idents.split_off(stack_idents.len() - input.len());
+
+        let start = self.format_extern_input(input[0], monomorphized_input[0], idents[0]);
+
+        input[1..]
+            .into_iter()
+            .zip(monomorphized_input[1..].into_iter())
+            .zip(idents[1..].into_iter())
+            .fold(start, |acc, ((extern_tid, tid), ident)| {
+                format!(
+                    "{acc}, {}",
+                    self.format_extern_input(*extern_tid, *tid, *ident)
+                )
+            })
+    }
+
+    fn generate_extern_function_call(
+        &mut self,
+        name: &str,
+        tid: TypeId,
+        extern_tid: TypeId,
+        stack_idents: &mut Vec<usize>,
+    ) -> std::fmt::Result {
+        let FunctionType { input, output } = self.get_stack_effect(extern_tid);
+        eprintln!("{name}: {} (input : {}) (output: {})", self.typestore.fmt(extern_tid), self.typestore.fmt_many(&input), self.typestore.fmt_many(&output));
+
+        let FunctionType {
+            input: monomorphized_input,
+            output: monorphized_output,
+        } = self.get_stack_effect(tid);
+
+        assert!(output.len() == 1);
+
+        let ident = self.next_stack_ident();
+        let inputs = self.format_extern_function_inputs(input, monomorphized_input, stack_idents);
+
+        writeln!(
+            self.w,
+            "    {} {} = {name}({inputs});",
+            Self::format_tid(output[0]),
+            Self::format_stack_ident(ident),
+        )?;
+
+        stack_idents.push(ident);
+
+        Ok(())
     }
 
     fn generate_function_call(
@@ -382,13 +515,11 @@ where
         var: &Var,
         stack_idents: &mut Vec<usize>,
     ) -> std::fmt::Result {
-        
+        if let Some((name, extern_tid)) = self.externs.get(var) {
+            return self.generate_extern_function_call(name, tid, *extern_tid, stack_idents);
+        }
 
         let func = self.get_stack_effect(tid);
-        if (func.input.len() > stack_idents.len()) {
-            // todo!() there has to be a better way to detect variadic function calls.
-            self.generate_variadic_function_call(var, &func.input, stack_idents)?;
-        }
         let input = self.generate_input_binding(tid, &func.input, stack_idents)?;
 
         let (output_prefix, output) = match func.output.len() {
@@ -667,11 +798,7 @@ where
                     Self::format_tid(output[0]),
                 )?;
                 for ident in fresh_stack {
-                    writeln!(
-                        self.w,
-                        "        {},",
-                        Self::format_stack_ident(ident)
-                    )?;
+                    writeln!(self.w, "        {},", Self::format_stack_ident(ident))?;
                 }
                 writeln!(self.w, "    }};")?;
                 writeln!(self.w, "    }}")?;
@@ -962,6 +1089,7 @@ where
         typestore: &'a mut TypeStore<Token<'src>>,
         types: &'a Vec<TypeId>,
         fns: &'a [(Var, TypedFunction<'src>)],
+        extern_fns: &'a [(Var, &'src str, TypeId)],
     ) -> std::fmt::Result {
         let types = Self::order_types(typestore, types);
         for tid in &types {
@@ -971,12 +1099,18 @@ where
             typestore,
             types: &types,
             fns,
+            externs: &HashMap::from_iter(
+                extern_fns
+                    .iter()
+                    .map(|(var, name, tid)| (*var, (*name, *tid))),
+            ),
             w,
             ident_count: 0,
         };
 
         writeln!(&mut gen.w, "#include <stdint.h>")?;
         writeln!(&mut gen.w, "#include <stdbool.h>")?;
+        gen.declare_externs(extern_fns)?;
         gen.forward_declare_types()?;
         writeln!(&mut gen.w);
         gen.declare_types()?;

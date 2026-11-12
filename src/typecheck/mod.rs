@@ -1896,7 +1896,7 @@ impl<'src> TypeCheck<'src> {
     fn bind_function_declaration(
         &mut self,
         func: &FunctionDeclaration<'src>,
-    ) -> Result<(), HayError> {
+    ) -> Result<(Var, &'src str, TypeId), HayError> {
         let var = self.insert_var(&func.name, Scoping::Global)?;
         let tid = self.get_function_tid(&func.signature)?;
 
@@ -1908,10 +1908,14 @@ impl<'src> TypeCheck<'src> {
 
         self.env.bind_scheme(var, scheme);
 
-        Ok(())
+        Ok((var, &func.name.lexeme, tid))
     }
 
-    fn create_bindings(&mut self, statements: &[Statememt<'src>]) -> Result<(), HayError> {
+    fn create_bindings(
+        &mut self,
+        statements: &[Statememt<'src>],
+    ) -> Result<Vec<(Var, &'src str, TypeId)>, HayError> {
+        let mut externs = vec![];
         for statement in statements {
             match statement {
                 Statememt::StructDefinition(s) => self.bind_struct_def(s)?,
@@ -1920,12 +1924,12 @@ impl<'src> TypeCheck<'src> {
                 Statememt::InterfaceDefinition(iface) => self.bind_interface_def(iface)?,
                 Statememt::InterfaceImpl(iface_impl) => self.bind_interface_impl(iface_impl)?,
                 Statememt::ExternFunctionDeclaratoin(func) => {
-                    self.bind_function_declaration(func)?
+                    externs.push(self.bind_function_declaration(func)?);
                 }
             }
         }
 
-        Ok(())
+        Ok(externs)
     }
 
     fn type_check_statements(
@@ -1971,18 +1975,19 @@ impl<'src> TypeCheck<'src> {
             TypedWorld<'src>,
             TypeStore<Token<'src>>,
             Environment,
+            Vec<(Var, &'src str, TypeId)>,
             Option<Var>,
         ),
         HayError,
     > {
         let mut tc = TypeCheck::new();
         let mut world = TypedWorld::default();
-        tc.create_bindings(&statements)?;
+        let externs = tc.create_bindings(&statements)?;
         tc.type_check_statements(&statements, &mut world)?;
 
         let entry = tc.scope.get_var("main").map(|(var, _)| var);
 
-        Ok((world, tc.typestore, tc.env, entry))
+        Ok((world, tc.typestore, tc.env, externs, entry))
     }
 }
 
@@ -3317,7 +3322,7 @@ mod tests {
                 vec![u8_tid, bool_ptr_tid],
                 &ConstraintOrigin::FunctionCall {
                     input: vec![u8_tid],
-                    expected: vec![TypeId(22)]
+                    expected: vec![TypeId(23)]
                 },
                 &META
             ))
@@ -3331,7 +3336,7 @@ mod tests {
                 vec![u8_ptr_tid, bool_tid],
                 &ConstraintOrigin::FunctionCall {
                     input: vec![u8_ptr_tid],
-                    expected: vec![TypeId(30)]
+                    expected: vec![TypeId(32)]
                 },
                 &META
             ))
@@ -3433,7 +3438,7 @@ mod tests {
                 vec![bool_ptr_tid],
                 &ConstraintOrigin::FunctionCall {
                     input: vec![TypeId(4)],
-                    expected: vec![TypeId(27)]
+                    expected: vec![TypeId(28)]
                 },
                 &META
             ))
@@ -3458,8 +3463,8 @@ mod tests {
                 print_cid,
                 vec![bool_ptr_ptr_tid],
                 &ConstraintOrigin::FunctionCall {
-                    input: vec![TypeId(43)],
-                    expected: vec![TypeId(44)]
+                    input: vec![TypeId(45)],
+                    expected: vec![TypeId(46)]
                 },
                 &META
             ))

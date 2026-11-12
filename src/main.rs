@@ -23,7 +23,7 @@ fn main() -> Result<(), HayError> {
     let tokens = Scanner::new(file, &source).scan_tokens()?;
     let statements = Parser::parse(tokens)?;
 
-    let (world, mut typestore, mut env, entry) = TypeCheck::build_world(statements)?;
+    let (world, mut typestore, mut env, externs, entry) = TypeCheck::build_world(statements)?;
     let Some(entry) = entry else {
         eprintln!("No main function found. Exiting after type checking");
         return Ok(());
@@ -32,7 +32,7 @@ fn main() -> Result<(), HayError> {
     let (types, fns) = world.monomorphize(&mut typestore, &mut env, entry);
 
     let mut s = String::new();
-    CCodeGen::generate(&mut s, &mut typestore, &types, &fns).unwrap();
+    CCodeGen::generate(&mut s, &mut typestore, &types, &fns, &externs).unwrap();
 
     println!("{s}");
 

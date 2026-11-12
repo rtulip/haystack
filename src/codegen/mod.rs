@@ -331,9 +331,9 @@ where
 
     fn declare_metatypes(&mut self, metatypes: &[&TypeId]) -> std::fmt::Result {
         if metatypes.is_empty() {
-            return Ok(())
+            return Ok(());
         }
-        
+
         writeln!(self.w, "typedef enum {{")?;
         for tid in metatypes {
             writeln!(self.w, "    {},", Self::format_metatype(**tid))?;
@@ -383,7 +383,7 @@ where
         &mut self,
         tid: TypeId,
         input: &[TypeId],
-        stack_idents: &mut Vec<usize>,
+        stack: &mut Vec<(TypeId, usize)>,
     ) -> Result<Option<usize>, std::fmt::Error> {
         if input.len() == 0 {
             return Ok(None);
@@ -397,7 +397,7 @@ where
             Self::format_stack_ident(ident)
         )?;
         for (idx, tid) in input.iter().enumerate().rev() {
-            let ident = stack_idents.pop().unwrap();
+            let (_, ident) = stack.pop().unwrap();
             writeln!(
                 self.w,
                 "        ._{idx} = {},",
@@ -412,7 +412,7 @@ where
         &mut self,
         output_ident: usize,
         output: &[TypeId],
-        stack_idents: &mut Vec<usize>,
+        stack: &mut Vec<(TypeId, usize)>,
     ) -> std::fmt::Result {
         for (idx, tid) in output.iter().enumerate() {
             let ident = self.next_stack_ident();
@@ -423,56 +423,53 @@ where
                 Self::format_stack_ident(ident),
                 Self::format_stack_ident(output_ident)
             )?;
-            stack_idents.push(ident);
+            stack.push((*tid, ident));
         }
         Ok(())
     }
 
-    fn format_extern_input(&self, extern_tid: TypeId, tid: TypeId, ident: usize) -> String {
-        match self.typestore.get(extern_tid).unwrap() {
-            Type::Builtin(BuiltinType::CVarArgs) => match self.typestore.get(tid).unwrap() {
+    fn format_extern_input(&self, tid: TypeId, ident: &(TypeId, usize)) -> String {
+        match self.typestore.get(tid).unwrap() {
+            Type::Builtin(BuiltinType::CVarArgs) => match self.typestore.get(ident.0).unwrap() {
                 Type::Tuple(tids) => {
                     if tids.is_empty() {
                         return String::new();
                     }
 
                     tids[1..].iter().enumerate().fold(
-                        format!("{}._0", Self::format_stack_ident(ident)),
+                        format!("{}._0", Self::format_stack_ident(ident.1)),
                         |acc, (idx, _)| {
-                            format!("{acc}, {}._{}", Self::format_stack_ident(ident), idx+1)
+                            format!("{acc}, {}._{}", Self::format_stack_ident(ident.1), idx + 1)
                         },
                     )
                 }
                 ty => todo!("{ty:?}"),
             },
-            _ => Self::format_stack_ident(ident),
+            _ => Self::format_stack_ident(ident.1),
         }
     }
 
     fn format_extern_function_inputs(
         &self,
         input: Vec<TypeId>,
-        monomorphized_input: Vec<TypeId>,
-        stack_idents: &mut Vec<usize>,
+        stack: &mut Vec<(TypeId, usize)>,
     ) -> String {
         if input.is_empty() {
             return String::new();
         }
 
-        assert!(input.len() == stack_idents.len());
-        assert!(monomorphized_input.len() == stack_idents.len());
-        let idents = stack_idents.split_off(stack_idents.len() - input.len());
+        assert!(input.len() == stack.len());
+        let idents = stack.split_off(stack.len() - input.len());
 
-        let start = self.format_extern_input(input[0], monomorphized_input[0], idents[0]);
+        let start = self.format_extern_input(input[0], &idents[0]);
 
         input[1..]
             .into_iter()
-            .zip(monomorphized_input[1..].into_iter())
             .zip(idents[1..].into_iter())
-            .fold(start, |acc, ((extern_tid, tid), ident)| {
+            .fold(start, |acc, (tid, ident)| {
                 format!(
                     "{acc}, {}",
-                    self.format_extern_input(*extern_tid, *tid, *ident)
+                    self.format_extern_input(*tid, ident)
                 )
             })
     }
@@ -481,21 +478,20 @@ where
         &mut self,
         name: &str,
         tid: TypeId,
-        extern_tid: TypeId,
-        stack_idents: &mut Vec<usize>,
+        stack: &mut Vec<(TypeId, usize)>,
     ) -> std::fmt::Result {
-        let FunctionType { input, output } = self.get_stack_effect(extern_tid);
-        eprintln!("{name}: {} (input : {}) (output: {})", self.typestore.fmt(extern_tid), self.typestore.fmt_many(&input), self.typestore.fmt_many(&output));
-
-        let FunctionType {
-            input: monomorphized_input,
-            output: monorphized_output,
-        } = self.get_stack_effect(tid);
+        let FunctionType { input, output } = self.get_stack_effect(tid);
+        eprintln!(
+            "{name}: {} (input : {}) (output: {})",
+            self.typestore.fmt(tid),
+            self.typestore.fmt_many(&input),
+            self.typestore.fmt_many(&output)
+        );
 
         assert!(output.len() == 1);
 
         let ident = self.next_stack_ident();
-        let inputs = self.format_extern_function_inputs(input, monomorphized_input, stack_idents);
+        let inputs = self.format_extern_function_inputs(input, stack);
 
         writeln!(
             self.w,
@@ -504,7 +500,7 @@ where
             Self::format_stack_ident(ident),
         )?;
 
-        stack_idents.push(ident);
+        stack.push((output[0], ident));
 
         Ok(())
     }
@@ -513,14 +509,14 @@ where
         &mut self,
         tid: TypeId,
         var: &Var,
-        stack_idents: &mut Vec<usize>,
+        stack: &mut Vec<(TypeId, usize)>,
     ) -> std::fmt::Result {
-        if let Some((name, extern_tid)) = self.externs.get(var) {
-            return self.generate_extern_function_call(name, tid, *extern_tid, stack_idents);
+        if let Some((name, tid)) = self.externs.get(var) {
+            return self.generate_extern_function_call(name, *tid, stack);
         }
 
         let func = self.get_stack_effect(tid);
-        let input = self.generate_input_binding(tid, &func.input, stack_idents)?;
+        let input = self.generate_input_binding(tid, &func.input, stack)?;
 
         let (output_prefix, output) = match func.output.len() {
             0 => (String::new(), None),
@@ -547,7 +543,7 @@ where
             },
         )?;
         if let Some(output) = output {
-            self.generate_output_unbinding(output, &func.output, stack_idents)?;
+            self.generate_output_unbinding(output, &func.output, stack)?;
         }
         Ok(())
     }
@@ -555,11 +551,11 @@ where
     fn generate_match_case(
         &mut self,
         input: usize,
-        outvars: &[usize],
+        outvars: &[(TypeId, usize)],
         tid: TypeId,
         case: &MatchCase<'src, (Token<'src>, TypeId)>,
         first: bool,
-        mut stack_idents: Vec<usize>,
+        mut stack: Vec<(TypeId, usize)>,
     ) -> std::fmt::Result {
         let case_tid = case.expr.meta.1;
         let FunctionType {
@@ -583,7 +579,7 @@ where
 
                 if !case_input.is_empty() {
                     let ident = self.next_stack_ident();
-                    stack_idents.push(ident);
+                    stack.push((case_input[0], ident));
 
                     writeln!(
                         self.w,
@@ -595,10 +591,10 @@ where
                     )?;
                 }
 
-                self.generate_expr(&case.expr, &mut stack_idents)?;
+                self.generate_expr(&case.expr, &mut stack)?;
 
-                for outvar in outvars.iter().rev() {
-                    let ident = stack_idents.pop().unwrap();
+                for (_, outvar) in outvars.iter().rev() {
+                    let (_, ident) = stack.pop().unwrap();
                     writeln!(
                         self.w,
                         "    {} = {};",
@@ -618,16 +614,16 @@ where
         &mut self,
         tid: TypeId,
         match_expr: &MatchExpr<'src, (Token<'src>, TypeId)>,
-        stack_idents: &mut Vec<usize>,
+        stack: &mut Vec<(TypeId, usize)>,
     ) -> std::fmt::Result {
-        let enum_input = stack_idents.pop().unwrap();
+        let (_, enum_input) = stack.pop().unwrap();
 
         let FunctionType { input, output } = self.get_stack_effect(tid);
 
         let mut outvars = vec![];
         for tid in &output {
             let ident = self.next_stack_ident();
-            outvars.push(ident);
+            outvars.push((*tid, ident));
             writeln!(
                 self.w,
                 "    {} {};",
@@ -645,7 +641,7 @@ where
                 input[0],
                 &case,
                 first,
-                stack_idents.clone(),
+                stack.clone(),
             )?;
             first = false;
         }
@@ -654,7 +650,7 @@ where
         }
 
         for output in outvars {
-            stack_idents.push(output);
+            stack.push(output);
         }
 
         Ok(())
@@ -663,7 +659,7 @@ where
     fn generate_expr(
         &mut self,
         expr: &Expr<'src, (Token<'src>, TypeId)>,
-        stack_idents: &mut Vec<usize>,
+        stack: &mut Vec<(TypeId, usize)>,
     ) -> std::fmt::Result {
         writeln!(self.w, "    // {}", expr.meta.0)?;
         let tid = expr.meta.1;
@@ -675,7 +671,7 @@ where
                 assert!(input.len() == 0);
                 assert!(output.len() == 1);
                 let ident = self.next_stack_ident();
-                stack_idents.push(ident);
+                stack.push((output[0], ident));
 
                 writeln!(
                     self.w,
@@ -701,16 +697,16 @@ where
                 writeln!(self.w, "        ._1 = sizeof(\"{s}\") - 1,")?;
                 writeln!(self.w, "    }};")?;
 
-                stack_idents.push(ident);
+                stack.push((output[0], ident));
             }
             ExprKind::Ident(var) => match self.typestore.get(expr.meta.1).unwrap() {
                 Type::Function(_) => {
                     eprintln!("{}", &expr.meta.0);
-                    self.generate_function_call(tid, var, stack_idents)?;
+                    self.generate_function_call(tid, var, stack)?;
                 }
                 _ => {
                     let ident = self.next_stack_ident();
-                    stack_idents.push(ident);
+                    stack.push((tid, ident));
                     writeln!(
                         self.w,
                         "    const {} {} = {};",
@@ -734,7 +730,7 @@ where
                     Self::format_var(*var)
                 )?;
 
-                stack_idents.push(ident);
+                stack.push((output[0], ident));
             }
             ExprKind::Block(exprs) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
@@ -742,7 +738,7 @@ where
                 let mut idents = vec![];
                 for tid in &output {
                     let ident = self.next_stack_ident();
-                    idents.push(ident);
+                    idents.push((*tid, ident));
                     writeln!(
                         self.w,
                         "    {} {};",
@@ -753,11 +749,11 @@ where
 
                 writeln!(self.w, "    {{")?;
                 for expr in exprs {
-                    self.generate_expr(expr, stack_idents)?;
+                    self.generate_expr(expr, stack)?;
                 }
 
-                for outvar in idents.iter().rev() {
-                    let invar = stack_idents.pop().unwrap();
+                for (_, outvar) in idents.iter().rev() {
+                    let (_, invar) = stack.pop().unwrap();
                     writeln!(
                         self.w,
                         "    {} = {};",
@@ -766,9 +762,7 @@ where
                     )?;
                 }
 
-                for outvar in idents {
-                    stack_idents.push(outvar);
-                }
+                stack.extend(idents);
 
                 writeln!(self.w, "    }}")?;
             }
@@ -797,22 +791,22 @@ where
                     Self::format_stack_ident(output_ident),
                     Self::format_tid(output[0]),
                 )?;
-                for ident in fresh_stack {
+                for (_, ident) in fresh_stack {
                     writeln!(self.w, "        {},", Self::format_stack_ident(ident))?;
                 }
                 writeln!(self.w, "    }};")?;
                 writeln!(self.w, "    }}")?;
 
-                stack_idents.push(output_ident);
+                stack.push((output[0], output_ident));
             }
             ExprKind::Bind(vars) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == vars.len());
                 assert!(output.len() == 0);
-                assert!(vars.len() <= stack_idents.len());
+                assert!(vars.len() <= stack.len());
 
                 for (tid, var) in input.into_iter().zip(vars.iter()).rev() {
-                    let ident = stack_idents.pop().unwrap();
+                    let (_, ident) = stack.pop().unwrap();
                     writeln!(
                         self.w,
                         "    {} {} = {};",
@@ -825,7 +819,8 @@ where
             ExprKind::Call => todo!(),
             ExprKind::Type(tid) => {
                 let ident = self.next_stack_ident();
-                stack_idents.push(ident);
+                // TODO: metatypes can't be handled quite like normal tids.
+                stack.push((expr.meta.1, ident));
                 writeln!(
                     self.w,
                     "    const {} {} = {};",
@@ -841,7 +836,7 @@ where
                 assert!(output.len() == 1);
 
                 // discard the metatype
-                stack_idents.pop();
+                stack.pop();
                 input.pop();
 
                 match self.typestore.get(output[0]).unwrap().clone() {
@@ -868,7 +863,7 @@ where
                             Self::format_enum_tag(variant.eid, parent_tid, variant.variant)
                         )?;
                         if let Some(_) = input_tid {
-                            let input_ident = stack_idents.pop().unwrap();
+                            let (_, input_ident) = stack.pop().unwrap();
                             writeln!(
                                 self.w,
                                 "        .value._{} = {},",
@@ -878,7 +873,7 @@ where
                         }
                         writeln!(self.w, "    }};")?;
 
-                        stack_idents.push(ident);
+                        stack.push((output[0], ident));
                     }
                     _ => unreachable!(),
                 };
@@ -890,7 +885,7 @@ where
                 assert!(output.len() == 1);
 
                 let ident = self.next_stack_ident();
-                stack_idents.push(ident);
+                stack.push((output[0], ident));
                 writeln!(
                     self.w,
                     "    {} {} = {}._{};",
@@ -901,7 +896,7 @@ where
                 );
             }
             ExprKind::Match(match_expr) => {
-                self.generate_match_expr(tid, &match_expr, stack_idents)?
+                self.generate_match_expr(tid, &match_expr, stack)?
             }
             ExprKind::If(if_expr) => todo!(),
             ExprKind::Read => todo!(),
@@ -919,7 +914,7 @@ where
     fn generate_input_unbinding(
         &mut self,
         input: &[TypeId],
-    ) -> Result<Vec<usize>, std::fmt::Error> {
+    ) -> Result<Vec<(TypeId, usize)>, std::fmt::Error> {
         let mut stack = vec![];
         for (idx, tid) in input.iter().enumerate() {
             let stack_ident = self.next_stack_ident();
@@ -929,7 +924,7 @@ where
                 Self::format_tid(*tid),
                 Self::format_stack_ident(stack_ident)
             )?;
-            stack.push(stack_ident)
+            stack.push((*tid, stack_ident))
         }
 
         Ok(stack)
@@ -939,19 +934,19 @@ where
         &mut self,
         tid: TypeId,
         output: &[TypeId],
-        stack_idents: &mut Vec<usize>,
+        stack: &mut Vec<(TypeId, usize)>,
     ) -> std::fmt::Result {
         if output.len() == 0 {
             return Ok(());
         }
 
-        assert!(output.len() == stack_idents.len());
+        assert!(output.len() == stack.len());
         writeln!(
             self.w,
             "    const {} output = {{",
             Self::format_function_output(tid)
         )?;
-        for (idx, ident) in stack_idents.iter().enumerate() {
+        for (idx, (_, ident)) in stack.iter().enumerate() {
             writeln!(
                 self.w,
                 "        ._{idx} = {},",
@@ -1085,11 +1080,9 @@ where
     }
 
     pub fn generate_entry(&mut self, var: Var) -> std::fmt::Result {
-
         writeln!(self.w, "int main() {{")?;
         writeln!(self.w, "    {}();", Self::format_var(var))?;
         writeln!(self.w, "}}")
-
     }
 
     pub fn generate(
@@ -1098,7 +1091,7 @@ where
         types: &'a Vec<TypeId>,
         fns: &'a [(Var, TypedFunction<'src>)],
         extern_fns: &'a [(Var, &'src str, TypeId)],
-        entry: Var
+        entry: Var,
     ) -> std::fmt::Result {
         let types = Self::order_types(typestore, types);
         for tid in &types {

@@ -3322,7 +3322,7 @@ mod tests {
                 vec![u8_tid, bool_ptr_tid],
                 &ConstraintOrigin::FunctionCall {
                     input: vec![u8_tid],
-                    expected: vec![TypeId(23)]
+                    expected: vec![TypeId(22)]
                 },
                 &META
             ))
@@ -3336,7 +3336,7 @@ mod tests {
                 vec![u8_ptr_tid, bool_tid],
                 &ConstraintOrigin::FunctionCall {
                     input: vec![u8_ptr_tid],
-                    expected: vec![TypeId(32)]
+                    expected: vec![TypeId(30)]
                 },
                 &META
             ))
@@ -3438,7 +3438,7 @@ mod tests {
                 vec![bool_ptr_tid],
                 &ConstraintOrigin::FunctionCall {
                     input: vec![TypeId(4)],
-                    expected: vec![TypeId(28)]
+                    expected: vec![TypeId(27)]
                 },
                 &META
             ))
@@ -3463,8 +3463,8 @@ mod tests {
                 print_cid,
                 vec![bool_ptr_ptr_tid],
                 &ConstraintOrigin::FunctionCall {
-                    input: vec![TypeId(45)],
-                    expected: vec![TypeId(46)]
+                    input: vec![TypeId(43)],
+                    expected: vec![TypeId(44)]
                 },
                 &META
             ))

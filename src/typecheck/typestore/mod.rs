@@ -966,11 +966,10 @@ where
         let inst = self.freshen(scheme, &meta);
 
         let (tid, constraints) = if let Some(func) = self.get_func(&inst.tid).cloned() {
-            let input = stack.clone();
-            let constraints = self.infer_fn_call(&func, inst.predicates, stack, &meta);
-            let output = stack.clone();
-            let tid = self.function(FunctionType { input, output });
-            (tid, constraints)
+            (
+                inst.tid,
+                self.infer_fn_call(&func, inst.predicates, stack, &meta),
+            )
         } else {
             // If an identifier _isn't_ a funciton, then add the value to the stack.
             stack.push(inst.tid);

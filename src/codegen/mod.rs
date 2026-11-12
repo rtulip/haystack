@@ -391,10 +391,11 @@ where
     fn generate_match_case(
         &mut self,
         input: usize,
+        outvars: &[usize],
         tid: TypeId,
         case: &MatchCase<'src, (Token<'src>, TypeId)>,
         first: bool,
-        stack_idents: &mut Vec<usize>,
+        mut stack_idents: Vec<usize>,
     ) -> std::fmt::Result {
         let case_tid = case.expr.meta.1;
         let FunctionType {
@@ -430,7 +431,13 @@ where
                     )?;
                 }
 
-                self.generate_expr(&case.expr, stack_idents)?;
+                self.generate_expr(&case.expr, &mut stack_idents)?;
+
+                for outvar in outvars.iter().rev() {
+                    let ident = stack_idents.pop().unwrap();
+                    writeln!(self.w, "    {} = {};", Self::format_stack_ident(*outvar), Self::format_stack_ident(ident))?;
+                }
+
                 writeln!(self.w, "    }}")?;
             }
         }
@@ -448,15 +455,25 @@ where
 
         let FunctionType { input, output } = self.get_stack_effect(tid);
 
+        let mut outvars = vec![];
+        for tid in &output {
+            let ident = self.next_stack_ident();
+            outvars.push(ident);
+            writeln!(self.w, "    {} {};", Self::format_tid(*tid), Self::format_stack_ident(ident))?;
+        }
         assert!(input.len() == 1);
 
         let mut first = true;
         for case in &match_expr.cases {
-            self.generate_match_case(enum_input, input[0], &case, first, stack_idents)?;
+            self.generate_match_case(enum_input, &outvars, input[0], &case, first, stack_idents.clone())?;
             first = false;
         }
         if let Some(finally) = &match_expr.finally {
             todo!();
+        }
+
+        for output in outvars {
+            stack_idents.push(output);
         }
 
         Ok(())
@@ -680,6 +697,25 @@ where
         Ok(stack)
     }
 
+    fn generate_return(&mut self, tid: TypeId, output: &[TypeId], stack_idents: &mut Vec<usize>) -> std::fmt::Result {
+        
+        if output.len() == 0 {
+            return Ok(())
+        }
+
+        assert!(output.len() == stack_idents.len());
+        writeln!(self.w, "    const {} output = {{", Self::format_function_output(tid))?;
+        for (idx, ident) in stack_idents.iter().enumerate() {
+            writeln!(self.w, "        ._{idx} = {},", Self::format_stack_ident(*ident))?;
+        }
+        writeln!(self.w, "    }};")?;
+
+        writeln!(self.w, "    return output;")?;
+
+        Ok(())
+
+    }
+
     fn declare_function(&mut self, var: &Var, func: &TypedFunction<'src>) -> std::fmt::Result {
         let tid = func.expr.meta.1;
         let Type::Function(FunctionType { input, output }) =
@@ -701,6 +737,7 @@ where
         )?;
         let mut stack = self.generate_input_unbinding(&input)?;
         self.generate_expr(&func.expr, &mut stack)?;
+        self.generate_return(tid, &output, &mut stack)?;
         writeln!(self.w, "}}");
 
         Ok(())

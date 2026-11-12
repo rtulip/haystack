@@ -271,10 +271,8 @@ where
             }
             Type::Enum(e) => {
                 let eid = e.eid;
-                eprintln!("Enum: {eid:?} -- Args: {:?}", &e.args);
-
+                
                 let variants = self.typestore.get_enum_variants(e.eid, e.args.clone());
-                eprintln!("    {variants:?}");
                 writeln!(
                     self.w,
                     "typedef struct {} {{",
@@ -481,13 +479,6 @@ where
         stack: &mut Vec<(TypeId, usize)>,
     ) -> std::fmt::Result {
         let FunctionType { input, output } = self.get_stack_effect(tid);
-        eprintln!(
-            "{name}: {} (input : {}) (output: {})",
-            self.typestore.fmt(tid),
-            self.typestore.fmt_many(&input),
-            self.typestore.fmt_many(&output)
-        );
-
         assert!(output.len() == 1);
 
         let ident = self.next_stack_ident();
@@ -701,7 +692,6 @@ where
             }
             ExprKind::Ident(var) => match self.typestore.get(expr.meta.1).unwrap() {
                 Type::Function(_) => {
-                    eprintln!("{}", &expr.meta.0);
                     self.generate_function_call(tid, var, stack)?;
                 }
                 _ => {
@@ -898,7 +888,54 @@ where
             ExprKind::Match(match_expr) => {
                 self.generate_match_expr(tid, &match_expr, stack)?
             }
-            ExprKind::If(if_expr) => todo!(),
+            ExprKind::If(if_expr) => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+
+                assert!(input.len() >= 1);
+
+                let mut outvars = vec![];
+                for tid in &output {
+                    let ident = self.next_stack_ident();
+                    writeln!(self.w, "    {} {};", Self::format_tid(*tid), Self::format_stack_ident(ident))?;
+                    outvars.push((*tid, ident))
+
+                }
+
+                let (_, condition) = stack.pop().unwrap();
+                writeln!(self.w, "    if ({}) {{", Self::format_stack_ident(condition))?;
+                let mut then_stack = stack.clone();
+                self.generate_expr(&if_expr.then, &mut then_stack)?;
+                for (_, outvar) in outvars.iter().rev() {
+                    let (_, ident) = then_stack.pop().unwrap();
+                    writeln!(
+                        self.w,
+                        "    {} = {};",
+                        Self::format_stack_ident(*outvar),
+                        Self::format_stack_ident(ident)
+                    )?;
+                }
+
+                writeln!(self.w, "    }} else {{")?;
+                let mut otherwise_stack = stack.clone();
+                self.generate_expr(&if_expr.otherwise, &mut otherwise_stack)?;
+                for (_, outvar) in outvars.iter().rev() {
+                    let (_, ident) = otherwise_stack.pop().unwrap();
+                    writeln!(
+                        self.w,
+                        "    {} = {};",
+                        Self::format_stack_ident(*outvar),
+                        Self::format_stack_ident(ident)
+                    )?;
+                }
+                writeln!(self.w, "    }}")?;
+
+                for _ in &input[1..] {
+                    stack.pop().unwrap();
+                }
+
+                stack.extend(outvars)
+
+            },
             ExprKind::Read => todo!(),
         }
 
@@ -1055,7 +1092,6 @@ where
         stack.push(tid);
 
         for dep in Self::type_dependencies(typestore, tid) {
-            eprintln!("{tid:?}({}) depends on {dep:?}", typestore.fmt(tid));
             Self::visit_tid(typestore, result, stack, state, dep)?;
         }
 
@@ -1094,9 +1130,6 @@ where
         entry: Var,
     ) -> std::fmt::Result {
         let types = Self::order_types(typestore, types);
-        for tid in &types {
-            eprintln!("{tid:?}");
-        }
         let mut gen = CCodeGen {
             typestore,
             types: &types,
@@ -1122,8 +1155,6 @@ where
         gen.declare_functions()?;
         writeln!(&mut gen.w);
         gen.generate_entry(entry)?;
-
-        eprintln!("{}", typestore.fmt(TypeId(3)));
 
         Ok(())
     }

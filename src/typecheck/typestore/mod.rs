@@ -1282,8 +1282,7 @@ where
                     let e = Expr::call((expr.meta, expr_tid));
                     Ok((e, constraints))
                 } else {
-                    eprintln!("{}", self.fmt(tid));
-                    todo!("Error can't call a non-function!")
+                    todo!("Error can't call a non-function: {}", self.fmt(tid))
                 }
             }
             ExprKind::Type(tid) => {

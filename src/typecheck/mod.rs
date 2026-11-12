@@ -1,13 +1,9 @@
 use std::{
-    assert_eq,
-    collections::{HashMap, HashSet},
-    dbg, format, todo, unreachable, vec,
+    assert_eq, collections::{HashMap, HashSet}, dbg, eprintln, fmt::Pointer, format, todo, unreachable, vec,
 };
 
 use crate::{
-    error::HayError,
-    lex::token::{Intrinsic, Literal, Token},
-    parser::{
+    error::HayError, lex::token::{Intrinsic, Literal, Token}, parser::{
         argument::Argument,
         expr::{ParseExpr, ParseExprKind},
         signature::Signature,
@@ -17,25 +13,18 @@ use crate::{
             StructDefinition,
         },
         typ::{ParamatarizedIdent, ParseType, ParseTypePath},
-    },
-    typecheck::{
-        constraint::ConstraintOrigin,
-        environment::{
+    }, typecheck::{
+        constraint::ConstraintOrigin, environment::{
             Coherence, Environment, Interface, InterfaceImpl, Scheme, TypeClassId, TypePredicate,
-        },
-        expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Var},
-        func::Function,
-        typ::{
+        }, expr::{Expr, ExprKind, IfExpr, MatchCase, MatchExpr, MatchPattern, Var}, func::Function, typ::{
             typ::{
                 BuiltinType, EnumDef, EnumType, FunctionType, Mutability, Projection, StructDef,
                 Type,
             },
             type_id::{EnumId, StructId, TypeId},
             type_var::TypeVar,
-        },
-        typestore::{
-            inference::{InferenceError, InferenceErrorKind},
-            MemberLookup, TypeStore,
+        }, typestore::{
+            MemberLookup, TypeStore, inference::{InferenceError, InferenceErrorKind},
         },
     },
 };
@@ -1452,15 +1441,17 @@ impl<'src> TypeCheck<'src> {
         let mut default_impls = vec![];
 
         for func in &iface.funcs {
+            
+            self.scope.new_scope();
+
+            let mut params = self.rebind_params(&func.name, &func.params)?;
+            params = parent_params
+                .clone()
+                .into_iter()
+                .chain(params.into_iter())
+                .collect();
+            let (var, _) = self.scope.get_var(&func.name.lexeme).unwrap();
             if let Some(expr) = &func.expr {
-                self.scope.new_scope();
-                let mut params = self.rebind_params(&func.name, &func.params)?;
-                params = parent_params
-                    .clone()
-                    .into_iter()
-                    .chain(params.into_iter())
-                    .collect();
-                let (var, _) = self.scope.get_var(&func.name.lexeme).unwrap();
                 let predicates = self.env.get_var(&var).unwrap().predicates.clone();
                 let (expr, typed_func) = self.type_check_function(
                     &func.name,
@@ -1469,14 +1460,15 @@ impl<'src> TypeCheck<'src> {
                     &predicates,
                     &expr,
                 )?;
-                self.scope.end_scope();
-
+                
                 iface_info.fns.get_mut(&func.name.lexeme).unwrap().body = Some(expr);
 
                 default_impls.push((var, Some(typed_func)));
             } else {
-                default_impls.push((self.env.fresh_var(), None));
+                default_impls.push((var, None));
             }
+
+            self.scope.end_scope();
         }
         self.scope.end_scope();
         let cid = iface_info.cid;
@@ -1632,93 +1624,6 @@ impl<'src> TypeCheck<'src> {
         Ok(())
     }
 
-    fn type_check_interface_impl_(
-        &mut self,
-        iface_impl: &ParseInterfaceImpl<'src>,
-    ) -> Result<
-        (
-            TypeClassId,
-            TypedInterfaceImpl,
-            Vec<(Var, TypedFunction<'src>)>,
-        ),
-        HayError,
-    > {
-        let mut typed_impl = TypedInterfaceImpl::default();
-        let cid = {
-            let info = self
-                .scope
-                .get_cid(&iface_impl.name.lexeme)
-                .cloned()
-                .unwrap();
-            for fn_name in info.fns.keys() {
-                let (var, _) = self.scope.get_var(fn_name).unwrap();
-                typed_impl.fn_map.insert(var, var);
-            }
-            for type_name in &info.associated_types {
-                match iface_impl
-                    .associated_types
-                    .iter()
-                    .find(|(name, _)| name.lexeme == *type_name)
-                {
-                    Some((_, ty)) => typed_impl.associated_types.push(self.get_tid(ty)?),
-                    None => todo!("Error: Unexpected associated type"),
-                }
-            }
-
-            info.cid
-        };
-
-        self.scope.new_scope();
-        let parent_params = self.rebind_params(&iface_impl.name, &iface_impl.params)?;
-        let mut parent_args = vec![];
-        for ty in &iface_impl.args {
-            parent_args.push(self.get_tid(ty)?);
-        }
-
-        typed_impl.args = parent_args.clone();
-
-        let mut typed_functions = vec![];
-
-        for func in &iface_impl.impls {
-            self.scope.new_scope();
-
-            let mut params = self.add_params_to_scope(&func.params, &func.name)?;
-            let mut args = vec![];
-            for ty in &func.params {
-                args.push(self.get_tid(ty)?);
-            }
-
-            params = parent_params
-                .clone()
-                .into_iter()
-                .chain(params.into_iter())
-                .collect();
-
-            let (expr, typed_func) =
-                self.type_check_function(&func.name, &func.signature, &params, &[], &func.expr)?;
-
-            // let args = parent_args
-            //     .clone()
-            //     .into_iter()
-            //     .chain(args.into_iter())
-            //     .collect();
-
-            // self.validate_interface_function_signature(iface_impl, func, args)?;
-
-            self.scope.end_scope();
-
-            let (parent_var, _) = self.scope.get_var(&func.name.lexeme).unwrap();
-            let var = self.env.fresh_var();
-            self.env.bind(var, typed_func.expr.meta.1);
-
-            typed_impl.fn_map.insert(parent_var, var);
-            typed_functions.push((var, typed_func));
-        }
-        self.scope.end_scope();
-
-        Ok((cid, typed_impl, typed_functions))
-    }
-
     fn type_check_interface_impl(
         &mut self,
         iface_impl: &ParseInterfaceImpl<'src>,
@@ -1794,6 +1699,8 @@ impl<'src> TypeCheck<'src> {
             let Some((var, _)) = self.scope.get_var(&fn_impl.name.lexeme) else {
                 todo!()
             };
+            eprintln!("{}: {var:?}", fn_impl.name);
+
             let Some(Scheme {
                 tid: expected_tid, ..
             }) = self.env.get_var(&var)
@@ -1874,7 +1781,7 @@ impl<'src> TypeCheck<'src> {
 
             let (var, _) = self.scope.get_var(name).unwrap();
             let fresh_var = self.env.fresh_var();
-
+            eprintln!("{name}: {var:?} -> {fresh_var:?}");
             let scheme = Scheme::new(params, f.expr.meta.1, fn_info.predicates);
             self.env.bind_scheme(fresh_var, scheme);
 
@@ -1886,9 +1793,9 @@ impl<'src> TypeCheck<'src> {
 
         self.scope.end_scope();
 
-        typed_functions
-            .iter_mut()
-            .for_each(|(_, expr)| expr.expr.map_vars(&typed_impl.fn_map));
+        // typed_functions
+        //     .iter_mut()
+        //     .for_each(|(_, expr)| expr.expr.map_vars(&typed_impl.fn_map));
 
         Ok((info.cid, typed_impl, typed_functions))
     }
@@ -2049,14 +1956,9 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             return HashSet::new();
         }
 
-        eprintln!("{}: Requesting Type: {}", tid.0, self.typestore.fmt(tid));
-
         let mut concrete = HashSet::new();
         if !self.typestore.is_free(&tid) {
-            eprintln!(
-                "    {} is not free. Adding it to the world",
-                self.typestore.fmt(tid)
-            );
+
             concrete.insert(tid);
 
             match &self.typestore.get(tid).unwrap().clone() {
@@ -2089,7 +1991,6 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                     });
                 }
                 Type::Enum(e) => {
-                    eprintln!("    Looking at enum variants");
                     let args: Vec<_> = e
                         .args
                         .iter()
@@ -2104,7 +2005,6 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                             concrete.extend(self.request_type_inner(tid, &substitutions))
                         }
                     });
-                    eprintln!("    Done with variants");
                 }
                 Type::Tuple(tids) => tids
                     .iter()
@@ -2206,9 +2106,10 @@ impl<'a, 'src> MonoContext<'a, 'src> {
         expr: Expr<'src, (Token<'src>, TypeId)>,
         substitutions: &HashMap<TypeVar, TypeId>,
     ) -> Expr<'src, (Token<'src>, TypeId)> {
+        
         let token = expr.meta.0;
+        
         let tid = self.request_type(expr.meta.1, substitutions);
-
         let kind = match expr.expr {
             ExprKind::U8(_)
             | ExprKind::U64(_)
@@ -2219,7 +2120,9 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             | ExprKind::MemberAccess { .. } => expr.expr,
 
             ExprKind::Ident(var) => {
-                if self.world.functions.contains_key(&var) {
+                eprintln!("{token}: {var:?}");
+
+                if self.world.functions.contains_key(&var) || self.world.interface_fns.contains_key(&var){
                     ExprKind::Ident(self.resolve_function_instance(&token, var, tid, substitutions))
                 } else {
                     ExprKind::Ident(var)
@@ -2269,7 +2172,13 @@ impl<'a, 'src> MonoContext<'a, 'src> {
 
                 ExprKind::Match(MatchExpr { cases, finally })
             }
-            ExprKind::If(if_expr) => todo!(),
+            ExprKind::If(if_expr) => {
+
+                ExprKind::If(IfExpr {
+                    then: Box::new(self.monomorphize_expr(*if_expr.then, substitutions)),
+                    otherwise: Box::new(self.monomorphize_expr(*if_expr.otherwise, substitutions)),
+                })
+            },
             ExprKind::Read => todo!(),
         };
 
@@ -2315,13 +2224,14 @@ impl<'a, 'src> MonoContext<'a, 'src> {
         substitutions: &HashMap<TypeVar, TypeId>,
     ) -> Var {
         // Recover the concrete type arguments used at this reference.
-
+        eprintln!("{}: Resolving function {var:?}: {} ", token.loc, token.lexeme);
         let instance = if let Some(cid) = self.world.interface_fns.get(&var) {
             let mut instance = None;
             for typed_impl in self.world.interface_impls.get(cid).unwrap() {
                 let mapped_var = typed_impl.fn_map.get(&var).unwrap();
                 let args =
                     self.infer_function_args(token, *mapped_var, instantiated_tid, substitutions);
+                
                 let tid = self.world.functions.get(&mapped_var).unwrap().expr.meta.1;
                 if tid == instantiated_tid {
                     instance = Some(FunctionInstance {

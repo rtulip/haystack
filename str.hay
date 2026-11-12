@@ -12,3 +12,11 @@ impl Print<Str> {
         printf as [_]
     }
 }
+
+impl Print<bool> {
+    fn print(bool) if {
+        "true" print
+    } else {
+        "false" print
+    }
+}

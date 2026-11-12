@@ -441,7 +441,7 @@ where
                         },
                     )
                 }
-                ty => todo!("{ty:?}"),
+                _ => Self::format_stack_ident(ident.1),
             },
             _ => Self::format_stack_ident(ident.1),
         }

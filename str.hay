@@ -20,3 +20,9 @@ impl Print<bool> {
         "false" print
     }
 }
+
+impl Print<u64> {
+    fn print(u64) {
+        "%llu" Str.cstr swap printf as [_]
+    }
+}

@@ -484,18 +484,23 @@ where
         expr: &Expr<'src, (Token<'src>, TypeId)>,
         stack_idents: &mut Vec<usize>,
     ) -> std::fmt::Result {
+        
+        writeln!(self.w, "    // {}", expr.meta.0)?;
         let tid = expr.meta.1;
         match &expr.expr {
             ExprKind::U8(_) => todo!(),
             ExprKind::U64(_) => todo!(),
             ExprKind::Bool(b) => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() == 0);
+                assert!(output.len() == 1);
                 let ident = self.next_stack_ident();
                 stack_idents.push(ident);
 
                 writeln!(
                     self.w,
                     "    const {} {} = {b};",
-                    Self::format_tid(tid),
+                    Self::format_tid(output[0]),
                     Self::format_stack_ident(ident)
                 )?;
             }

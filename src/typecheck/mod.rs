@@ -2370,11 +2370,11 @@ impl<'src> TypedWorld<'src> {
         typestore: &mut TypeStore<Token<'src>>,
         env: &mut Environment,
         entry: Var,
-    ) -> (Vec<TypeId>, Vec<(Var, TypedFunction<'src>)>) {
+    ) -> (Vec<TypeId>, Vec<(Var, TypedFunction<'src>)>, Var) {
         let mut ctx = MonoContext::new(&self, env, typestore);
 
         // Register the entry point with no generic arguments.
-        ctx.request_function(FunctionInstance {
+        let entry = ctx.request_function(FunctionInstance {
             var: entry,
             args: vec![],
         });
@@ -2387,7 +2387,7 @@ impl<'src> TypedWorld<'src> {
         let mut types = Vec::from_iter(ctx.types.into_iter());
         types.sort();
 
-        (types, ctx.functions)
+        (types, ctx.functions, entry)
     }
 }
 

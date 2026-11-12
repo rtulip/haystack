@@ -439,7 +439,7 @@ where
                     tids[1..].iter().enumerate().fold(
                         format!("{}._0", Self::format_stack_ident(ident)),
                         |acc, (idx, _)| {
-                            format!("{acc}, {}._{idx}", Self::format_stack_ident(ident))
+                            format!("{acc}, {}._{}", Self::format_stack_ident(ident), idx+1)
                         },
                     )
                 }
@@ -698,7 +698,7 @@ where
                     Self::format_stack_ident(ident)
                 )?;
                 writeln!(self.w, "        ._0 = \"{s}\",")?;
-                writeln!(self.w, "        ._1 = sizeof(\"{s}\"),")?;
+                writeln!(self.w, "        ._1 = sizeof(\"{s}\") - 1,")?;
                 writeln!(self.w, "    }};")?;
 
                 stack_idents.push(ident);
@@ -1084,12 +1084,21 @@ where
         result
     }
 
+    pub fn generate_entry(&mut self, var: Var) -> std::fmt::Result {
+
+        writeln!(self.w, "int main() {{")?;
+        writeln!(self.w, "    {}();", Self::format_var(var))?;
+        writeln!(self.w, "}}")
+
+    }
+
     pub fn generate(
         w: &'a mut W,
         typestore: &'a mut TypeStore<Token<'src>>,
         types: &'a Vec<TypeId>,
         fns: &'a [(Var, TypedFunction<'src>)],
         extern_fns: &'a [(Var, &'src str, TypeId)],
+        entry: Var
     ) -> std::fmt::Result {
         let types = Self::order_types(typestore, types);
         for tid in &types {
@@ -1118,6 +1127,8 @@ where
         gen.forward_declare_functions()?;
         writeln!(&mut gen.w);
         gen.declare_functions()?;
+        writeln!(&mut gen.w);
+        gen.generate_entry(entry)?;
 
         eprintln!("{}", typestore.fmt(TypeId(3)));
 

@@ -29,10 +29,10 @@ fn main() -> Result<(), HayError> {
         return Ok(());
     };
 
-    let (types, fns) = world.monomorphize(&mut typestore, &mut env, entry);
+    let (types, fns, entry) = world.monomorphize(&mut typestore, &mut env, entry);
 
     let mut s = String::new();
-    CCodeGen::generate(&mut s, &mut typestore, &types, &fns, &externs).unwrap();
+    CCodeGen::generate(&mut s, &mut typestore, &types, &fns, &externs, entry).unwrap();
 
     println!("{s}");
 

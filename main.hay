@@ -56,7 +56,7 @@ fn Option.map<T U>(fn(T) -> [U]: f Option<T>: opt) -> [Option<U>] {
 fn transform(u64: _) -> [bool] true
 
 fn main() {
-    &transform None Option.map drop
+    // &transform None Option.map drop
     
     "Hello World" println
 }

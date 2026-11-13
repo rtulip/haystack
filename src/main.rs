@@ -71,3 +71,13 @@ fn main() -> Result<(), HayError> {
     
     Ok(())
 }
+
+#[cfg(test)]
+mod compilation_test {
+
+    #[test]
+    fn example() {
+        assert!(std::process::Command::new("./target/debug/haystack").args(["main.hay", "--run"]).output().unwrap().status.success())
+    }
+
+}

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::{write, Display};
 use std::ops::Range;
+use std::write;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct Loc<S>

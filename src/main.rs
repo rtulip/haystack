@@ -1,4 +1,6 @@
 #![allow(unused)]
+use std::{format, io::Write};
+
 use crate::{
     codegen::CCodeGen,
     error::HayError,
@@ -14,7 +16,15 @@ mod parser;
 mod typecheck;
 
 fn main() -> Result<(), HayError> {
-    let file = "main.hay";
+    let args: Vec<String> = std::env::args().collect();
+
+    if args.len() < 2 {
+        eprintln!("Usage: {} <File> [-r/--run]", args[0]);
+        std::process::exit(1);
+    }
+    
+    let file = &args[1];
+    let file_stripped = file.strip_suffix(".hay").unwrap();
 
     let source = std::fs::read_to_string(file).map_err(|e| {
         HayError::new("Failed to open file", Loc::new(file, 1, 0, 0)).with_hint(format!("{e}"))
@@ -34,7 +44,30 @@ fn main() -> Result<(), HayError> {
     let mut s = String::new();
     CCodeGen::generate(&mut s, &mut typestore, &types, &fns, &externs, entry).unwrap();
 
-    println!("{s}");
+    std::fs::write("target/out.c", &s).unwrap();
+    let output = std::process::Command::new("gcc").args([
+        "target/out.c", "-g", "-o", file_stripped
+    ]).output().unwrap();
 
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        eprintln!("GCC Error:\n{}", stderr);
+        assert!(false);
+    }
+
+    println!("-------------------------");
+
+    if (args.len() >= 3 && (args[2] == "-r" || args[2] == "--run"))
+    {
+        let output = std::process::Command::new(&format!("./{file_stripped}")).output().unwrap();
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            print!("{}", stdout);
+        }
+    }
+    else {
+        eprintln!("All done");
+    }
+    
     Ok(())
 }

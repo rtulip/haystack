@@ -142,8 +142,6 @@ impl<'src> Scanner<'src> {
             '<' => {
                 if self.matches('=') {
                     self.add_token(TokenKind::Operator(Operator::LessEqual))
-                } else if self.matches('<') {
-                    self.add_token(TokenKind::Operator(Operator::ShiftLeft))
                 } else {
                     self.add_token(TokenKind::Operator(Operator::LessThan))
                 }
@@ -151,8 +149,6 @@ impl<'src> Scanner<'src> {
             '>' => {
                 if self.matches('=') {
                     self.add_token(TokenKind::Operator(Operator::GreaterEqual))
-                } else if self.matches('>') {
-                    self.add_token(TokenKind::Operator(Operator::ShiftRight))
                 } else {
                     self.add_token(TokenKind::Operator(Operator::GreaterThan))
                 }

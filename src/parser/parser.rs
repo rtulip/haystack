@@ -618,8 +618,6 @@ impl<'src> Parser<'src> {
                 Operator::Ampersand => todo!(),
                 Operator::Pipe => todo!(),
                 Operator::Caret => todo!(),
-                Operator::ShiftRight => todo!(),
-                Operator::ShiftLeft => todo!(),
             },
             TokenKind::Ident(_)
             | TokenKind::Marker(_)

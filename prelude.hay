@@ -37,7 +37,7 @@ fn None<T>() -> [Option<T>::None] {
     #Option::None pack
 }
 
-impl<T> Print< Option<T> > 
+impl<T> Print<Option<T>> 
 requires [Print<T>] 
 {
     fn print(Option<T>) match {

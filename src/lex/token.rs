@@ -85,8 +85,6 @@ pub enum Operator {
     Ampersand,
     Pipe,
     Caret,
-    ShiftRight,
-    ShiftLeft,
 }
 
 impl PartialEq for Operator {
@@ -107,9 +105,7 @@ impl PartialEq for Operator {
             | (Operator::Write, Operator::Write)
             | (Operator::Ampersand, Operator::Ampersand)
             | (Operator::Pipe, Operator::Pipe)
-            | (Operator::Caret, Operator::Caret)
-            | (Operator::ShiftRight, Operator::ShiftRight)
-            | (Operator::ShiftLeft, Operator::ShiftLeft) => true,
+            | (Operator::Caret, Operator::Caret)  => true,
             (Operator::Plus, _)
             | (Operator::Minus, _)
             | (Operator::Star, _)
@@ -125,9 +121,7 @@ impl PartialEq for Operator {
             | (Operator::Write, _)
             | (Operator::Ampersand, _)
             | (Operator::Pipe, _)
-            | (Operator::Caret, _)
-            | (Operator::ShiftRight, _)
-            | (Operator::ShiftLeft, _) => false,
+            | (Operator::Caret, _) => false,
         }
     }
 }
@@ -152,8 +146,6 @@ impl std::fmt::Display for Operator {
             Operator::Ampersand => write!(f, "&")?,
             Operator::Pipe => write!(f, "|")?,
             Operator::Caret => write!(f, "^")?,
-            Operator::ShiftRight => write!(f, ">>")?,
-            Operator::ShiftLeft => write!(f, "<<")?,
         }
         write!(f, "`")
     }

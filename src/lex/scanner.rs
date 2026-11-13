@@ -113,17 +113,11 @@ impl<'src> Scanner<'src> {
                 }
             }
             '+' => {
-                if self.peek(0).is_alphabetic() {
-                    self.identifier()?
-                } else {
-                    self.add_token(TokenKind::Operator(Operator::Plus));
-                }
+                self.add_token(TokenKind::Operator(Operator::Plus));
             }
             '-' => {
                 if self.matches('>') {
                     self.add_token(TokenKind::Marker(Marker::Arrow))
-                } else if self.peek(0).is_alphabetic() {
-                    self.identifier()?
                 } else {
                     self.add_token(TokenKind::Operator(Operator::Minus))
                 }
@@ -298,7 +292,7 @@ impl<'src> Scanner<'src> {
     fn identifier(&mut self) -> Result<(), HayError> {
         let keywords = Keyword::keywords();
         while ![
-            ' ', '\n', '\t', '\r', ':', '{', '}', '[', ']', '(', ')', '<', '>',
+            ' ', '\n', '\t', '\r', ':', '{', '}', '[', ']', '(', ')', '<', '>', '+', '-', '/', '*', '=', '\"',
         ]
         .contains(&self.peek(0))
             && !self.is_at_end()

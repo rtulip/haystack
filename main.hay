@@ -57,8 +57,8 @@ fn transform(u64: _) -> [bool] true
 
 fn main() {
     &transform 12345 Some Option.map println
-    &transform None Option.map println
-    false println
-    "Hello World" println
-    12345 println
+    // &transform None Option.map println
+    // false println
+    // "Hello World" println
+    // 12345 println
 }

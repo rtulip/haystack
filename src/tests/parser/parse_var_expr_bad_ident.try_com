@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_var_expr_bad_ident.hay:3:14] Error: Expected an identifier after an identifier (), but found `u64` instead.\n"
-}

@@ -1,7 +1,0 @@
-enum struct Foo<T> {
-    T: Bar
-}
-
-fn main() {
-    cast(Foo)
-}

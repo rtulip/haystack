@@ -1,6 +1,14 @@
-rm -rf target/coverage
-mkdir target/coverage
-mkdir target/coverage/html
+# Configure instrumentation and coverage environment
+source <(cargo llvm-cov show-env --sh)
 
-CARGO_INCREMENTAL=0 RUSTFLAGS='-Cinstrument-coverage' LLVM_PROFILE_FILE='target/coverage/cargo-test-%p-%m.profraw' cargo test
-grcov . --binary-path ./target/debug/deps/ -s . -t html --branch --ignore-not-existing --ignore '../*' --ignore "/*" -o target/coverage/html
+# Clean old build artifacts
+cargo llvm-cov clean --workspace
+
+# Build the compiler with instrumentation
+cargo build
+
+# Run integration tests, which invoke the compiler
+cargo test
+
+# Generate the coverage report
+cargo llvm-cov report --html

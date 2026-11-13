@@ -1,0 +1,64 @@
+include "prelude.hay"
+
+interface Foo<T> {
+    type: Bar
+    fn baz(T) -> [Bar]
+}
+
+interface Add<L R> {
+    type: Output
+    fn add(L R) -> [Output]
+}
+
+impl Add<u64 u64> {
+    u64: Output
+    fn add(u64 u64) -> [u64] __u64_add
+}
+
+fn process<T>(T: _) {} 
+fn fallback() {}
+fn handle_err<E>(E: _) {}
+
+fn example<T E>(Result<Option<T> E>) match {
+    Result::Ok match {
+        Option::Some process
+        Option::None fallback
+    }
+    Result::Err handle_err
+}
+
+fn Option.unwrap<T>(Option<T>) -> [T] match {
+    Option::Some {}
+    Option::None { 1 exit }
+}
+
+fn Option.unwrap_or<T>(T Option<T>) -> [T] match {
+    Option::Some { swap drop }
+    Option::None {}
+}
+
+
+fn Option.Some<T>(T) -> [Option<T>::Some] {
+    #Option::Some pack
+}
+
+fn Option.None<T>() -> [Option<T>::None] {
+    #Option::None pack
+}
+
+fn Option.map<T U>(fn(T) -> [U]: f Option<T>: opt) -> [Option<U>] {
+    opt match {
+        Option::Some { f Option.Some }
+        Option::None Option.None 
+    }
+}
+
+fn transform(u64: _) -> [bool] true
+
+fn main() {
+    &transform 12345 Some Option.map println
+    &transform None Option.map println
+    false println
+    "Hello World" println
+    12345 println
+}

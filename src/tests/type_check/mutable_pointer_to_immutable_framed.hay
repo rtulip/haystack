@@ -1,6 +1,0 @@
-fn main() {
-
-    1234 as [n] {
-        *n drop
-    }
-}

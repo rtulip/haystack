@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_match_bad_as_open.hay:4:21] Error: Expected `[` after `as`, but found `{` instead\n"
-}

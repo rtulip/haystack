@@ -1,0 +1,60 @@
+use crate::{
+    lex::token::Token,
+    parser::{expr::ParseExpr, signature::Signature, typ::ParseType},
+};
+
+pub struct FunctionDefinition<'src> {
+    pub name: Token<'src>,
+    pub params: Vec<ParseType<'src>>,
+    pub signature: Signature<'src>,
+    pub expr: ParseExpr<'src>,
+}
+
+pub struct FunctionDeclaration<'src> {
+    pub name: Token<'src>,
+    pub signature: Signature<'src>,
+}
+
+pub struct InterfaceFunctionDefinition<'src> {
+    pub name: Token<'src>,
+    pub params: Vec<ParseType<'src>>,
+    pub signature: Signature<'src>,
+    pub expr: Option<ParseExpr<'src>>,
+}
+
+pub struct StructDefinition<'src> {
+    pub name: Token<'src>,
+    pub params: Vec<ParseType<'src>>,
+    pub members: Vec<(ParseType<'src>, Token<'src>)>,
+}
+
+pub struct EnumDefinition<'src> {
+    pub name: Token<'src>,
+    pub params: Vec<ParseType<'src>>,
+    pub variants: Vec<(Option<ParseType<'src>>, Token<'src>)>,
+}
+
+pub struct InterfaceDefinition<'src> {
+    pub name: Token<'src>,
+    pub params: Vec<ParseType<'src>>,
+    pub associated_types: Vec<Token<'src>>,
+    pub funcs: Vec<InterfaceFunctionDefinition<'src>>,
+}
+
+pub struct InterfaceImpl<'src> {
+    pub params: Vec<ParseType<'src>>,
+    pub name: Token<'src>,
+    pub args: Vec<ParseType<'src>>,
+    pub predicates: Vec<ParseType<'src>>,
+    pub associated_types: Vec<(Token<'src>, ParseType<'src>)>,
+    pub impls: Vec<FunctionDefinition<'src>>,
+}
+
+pub enum Statememt<'src> {
+    FunctionDefinition(FunctionDefinition<'src>),
+    ExternFunctionDeclaratoin(FunctionDeclaration<'src>),
+    StructDefinition(StructDefinition<'src>),
+    EnumDefinition(EnumDefinition<'src>),
+    InterfaceDefinition(InterfaceDefinition<'src>),
+    InterfaceImpl(InterfaceImpl<'src>),
+}

@@ -1,5 +1,0 @@
-fn main() {
-    "Hello World" as [s] {
-        *s::size drop
-    }
-}

@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/scanner/scan_bad_syscall_open.hay:1:1] Error: Expected `(` after `syscall`.\n"
-}

@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/annotated_unknown_function_call.hay:2:8] Error: Type Error: Unrecognized function `foo`\n"
-}

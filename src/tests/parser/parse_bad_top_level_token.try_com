@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_bad_top_level_token.hay:1:1] Error: Unexpected top level token: `Str`\n"
-}

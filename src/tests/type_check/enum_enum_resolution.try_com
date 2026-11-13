@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/enum_enum_resolution.hay:15:14] Error: Failed to resolve enum type `Foo` from `Bar`\n"
-}

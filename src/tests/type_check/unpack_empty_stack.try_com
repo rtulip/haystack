@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/unpack_empty_stack.hay:2:5] Error: `Unpack` expression requires a tuple on top of the stack, but stack was empty\n"
-}

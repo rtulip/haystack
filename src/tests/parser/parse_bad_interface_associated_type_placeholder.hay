@@ -1,3 +1,0 @@
-interface Foo<T> {
-    u64: Output
-}

@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/while_changes_stack.hay:3:5] Error: While loop must not change stack between iterations.\n    [Note]: Stack before loop: []\n    [Note]: Stack after loop:  [u64]\n"
-}

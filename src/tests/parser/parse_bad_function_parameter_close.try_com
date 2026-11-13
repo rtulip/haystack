@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_bad_function_parameter_close.hay:1:17] Error: Expected `)` after inputs, but found `u64` instead.\n"
-}

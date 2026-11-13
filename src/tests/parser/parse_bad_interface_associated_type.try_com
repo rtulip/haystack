@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_bad_interface_associated_type.hay:2:7] Error: Expected `:` after associated type placeholder, but found an identifier (Output) instead.\n"
-}

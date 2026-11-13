@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/ops_after_return.hay:2:16] Error: Unreachable expression.\n"
-}

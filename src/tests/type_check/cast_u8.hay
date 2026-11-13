@@ -1,8 +1,0 @@
-fn main() {
-
-    1    cast(u8) println
-    2u8  cast(u8) println
-    true cast(u8) println
-    'c'  cast(u8) println
-
-}

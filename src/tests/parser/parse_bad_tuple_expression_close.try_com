@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_bad_tuple_expression_close.hay:4:18] Error: Expected `]`, but found end of file instead.\n"
-}

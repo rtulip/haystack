@@ -1,5 +1,0 @@
-{
-  "exit_code": 0,
-  "stdout": "Foo::Bar\nFoo::Baz\nFoo::Baz\n",
-  "stderr": ""
-}

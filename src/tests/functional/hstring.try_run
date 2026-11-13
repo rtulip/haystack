@@ -1,5 +1,0 @@
-{
-  "exit_code": 0,
-  "stdout": "11\n11\nHello World\nHello World\nHeap:\n  * [ | 4072 false | ] 4096\n",
-  "stderr": ""
-}

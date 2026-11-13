@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_var_expr_missing_colon.hay:3:13] Error: Expected `:` after type, but found an identifier (bar)\n"
-}

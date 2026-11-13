@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/enum_struct_unknown_variant.hay:4:5] Error: Unknown enum struct variant `Baz`\n    [Note]: Enum struct `Foo` has variants: [\"Bar\"]\n"
-}

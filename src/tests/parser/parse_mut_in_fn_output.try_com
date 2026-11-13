@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_mut_in_fn_output.hay:1:14] Error: Expected `]` after return types, but found `mut` instead.\n"
-}

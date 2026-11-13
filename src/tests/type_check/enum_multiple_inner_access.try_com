@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/enum_multiple_inner_access.hay:8:5] Error: Cannot have multiple inner accessor for an enum type.\n    [Note]: Found accessors: [\"Bar\", \"Baz\"]\n"
-}

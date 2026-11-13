@@ -3,10 +3,10 @@ use super::token::Keyword;
 use crate::error::HayError;
 use crate::lex::token::{Literal, Loc, Marker, Operator, Token, TokenKind};
 
-pub struct Scanner {
-    file: String,
-    source: String,
-    tokens: Vec<Token>,
+pub struct Scanner<'src> {
+    file: &'src str,
+    source: &'src str,
+    tokens: Vec<Token<'src>>,
     start: usize,
     current: usize,
     line: usize,
@@ -14,14 +14,11 @@ pub struct Scanner {
     token_end: usize,
 }
 
-impl Scanner {
-    pub fn new<S>(file: S, source: S) -> Self
-    where
-        S: Into<String>,
-    {
+impl<'src> Scanner<'src> {
+    pub fn new(file: &'src str, source: &'src str) -> Self {
         Scanner {
-            file: file.into(),
-            source: source.into(),
+            file,
+            source,
             tokens: vec![],
             start: 0,
             current: 0,
@@ -31,7 +28,7 @@ impl Scanner {
         }
     }
 
-    pub fn scan_tokens(mut self) -> Result<Vec<Token>, HayError> {
+    pub fn scan_tokens(mut self) -> Result<Vec<Token<'src>>, HayError> {
         while !self.is_at_end() {
             self.start = self.current;
             self.token_start = self.token_end;
@@ -41,7 +38,7 @@ impl Scanner {
         self.tokens.push(Token::new(
             TokenKind::EoF,
             "",
-            &self.file,
+            self.file,
             self.line,
             self.token_start,
             self.token_end,
@@ -88,11 +85,11 @@ impl Scanner {
         self.token_end = 1;
     }
 
-    fn add_token(&mut self, kind: TokenKind) {
+    fn add_token(&mut self, kind: TokenKind<'src>) {
         self.tokens.push(Token::new(
             kind,
             &self.source[self.start..self.current],
-            &self.file,
+            self.file,
             self.line,
             self.token_start,
             self.token_end,
@@ -116,38 +113,16 @@ impl Scanner {
                 }
             }
             '+' => {
-                if self.peek(0).is_alphabetic() {
-                    self.identifier()?
-                } else {
-                    self.add_token(TokenKind::Operator(Operator::Plus));
-                }
+                self.add_token(TokenKind::Operator(Operator::Plus));
             }
             '-' => {
                 if self.matches('>') {
                     self.add_token(TokenKind::Marker(Marker::Arrow))
-                } else if self.peek(0).is_alphabetic() {
-                    self.identifier()?
                 } else {
                     self.add_token(TokenKind::Operator(Operator::Minus))
                 }
             }
-            '*' => {
-                let c = self.peek(0);
-                if c.is_alphabetic() || c == '*' || c == '&' {
-                    let tok = Token::new(
-                        TokenKind::Operator(Operator::Star),
-                        &self.source[self.start..self.current],
-                        &self.file,
-                        self.line,
-                        self.token_start,
-                        self.token_end,
-                    );
-
-                    self.add_token(TokenKind::Operator(Operator::Unary(Box::new(tok))));
-                } else {
-                    self.add_token(TokenKind::Operator(Operator::Star))
-                }
-            }
+            '*' => self.add_token(TokenKind::Operator(Operator::Star)),
             '/' => {
                 if self.matches('/') {
                     // skip the comment
@@ -161,8 +136,6 @@ impl Scanner {
             '<' => {
                 if self.matches('=') {
                     self.add_token(TokenKind::Operator(Operator::LessEqual))
-                } else if self.matches('<') {
-                    self.add_token(TokenKind::Operator(Operator::ShiftLeft))
                 } else {
                     self.add_token(TokenKind::Operator(Operator::LessThan))
                 }
@@ -170,8 +143,6 @@ impl Scanner {
             '>' => {
                 if self.matches('=') {
                     self.add_token(TokenKind::Operator(Operator::GreaterEqual))
-                } else if self.matches('>') {
-                    self.add_token(TokenKind::Operator(Operator::ShiftRight))
                 } else {
                     self.add_token(TokenKind::Operator(Operator::GreaterThan))
                 }
@@ -183,7 +154,7 @@ impl Scanner {
                 } else {
                     return Err(HayError::new(
                         format!("Unrecognized token: `={}`", self.peek(0)),
-                        Loc::new(&self.file, self.line, self.token_start, self.token_end),
+                        Loc::new(self.file, self.line, self.token_start, self.token_end),
                     ));
                 }
             }
@@ -195,37 +166,23 @@ impl Scanner {
                 }
             }
             '@' => self.add_token(TokenKind::Operator(Operator::Read)),
-            '&' => {
-                let c = self.peek(0);
-                if c.is_alphabetic() || c == '*' || c == '&' {
-                    let tok = Token::new(
-                        TokenKind::Operator(Operator::Ampersand),
-                        &self.source[self.start..self.current],
-                        &self.file,
-                        self.line,
-                        self.token_start,
-                        self.token_end,
-                    );
-                    self.add_token(TokenKind::Operator(Operator::Unary(Box::new(tok))))
-                } else {
-                    self.add_token(TokenKind::Operator(Operator::Ampersand))
-                }
-            }
+            '&' => self.add_token(TokenKind::Operator(Operator::Ampersand)),
             '|' => self.add_token(TokenKind::Operator(Operator::Pipe)),
             '^' => self.add_token(TokenKind::Operator(Operator::Caret)),
-            ' ' | '\t' | '\r' => (),
+            ' ' | '\t' | '\r' => self.add_token(TokenKind::Whitespace),
             '\n' => self.newline(),
             '"' => self.string()?,
             '\'' => self.char()?,
+            '#' => self.add_token(TokenKind::Marker(Marker::Hash)),
             c => {
                 if c.is_ascii_digit() {
                     self.number()?
-                } else if c.is_alphabetic() || c == '_' {
+                } else if c.is_alphabetic() || c == '_' || c == '.' {
                     self.identifier()?
                 } else {
                     return Err(HayError::new(
                         format!("Unexpected character: `{c}`"),
-                        Loc::new(&self.file, self.line, self.token_start, self.token_end),
+                        Loc::new(self.file, self.line, self.token_start, self.token_end),
                     ));
                 }
             }
@@ -245,15 +202,14 @@ impl Scanner {
         if self.is_at_end() {
             return Err(HayError::new(
                 "Unterminated string",
-                Loc::new(&self.file, self.line, self.token_start, self.token_end),
+                Loc::new(self.file, self.line, self.token_start, self.token_end),
             ));
         }
 
         self.advance();
 
-        self.add_token(TokenKind::Literal(Literal::String(String::from(
-            &self.source[self.start + 1..self.current - 1],
-        ))));
+        let s = &self.source[self.start + 1..self.current - 1];
+        self.add_token(TokenKind::Literal(Literal::String(s)));
 
         Ok(())
     }
@@ -272,7 +228,7 @@ impl Scanner {
                 c => {
                     return Err(HayError::new(
                         format!("Unknown escaped character: `\\{c}`"),
-                        Loc::new(&self.file, self.line, self.token_start, self.token_end),
+                        Loc::new(self.file, self.line, self.token_start, self.token_end),
                     ))
                 }
             }
@@ -281,7 +237,7 @@ impl Scanner {
         if !self.matches('\'') {
             return Err(HayError::new(
                 "Unterminated character",
-                Loc::new(&self.file, self.line, self.token_start, self.token_end),
+                Loc::new(self.file, self.line, self.token_start, self.token_end),
             ));
         }
 
@@ -314,7 +270,7 @@ impl Scanner {
                 } else {
                     return Err(HayError::new(
                         format!("Failed to convert {n} into a `u8` literal"),
-                        Loc::new(&self.file, self.line, self.token_start, self.token_end),
+                        Loc::new(self.file, self.line, self.token_start, self.token_end),
                     ));
                 }
             } else {
@@ -326,7 +282,7 @@ impl Scanner {
                     "Failed to parse number from {}",
                     &self.source[self.start..self.current]
                 ),
-                Loc::new(&self.file, self.line, self.token_start, self.token_end),
+                Loc::new(self.file, self.line, self.token_start, self.token_end),
             ));
         }
 
@@ -336,7 +292,7 @@ impl Scanner {
     fn identifier(&mut self) -> Result<(), HayError> {
         let keywords = Keyword::keywords();
         while ![
-            ' ', '\n', '\t', '\r', ':', '{', '}', '[', ']', '(', ')', '<', '>',
+            ' ', '\n', '\t', '\r', ':', '{', '}', '[', ']', '(', ')', '<', '>', '+', '-', '/', '*', '=', '\"',
         ]
         .contains(&self.peek(0))
             && !self.is_at_end()
@@ -346,143 +302,11 @@ impl Scanner {
 
         let ident = &self.source[self.start..self.current];
         if let Some(kind) = keywords.get(ident) {
-            match kind {
-                TokenKind::Syscall(_) => self.syscall()?,
-                _ => self.add_token(kind.clone()),
-            }
+            self.add_token(kind.clone())
         } else {
-            self.add_token(TokenKind::Ident(String::from(ident)))
+            self.add_token(TokenKind::Ident(ident))
         }
 
         Ok(())
-    }
-
-    fn syscall(&mut self) -> Result<(), HayError> {
-        if !self.matches('(') {
-            return Err(HayError::new(
-                format!("Expected {} after `syscall`.", Marker::LeftParen),
-                Loc::new(&self.file, self.line, self.token_start, self.token_end),
-            ));
-        }
-
-        let n = self.advance();
-        let n = match String::from(n).parse::<usize>() {
-            Ok(n) => {
-                if n > 0 && n < 7 {
-                    n
-                } else {
-                    return Err(HayError::new(
-                        format!("Expected `1..6` after `syscall(`, but found {n}"),
-                        Loc::new(&self.file, self.line, self.token_start, self.token_end),
-                    ));
-                }
-            }
-            Err(_) => {
-                return Err(HayError::new(
-                    "Expected `1..6` after `syscall(`.",
-                    Loc::new(&self.file, self.line, self.token_start, self.token_end),
-                ))
-            }
-        };
-
-        if !self.matches(')') {
-            return Err(HayError::new(
-                format!("Expected {} after `syscall`.", Marker::RightParen),
-                Loc::new(&self.file, self.line, self.token_start, self.token_end),
-            ));
-        }
-
-        self.add_token(TokenKind::Syscall(n));
-        Ok(())
-    }
-}
-
-mod tests {
-
-    #[test]
-    fn scan_good_escape_chars() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_good_escape_chars", None)
-    }
-
-    #[test]
-    fn scan_bad_equals_operator() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_bad_equals_operator", None)
-    }
-
-    #[test]
-    fn scan_multi_line_string() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_multi_line_string", None)
-    }
-
-    #[test]
-    fn scan_bad_syscall_open() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_bad_syscall_open", None)
-    }
-
-    #[test]
-    fn scan_bad_syscall_close() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_bad_syscall_close", None)
-    }
-
-    #[test]
-    fn scan_bad_syscall_number_too_large() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test(
-            "src/tests/scanner",
-            "scan_bad_syscall_number_too_large",
-            None,
-        )
-    }
-
-    #[test]
-    fn scan_bad_syscall_number_too_small() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test(
-            "src/tests/scanner",
-            "scan_bad_syscall_number_too_small",
-            None,
-        )
-    }
-
-    #[test]
-    fn scan_bad_syscall_parameter() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test(
-            "src/tests/scanner",
-            "scan_bad_syscall_parameter",
-            None,
-        )
-    }
-
-    #[test]
-    fn scan_unexpected_char() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_unexpected_char", None)
-    }
-
-    #[test]
-    fn scan_bad_number_literal() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_bad_number_literal", None)
-    }
-
-    #[test]
-    fn scan_bad_u8() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_bad_u8", None)
-    }
-
-    #[test]
-    fn scan_unterminated_char() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_unterminated_char", None)
-    }
-
-    #[test]
-    fn scan_unterminated_string() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_unterminated_string", None)
-    }
-
-    #[test]
-    fn scan_bad_escaped_char() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_bad_escaped_char", None)
-    }
-
-    #[test]
-    fn scan_constructor_and_destructor() -> Result<(), std::io::Error> {
-        crate::compiler::test_tools::run_test("src/tests/scanner", "scan_special_functions", None)
     }
 }

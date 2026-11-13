@@ -1,6 +1,0 @@
-inline fn my_add(u64: a u64: b) -> [u64] { a b + }
-
-fn main() {
-    1 2 my_add println
-    4 5 my_add println
-}

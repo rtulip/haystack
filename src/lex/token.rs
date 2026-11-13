@@ -1,35 +1,41 @@
-use crate::error::HayError;
-use crate::types::{Function, GenericFunction, Type, TypeId, TypeMap, UncheckedFunction};
 use std::collections::HashMap;
+use std::fmt::{write, Display};
 use std::ops::Range;
+use std::write;
 
-#[derive(Debug, Clone, Default)]
-pub struct Loc {
-    pub file: String,
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+pub struct Loc<S>
+where
+    S: PartialEq + Eq,
+{
+    pub file: S,
     pub line: usize,
     pub span: Range<usize>,
 }
 
-impl Loc {
-    pub fn new<S>(file: S, line: usize, start: usize, end: usize) -> Self
-    where
-        S: Into<String>,
-    {
+impl<S> Loc<S>
+where
+    S: PartialEq + Eq,
+{
+    pub fn new(file: S, line: usize, start: usize, end: usize) -> Self {
         Loc {
-            file: file.into(),
+            file,
             line,
             span: Range { start, end },
         }
     }
 }
 
-impl std::fmt::Display for Loc {
+impl<S> std::fmt::Display for Loc<S>
+where
+    S: Display + PartialEq + Eq,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{}:{}", self.file, self.line, self.span.start)
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Marker {
     LeftBrace,
     RightBrace,
@@ -40,6 +46,7 @@ pub enum Marker {
     Colon,
     DoubleColon,
     Arrow,
+    Hash,
 }
 
 impl std::fmt::Display for Marker {
@@ -55,12 +62,13 @@ impl std::fmt::Display for Marker {
             Marker::Colon => write!(f, ":")?,
             Marker::DoubleColon => write!(f, "::")?,
             Marker::Arrow => write!(f, "->")?,
+            Marker::Hash => write!(f, "#")?,
         }
         write!(f, "`")
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, Hash)]
 pub enum Operator {
     Plus,
     Minus,
@@ -78,9 +86,6 @@ pub enum Operator {
     Ampersand,
     Pipe,
     Caret,
-    ShiftRight,
-    ShiftLeft,
-    Unary(Box<Token>),
 }
 
 impl PartialEq for Operator {
@@ -100,11 +105,8 @@ impl PartialEq for Operator {
             | (Operator::Read, Operator::Read)
             | (Operator::Write, Operator::Write)
             | (Operator::Ampersand, Operator::Ampersand)
-            | (Operator::Unary { .. }, Operator::Unary { .. })
             | (Operator::Pipe, Operator::Pipe)
-            | (Operator::Caret, Operator::Caret)
-            | (Operator::ShiftRight, Operator::ShiftRight)
-            | (Operator::ShiftLeft, Operator::ShiftLeft) => true,
+            | (Operator::Caret, Operator::Caret)  => true,
             (Operator::Plus, _)
             | (Operator::Minus, _)
             | (Operator::Star, _)
@@ -119,11 +121,8 @@ impl PartialEq for Operator {
             | (Operator::Read, _)
             | (Operator::Write, _)
             | (Operator::Ampersand, _)
-            | (Operator::Unary { .. }, _)
             | (Operator::Pipe, _)
-            | (Operator::Caret, _)
-            | (Operator::ShiftRight, _)
-            | (Operator::ShiftLeft, _) => false,
+            | (Operator::Caret, _) => false,
         }
     }
 }
@@ -148,38 +147,50 @@ impl std::fmt::Display for Operator {
             Operator::Ampersand => write!(f, "&")?,
             Operator::Pipe => write!(f, "|")?,
             Operator::Caret => write!(f, "^")?,
-            Operator::ShiftRight => write!(f, ">>")?,
-            Operator::ShiftLeft => write!(f, "<<")?,
-            Operator::Unary(op) => write!(f, "Unary({})", op.lexeme)?,
         }
         write!(f, "`")
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Intrinsic {
+    UncheckedCast,
+    U64Add,
+}
+
+impl std::fmt::Display for Intrinsic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "`")?;
+        match self {
+            Intrinsic::UncheckedCast => write!(f, "__unchecked_cast")?,
+            Intrinsic::U64Add => write!(f, "__u64_add")?,
+        }
+        write!(f, "`")
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Keyword {
     Function,
-    Var,
     As,
     If,
     Else,
     While,
     Do,
     Struct,
-    Union,
     Enum,
-    Cast,
     Include,
     SizeOf,
-    Pub,
     Impl,
-    Inline,
-    Return,
     Mut,
     Interface,
     Requires,
     Match,
+    Pack,
     Unpack,
+    Extern,
+    Call,
+    Type,
 }
 
 impl std::fmt::Display for Keyword {
@@ -187,192 +198,97 @@ impl std::fmt::Display for Keyword {
         write!(f, "`")?;
         match self {
             Keyword::Function => write!(f, "fn")?,
-            Keyword::Var => write!(f, "var")?,
             Keyword::As => write!(f, "as")?,
             Keyword::If => write!(f, "if")?,
             Keyword::Else => write!(f, "else")?,
             Keyword::While => write!(f, "while")?,
             Keyword::Do => write!(f, "do")?,
             Keyword::Struct => write!(f, "struct")?,
-            Keyword::Union => write!(f, "union")?,
             Keyword::Enum => write!(f, "enum")?,
-            Keyword::Cast => write!(f, "cast")?,
             Keyword::Include => write!(f, "include")?,
             Keyword::SizeOf => write!(f, "sizeOf")?,
-            Keyword::Pub => write!(f, "pub")?,
             Keyword::Impl => write!(f, "impl")?,
-            Keyword::Inline => write!(f, "inline")?,
-            Keyword::Return => write!(f, "return")?,
             Keyword::Mut => write!(f, "mut")?,
             Keyword::Interface => write!(f, "interface")?,
             Keyword::Requires => write!(f, "requires")?,
             Keyword::Match => write!(f, "match")?,
+            Keyword::Pack => write!(f, "pack")?,
             Keyword::Unpack => write!(f, "unpack")?,
+            Keyword::Extern => write!(f, "extern")?,
+            Keyword::Call => write!(f, "call")?,
+            Keyword::Type => write!(f, "type")?,
         }
         write!(f, "`")
     }
 }
 
 impl Keyword {
-    pub fn keywords() -> HashMap<&'static str, TokenKind> {
+    pub fn keywords() -> HashMap<&'static str, TokenKind<'static>> {
         let mut map = HashMap::new();
         map.insert("fn", TokenKind::Keyword(Keyword::Function));
-        map.insert("var", TokenKind::Keyword(Keyword::Var));
         map.insert("as", TokenKind::Keyword(Keyword::As));
         map.insert("if", TokenKind::Keyword(Keyword::If));
         map.insert("else", TokenKind::Keyword(Keyword::Else));
         map.insert("while", TokenKind::Keyword(Keyword::While));
         map.insert("do", TokenKind::Keyword(Keyword::Do));
         map.insert("struct", TokenKind::Keyword(Keyword::Struct));
-        map.insert("union", TokenKind::Keyword(Keyword::Union));
         map.insert("enum", TokenKind::Keyword(Keyword::Enum));
-        map.insert("cast", TokenKind::Keyword(Keyword::Cast));
         map.insert("include", TokenKind::Keyword(Keyword::Include));
-        map.insert("sizeOf", TokenKind::Keyword(Keyword::SizeOf));
-        map.insert("pub", TokenKind::Keyword(Keyword::Pub));
+        map.insert("sizeof", TokenKind::Keyword(Keyword::SizeOf));
         map.insert("impl", TokenKind::Keyword(Keyword::Impl));
-        map.insert("inline", TokenKind::Keyword(Keyword::Inline));
-        map.insert("return", TokenKind::Keyword(Keyword::Return));
         map.insert("mut", TokenKind::Keyword(Keyword::Mut));
         map.insert("interface", TokenKind::Keyword(Keyword::Interface));
         map.insert("requires", TokenKind::Keyword(Keyword::Requires));
         map.insert("match", TokenKind::Keyword(Keyword::Match));
+        map.insert("pack", TokenKind::Keyword(Keyword::Pack));
         map.insert("unpack", TokenKind::Keyword(Keyword::Unpack));
+        map.insert("call", TokenKind::Keyword(Keyword::Call));
+        map.insert("interface", TokenKind::Keyword(Keyword::Interface));
+        map.insert("extern", TokenKind::Keyword(Keyword::Extern));
+        map.insert("type", TokenKind::Keyword(Keyword::Type));
+
+        map.insert(
+            "__unchecked_cast",
+            TokenKind::Intrinsic(Intrinsic::UncheckedCast),
+        );
+        map.insert("__u64_add", TokenKind::Intrinsic(Intrinsic::U64Add));
 
         map.insert("true", TokenKind::Literal(Literal::Bool(true)));
         map.insert("false", TokenKind::Literal(Literal::Bool(false)));
-        map.insert("syscall", TokenKind::Syscall(0));
 
         map
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum Literal {
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Literal<'src> {
     Bool(bool),
     Char(char),
-    String(String),
+    String(&'src str),
     U8(u8),
     U64(u64),
 }
 
-#[derive(Debug, Clone)]
-pub enum TypeToken {
-    Array {
-        base: Box<TypeToken>,
-        size: usize,
-    },
-    Associated {
-        base: Box<TypeToken>,
-        typ: String,
-    },
-    Base(String),
-    Parameterized {
-        base: String,
-        inner: Vec<TypeToken>,
-    },
-    Pointer {
-        inner: Box<TypeToken>,
-        mutable: bool,
-    },
-    Tuple {
-        inner: Vec<Token>,
-        idents: Option<Vec<Token>>,
-    },
-}
-
-impl std::fmt::Display for TypeToken {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TypeToken::Array { base, size } => write!(f, "{base}[{size}]"),
-            TypeToken::Associated { base, typ } => match &**base {
-                TypeToken::Parameterized { base, inner } => {
-                    write!(f, "{base}<")?;
-                    for inner_t in inner.iter().take(inner.len() - 1) {
-                        write!(f, "{inner_t} ")?;
-                    }
-                    write!(f, "{}>", inner.last().unwrap())?;
-                    write!(f, "::{typ}")
-                }
-                TypeToken::Base(base) => {
-                    write!(f, "{base}::{typ}")
-                }
-                other => panic!(
-                    "Expected one of TypeToken::Parameterized or TypeToken::Base. Found {other:?}"
-                ),
-            },
-            TypeToken::Base(s) => write!(f, "{s}"),
-            TypeToken::Parameterized { base, inner } => {
-                write!(f, "{base}<")?;
-                for inner_t in inner.iter().take(inner.len() - 1) {
-                    write!(f, "{inner_t} ")?;
-                }
-                write!(f, "{}>", inner.last().unwrap())
-            }
-            TypeToken::Pointer { inner: p, mutable } => {
-                if *mutable {
-                    write!(f, "*{p}")
-                } else {
-                    write!(f, "&{p}")
-                }
-            }
-            TypeToken::Tuple {
-                inner,
-                idents: None,
-            } => {
-                write!(f, "[")?;
-                if !inner.is_empty() {
-                    for inner_t in inner.iter().take(inner.len() - 1) {
-                        write!(f, "{} ", inner_t.lexeme)?;
-                    }
-                }
-
-                if let Some(last) = inner.last() {
-                    write!(f, "{}", last.lexeme)?;
-                }
-                write!(f, "]")
-            }
-            TypeToken::Tuple {
-                inner,
-                idents: Some(idents),
-            } => {
-                assert_eq!(inner.len(), idents.len());
-                write!(f, "{{")?;
-                if !inner.is_empty() {
-                    for (inner_t, ident) in inner.iter().zip(idents.iter()).take(inner.len() - 1) {
-                        write!(f, "{}: {} ", inner_t.lexeme, ident.lexeme)?;
-                    }
-                }
-
-                if let (Some(last_t), Some(last_id)) = (inner.last(), idents.last()) {
-                    write!(f, "{}: {}", last_t.lexeme, last_id.lexeme)?;
-                }
-                write!(f, "}}")
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, Default)]
-pub enum TokenKind {
-    Ident(String),
+#[derive(Debug, Clone, Default, Eq, Hash)]
+pub enum TokenKind<'src> {
+    Ident(&'src str),
     Marker(Marker),
     Operator(Operator),
     Keyword(Keyword),
-    Literal(Literal),
-    Syscall(usize),
-    Type(TypeToken),
+    Intrinsic(Intrinsic),
+    Literal(Literal<'src>),
+    Whitespace,
     #[default]
     EoF,
 }
 
-impl TokenKind {
+impl<'src> TokenKind<'src> {
     pub fn string() -> Self {
-        TokenKind::Literal(Literal::String(String::from("")))
+        TokenKind::Literal(Literal::String(""))
     }
 
     pub fn ident() -> Self {
-        TokenKind::Ident(String::from(""))
+        TokenKind::Ident("")
     }
 
     pub fn u64() -> Self {
@@ -380,7 +296,7 @@ impl TokenKind {
     }
 }
 
-impl std::fmt::Display for TokenKind {
+impl<'src> std::fmt::Display for TokenKind<'src> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             TokenKind::Marker(m) => write!(f, "{m}"),
@@ -394,14 +310,14 @@ impl std::fmt::Display for TokenKind {
                 Literal::U8(_) => write!(f, "`u8`"),
             },
             TokenKind::Ident(id) => write!(f, "an identifier ({id})"),
+            TokenKind::Intrinsic(i) => write!(f, "{i}"),
             TokenKind::EoF => write!(f, "end of file"),
-            TokenKind::Syscall(_) => write!(f, "{self:?}"),
-            TokenKind::Type(t) => write!(f, "{t}"),
+            TokenKind::Whitespace => write!(f, "` `"),
         }
     }
 }
 
-impl std::cmp::PartialEq for TokenKind {
+impl<'src> std::cmp::PartialEq for TokenKind<'src> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (TokenKind::Ident(_), TokenKind::Ident(_)) => true,
@@ -417,179 +333,41 @@ impl std::cmp::PartialEq for TokenKind {
                     | (Literal::U8(_), Literal::U8(_))
             ),
             (TokenKind::EoF, TokenKind::EoF) => true,
-            (TokenKind::Syscall(_), TokenKind::Syscall(_)) => true,
+            (TokenKind::Whitespace, TokenKind::Whitespace) => true,
             _ => false,
         }
     }
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct Token {
-    pub kind: TokenKind,
-    pub lexeme: String,
-    pub loc: Loc,
+#[derive(Clone, Default, PartialEq, Eq, Hash)]
+pub struct Token<'src> {
+    pub kind: TokenKind<'src>,
+    pub lexeme: &'src str,
+    pub loc: Loc<&'src str>,
 }
 
-impl Token {
-    pub fn new<S1, S2>(
-        kind: TokenKind,
-        lexeme: S1,
-        file: S2,
+impl<'src> Token<'src> {
+    pub fn new(
+        kind: TokenKind<'src>,
+        lexeme: &'src str,
+        file: &'src str,
         line: usize,
         start: usize,
         end: usize,
-    ) -> Token
-    where
-        S1: Into<String>,
-        S2: Into<String>,
-    {
+    ) -> Token<'src> {
         Token {
             kind,
-            lexeme: lexeme.into(),
+            lexeme,
             loc: Loc {
-                file: file.into(),
+                file,
                 line,
                 span: Range { start, end },
             },
         }
     }
-
-    pub fn split_op(self) -> Result<(Token, Token), HayError> {
-        let op = self.operator()?;
-        match op {
-            Operator::ShiftLeft => todo!(),
-            Operator::ShiftRight => Ok((
-                Token::new(
-                    TokenKind::Operator(Operator::GreaterThan),
-                    format!("{}", self.lexeme.chars().next().unwrap()),
-                    self.loc.file.clone(),
-                    self.loc.line,
-                    self.loc.span.start,
-                    self.loc.span.end - 1,
-                ),
-                Token::new(
-                    TokenKind::Operator(Operator::GreaterThan),
-                    format!("{}", self.lexeme.chars().nth(1).unwrap()),
-                    self.loc.file.clone(),
-                    self.loc.line,
-                    self.loc.span.start + 1,
-                    self.loc.span.end,
-                ),
-            )),
-            _ => Err(HayError::new(
-                format!("Cannot split operator {op}",),
-                self.loc,
-            )),
-        }
-    }
-
-    pub fn string(&self) -> Result<String, HayError> {
-        match &self.kind {
-            TokenKind::Literal(Literal::String(s)) => Ok(s.clone()),
-            _ => Err(HayError::new(
-                format!("Failed to destructure {} into String", self.kind),
-                self.loc.clone(),
-            )),
-        }
-    }
-
-    pub fn typ(&self) -> Result<TypeToken, HayError> {
-        match &self.kind {
-            TokenKind::Type(t) => Ok(t.clone()),
-            _ => Err(HayError::new(
-                format!("Failed to destructure {} into Type", self.kind),
-                self.loc.clone(),
-            )),
-        }
-    }
-
-    pub fn ident(&self) -> Result<String, HayError> {
-        match &self.kind {
-            TokenKind::Ident(s) => Ok(s.clone()),
-            _ => Err(HayError::new(
-                format!("Failed to destructure {} into an identifier", self.kind),
-                self.loc.clone(),
-            )),
-        }
-    }
-
-    pub fn u64(&self) -> Result<u64, HayError> {
-        match &self.kind {
-            TokenKind::Literal(Literal::U64(n)) => Ok(*n),
-            _ => Err(HayError::new(
-                format!("Failed to destructure {} into a u64", self.kind),
-                self.loc.clone(),
-            )),
-        }
-    }
-
-    pub fn keyword(&self) -> Result<Keyword, HayError> {
-        match &self.kind {
-            TokenKind::Keyword(kw) => Ok(*kw),
-            _ => Err(HayError::new(
-                format!("Failed to destructure {} into a keyword", self.kind),
-                self.loc.clone(),
-            )),
-        }
-    }
-
-    pub fn operator(&self) -> Result<Operator, HayError> {
-        match &self.kind {
-            TokenKind::Operator(op) => Ok(op.clone()),
-            _ => Err(HayError::new(
-                format!("Failed to destructure {} into an operator", self.kind),
-                self.loc.clone(),
-            )),
-        }
-    }
-
-    pub fn unary_operator(&self) -> Result<Operator, HayError> {
-        match &self.kind {
-            TokenKind::Operator(Operator::Unary(unary_tok)) => unary_tok.operator(),
-            _ => Err(HayError::new(
-                format!("Failed to destructure {} into an operator", self.kind),
-                self.loc.clone(),
-            )),
-        }
-    }
-
-    pub fn dimension(&self) -> Result<Option<(usize, TypeToken)>, HayError> {
-        match &self.kind {
-            TokenKind::Type(typ) => match typ {
-                TypeToken::Array { size, base } => Ok(Some((*size, *base.clone()))),
-                _ => Ok(None),
-            },
-            _ => Err(HayError::new(
-                "Can't get a dimension from a non-type token.",
-                self.loc.clone(),
-            )),
-        }
-    }
-
-    pub fn fn_name<'a>(
-        &self,
-        types: &'a mut TypeMap,
-        local_types: &Vec<TypeId>,
-    ) -> Option<&'a Token> {
-        let tid = TypeId::from_token(self, types, local_types).ok()?;
-        match types.get(&tid) {
-            Some(
-                Type::Function {
-                    func: Function { name, .. },
-                }
-                | Type::GenericFunction {
-                    func: GenericFunction { name, .. },
-                }
-                | Type::UncheckedFunction {
-                    func: UncheckedFunction { name, .. },
-                },
-            ) => Some(name),
-            Some(_) | None => None,
-        }
-    }
 }
 
-impl std::fmt::Display for Token {
+impl<'src> std::fmt::Display for Token<'src> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[{}]: ", self.loc)?;
         match &self.kind {
@@ -605,9 +383,15 @@ impl std::fmt::Display for Token {
             },
             TokenKind::Marker(m) => write!(f, "{m}"),
             TokenKind::Operator(op) => write!(f, "{op}"),
-            TokenKind::Syscall(n) => write!(f, "syscall({n})"),
-            TokenKind::Type(t) => write!(f, "{t}"),
+            TokenKind::Intrinsic(i) => write!(f, "{i}"),
+            TokenKind::Whitespace => Ok(()),
         }
+    }
+}
+
+impl<'src> std::fmt::Debug for Token<'src> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
     }
 }
 
@@ -637,7 +421,6 @@ mod tests {
     fn test_keyword_display() {
         assert_eq!(format!("{}", Keyword::Else), format!("`else`"));
         assert_eq!(format!("{}", Keyword::While), format!("`while`"));
-        assert_eq!(format!("{}", Keyword::Union), format!("`union`"));
         assert_eq!(format!("{}", Keyword::Include), format!("`include`"));
     }
 
@@ -657,19 +440,6 @@ mod tests {
             format!("{}", TokenKind::Literal(Literal::U8(0))),
             format!("`u8`")
         );
-
-        assert_eq!(format!("{}", TokenKind::Syscall(1)), format!("Syscall(1)"));
-    }
-
-    #[test]
-    fn test_bad_token_destructure() {
-        let tok = Token::new(TokenKind::EoF, "", "", 0, 0, 0);
-
-        assert!(tok.string().is_err());
-        assert!(tok.typ().is_err());
-        assert!(tok.ident().is_err());
-        assert!(tok.u64().is_err());
-        assert!(tok.keyword().is_err());
     }
 
     #[test]
@@ -677,13 +447,13 @@ mod tests {
         let mut tok = Token::new(TokenKind::EoF, "lexeme", "file", 1, 1, 2);
 
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: EOF"));
-        tok.kind = TokenKind::Ident(String::from("ident"));
+        tok.kind = TokenKind::Ident("ident");
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: ident"));
         tok.kind = TokenKind::Keyword(Keyword::While);
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: lexeme"));
         tok.kind = TokenKind::Literal(Literal::Bool(true));
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: true"));
-        tok.kind = TokenKind::Literal(Literal::String(String::new()));
+        tok.kind = TokenKind::Literal(Literal::String(""));
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: lexeme"));
         tok.kind = TokenKind::Literal(Literal::Char(' '));
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: lexeme"));
@@ -695,21 +465,5 @@ mod tests {
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: `->`"));
         tok.kind = TokenKind::Operator(Operator::Plus);
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: `+`"));
-        tok.kind = TokenKind::Syscall(1);
-        assert_eq!(format!("{}", tok), String::from("[file:1:1]: syscall(1)"));
-        tok.kind = TokenKind::Type(TypeToken::Base(String::from("T")));
-        assert_eq!(format!("{}", tok), String::from("[file:1:1]: T"));
-    }
-
-    #[test]
-    fn test_syscall_partial_eq() {
-        assert_eq!(TokenKind::Syscall(1), TokenKind::Syscall(2));
-    }
-
-    #[test]
-    fn test_dimension_error() {
-        assert!(Token::new(TokenKind::EoF, "lexeme", "file", 0, 0, 0)
-            .dimension()
-            .is_err());
     }
 }

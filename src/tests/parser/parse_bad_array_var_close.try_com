@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_bad_array_var_close.hay:2:14] Error: Expected `]` after array size, but found `u64`\n"
-}

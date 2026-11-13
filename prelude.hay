@@ -1,0 +1,64 @@
+include "c.hay"
+include "print.hay"
+include "str.hay"
+
+fn drop<T>(T: _) { }
+fn dup<T>(T: t) -> [T T] { t t }
+fn typeof<T>(T: _) -> [Type<T>] #T
+fn hint<T>(T Type<T>) -> [T] drop
+fn swap<A B>(A: a B: b) -> [B A] { b a }
+
+interface Cast<From Into> {
+    fn cast(From Type<Into>) -> [Into] __unchecked_cast
+}
+
+impl<T> Cast<T T> {}
+impl<From Into> Cast<&From &Into> {}
+impl Cast<bool u8> {}
+
+interface GenericExample<T> {
+    fn generic_example<U>(U T) -> [U] drop
+}
+
+impl GenericExample<bool> {
+    fn generic_example<T>(T bool) -> [T] drop
+}
+
+enum Option<T> {
+    T: Some
+    None
+}
+
+fn Some<T>(T) -> [Option<T>::Some] {
+    #Option::Some pack
+}
+
+fn None<T>() -> [Option<T>::None] {
+    #Option::None pack
+}
+
+impl<T> Print<Option<T>> 
+requires [Print<T>] 
+{
+    fn print(Option<T>) match {
+         Option::Some { 
+            "Some(" print 
+                    print 
+            ")"     print 
+        }
+        Option::None { "None" print }
+    }
+}
+
+enum Result<T E> {
+    T: Ok
+    E: Err
+}
+
+fn Ok<T E>(T) -> [Result<T E>::Ok] {
+    #Result::Ok pack
+}
+
+fn Err<T E>(E) -> [Result<T E>::Err] {
+    #Result::Err pack
+}

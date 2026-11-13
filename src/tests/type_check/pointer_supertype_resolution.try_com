@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/pointer_supertype_resolution.hay:9:7] Error: Type Error: Invalid inputs for `!`\n    [Note]: Expected: [u64, *u64]\n    [Note]: Found:    [u64, &u64]\n"
-}

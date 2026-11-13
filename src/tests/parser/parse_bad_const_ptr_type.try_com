@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_bad_const_ptr_type.hay:1:8] Error: Expected type after `&`, but found `u64` instead.\n"
-}

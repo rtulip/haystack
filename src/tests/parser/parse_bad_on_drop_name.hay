@@ -1,5 +1,0 @@
-struct Foo {
-    u64: bar
-impl:
-    fn -Bar() {}
-}

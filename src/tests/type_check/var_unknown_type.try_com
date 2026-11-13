@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/var_unknown_type.hay:3:9] Error: Unrecognized type: foo\n"
-}

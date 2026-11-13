@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/type_check/incorrect_fn_signature.hay:1:4] Error: Type Error: Function `foo` doesn't produce the correct outputs\n    [Note]: Expected final stack: []\n    [Note]: Function produced:    [u64]\n"
-}

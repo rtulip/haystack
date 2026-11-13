@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/stmt/var_name_conflict.hay:2:1] Error: Var conflict. `foo` defined elsewhere\n"
-}

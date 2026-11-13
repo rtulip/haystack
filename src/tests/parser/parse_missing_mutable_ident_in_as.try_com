@@ -1,5 +1,0 @@
-{
-  "exit_code": 1,
-  "stdout": "",
-  "stderr": "[src/tests/parser/parse_missing_mutable_ident_in_as.hay:3:11] Error: Expected an identifier after keyword `mut`, but found `]` instead.\n"
-}

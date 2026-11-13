@@ -761,7 +761,7 @@ where
         }
     }
 
-    fn freshen_tid(
+    pub fn freshen_tid(
         &mut self,
         tid: TypeId,
         fresh: &mut HashMap<TypeVar, TypeId>,
@@ -835,7 +835,7 @@ where
     }
 
     /// Given a Scheme, freshen it
-    fn freshen(&mut self, scheme: &Scheme, meta: &M) -> QualifiedType {
+    pub fn freshen(&mut self, scheme: &Scheme, meta: &M) -> QualifiedType {
         let mut fresh = HashMap::new();
 
         scheme.vars.iter().for_each(|var| {
@@ -2968,11 +2968,12 @@ where
             .iter()
             .map(|var| self.freshen_type_var(*var, &mut fresh, meta))
             .collect();
-        let scheme_tid = self.freshen_tid(scheme.tid, &mut fresh, meta);
+        let lower_tid = self.lower(scheme.tid);
+        let scheme_tid = self.freshen_tid(lower_tid, &mut fresh, meta);
 
         let tid = self.freshen_tid(tid, &mut HashMap::new(), meta);
 
-        self.unify_ty_ty(env, scheme_tid, tid, meta);
+        self.unify_ty_ty(env, scheme_tid, tid, meta)?;
 
         let mut tids = vec![];
         for tid in vars {
@@ -2980,5 +2981,48 @@ where
         }
 
         Ok(tids)
+    }
+
+    pub fn lower(&mut self, tid: TypeId) -> TypeId {
+        match self.get(tid).unwrap().clone() {
+            Type::Never | Type::Builtin(_) | Type::TypeVar(_) => tid,
+            Type::RigidTypeVar(tyvar) => self.intern(Type::TypeVar(tyvar)),
+            Type::Function(FunctionType { input, output }) => {
+                let input = input.into_iter().map(|tid| self.lower(tid)).collect();
+                let output = output.into_iter().map(|tid| self.lower(tid)).collect();
+                self.function(FunctionType {
+                    input,
+                    output,
+                })
+            },
+            Type::Pointer(p) => {
+                let tid = self.lower(p.tid);
+                self.pointer(tid, p.mutability)
+            },
+            Type::Struct(s) => {
+                let args = s.args.into_iter().map(|tid| self.lower(tid)).collect();
+                self.intern(Type::Struct(StructType { sid: s.sid, args }))
+            },
+            Type::Enum(e) => {
+                let args = e.args.into_iter().map(|tid| self.lower(tid)).collect();
+                self.intern(Type::Enum(EnumType { eid: e.eid, args }))
+            },
+            Type::Tuple(tids) => {
+                let tids = tids.into_iter().map(|tid| self.lower(tid)).collect();
+                self.intern(Type::Tuple(tids))
+            },
+            Type::Variant(v) => {
+                let args = v.args.into_iter().map(|tid| self.lower(tid)).collect();
+                self.intern(Type::Variant(VariantType { eid: v.eid, args, variant: v.variant }))
+            },
+            Type::Type(tid) => {
+                let tid = self.lower(tid);
+                self.intern(Type::Type(tid))
+            },
+            Type::Projection(p) => {
+                let args = p.args.into_iter().map(|tid| self.lower(tid)).collect();
+                self.intern(Type::Projection(Projection { cid: p.cid, args, idx: p.idx }))
+            },
+        }
     }
 }

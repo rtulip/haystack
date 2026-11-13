@@ -110,6 +110,7 @@ impl Scheme {
     }
 }
 
+#[derive(Debug)]
 pub struct QualifiedType {
     pub tid: TypeId,
     pub predicates: Vec<TypePredicate>,

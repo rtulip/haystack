@@ -45,6 +45,7 @@ pub struct InterfaceImpl<'src> {
     pub params: Vec<ParseType<'src>>,
     pub name: Token<'src>,
     pub args: Vec<ParseType<'src>>,
+    pub predicates: Vec<ParseType<'src>>,
     pub associated_types: Vec<(Token<'src>, ParseType<'src>)>,
     pub impls: Vec<FunctionDefinition<'src>>,
 }

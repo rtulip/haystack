@@ -271,7 +271,7 @@ where
             }
             Type::Enum(e) => {
                 let eid = e.eid;
-                
+
                 let variants = self.typestore.get_enum_variants(e.eid, e.args.clone());
                 writeln!(
                     self.w,
@@ -465,10 +465,7 @@ where
             .into_iter()
             .zip(idents[1..].into_iter())
             .fold(start, |acc, (tid, ident)| {
-                format!(
-                    "{acc}, {}",
-                    self.format_extern_input(*tid, ident)
-                )
+                format!("{acc}, {}", self.format_extern_input(*tid, ident))
             })
     }
 
@@ -626,14 +623,7 @@ where
 
         let mut first = true;
         for case in &match_expr.cases {
-            self.generate_match_case(
-                enum_input,
-                &outvars,
-                input[0],
-                &case,
-                first,
-                stack.clone(),
-            )?;
+            self.generate_match_case(enum_input, &outvars, input[0], &case, first, stack.clone())?;
             first = false;
         }
         if let Some(finally) = &match_expr.finally {
@@ -669,7 +659,7 @@ where
                     Self::format_tid(output[0]),
                     Self::format_stack_ident(ident)
                 )?;
-            },
+            }
             ExprKind::Bool(b) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 0);
@@ -898,9 +888,7 @@ where
                     *member
                 );
             }
-            ExprKind::Match(match_expr) => {
-                self.generate_match_expr(tid, &match_expr, stack)?
-            }
+            ExprKind::Match(match_expr) => self.generate_match_expr(tid, &match_expr, stack)?,
             ExprKind::If(if_expr) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
 
@@ -909,13 +897,21 @@ where
                 let mut outvars = vec![];
                 for tid in &output {
                     let ident = self.next_stack_ident();
-                    writeln!(self.w, "    {} {};", Self::format_tid(*tid), Self::format_stack_ident(ident))?;
+                    writeln!(
+                        self.w,
+                        "    {} {};",
+                        Self::format_tid(*tid),
+                        Self::format_stack_ident(ident)
+                    )?;
                     outvars.push((*tid, ident))
-
                 }
 
                 let (_, condition) = stack.pop().unwrap();
-                writeln!(self.w, "    if ({}) {{", Self::format_stack_ident(condition))?;
+                writeln!(
+                    self.w,
+                    "    if ({}) {{",
+                    Self::format_stack_ident(condition)
+                )?;
                 let mut then_stack = stack.clone();
                 self.generate_expr(&if_expr.then, &mut then_stack)?;
                 for (_, outvar) in outvars.iter().rev() {
@@ -947,8 +943,7 @@ where
                 }
 
                 stack.extend(outvars)
-
-            },
+            }
             ExprKind::Read => todo!(),
         }
 

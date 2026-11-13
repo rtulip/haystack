@@ -845,6 +845,27 @@ impl<'src> Parser<'src> {
         }))
     }
 
+    fn parse_predicates(&mut self) -> Result<Vec<ParseType<'src>>, HayError> {
+        self.strip_whitespace();
+        let Ok(_) = self.matches(TokenKind::Keyword(Keyword::Requires)) else {
+            return Ok(vec![]);
+        };
+
+        self.strip_whitespace();
+
+        self.expect(TokenKind::Marker(Marker::LeftBracket))?;
+
+        let mut predicates = vec![];
+        while let Some(ty) = self.parse_type()? {
+            predicates.push(ty)
+        }
+
+        self.strip_whitespace();
+        self.expect(TokenKind::Marker(Marker::RightBracket))?;
+
+        Ok(predicates)
+    }
+
     fn parse_impl(&mut self, start: Token<'src>) -> Result<Statememt<'src>, HayError> {
         let params = self.parse_type_param_list()?;
         self.strip_whitespace();
@@ -852,7 +873,8 @@ impl<'src> Parser<'src> {
         self.strip_whitespace();
         let args = self.parse_type_param_list()?;
         self.strip_whitespace();
-
+        let predicates = self.parse_predicates()?;
+        self.strip_whitespace();
         self.expect(TokenKind::Marker(Marker::LeftBrace))?;
 
         let mut associated_types = vec![];
@@ -888,6 +910,7 @@ impl<'src> Parser<'src> {
             params,
             name,
             args,
+            predicates,
             associated_types,
             impls,
         }))

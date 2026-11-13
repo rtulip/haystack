@@ -1,9 +1,15 @@
 use std::{
-    assert_eq, collections::{HashMap, HashSet}, dbg, eprintln, fmt::Pointer, format, todo, unreachable, vec,
+    assert_eq,
+    collections::{HashMap, HashSet},
+    dbg, eprintln,
+    fmt::Pointer,
+    format, todo, unreachable, vec,
 };
 
 use crate::{
-    error::HayError, lex::token::{Intrinsic, Literal, Token}, parser::{
+    error::HayError,
+    lex::token::{Intrinsic, Literal, Token},
+    parser::{
         argument::Argument,
         expr::{ParseExpr, ParseExprKind},
         signature::Signature,
@@ -13,18 +19,25 @@ use crate::{
             StructDefinition,
         },
         typ::{ParamatarizedIdent, ParseType, ParseTypePath},
-    }, typecheck::{
-        constraint::ConstraintOrigin, environment::{
+    },
+    typecheck::{
+        constraint::ConstraintOrigin,
+        environment::{
             Coherence, Environment, Interface, InterfaceImpl, Scheme, TypeClassId, TypePredicate,
-        }, expr::{Expr, ExprKind, IfExpr, MatchCase, MatchExpr, MatchPattern, Var}, func::Function, typ::{
+        },
+        expr::{Expr, ExprKind, IfExpr, MatchCase, MatchExpr, MatchPattern, Var},
+        func::Function,
+        typ::{
             typ::{
                 BuiltinType, EnumDef, EnumType, FunctionType, Mutability, Projection, StructDef,
                 Type,
             },
             type_id::{EnumId, StructId, TypeId},
             type_var::TypeVar,
-        }, typestore::{
-            MemberLookup, TypeStore, inference::{InferenceError, InferenceErrorKind},
+        },
+        typestore::{
+            inference::{InferenceError, InferenceErrorKind},
+            MemberLookup, TypeStore,
         },
     },
 };
@@ -1365,7 +1378,7 @@ impl<'src> TypeCheck<'src> {
     fn create_interface_fn_lookup(
         &mut self,
         funcs: &[InterfaceFunctionDefinition<'src>],
-        predicate: &TypePredicate,
+        predicates: &[TypePredicate],
     ) -> Result<InterfaceFnsLookup<'src>, HayError> {
         let mut fn_lookup = InterfaceFnsLookup::new();
         for func in funcs {
@@ -1379,7 +1392,7 @@ impl<'src> TypeCheck<'src> {
                         token: func.name.clone(),
                         tid,
                         params: func.params.clone(),
-                        predicates: vec![predicate.clone()],
+                        predicates: predicates.to_vec(),
                         body: None,
                     },
                 )
@@ -1411,7 +1424,7 @@ impl<'src> TypeCheck<'src> {
         for func in &iface.funcs {
             self.bind_interface_function_def(func, &predicate, vars.clone())?;
         }
-        let fn_lookup = self.create_interface_fn_lookup(&iface.funcs, &predicate)?;
+        let fn_lookup = self.create_interface_fn_lookup(&iface.funcs, &[predicate])?;
 
         self.scope.end_scope();
 
@@ -1441,7 +1454,6 @@ impl<'src> TypeCheck<'src> {
         let mut default_impls = vec![];
 
         for func in &iface.funcs {
-            
             self.scope.new_scope();
 
             let mut params = self.rebind_params(&func.name, &func.params)?;
@@ -1460,7 +1472,7 @@ impl<'src> TypeCheck<'src> {
                     &predicates,
                     &expr,
                 )?;
-                
+
                 iface_info.fns.get_mut(&func.name.lexeme).unwrap().body = Some(expr);
 
                 default_impls.push((var, Some(typed_func)));
@@ -1477,6 +1489,39 @@ impl<'src> TypeCheck<'src> {
         Ok((default_impls, cid))
     }
 
+    fn create_predicate(&mut self, ty: &ParseType<'src>) -> Result<TypePredicate, HayError> {
+        match ty {
+            ParseType::Simple(ident) => {
+                let mut args = vec![];
+                for ty in &ident.params {
+                    args.push(self.get_tid(ty)?)
+                }
+
+                let Some(iface_info) = self.scope.get_cid(&ident.base.lexeme) else {
+                    todo!("Not an interface");
+                };
+
+                Ok(TypePredicate {
+                    cid: iface_info.cid,
+                    args,
+                })
+            }
+            _ => todo!("Not an interface"),
+        }
+    }
+
+    fn create_predicates(
+        &mut self,
+        tys: &[ParseType<'src>],
+    ) -> Result<Vec<TypePredicate>, HayError> {
+        let mut predicates = vec![];
+        for ty in tys {
+            predicates.push(self.create_predicate(ty)?);
+        }
+
+        Ok(predicates)
+    }
+
     fn create_interface_impl(
         &mut self,
         iface_impl: &ParseInterfaceImpl<'src>,
@@ -1487,6 +1532,10 @@ impl<'src> TypeCheck<'src> {
         for ty in &iface_impl.args {
             args.push(self.get_tid(ty)?)
         }
+
+        let predicates = self.create_predicates(&iface_impl.predicates)?;
+
+        eprintln!("{}: {predicates:?}", iface_impl.name);
 
         let mut associated_types = vec![];
         for type_name in &info.associated_types {
@@ -1511,7 +1560,7 @@ impl<'src> TypeCheck<'src> {
             vars,
             args,
             associated_types,
-            predicates: vec![],
+            predicates,
             coherence,
         };
 
@@ -1648,6 +1697,7 @@ impl<'src> TypeCheck<'src> {
             parent_args.push(self.get_tid(ty)?);
         }
 
+        let parent_predicates = self.create_predicates(&iface_impl.predicates)?;
         let mut impls = HashMap::new();
         for (name, fn_info) in info.fns {
             self.scope.new_scope();
@@ -1672,7 +1722,11 @@ impl<'src> TypeCheck<'src> {
                     token: fn_info.token,
                     tid,
                     params: fn_info.params,
-                    predicates: fn_info.predicates,
+                    predicates: parent_predicates
+                        .clone()
+                        .into_iter()
+                        .chain(fn_info.predicates.into_iter())
+                        .collect(),
                     body: fn_info.body,
                 },
             );
@@ -1724,7 +1778,7 @@ impl<'src> TypeCheck<'src> {
                         token: fn_impl.name.clone(),
                         tid,
                         params: fn_impl.params.clone(),
-                        predicates: vec![],
+                        predicates: parent_predicates.clone(),
                         body: Some(expr)
                     }
                 )
@@ -1768,6 +1822,10 @@ impl<'src> TypeCheck<'src> {
                 unreachable!();
             };
 
+            eprintln!("{name}: {:?}", fn_info.predicates);
+            dbg!(&params);
+            dbg!(&f);
+
             let f = Function::new(
                 f.input,
                 f.output,
@@ -1782,6 +1840,7 @@ impl<'src> TypeCheck<'src> {
             let (var, _) = self.scope.get_var(name).unwrap();
             let fresh_var = self.env.fresh_var();
             eprintln!("{name}: {var:?} -> {fresh_var:?}");
+            eprintln!("    {}", self.typestore.fmt(f.expr.meta.1));
             let scheme = Scheme::new(params, f.expr.meta.1, fn_info.predicates);
             self.env.bind_scheme(fresh_var, scheme);
 
@@ -1958,7 +2017,6 @@ impl<'a, 'src> MonoContext<'a, 'src> {
 
         let mut concrete = HashSet::new();
         if !self.typestore.is_free(&tid) {
-
             concrete.insert(tid);
 
             match &self.typestore.get(tid).unwrap().clone() {
@@ -2106,9 +2164,8 @@ impl<'a, 'src> MonoContext<'a, 'src> {
         expr: Expr<'src, (Token<'src>, TypeId)>,
         substitutions: &HashMap<TypeVar, TypeId>,
     ) -> Expr<'src, (Token<'src>, TypeId)> {
-        
         let token = expr.meta.0;
-        
+
         let tid = self.request_type(expr.meta.1, substitutions);
         let kind = match expr.expr {
             ExprKind::U8(_)
@@ -2122,7 +2179,9 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             ExprKind::Ident(var) => {
                 eprintln!("{token}: {var:?}");
 
-                if self.world.functions.contains_key(&var) || self.world.interface_fns.contains_key(&var){
+                if self.world.functions.contains_key(&var)
+                    || self.world.interface_fns.contains_key(&var)
+                {
                     ExprKind::Ident(self.resolve_function_instance(&token, var, tid, substitutions))
                 } else {
                     ExprKind::Ident(var)
@@ -2130,8 +2189,15 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             }
             ExprKind::Ref { var, mutability } => {
                 if self.world.functions.contains_key(&var) {
+                    let Type::Function(FunctionType { input, output }) = self.typestore.get(tid).unwrap() else {
+                        todo!()
+                    };
+
+                    assert!(input.is_empty());
+                    assert!(output.len() == 1);
+
                     ExprKind::Ref {
-                        var: self.resolve_function_instance(&token, var, tid, substitutions),
+                        var: self.resolve_function_instance(&token, var, output[0], substitutions),
                         mutability,
                     }
                 } else {
@@ -2172,13 +2238,10 @@ impl<'a, 'src> MonoContext<'a, 'src> {
 
                 ExprKind::Match(MatchExpr { cases, finally })
             }
-            ExprKind::If(if_expr) => {
-
-                ExprKind::If(IfExpr {
-                    then: Box::new(self.monomorphize_expr(*if_expr.then, substitutions)),
-                    otherwise: Box::new(self.monomorphize_expr(*if_expr.otherwise, substitutions)),
-                })
-            },
+            ExprKind::If(if_expr) => ExprKind::If(IfExpr {
+                then: Box::new(self.monomorphize_expr(*if_expr.then, substitutions)),
+                otherwise: Box::new(self.monomorphize_expr(*if_expr.otherwise, substitutions)),
+            }),
             ExprKind::Read => todo!(),
         };
 
@@ -2206,6 +2269,12 @@ impl<'a, 'src> MonoContext<'a, 'src> {
         let inferred = self
             .typestore
             .assign_vars_from_concrete(&mut self.env, &scheme, concrete_tid, token)
+            .map_err(|e| match e {
+                InferenceErrorKind::TypesIncompatible { expected, found } => {
+                    format!("Types incompatible: {}", self.typestore.fmt_many(&[expected, found]))
+                }
+                e => todo!("{e:?}"),
+            })
             .unwrap();
 
         scheme
@@ -2224,24 +2293,44 @@ impl<'a, 'src> MonoContext<'a, 'src> {
         substitutions: &HashMap<TypeVar, TypeId>,
     ) -> Var {
         // Recover the concrete type arguments used at this reference.
-        eprintln!("{}: Resolving function {var:?}: {} ", token.loc, token.lexeme);
+        eprintln!(
+            "{}: Resolving function {var:?}: {} ",
+            token.loc, token.lexeme
+        );
         let instance = if let Some(cid) = self.world.interface_fns.get(&var) {
             let mut instance = None;
             for typed_impl in self.world.interface_impls.get(cid).unwrap() {
                 let mapped_var = typed_impl.fn_map.get(&var).unwrap();
-                let args =
-                    self.infer_function_args(token, *mapped_var, instantiated_tid, substitutions);
-                
-                let tid = self.world.functions.get(&mapped_var).unwrap().expr.meta.1;
-                if tid == instantiated_tid {
-                    instance = Some(FunctionInstance {
-                        var: *mapped_var,
-                        args,
-                    });
+                let scheme = self.env.get_var(mapped_var).unwrap();
+
+                let tid = self.typestore.lower(scheme.tid);
+                let mut fresh = HashMap::new();
+                let tid = self.typestore.freshen_tid(tid, &mut fresh, token);
+                let fresh_tid = self.typestore.freshen_tid(instantiated_tid, &mut HashMap::new(), token);
+
+                if self.typestore.unify_ty_ty(&self.env, tid, fresh_tid, token).is_ok() {
+                    let (_, tid) = self.typestore.normalize_ty(&self.env, tid, token).unwrap();
+                    // TODO: Check predicates.
+                    let args = self.infer_function_args(token, *mapped_var, instantiated_tid, substitutions);
+                    
+                    instance = Some(FunctionInstance { var: *mapped_var, args });
                     break;
                 }
-            }
+                
+                // if let Some(bindings) = self.match_instance(candidate_tid, instantiated_tid) {
+                //     let args =
+                //     self.extrace_function_args(token, *mapped_var, instantiated_tid, substitutions);
 
+                //     let tid = self.world.functions.get(&mapped_var).unwrap().expr.meta.1;
+                //     if tid == instantiated_tid {
+                //         instance = Some(FunctionInstance {
+                //             var: *mapped_var,
+                //             args,
+                //         });
+                //         break;
+                //     }
+                // }
+            }
             match instance {
                 Some(instance) => instance,
                 None => todo!(),

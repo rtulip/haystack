@@ -136,4 +136,9 @@ mod compilation_test {
     fn bad_return() {    
         run_test("src/tests/typecheck/bad_return.hay");
     }
+
+    #[test]
+    fn conflicting_impl() {    
+        run_test("src/tests/typecheck/conflicting_impl.hay");
+    }
 }

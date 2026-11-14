@@ -1,0 +1,1 @@
+Error: [src/tests/scanning/bad_u8.hay:2:5] Error: Failed to convert 12345 into a `u8` literal

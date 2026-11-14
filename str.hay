@@ -23,6 +23,12 @@ impl Print<bool> {
 
 impl Print<u64> {
     fn print(u64) {
-        "%llu" Str.cstr swap printf as [_]
+        "%llu" Str.cstr swap printf drop
+    }
+}
+
+impl Print<u8> {
+    fn print(u8) {
+        "%u" Str.cstr swap printf drop
     }
 }

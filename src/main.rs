@@ -1,5 +1,5 @@
 #![allow(unused)]
-use std::{format, io::Write};
+use std::{format, io::Write, path::Path};
 
 use crate::{
     codegen::CCodeGen,
@@ -23,14 +23,14 @@ fn main() -> Result<(), HayError> {
         std::process::exit(1);
     }
 
-    let file = &args[1];
-    let file_stripped = file.strip_suffix(".hay").unwrap();
+    let file = Path::new(&args[1]);
+    let filename = file.file_stem().unwrap();
 
     let source = std::fs::read_to_string(file).map_err(|e| {
-        HayError::new("Failed to open file", Loc::new(file, 1, 0, 0)).with_hint(format!("{e}"))
+        HayError::new("Failed to open file", Loc::new(file.to_str().unwrap(), 1, 0, 0)).with_hint(format!("{e}"))
     })?;
 
-    let tokens = Scanner::new(file, &source).scan_tokens()?;
+    let tokens = Scanner::new(file.to_str().unwrap(), &source).scan_tokens()?;
     let statements = Parser::parse(tokens)?;
 
     let (world, mut typestore, mut env, externs, entry) = TypeCheck::build_world(statements)?;
@@ -44,9 +44,12 @@ fn main() -> Result<(), HayError> {
     let mut s = String::new();
     CCodeGen::generate(&mut s, &mut typestore, &types, &fns, &externs, entry).unwrap();
 
-    std::fs::write("target/out.c", &s).unwrap();
+    let c_exe_path = Path::new("target/").join(filename);
+    let c_source_path = c_exe_path.with_extension("c");
+    
+    std::fs::write(&c_source_path, &s).unwrap();
     let output = std::process::Command::new("gcc")
-        .args(["target/out.c", "-g", "-o", file_stripped])
+        .args([c_source_path.to_str().unwrap(), "-g", "-o", c_exe_path.to_str().unwrap()])
         .output()
         .unwrap();
 
@@ -57,7 +60,7 @@ fn main() -> Result<(), HayError> {
     }
 
     if (args.len() >= 3 && (args[2] == "-r" || args[2] == "--run")) {
-        let output = std::process::Command::new(&format!("./{file_stripped}"))
+        let output = std::process::Command::new(&format!("./{}", c_exe_path.display()))
             .output()
             .unwrap();
         if output.status.success() {
@@ -140,5 +143,35 @@ mod compilation_test {
     #[test]
     fn conflicting_impl() {    
         run_test("src/tests/typecheck/conflicting_impl.hay");
+    }
+
+    #[test]
+    fn bad_number() {    
+        run_test("src/tests/scanning/bad_number.hay");
+    }
+
+    #[test]
+    fn bad_u8() {    
+        run_test("src/tests/scanning/bad_u8.hay");
+    }
+
+    #[test]
+    fn u8() {    
+        run_test("src/tests/scanning/u8.hay");
+    }
+
+    #[test]
+    fn hex() {    
+        run_test("src/tests/scanning/hex.hay");
+    }
+
+    #[test]
+    fn octal() {    
+        run_test("src/tests/scanning/octal.hay");
+    }
+
+    #[test]
+    fn binary() {    
+        run_test("src/tests/scanning/binary.hay");
     }
 }

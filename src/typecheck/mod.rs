@@ -591,7 +591,7 @@ impl<'src> TypeCheck<'src> {
                 Literal::Bool(b) => Ok(Expr::bool(*b, expr.token.clone())),
                 Literal::Char(_) => todo!(),
                 Literal::String(s) => Ok(Expr::string(s, expr.token.clone())),
-                Literal::U8(_) => todo!(),
+                Literal::U8(n) => Ok(Expr::u8(*n, expr.token.clone())),
                 Literal::U64(n) => Ok(Expr::u64(*n, expr.token.clone())),
             },
             ParseExprKind::Block(parse_exprs) => {

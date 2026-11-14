@@ -646,7 +646,20 @@ where
         writeln!(self.w, "    // {}", expr.meta.0)?;
         let tid = expr.meta.1;
         match &expr.expr {
-            ExprKind::U8(_) => todo!(),
+            ExprKind::U8(n) => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() == 0);
+                assert!(output.len() == 1);
+                let ident = self.next_stack_ident();
+                stack.push((output[0], ident));
+
+                writeln!(
+                    self.w,
+                    "    const {} {} = {n};",
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(ident)
+                )?;
+            },
             ExprKind::U64(n) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 0);

@@ -41,17 +41,6 @@ pub struct MatchExpr<'src, Meta> {
 }
 
 impl<'src, Meta> MatchExpr<'src, Meta> {
-    fn map_vars(&mut self, var_map: &HashMap<Var, Var>) {
-        self.cases
-            .iter_mut()
-            .for_each(|case| case.expr.map_vars(var_map));
-        if let Some(expr) = &mut self.finally {
-            expr.map_vars(var_map);
-        }
-    }
-}
-
-impl<'src, Meta> MatchExpr<'src, Meta> {
     pub fn new<Cases>(cases: Cases, finally: Option<Expr<'src, Meta>>) -> Self
     where
         Cases: Into<Vec<MatchCase<'src, Meta>>>,
@@ -237,38 +226,54 @@ impl<'src, Meta> Expr<'src, Meta> {
         }
     }
 
-    pub fn map_vars(&mut self, var_map: &HashMap<Var, Var>) {
-        match &mut self.expr {
-            ExprKind::U8(_)
-            | ExprKind::U64(_)
-            | ExprKind::Bool(_)
-            | ExprKind::String(_)
-            | ExprKind::Call
-            | ExprKind::Type(_)
-            | ExprKind::UncheckedCast
-            | ExprKind::Add(_)
-            | ExprKind::Read
-            | ExprKind::Pack => (),
+    pub fn map_meta<M2, F: FnMut(Meta) -> M2>(self, f: &mut F) -> Expr<'src, M2> {
+        let kind = match self.expr {
+            ExprKind::U8(n) => ExprKind::U8(n),
+            ExprKind::U64(n) => ExprKind::U64(n),
+            ExprKind::Bool(b) => ExprKind::Bool(b),
+            ExprKind::String(s) => ExprKind::String(s),
+            ExprKind::Ident(var) => ExprKind::Ident(var),
+            ExprKind::Ref { var, mutability } => ExprKind::Ref { var, mutability },
+            ExprKind::Block(exprs) => {
+                ExprKind::Block(exprs.into_iter().map(|e| e.map_meta(f)).collect())
+            }
+            ExprKind::Tuple(exprs) => {
+                ExprKind::Tuple(exprs.into_iter().map(|e| e.map_meta(f)).collect())
+            }
+            ExprKind::Bind(vars) => ExprKind::Bind(vars),
+            ExprKind::Call => ExprKind::Call,
+            ExprKind::Type(tid) => ExprKind::Type(tid),
+            ExprKind::UncheckedCast => ExprKind::UncheckedCast,
+            ExprKind::Add(tid) => ExprKind::Add(tid),
+            ExprKind::Pack => ExprKind::Pack,
+            ExprKind::NamedMemberAccess { var, member } => {
+                ExprKind::NamedMemberAccess { var, member }
+            }
+            ExprKind::MemberAccess { var, member } => ExprKind::MemberAccess { var, member },
+            ExprKind::Match(m) => {
+                let cases = m
+                    .cases
+                    .into_iter()
+                    .map(|case| MatchCase {
+                        pattern: case.pattern,
+                        expr: Box::new(case.expr.map_meta(f)),
+                    })
+                    .collect();
 
-            ExprKind::NamedMemberAccess { var, .. }
-            | ExprKind::MemberAccess { var, .. }
-            | ExprKind::Ref { var, .. }
-            | ExprKind::Ident(var) => match var_map.get(var) {
-                Some(new_var) => *var = *new_var,
-                None => (),
-            },
-            ExprKind::Block(exprs) | ExprKind::Tuple(exprs) => {
-                exprs.iter_mut().for_each(|e| e.map_vars(var_map));
+                let finally = m.finally.map(|e| Box::new(e.map_meta(f)));
+
+                ExprKind::Match(MatchExpr { cases, finally })
             }
-            ExprKind::Bind(vars) => vars.iter_mut().for_each(|var| match var_map.get(var) {
-                Some(new_var) => *var = *new_var,
-                None => (),
+            ExprKind::If(if_expr) => ExprKind::If(IfExpr {
+                then: Box::new(if_expr.then.map_meta(f)),
+                otherwise: Box::new(if_expr.otherwise.map_meta(f)),
             }),
-            ExprKind::Match(match_expr) => match_expr.map_vars(var_map),
-            ExprKind::If(if_expr) => {
-                if_expr.then.map_vars(var_map);
-                if_expr.otherwise.map_vars(var_map);
-            }
+            ExprKind::Read => ExprKind::Read,
+        };
+
+        Expr {
+            expr: kind,
+            meta: f(self.meta),
         }
     }
 }

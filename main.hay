@@ -61,4 +61,7 @@ fn main() {
     false println
     "Hello World" println
     12345 println
+
+    1 2 + println
+    0xFF println
 }

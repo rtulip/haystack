@@ -94,6 +94,12 @@ where
             ));
         }
 
+        let expr = expr.map_meta(&mut |(m, tid)| {
+            let tid = typestore.lower(tid);
+            let tid = typestore.normalize_ty(&env, tid, &m).unwrap().1;
+            (m, tid)
+        });
+
         Ok(Function {
             ty: self.ty,
             params: self.params,

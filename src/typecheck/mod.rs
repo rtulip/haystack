@@ -1534,9 +1534,6 @@ impl<'src> TypeCheck<'src> {
         }
 
         let predicates = self.create_predicates(&iface_impl.predicates)?;
-
-        eprintln!("{}: {predicates:?}", iface_impl.name);
-
         let mut associated_types = vec![];
         for type_name in &info.associated_types {
             match iface_impl
@@ -1753,7 +1750,6 @@ impl<'src> TypeCheck<'src> {
             let Some((var, _)) = self.scope.get_var(&fn_impl.name.lexeme) else {
                 todo!()
             };
-            eprintln!("{}: {var:?}", fn_impl.name);
 
             let Some(Scheme {
                 tid: expected_tid, ..
@@ -1822,10 +1818,6 @@ impl<'src> TypeCheck<'src> {
                 unreachable!();
             };
 
-            eprintln!("{name}: {:?}", fn_info.predicates);
-            dbg!(&params);
-            dbg!(&f);
-
             let f = Function::new(
                 f.input,
                 f.output,
@@ -1839,8 +1831,6 @@ impl<'src> TypeCheck<'src> {
 
             let (var, _) = self.scope.get_var(name).unwrap();
             let fresh_var = self.env.fresh_var();
-            eprintln!("{name}: {var:?} -> {fresh_var:?}");
-            eprintln!("    {}", self.typestore.fmt(f.expr.meta.1));
             let scheme = Scheme::new(params, f.expr.meta.1, fn_info.predicates);
             self.env.bind_scheme(fresh_var, scheme);
 
@@ -2082,7 +2072,10 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                 Type::Type(tid) => {
                     concrete.extend(self.request_type_inner(*tid, substitutions));
                 }
-                Type::Projection(projection) => todo!(),
+                Type::Projection(projection) => projection
+                    .args
+                    .iter()
+                    .for_each(|tid| concrete.extend(self.request_type_inner(*tid, substitutions))),
                 Type::Never => todo!(),
             };
         };
@@ -2177,8 +2170,6 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             | ExprKind::MemberAccess { .. } => expr.expr,
 
             ExprKind::Ident(var) => {
-                eprintln!("{token}: {var:?}");
-
                 if self.world.functions.contains_key(&var)
                     || self.world.interface_fns.contains_key(&var)
                 {
@@ -2189,7 +2180,9 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             }
             ExprKind::Ref { var, mutability } => {
                 if self.world.functions.contains_key(&var) {
-                    let Type::Function(FunctionType { input, output }) = self.typestore.get(tid).unwrap() else {
+                    let Type::Function(FunctionType { input, output }) =
+                        self.typestore.get(tid).unwrap()
+                    else {
                         todo!()
                     };
 
@@ -2220,7 +2213,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             ExprKind::Call => todo!(),
             ExprKind::Type(tid) => ExprKind::Type(self.request_type(tid, substitutions)),
             ExprKind::UncheckedCast => todo!(),
-            ExprKind::Add(type_id) => todo!(),
+            ExprKind::Add(tid) => ExprKind::Add(self.request_type(tid, substitutions)),
             ExprKind::NamedMemberAccess { var, member } => unreachable!(),
             ExprKind::Match(match_expr) => {
                 let cases = match_expr
@@ -2271,7 +2264,10 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             .assign_vars_from_concrete(&mut self.env, &scheme, concrete_tid, token)
             .map_err(|e| match e {
                 InferenceErrorKind::TypesIncompatible { expected, found } => {
-                    format!("Types incompatible: {}", self.typestore.fmt_many(&[expected, found]))
+                    format!(
+                        "Types incompatible: {}",
+                        self.typestore.fmt_many(&[expected, found])
+                    )
                 }
                 e => todo!("{e:?}"),
             })
@@ -2293,10 +2289,6 @@ impl<'a, 'src> MonoContext<'a, 'src> {
         substitutions: &HashMap<TypeVar, TypeId>,
     ) -> Var {
         // Recover the concrete type arguments used at this reference.
-        eprintln!(
-            "{}: Resolving function {var:?}: {} ",
-            token.loc, token.lexeme
-        );
         let instance = if let Some(cid) = self.world.interface_fns.get(&var) {
             let mut instance = None;
             for typed_impl in self.world.interface_impls.get(cid).unwrap() {
@@ -2306,30 +2298,30 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                 let tid = self.typestore.lower(scheme.tid);
                 let mut fresh = HashMap::new();
                 let tid = self.typestore.freshen_tid(tid, &mut fresh, token);
-                let fresh_tid = self.typestore.freshen_tid(instantiated_tid, &mut HashMap::new(), token);
+                let fresh_tid =
+                    self.typestore
+                        .freshen_tid(instantiated_tid, &mut HashMap::new(), token);
 
-                if self.typestore.unify_ty_ty(&self.env, tid, fresh_tid, token).is_ok() {
+                if self
+                    .typestore
+                    .unify_ty_ty(&self.env, tid, fresh_tid, token)
+                    .is_ok()
+                {
                     let (_, tid) = self.typestore.normalize_ty(&self.env, tid, token).unwrap();
                     // TODO: Check predicates.
-                    let args = self.infer_function_args(token, *mapped_var, instantiated_tid, substitutions);
-                    
-                    instance = Some(FunctionInstance { var: *mapped_var, args });
+                    let args = self.infer_function_args(
+                        token,
+                        *mapped_var,
+                        instantiated_tid,
+                        substitutions,
+                    );
+
+                    instance = Some(FunctionInstance {
+                        var: *mapped_var,
+                        args,
+                    });
                     break;
                 }
-                
-                // if let Some(bindings) = self.match_instance(candidate_tid, instantiated_tid) {
-                //     let args =
-                //     self.extrace_function_args(token, *mapped_var, instantiated_tid, substitutions);
-
-                //     let tid = self.world.functions.get(&mapped_var).unwrap().expr.meta.1;
-                //     if tid == instantiated_tid {
-                //         instance = Some(FunctionInstance {
-                //             var: *mapped_var,
-                //             args,
-                //         });
-                //         break;
-                //     }
-                // }
             }
             match instance {
                 Some(instance) => instance,

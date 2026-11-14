@@ -292,7 +292,8 @@ impl<'src> Scanner<'src> {
     fn identifier(&mut self) -> Result<(), HayError> {
         let keywords = Keyword::keywords();
         while ![
-            ' ', '\n', '\t', '\r', ':', '{', '}', '[', ']', '(', ')', '<', '>', '+', '-', '/', '*', '=', '\"',
+            ' ', '\n', '\t', '\r', ':', '{', '}', '[', ']', '(', ')', '<', '>', '+', '-', '/', '*',
+            '=', '\"',
         ]
         .contains(&self.peek(0))
             && !self.is_at_end()

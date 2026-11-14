@@ -106,7 +106,7 @@ impl PartialEq for Operator {
             | (Operator::Write, Operator::Write)
             | (Operator::Ampersand, Operator::Ampersand)
             | (Operator::Pipe, Operator::Pipe)
-            | (Operator::Caret, Operator::Caret)  => true,
+            | (Operator::Caret, Operator::Caret) => true,
             (Operator::Plus, _)
             | (Operator::Minus, _)
             | (Operator::Star, _)

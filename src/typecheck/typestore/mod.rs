@@ -2949,7 +2949,7 @@ where
             Type::Tuple(tids) => tids.iter().any(|tid| self.is_free(tid)),
             Type::Variant(v) => v.args.iter().any(|tid| self.is_free(tid)),
             Type::Type(tid) => self.is_free(tid),
-            Type::Projection(_) => todo!(),
+            Type::Projection(p) => p.args.iter().any(|tid| self.is_free(tid)),
             Type::Never => todo!(),
         }
     }
@@ -2990,39 +2990,44 @@ where
             Type::Function(FunctionType { input, output }) => {
                 let input = input.into_iter().map(|tid| self.lower(tid)).collect();
                 let output = output.into_iter().map(|tid| self.lower(tid)).collect();
-                self.function(FunctionType {
-                    input,
-                    output,
-                })
-            },
+                self.function(FunctionType { input, output })
+            }
             Type::Pointer(p) => {
                 let tid = self.lower(p.tid);
                 self.pointer(tid, p.mutability)
-            },
+            }
             Type::Struct(s) => {
                 let args = s.args.into_iter().map(|tid| self.lower(tid)).collect();
                 self.intern(Type::Struct(StructType { sid: s.sid, args }))
-            },
+            }
             Type::Enum(e) => {
                 let args = e.args.into_iter().map(|tid| self.lower(tid)).collect();
                 self.intern(Type::Enum(EnumType { eid: e.eid, args }))
-            },
+            }
             Type::Tuple(tids) => {
                 let tids = tids.into_iter().map(|tid| self.lower(tid)).collect();
                 self.intern(Type::Tuple(tids))
-            },
+            }
             Type::Variant(v) => {
                 let args = v.args.into_iter().map(|tid| self.lower(tid)).collect();
-                self.intern(Type::Variant(VariantType { eid: v.eid, args, variant: v.variant }))
-            },
+                self.intern(Type::Variant(VariantType {
+                    eid: v.eid,
+                    args,
+                    variant: v.variant,
+                }))
+            }
             Type::Type(tid) => {
                 let tid = self.lower(tid);
                 self.intern(Type::Type(tid))
-            },
+            }
             Type::Projection(p) => {
                 let args = p.args.into_iter().map(|tid| self.lower(tid)).collect();
-                self.intern(Type::Projection(Projection { cid: p.cid, args, idx: p.idx }))
-            },
+                self.intern(Type::Projection(Projection {
+                    cid: p.cid,
+                    args,
+                    idx: p.idx,
+                }))
+            }
         }
     }
 }

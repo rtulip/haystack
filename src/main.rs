@@ -22,7 +22,7 @@ fn main() -> Result<(), HayError> {
         eprintln!("Usage: {} <File> [-r/--run]", args[0]);
         std::process::exit(1);
     }
-    
+
     let file = &args[1];
     let file_stripped = file.strip_suffix(".hay").unwrap();
 
@@ -45,9 +45,10 @@ fn main() -> Result<(), HayError> {
     CCodeGen::generate(&mut s, &mut typestore, &types, &fns, &externs, entry).unwrap();
 
     std::fs::write("target/out.c", &s).unwrap();
-    let output = std::process::Command::new("gcc").args([
-        "target/out.c", "-g", "-o", file_stripped
-    ]).output().unwrap();
+    let output = std::process::Command::new("gcc")
+        .args(["target/out.c", "-g", "-o", file_stripped])
+        .output()
+        .unwrap();
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -55,20 +56,18 @@ fn main() -> Result<(), HayError> {
         assert!(false);
     }
 
-    println!("-------------------------");
-
-    if (args.len() >= 3 && (args[2] == "-r" || args[2] == "--run"))
-    {
-        let output = std::process::Command::new(&format!("./{file_stripped}")).output().unwrap();
+    if (args.len() >= 3 && (args[2] == "-r" || args[2] == "--run")) {
+        let output = std::process::Command::new(&format!("./{file_stripped}"))
+            .output()
+            .unwrap();
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             print!("{}", stdout);
         }
-    }
-    else {
+    } else {
         eprintln!("All done");
     }
-    
+
     Ok(())
 }
 
@@ -77,7 +76,11 @@ mod compilation_test {
 
     #[test]
     fn example() {
-        assert!(std::process::Command::new("./target/debug/haystack").args(["main.hay", "--run"]).output().unwrap().status.success())
+        assert!(std::process::Command::new("./target/debug/haystack")
+            .args(["main.hay", "--run"])
+            .output()
+            .unwrap()
+            .status
+            .success())
     }
-
 }

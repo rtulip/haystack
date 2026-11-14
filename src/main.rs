@@ -76,6 +76,17 @@ mod compilation_test {
     use core::panic;
     use std::{fmt::{Debug, Display}, format, path::Path, process::{Command, Output}, str::FromStr};
 
+    struct Cleanup(std::path::PathBuf);
+
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            if let Err(err) = std::fs::remove_file(&self.0) {
+                if err.kind() != std::io::ErrorKind::NotFound {
+                    eprintln!("Failed to clean up {}: {err}", self.0.display());
+                }
+            }
+        }
+    }
 
     fn assert_snapshot(path: &Path, actual: &str)
     {
@@ -97,6 +108,9 @@ mod compilation_test {
 
     fn run_test(path: impl AsRef<Path>) {
         let path = path.as_ref();
+
+        let executable = path.with_extension("");
+        let _cleanup = Cleanup(executable);
 
         let output = Command::new("target/debug/haystack")
             .arg(path)

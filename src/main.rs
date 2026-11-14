@@ -73,14 +73,53 @@ fn main() -> Result<(), HayError> {
 
 #[cfg(test)]
 mod compilation_test {
+    use core::panic;
+    use std::{fmt::{Debug, Display}, format, path::Path, process::{Command, Output}, str::FromStr};
+
+
+    fn assert_snapshot(path: &Path, actual: &str)
+    {
+        if !path.exists() {
+            std::fs::write(path, actual).unwrap();
+            println!("Created snapshot: {}", path.display());
+            return;
+        }
+
+        let expected = std::fs::read_to_string(path).unwrap();
+
+        assert_eq!(
+            actual,
+            expected,
+            "Snapshot mismatch: {}",
+            path.display()
+        );
+    }
+
+    fn run_test(path: impl AsRef<Path>) {
+        let path = path.as_ref();
+
+        let output = Command::new("target/debug/haystack")
+            .arg(path)
+            .arg("--run")
+            .output()
+            .expect("Failed to execute compiler");
+
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        let exitcode = output.status.code().unwrap();
+
+        assert_snapshot(&path.with_extension("stdout"), &stdout);
+        assert_snapshot(&path.with_extension("stderr"), &stderr);
+        assert_snapshot(&path.with_extension("exitcode"),&exitcode.to_string());
+    }
 
     #[test]
-    fn example() {
-        assert!(std::process::Command::new("./target/debug/haystack")
-            .args(["main.hay", "--run"])
-            .output()
-            .unwrap()
-            .status
-            .success())
+    fn add() {    
+        run_test("src/tests/functional/add.hay");
+    }
+
+    #[test]
+    fn bad_return() {    
+        run_test("src/tests/typecheck/bad_return.hay");
     }
 }

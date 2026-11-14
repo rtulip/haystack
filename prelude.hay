@@ -1,12 +1,8 @@
+include "basic.hay"
 include "c.hay"
 include "print.hay"
 include "str.hay"
-
-fn drop<T>(T: _) { }
-fn dup<T>(T: t) -> [T T] { t t }
-fn typeof<T>(T: _) -> [Type<T>] #T
-fn hint<T>(T Type<T>) -> [T] drop
-fn swap<A B>(A: a B: b) -> [B A] { b a }
+include "operations.hay"
 
 interface Cast<From Into> {
     fn cast(From Type<Into>) -> [Into] __unchecked_cast

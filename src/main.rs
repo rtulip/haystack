@@ -211,4 +211,9 @@ mod compilation_test {
     fn unterminated_string() {
         run_test("src/tests/scanning/unterminated_string.hay");
     }
+
+    #[test]
+    fn unexpected_character() {
+        run_test("src/tests/scanning/unexpected_character.hay");
+    }
 }

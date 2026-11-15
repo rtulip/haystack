@@ -1,4 +1,4 @@
-use std::{format, todo, unreachable};
+use std::{format, path::Path, todo, unreachable};
 
 use crate::{
     error::HayError,
@@ -917,12 +917,12 @@ impl<'src> Parser<'src> {
     fn parse_include(&mut self, start: Token<'src>) -> Result<Vec<Statememt<'src>>, HayError> {
         self.strip_whitespace();
         let path = self.expect(TokenKind::string())?;
-        let file = &path.lexeme[1..path.lexeme.len() - 1];
+        let file = Path::new(&path.lexeme[1..path.lexeme.len() - 1]);
         let source: &'src str = std::fs::read_to_string(file)
-            .map_err(|e| HayError::new(format!("Failed to open file `{file}`"), path.loc.clone()))?
+            .map_err(|e| HayError::new(format!("Failed to open file `{}`", file.display()), path.loc.clone()))?
             .leak();
 
-        let tokens = Scanner::new(file, &source).scan_tokens()?;
+        let tokens = Scanner::new(file.to_str().unwrap(), &source).scan_tokens()?;
 
         Parser::parse(tokens)
     }

@@ -93,6 +93,8 @@ mod compilation_test {
 
     fn assert_snapshot(path: &Path, actual: &str)
     {
+        let normalized = actual.replace("\r\n", "\n");
+
         if !path.exists() {
             std::fs::write(path, actual).unwrap();
             println!("Created snapshot: {}", path.display());
@@ -100,9 +102,10 @@ mod compilation_test {
         }
 
         let expected = std::fs::read_to_string(path).unwrap();
+        let expected = expected.replace("\r\n", "\n");
 
         assert_eq!(
-            actual,
+            normalized,
             expected,
             "Snapshot mismatch: {}",
             path.display()

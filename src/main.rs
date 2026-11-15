@@ -206,4 +206,9 @@ mod compilation_test {
     fn unterminated_char() {
         run_test("src/tests/scanning/unterminated_char.hay");
     }
+
+    #[test]
+    fn unterminated_string() {
+        run_test("src/tests/scanning/unterminated_string.hay");
+    }
 }

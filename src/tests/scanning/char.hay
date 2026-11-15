@@ -6,7 +6,7 @@ fn main() {
     'a'  println 
     'r'  println
     '\t' println
-    '\r' println 
+    '\r' print 
     '\0' println
     '\'' println
     '\\' println 

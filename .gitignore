@@ -8,5 +8,5 @@ Cargo.lock
 *.asm
 *.out
 *.simple
-
+*.profraw
 

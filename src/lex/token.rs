@@ -263,7 +263,7 @@ impl Keyword {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Literal<'src> {
     Bool(bool),
-    Char(char),
+    Char(&'src str),
     String(&'src str),
     U8(u8),
     U64(u64),
@@ -455,7 +455,7 @@ mod tests {
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: true"));
         tok.kind = TokenKind::Literal(Literal::String(""));
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: lexeme"));
-        tok.kind = TokenKind::Literal(Literal::Char(' '));
+        tok.kind = TokenKind::Literal(Literal::Char(" "));
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: lexeme"));
         tok.kind = TokenKind::Literal(Literal::U64(0));
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: 0"));

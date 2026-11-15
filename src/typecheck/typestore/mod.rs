@@ -222,6 +222,7 @@ where
                 BuiltinType::U8 => write!(w, "u8"),
                 BuiltinType::U64 => write!(w, "u64"),
                 BuiltinType::Bool => write!(w, "bool"),
+                BuiltinType::Char => write!(w, "char"),
                 BuiltinType::CVarArgs => write!(w, "..."),
             },
             Type::Function(function_type) => {
@@ -566,6 +567,7 @@ where
             | ExprKind::U64(_)
             | ExprKind::Bool(_)
             | ExprKind::String(_)
+            | ExprKind::Char(_)
             | ExprKind::Bind(_)
             | ExprKind::Call
             | ExprKind::UncheckedCast
@@ -1199,6 +1201,16 @@ where
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::string(s, (expr.meta, self.function(func)));
+                Ok((e, constraints))
+            }
+            ExprKind::Char(val) => {
+                let char_tid = self.intern(Type::char());
+                let func = FunctionType {
+                    input: vec![],
+                    output: vec![char_tid],
+                };
+                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
+                let e = Expr::char(val, (expr.meta.clone(), self.function(func)));
                 Ok((e, constraints))
             }
             ExprKind::Bind(vars) => {

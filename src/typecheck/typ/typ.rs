@@ -15,6 +15,7 @@ pub enum BuiltinType {
     U8,
     U64,
     Bool,
+    Char,
     CVarArgs,
 }
 
@@ -178,6 +179,10 @@ impl Type {
         Type::Builtin(BuiltinType::U64)
     }
 
+    pub fn char() -> Type {
+        Type::Builtin(BuiltinType::Char)
+    }
+
     pub fn is_c_element(&self) -> bool {
         match self {
             Type::TypeVar(_)
@@ -194,6 +199,7 @@ impl Type {
             Type::Builtin(BuiltinType::U8)
             | Type::Builtin(BuiltinType::U64)
             | Type::Builtin(BuiltinType::Bool)
+            | Type::Builtin(BuiltinType::Char)
             | Type::Function(_)
             | Type::Pointer(_) => true,
         }

@@ -103,6 +103,13 @@ impl<'src> SymbolTable<'src> {
                     token: None,
                 },
             ),
+            (
+                typestore.intern(Type::char()),
+                TypeInfo {
+                    name: "char".to_owned(),
+                    token: None,
+                },
+            ),
         ]);
         SymbolTable {
             types,
@@ -191,6 +198,7 @@ impl<'src> Scope<'src> {
             ("u8".to_owned(), (typestore.intern(Type::u8()), None)),
             ("u64".to_owned(), (typestore.intern(Type::u64()), None)),
             ("bool".to_owned(), (typestore.intern(Type::bool()), None)),
+            ("char".to_owned(), (typestore.intern(Type::char()), None)),
             (
                 "...".to_owned(),
                 (typestore.intern(Type::Builtin(BuiltinType::CVarArgs)), None),
@@ -589,7 +597,7 @@ impl<'src> TypeCheck<'src> {
             }
             ParseExprKind::Literal(literal) => match literal {
                 Literal::Bool(b) => Ok(Expr::bool(*b, expr.token.clone())),
-                Literal::Char(_) => todo!(),
+                Literal::Char(c) => Ok(Expr::char(*c, expr.token.clone())),
                 Literal::String(s) => Ok(Expr::string(s, expr.token.clone())),
                 Literal::U8(n) => Ok(Expr::u8(*n, expr.token.clone())),
                 Literal::U64(n) => Ok(Expr::u64(*n, expr.token.clone())),
@@ -777,6 +785,7 @@ impl<'src> TypeCheck<'src> {
                 BuiltinType::U8 => todo!(),
                 BuiltinType::U64 => todo!(),
                 BuiltinType::Bool => todo!(),
+                BuiltinType::Char => "char".into(),
                 BuiltinType::CVarArgs => "...".into(),
             },
             Type::Function(func) => {
@@ -2165,6 +2174,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             | ExprKind::U64(_)
             | ExprKind::Bool(_)
             | ExprKind::String(_)
+            | ExprKind::Char(_)
             | ExprKind::Bind(_)
             | ExprKind::Pack
             | ExprKind::MemberAccess { .. } => expr.expr,

@@ -919,7 +919,12 @@ impl<'src> Parser<'src> {
         let path = self.expect(TokenKind::string())?;
         let file = Path::new(&path.lexeme[1..path.lexeme.len() - 1]);
         let source: &'src str = std::fs::read_to_string(file)
-            .map_err(|e| HayError::new(format!("Failed to open file `{}`", file.display()), path.loc.clone()))?
+            .map_err(|e| {
+                HayError::new(
+                    format!("Failed to open file `{}`", file.display()),
+                    path.loc.clone(),
+                )
+            })?
             .leak();
 
         let tokens = Scanner::new(file.to_str().unwrap(), &source).scan_tokens()?;

@@ -1,3 +1,5 @@
+cargo install cargo-llvm-cov
+
 # Configure instrumentation and coverage environment
 source <(cargo llvm-cov show-env --sh)
 

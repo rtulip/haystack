@@ -124,6 +124,7 @@ where
                 BuiltinType::U8 => format!("uint8_t"),
                 BuiltinType::U64 => format!("uint64_t"),
                 BuiltinType::Bool => format!("bool"),
+                BuiltinType::Char => format!("char"),
                 BuiltinType::CVarArgs => format!("..."),
             },
             Type::Function(function_type) => todo!(),
@@ -229,6 +230,7 @@ where
                     BuiltinType::U8 => "uint8_t",
                     BuiltinType::U64 => "uint64_t",
                     BuiltinType::Bool => "bool",
+                    BuiltinType::Char => "char",
                     BuiltinType::CVarArgs => unreachable!(),
                 };
 
@@ -659,7 +661,7 @@ where
                     Self::format_tid(output[0]),
                     Self::format_stack_ident(ident)
                 )?;
-            },
+            }
             ExprKind::U64(n) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 0);
@@ -707,6 +709,20 @@ where
 
                 stack.push((output[0], ident));
             }
+            ExprKind::Char(c) => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() == 0);
+                assert!(output.len() == 1);
+                let ident = self.next_stack_ident();
+                stack.push((output[0], ident));
+
+                writeln!(
+                    self.w,
+                    "    const {} {} = '{c}';",
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(ident)
+                )?;
+            },
             ExprKind::Ident(var) => match self.typestore.get(expr.meta.1).unwrap() {
                 Type::Function(_) => {
                     self.generate_function_call(tid, var, stack)?;

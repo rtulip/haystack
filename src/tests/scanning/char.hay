@@ -1,0 +1,14 @@
+include "prelude.hay"
+
+fn main() {
+    'c'  println 
+    'h'  println 
+    'a'  println 
+    'r'  println
+    '\t' println
+    '\r' println 
+    '\0' println
+    '\'' println
+    '\\' println 
+    '\n' println
+}

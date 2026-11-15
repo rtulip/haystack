@@ -27,7 +27,11 @@ fn main() -> Result<(), HayError> {
     let filename = file.file_stem().unwrap();
 
     let source = std::fs::read_to_string(file).map_err(|e| {
-        HayError::new("Failed to open file", Loc::new(file.to_str().unwrap(), 1, 0, 0)).with_hint(format!("{e}"))
+        HayError::new(
+            "Failed to open file",
+            Loc::new(file.to_str().unwrap(), 1, 0, 0),
+        )
+        .with_hint(format!("{e}"))
     })?;
 
     let tokens = Scanner::new(file.to_str().unwrap(), &source).scan_tokens()?;
@@ -46,10 +50,15 @@ fn main() -> Result<(), HayError> {
 
     let c_exe_path = Path::new("target/").join(filename);
     let c_source_path = c_exe_path.with_extension("c");
-    
+
     std::fs::write(&c_source_path, &s).unwrap();
     let output = std::process::Command::new("gcc")
-        .args([c_source_path.to_str().unwrap(), "-g", "-o", c_exe_path.to_str().unwrap()])
+        .args([
+            c_source_path.to_str().unwrap(),
+            "-g",
+            "-o",
+            c_exe_path.to_str().unwrap(),
+        ])
         .output()
         .unwrap();
 
@@ -77,7 +86,13 @@ fn main() -> Result<(), HayError> {
 #[cfg(test)]
 mod compilation_test {
     use core::panic;
-    use std::{fmt::{Debug, Display}, format, path::Path, process::{Command, Output}, str::FromStr};
+    use std::{
+        fmt::{Debug, Display},
+        format,
+        path::Path,
+        process::{Command, Output},
+        str::FromStr,
+    };
 
     struct Cleanup(std::path::PathBuf);
 
@@ -91,8 +106,7 @@ mod compilation_test {
         }
     }
 
-    fn assert_snapshot(path: &Path, actual: &str)
-    {
+    fn assert_snapshot(path: &Path, actual: &str) {
         let normalized = actual.replace("\r\n", "\n");
 
         if !path.exists() {
@@ -130,51 +144,66 @@ mod compilation_test {
 
         assert_snapshot(&path.with_extension("stdout"), &stdout);
         assert_snapshot(&path.with_extension("stderr"), &stderr);
-        assert_snapshot(&path.with_extension("exitcode"),&exitcode.to_string());
+        assert_snapshot(&path.with_extension("exitcode"), &exitcode.to_string());
     }
 
     #[test]
-    fn add() {    
+    fn add() {
         run_test("src/tests/functional/add.hay");
     }
 
     #[test]
-    fn bad_return() {    
+    fn bad_return() {
         run_test("src/tests/typecheck/bad_return.hay");
     }
 
     #[test]
-    fn conflicting_impl() {    
+    fn conflicting_impl() {
         run_test("src/tests/typecheck/conflicting_impl.hay");
     }
 
     #[test]
-    fn bad_number() {    
+    fn bad_number() {
         run_test("src/tests/scanning/bad_number.hay");
     }
 
     #[test]
-    fn bad_u8() {    
+    fn bad_u8() {
         run_test("src/tests/scanning/bad_u8.hay");
     }
 
     #[test]
-    fn u8() {    
+    fn u8() {
         run_test("src/tests/scanning/u8.hay");
     }
 
     #[test]
-    fn hex() {    
+    fn hex() {
         run_test("src/tests/scanning/hex.hay");
     }
 
     #[test]
-    fn octal() {    
+    fn octal() {
         run_test("src/tests/scanning/octal.hay");
     }
 
     #[test]
-    fn binary() {    
+    fn binary() {
         run_test("src/tests/scanning/binary.hay");
+    }
+
+    #[test]
+    fn char() {
+        run_test("src/tests/scanning/char.hay");
+    }
+
+    #[test]
+    fn unknown_escaped_char() {
+        run_test("src/tests/scanning/unknown_escaped_char.hay");
+    }
+
+    #[test]
+    fn unterminated_char() {
+        run_test("src/tests/scanning/unterminated_char.hay");
     }
 }

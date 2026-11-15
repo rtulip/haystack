@@ -32,3 +32,9 @@ impl Print<u8> {
         "%u" Str.cstr swap printf drop
     }
 }
+
+impl Print<char> {
+    fn print(char){
+        "%c" Str.cstr swap printf drop
+    }
+}

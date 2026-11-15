@@ -219,12 +219,12 @@ impl<'src> Scanner<'src> {
 
         if c == '\\' {
             match self.advance() {
-                'n' => c = '\n',
-                't' => c = '\t',
-                'r' => c = '\r',
-                '0' => c = '\0',
-                '\'' => c = '\'',
-                '\\' => c = '\\',
+                'n' | 
+                't' |
+                'r' |
+                '0' |
+                '\'' |
+                '\\'  => (),
                 c => {
                     return Err(HayError::new(
                         format!("Unknown escaped character: `\\{c}`"),
@@ -240,6 +240,8 @@ impl<'src> Scanner<'src> {
                 Loc::new(self.file, self.line, self.token_start, self.token_end),
             ));
         }
+
+        let c = &self.source[self.start + 1..self.current - 1];
 
         self.add_token(TokenKind::Literal(Literal::Char(c)));
 

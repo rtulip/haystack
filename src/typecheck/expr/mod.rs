@@ -63,6 +63,7 @@ pub enum ExprKind<'src, Meta> {
     U8(u8),
     U64(u64),
     Bool(bool),
+    Char(&'src str),
     String(&'src str),
     Ident(Var),
     Ref { var: Var, mutability: Mutability },
@@ -105,6 +106,13 @@ impl<'src, Meta> Expr<'src, Meta> {
     pub fn bool(b: bool, meta: Meta) -> Expr<'src, Meta> {
         Expr {
             expr: ExprKind::Bool(b),
+            meta,
+        }
+    }
+
+    pub fn char(c: &'src str, meta: Meta) -> Expr<'src, Meta> {
+        Expr {
+            expr: ExprKind::Char(c),
             meta,
         }
     }
@@ -232,6 +240,7 @@ impl<'src, Meta> Expr<'src, Meta> {
             ExprKind::U64(n) => ExprKind::U64(n),
             ExprKind::Bool(b) => ExprKind::Bool(b),
             ExprKind::String(s) => ExprKind::String(s),
+            ExprKind::Char(c) => ExprKind::Char(c),
             ExprKind::Ident(var) => ExprKind::Ident(var),
             ExprKind::Ref { var, mutability } => ExprKind::Ref { var, mutability },
             ExprKind::Block(exprs) => {

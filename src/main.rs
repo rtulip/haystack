@@ -216,4 +216,9 @@ mod compilation_test {
     fn unexpected_character() {
         run_test("src/tests/scanning/unexpected_character.hay");
     }
+
+    #[test]
+    fn unknown_equals() {
+        run_test("src/tests/scanning/unknown_equals.hay");
+    }
 }

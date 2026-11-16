@@ -722,7 +722,7 @@ where
                     Self::format_tid(output[0]),
                     Self::format_stack_ident(ident)
                 )?;
-            },
+            }
             ExprKind::Ident(var) => match self.typestore.get(expr.meta.1).unwrap() {
                 Type::Function(_) => {
                     self.generate_function_call(tid, var, stack)?;
@@ -918,8 +918,47 @@ where
 
                         stack.push((output[0], ident));
                     }
+                    Type::Tuple(_) => {
+                        let ident = self.next_stack_ident();
+                        writeln!(
+                            self.w,
+                            "    const {} {} = {{",
+                            Self::format_tid(output[0]),
+                            Self::format_stack_ident(ident)
+                        )?;
+
+                        for (idx, _) in input.iter().enumerate().rev() {
+                            let (_, ident) = stack.pop().unwrap();
+                            writeln!(
+                                self.w,
+                                "        ._{idx} = {},",
+                                Self::format_stack_ident(ident)
+                            )?;
+                        }
+                        writeln!(self.w, "}};")?;
+
+                        stack.push((output[0], ident))
+                    }
                     _ => unreachable!(),
                 };
+            }
+            ExprKind::Unpack => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+
+                assert!(input.len() == 1);
+
+                let (_, parent) = stack.pop().unwrap();
+                for (idx, tid) in output.into_iter().enumerate() {
+                    let ident = self.next_stack_ident();
+                    stack.push((tid, ident));
+                    writeln!(
+                        self.w,
+                        "    const {} {} = {}._{idx};",
+                        Self::format_tid(tid),
+                        Self::format_stack_ident(ident),
+                        Self::format_stack_ident(parent)
+                    )?;
+                }
             }
             ExprKind::NamedMemberAccess { var, member } => todo!(),
             ExprKind::MemberAccess { var, member } => {

@@ -576,6 +576,7 @@ where
             | ExprKind::MemberAccess { .. }
             | ExprKind::NamedMemberAccess { .. }
             | ExprKind::Pack
+            | ExprKind::Unpack
             | ExprKind::Read
             | ExprKind::Add(_) => (
                 unbound,
@@ -1144,6 +1145,29 @@ where
         }
     }
 
+    fn generate_unpack_function(&mut self, tid: TypeId) -> Result<FunctionType, InferenceError<M>>
+    where
+        M: Debug + Clone + PartialEq + Eq,
+    {
+        match self.get(tid).expect("TypeIds should be resolvable") {
+            Type::Struct(_) => todo!(),
+            Type::Variant(_) => todo!(),
+            Type::Tuple(tids) => Ok(FunctionType {
+                input: vec![tid],
+                output: tids.clone(),
+            }),
+            Type::Enum(_)
+            | Type::TypeVar(_)
+            | Type::RigidTypeVar(_)
+            | Type::Builtin(_)
+            | Type::Function(_)
+            | Type::Pointer(_)
+            | Type::Type(_)
+            | Type::Never
+            | Type::Projection(_) => todo!("Can't pack into a {}", self.fmt(tid)),
+        }
+    }
+
     /// Infer what type constraints must be placed on an Expression.
     ///
     /// Expressions may push/pop to/from the stack
@@ -1335,6 +1359,19 @@ where
                         self.fmt(ty_tid)
                     )
                 }
+            }
+            ExprKind::Unpack => {
+                if stack.is_empty() {
+                    todo!("Expected the product type on top of stack");
+                }
+
+                let tid = *stack.last().unwrap();
+                let unpack_fn = self.generate_unpack_function(tid)?;
+                let constraints = self.infer_fn_call(&unpack_fn, vec![], stack, &expr.meta);
+
+                let expr_tid = self.function(unpack_fn);
+                let e = Expr::unpack((expr.meta, expr_tid));
+                Ok((e, constraints))
             }
             ExprKind::NamedMemberAccess { var, member } => {
                 let scheme = env.get_var(&var).expect("Vars should be resolvable");

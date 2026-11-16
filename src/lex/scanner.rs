@@ -175,7 +175,7 @@ impl<'src> Scanner<'src> {
             '\n' => {
                 self.newline();
                 self.add_token(TokenKind::Whitespace)
-            },
+            }
             '"' => self.string()?,
             '\'' => self.char()?,
             '#' => self.add_token(TokenKind::Marker(Marker::Hash)),
@@ -224,12 +224,7 @@ impl<'src> Scanner<'src> {
 
         if c == '\\' {
             match self.advance() {
-                'n' | 
-                't' |
-                'r' |
-                '0' |
-                '\'' |
-                '\\'  => (),
+                'n' | 't' | 'r' | '0' | '\'' | '\\' => (),
                 c => {
                     return Err(HayError::new(
                         format!("Unknown escaped character: `\\{c}`"),
@@ -314,6 +309,5 @@ impl<'src> Scanner<'src> {
         } else {
             self.add_token(TokenKind::Ident(ident))
         }
-
     }
 }

@@ -620,6 +620,7 @@ impl<'src> TypeCheck<'src> {
                 Ok(Expr::typ(tid, expr.token.clone()))
             }
             ParseExprKind::Pack => Ok(Expr::pack(expr.token.clone())),
+            ParseExprKind::Unpack => Ok(Expr::unpack(expr.token.clone())),
             ParseExprKind::Call => Ok(Expr::call(expr.token.clone())),
             ParseExprKind::Intrinsic(Intrinsic::UncheckedCast) => {
                 Ok(Expr::unchecked_cast(expr.token.clone()))
@@ -772,13 +773,12 @@ impl<'src> TypeCheck<'src> {
             .clone()
         {
             Type::Never => "!".into(),
-            Type::TypeVar(_) => todo!(),
-            Type::RigidTypeVar(tyvar) => {
+            Type::TypeVar(tyvar) | Type::RigidTypeVar(tyvar) => {
                 let tid = self.typestore.intern(Type::TypeVar(tyvar));
                 if let Some(info) = self.symbols.types.get(&tid) {
                     info.name.clone()
                 } else {
-                    todo!()
+                    self.typestore.fmt(tid)
                 }
             }
             Type::Builtin(b) => match b {
@@ -1054,6 +1054,18 @@ impl<'src> TypeCheck<'src> {
                 ),
                 e.meta.loc,
             ),
+            (
+                ConstraintOrigin::FunctionCall { .. },
+                InferenceErrorKind::NotEnoughArgs { expected, stack },
+            ) => HayError::new(
+                format!("Too few arguments for `{}`.", e.meta.lexeme),
+                e.meta.loc,
+            )
+            .with_hint(format!(
+                "Expected: {}",
+                self.format_stack(&expected, '[', ']')
+            ))
+            .with_hint(format!("Found   : {}", self.format_stack(&stack, '[', ']'))),
             (origin, kind) => todo!("Generate Error message for {origin:?}, {kind:?}"),
         }
     }
@@ -2177,6 +2189,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             | ExprKind::Char(_)
             | ExprKind::Bind(_)
             | ExprKind::Pack
+            | ExprKind::Unpack
             | ExprKind::MemberAccess { .. } => expr.expr,
 
             ExprKind::Ident(var) => {

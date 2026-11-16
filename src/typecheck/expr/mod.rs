@@ -75,6 +75,7 @@ pub enum ExprKind<'src, Meta> {
     UncheckedCast,
     Add(TypeId),
     Pack,
+    Unpack,
     NamedMemberAccess { var: Var, member: &'src str },
     MemberAccess { var: Var, member: usize },
     Match(MatchExpr<'src, Meta>),
@@ -203,6 +204,13 @@ impl<'src, Meta> Expr<'src, Meta> {
         }
     }
 
+    pub fn unpack(meta: Meta) -> Self {
+        Expr {
+            expr: ExprKind::Unpack,
+            meta,
+        }
+    }
+
     pub fn member_access(var: Var, member: usize, meta: Meta) -> Self {
         Expr {
             expr: ExprKind::MemberAccess { var, member },
@@ -255,6 +263,7 @@ impl<'src, Meta> Expr<'src, Meta> {
             ExprKind::UncheckedCast => ExprKind::UncheckedCast,
             ExprKind::Add(tid) => ExprKind::Add(tid),
             ExprKind::Pack => ExprKind::Pack,
+            ExprKind::Unpack => ExprKind::Unpack,
             ExprKind::NamedMemberAccess { var, member } => {
                 ExprKind::NamedMemberAccess { var, member }
             }

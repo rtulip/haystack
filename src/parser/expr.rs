@@ -33,6 +33,7 @@ pub enum ParseExprKind<'src> {
     Type(ParseType<'src>),
     Tuple(Vec<ParseExpr<'src>>),
     Pack,
+    Unpack,
     Call,
     Intrinsic(Intrinsic),
     As(Vec<Token<'src>>),

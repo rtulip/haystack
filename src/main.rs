@@ -221,4 +221,19 @@ mod compilation_test {
     fn unknown_equals() {
         run_test("src/tests/scanning/unknown_equals.hay");
     }
+
+    #[test]
+    fn bad_const_pointer() {
+        run_test("src/tests/parsing/bad_const_pointer.hay");
+    }
+
+    #[test]
+    fn pointer_missing_type() {
+        run_test("src/tests/parsing/pointer_missing_type.hay");
+    }
+
+    #[test]
+    fn tuple_type() {
+        run_test("src/tests/parsing/tuple_type.hay");
+    }
 }

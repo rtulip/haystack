@@ -236,4 +236,9 @@ mod compilation_test {
     fn tuple_type() {
         run_test("src/tests/parsing/tuple_type.hay");
     }
+
+    #[test]
+    fn empty_tuple() {
+        run_test("src/tests/parsing/empty_tuple.hay");
+    }
 }

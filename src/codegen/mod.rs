@@ -429,7 +429,7 @@ where
         Ok(())
     }
 
-    fn format_extern_input(&self, tid: TypeId, ident: &(TypeId, usize)) -> String {
+    fn format_extern_input(&self, tid: TypeId, ident: (TypeId, usize)) -> String {
         match self.typestore.get(tid).unwrap() {
             Type::Builtin(BuiltinType::CVarArgs) => match self.typestore.get(ident.0).unwrap() {
                 Type::Tuple(tids) => {
@@ -462,13 +462,16 @@ where
         assert!(input.len() == stack.len());
         let idents = stack.split_off(stack.len() - input.len());
 
-        let start = self.format_extern_input(input[0], &idents[0]);
-
-        input[1..]
+        input
             .into_iter()
-            .zip(idents[1..].into_iter())
-            .fold(start, |acc, (tid, ident)| {
-                format!("{acc}, {}", self.format_extern_input(*tid, ident))
+            .zip(idents.into_iter())
+            .rev()
+            .fold(String::new(), |acc, (tid, ident)| {
+                if acc.is_empty() {
+                    self.format_extern_input(tid, ident)
+                } else {
+                    format!("{}, {acc}", self.format_extern_input(tid, ident))
+                }
             })
     }
 

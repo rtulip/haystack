@@ -1,16 +1,16 @@
+#!/usr/bin/env bash
+set -e
+
 cargo install cargo-llvm-cov
 
-# Configure instrumentation and coverage environment
-source <(cargo llvm-cov show-env --sh)
+(
+    set -e
 
-# Clean old build artifacts
-cargo llvm-cov clean --workspace
+    export CARGO_TARGET_DIR=target/coverage
+    source <(cargo llvm-cov show-env --sh)
 
-# Build the compiler with instrumentation
-cargo build
-
-# Run integration tests, which invoke the compiler
-cargo test
-
-# Generate the coverage report
-cargo llvm-cov report --html
+    cargo llvm-cov clean --workspace
+    cargo build
+    cargo test
+    cargo llvm-cov report --html
+)

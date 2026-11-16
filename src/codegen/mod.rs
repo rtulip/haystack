@@ -499,16 +499,7 @@ where
         Ok(())
     }
 
-    fn generate_function_call(
-        &mut self,
-        tid: TypeId,
-        var: &Var,
-        stack: &mut Vec<(TypeId, usize)>,
-    ) -> std::fmt::Result {
-        if let Some((name, tid)) = self.externs.get(var) {
-            return self.generate_extern_function_call(name, *tid, stack);
-        }
-
+    fn generate_haystack_function_call(&mut self, tid: TypeId, fn_ident: String, stack: &mut Vec<(TypeId, usize)>) -> std::fmt::Result {
         let func = self.get_stack_effect(tid);
         let input = self.generate_input_binding(tid, &func.input, stack)?;
 
@@ -530,7 +521,7 @@ where
         writeln!(
             self.w,
             "    {output_prefix}{}({});",
-            Self::format_var(*var),
+            fn_ident,
             match input {
                 Some(input) => Self::format_stack_ident(input),
                 None => "".into(),
@@ -540,6 +531,20 @@ where
             self.generate_output_unbinding(output, &func.output, stack)?;
         }
         Ok(())
+    }
+
+    fn generate_function_call(
+        &mut self,
+        tid: TypeId,
+        var: &Var,
+        stack: &mut Vec<(TypeId, usize)>,
+    ) -> std::fmt::Result {
+        if let Some((name, tid)) = self.externs.get(var) {
+            self.generate_extern_function_call(name, *tid, stack)
+        } else {
+            self.generate_haystack_function_call(tid, Self::format_var(*var), stack)
+        }
+        
     }
 
     fn generate_match_case(
@@ -842,7 +847,14 @@ where
                     )?;
                 }
             }
-            ExprKind::Call => todo!(),
+            ExprKind::Call => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() >= 1);
+
+                let (tid, ident) = stack.pop().unwrap();
+                self.generate_haystack_function_call(tid, Self::format_stack_ident(ident), stack)?;
+
+            },
             ExprKind::Type(tid) => {
                 let ident = self.next_stack_ident();
                 // TODO: metatypes can't be handled quite like normal tids.

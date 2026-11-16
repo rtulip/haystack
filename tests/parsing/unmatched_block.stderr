@@ -1,0 +1,2 @@
+Error: [tests/parsing/unmatched_block.hay:2:10] Error: Expected `}`, but found end of file instead.
+    [Note]: Opening brace found here: tests/parsing/unmatched_block.hay:1:11

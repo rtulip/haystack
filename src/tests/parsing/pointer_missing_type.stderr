@@ -1,1 +1,0 @@
-Error: [src/tests/parsing/pointer_missing_type.hay:1:12] Error: Expected type after `&`, but found `)` instead

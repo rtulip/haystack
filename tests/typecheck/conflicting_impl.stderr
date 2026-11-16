@@ -1,4 +1,4 @@
-Error: [src/tests/typecheck/conflicting_impl.hay:11:9] Error: Conflicting implementations for interface `Foo`
+Error: [tests/typecheck/conflicting_impl.hay:11:9] Error: Conflicting implementations for interface `Foo`
     [Note]: `Foo<T>` conflicts with
             `Foo<u64>`
     [Note]: Overlapping implementations cannot override default functions

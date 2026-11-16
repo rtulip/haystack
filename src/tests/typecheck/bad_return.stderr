@@ -1,3 +1,0 @@
-Error: [src/tests/typecheck/bad_return.hay:1:4] Error: Wrong number of elements left on the stack at end of function
-    [Note]: Expected: []
-    [Note]: Found   : [u64]

@@ -1,0 +1,9 @@
+include "prelude.hay" 
+
+fn apply<T U>(T fn(T)->[U]) -> [U] call
+fn id<T>(T) -> [T] {}
+
+fn main() {
+    12345 &id apply println
+    true  &id apply println
+}

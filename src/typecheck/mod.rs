@@ -2190,6 +2190,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             | ExprKind::Bind(_)
             | ExprKind::Pack
             | ExprKind::Unpack
+            | ExprKind::Call 
             | ExprKind::MemberAccess { .. } => expr.expr,
 
             ExprKind::Ident(var) => {
@@ -2232,8 +2233,6 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                     .map(|e| self.monomorphize_expr(e, substitutions))
                     .collect(),
             ),
-
-            ExprKind::Call => todo!(),
             ExprKind::Type(tid) => ExprKind::Type(self.request_type(tid, substitutions)),
             ExprKind::UncheckedCast => todo!(),
             ExprKind::Add(tid) => ExprKind::Add(self.request_type(tid, substitutions)),

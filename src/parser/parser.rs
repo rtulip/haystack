@@ -206,16 +206,10 @@ impl<'src> Parser<'src> {
             TokenKind::Operator(Operator::Write) => {
                 Ok(Some(ParseType::Never(self.tokens.pop().unwrap())))
             }
-            TokenKind::Marker(m) => todo!("Parse Type from {m}"),
             TokenKind::Operator(Operator::GreaterThan) => Ok(None),
             TokenKind::Operator(Operator::Ampersand) => self.parse_pointer_type(),
-            TokenKind::Operator(o) => todo!("Parse type from {o}: "),
             TokenKind::Keyword(Keyword::Function) => self.parse_function_type(),
-            TokenKind::Keyword(_) => todo!(),
-            TokenKind::Intrinsic(_) => todo!(),
-            TokenKind::Literal(_) => todo!(),
-            TokenKind::Whitespace => todo!(),
-            TokenKind::EoF => todo!(),
+            kind => Err(HayError::new(format!("Expected a type, but found {} instead", kind), self.peek().loc.clone()))
         }
     }
 

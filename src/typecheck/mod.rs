@@ -2190,7 +2190,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             | ExprKind::Bind(_)
             | ExprKind::Pack
             | ExprKind::Unpack
-            | ExprKind::Call 
+            | ExprKind::Call
             | ExprKind::MemberAccess { .. } => expr.expr,
 
             ExprKind::Ident(var) => {

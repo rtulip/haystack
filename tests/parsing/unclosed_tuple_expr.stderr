@@ -1,0 +1,3 @@
+Error: [tests/parsing/unclosed_tuple_expr.hay:1:14] Error: Unclosed tuple expression
+    [Note]: Expected `)`, but found end of file instead
+    [Note]: Tuple expression started here: tests/parsing/unclosed_tuple_expr.hay:1:10

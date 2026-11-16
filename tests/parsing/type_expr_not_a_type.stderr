@@ -1,0 +1,1 @@
+Error: [tests/parsing/type_expr_not_a_type.hay:2:5] Error: Expected a type after `#`, but found `)` instead

@@ -499,7 +499,12 @@ where
         Ok(())
     }
 
-    fn generate_haystack_function_call(&mut self, tid: TypeId, fn_ident: String, stack: &mut Vec<(TypeId, usize)>) -> std::fmt::Result {
+    fn generate_haystack_function_call(
+        &mut self,
+        tid: TypeId,
+        fn_ident: String,
+        stack: &mut Vec<(TypeId, usize)>,
+    ) -> std::fmt::Result {
         let func = self.get_stack_effect(tid);
         let input = self.generate_input_binding(tid, &func.input, stack)?;
 
@@ -544,7 +549,6 @@ where
         } else {
             self.generate_haystack_function_call(tid, Self::format_var(*var), stack)
         }
-        
     }
 
     fn generate_match_case(
@@ -853,8 +857,7 @@ where
 
                 let (tid, ident) = stack.pop().unwrap();
                 self.generate_haystack_function_call(tid, Self::format_stack_ident(ident), stack)?;
-
-            },
+            }
             ExprKind::Type(tid) => {
                 let ident = self.next_stack_ident();
                 // TODO: metatypes can't be handled quite like normal tids.

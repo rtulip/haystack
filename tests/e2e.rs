@@ -1,9 +1,6 @@
 #[cfg(test)]
 mod compilation_test {
-    use std::{
-        path::Path,
-        process::Command,
-    };
+    use std::{path::Path, process::Command};
 
     struct Cleanup(std::path::PathBuf);
 
@@ -171,5 +168,20 @@ mod compilation_test {
     #[test]
     fn function_pointer() {
         run_test("tests/parsing/function_pointer.hay");
+    }
+
+    #[test]
+    fn type_expr_whitespace() {
+        run_test("tests/parsing/type_expr_whitespace.hay");
+    }
+
+    #[test]
+    fn type_expr_not_a_type() {
+        run_test("tests/parsing/type_expr_not_a_type.hay");
+    }
+
+    #[test]
+    fn unclosed_tuple_expr() {
+        run_test("tests/parsing/unclosed_tuple_expr.hay");
     }
 }

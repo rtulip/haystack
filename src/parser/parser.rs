@@ -209,7 +209,10 @@ impl<'src> Parser<'src> {
             TokenKind::Operator(Operator::GreaterThan) => Ok(None),
             TokenKind::Operator(Operator::Ampersand) => self.parse_pointer_type(),
             TokenKind::Keyword(Keyword::Function) => self.parse_function_type(),
-            kind => Err(HayError::new(format!("Expected a type, but found {} instead", kind), self.peek().loc.clone()))
+            kind => Err(HayError::new(
+                format!("Expected a type, but found {} instead", kind),
+                self.peek().loc.clone(),
+            )),
         }
     }
 
@@ -359,7 +362,11 @@ impl<'src> Parser<'src> {
 
         let Some(ty) = self.parse_type()? else {
             return Err(HayError::new(
-                format!("Expected a type after {}", Marker::Hash),
+                format!(
+                    "Expected a type after {}, but found {} instead",
+                    Marker::Hash,
+                    self.peek().kind
+                ),
                 hash.loc,
             ));
         };
@@ -390,7 +397,18 @@ impl<'src> Parser<'src> {
         loop {
             self.strip_whitespace();
             if self.is_at_end() {
-                todo!("Didn't find matching `)`");
+                return Err(
+                    HayError::new("Unclosed tuple expression", self.peek().loc.clone())
+                        .with_hint(format!(
+                            "Expected {}, but found {} instead",
+                            Marker::RightParen,
+                            TokenKind::EoF
+                        ))
+                        .with_hint(format!(
+                            "Tuple expression started here: {}",
+                            token.loc.clone()
+                        )),
+                );
             }
 
             if self.matches(TokenKind::Marker(Marker::RightParen)).is_ok() {
@@ -674,7 +692,6 @@ impl<'src> Parser<'src> {
             TokenKind::Marker(Marker::LeftBrace) => self.parse_block_expr(),
             TokenKind::Marker(Marker::Hash) => self.parse_type_expr(),
             TokenKind::Marker(Marker::LeftParen) => self.parse_tuple_expr(),
-            TokenKind::Marker(m) => todo!("Parse Expr from {m}"),
             TokenKind::Keyword(Keyword::Pack) => Ok(self.parse_pack_expr()),
             TokenKind::Keyword(Keyword::As) => self.parse_as_expr(),
             TokenKind::Keyword(Keyword::Call) => Ok(self.parse_call_expr()),
@@ -686,8 +703,10 @@ impl<'src> Parser<'src> {
             TokenKind::Operator(_) => Ok(self.parse_operator_expr()),
             TokenKind::Intrinsic(_) => Ok(self.parse_intrinsic()),
             TokenKind::Literal(_) => Ok(self.parse_literal_expr()),
-            TokenKind::Whitespace => todo!(),
-            TokenKind::EoF => todo!(),
+            kind => Err(HayError::new(
+                format!("Unable to parse an expression from {}", kind),
+                self.peek().loc.clone(),
+            )),
         }
     }
 

@@ -417,7 +417,11 @@ impl<'src> TypeCheck<'src> {
         assert_eq!(ident.base.lexeme, "Type");
 
         if ident.params.len() != 1 {
-            todo!("Wrong number of params for `Type`");
+            return Err(HayError::new(
+                "Wrong number of type parameters for `Type`",
+                ident.base.loc.clone(),
+            )
+            .with_hint("Expected a single parameter: `Type<T>`"));
         }
 
         let inner_tid = self.get_tid(&ident.params[0])?;

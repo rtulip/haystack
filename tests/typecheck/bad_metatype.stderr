@@ -1,2 +1,2 @@
-Error: [tests/typecheck/bad_metatype.hay:1:11] Error: Wrong number of type paramters for `Type`
+Error: [tests/typecheck/bad_metatype.hay:1:11] Error: Wrong number of type parameters for `Type`
     [Note]: Expected a single parameter: `Type<T>`

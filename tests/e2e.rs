@@ -184,4 +184,14 @@ mod compilation_test {
     fn unclosed_tuple_expr() {
         run_test("tests/parsing/unclosed_tuple_expr.hay");
     }
+
+    #[test]
+    fn bad_include() {
+        run_test("tests/parsing/bad_include.hay");
+    }
+
+    #[test]
+    fn generic_extern() {
+        run_test("tests/parsing/generic_extern.hay");
+    }
 }

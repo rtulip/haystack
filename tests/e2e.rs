@@ -100,6 +100,16 @@ mod compilation_test {
         fn bad_enum_variant() {
             run_test("tests/typecheck/bad_enum_variant.hay");
         }
+
+        #[test]
+        fn bad_struct_member() {
+            run_test("tests/typecheck/bad_struct_member.hay");
+        }
+
+        #[test]
+        fn non_enum_inner_type() {
+            run_test("tests/typecheck/non_enum_inner_type.hay");
+        }
     }
 
     mod scanning {

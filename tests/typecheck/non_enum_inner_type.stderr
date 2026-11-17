@@ -1,0 +1,1 @@
+Error: [tests/typecheck/non_enum_inner_type.hay:5:13] Error: Type `Foo` doesn't have an inner type `Bar`

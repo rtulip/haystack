@@ -479,14 +479,15 @@ impl<'src> TypeCheck<'src> {
     ) -> Result<TypeId, HayError> {
         let variant_id = match self.scope.get_variant(eid, ident.base.lexeme) {
             Some(variant_id) => variant_id,
-            None => return Err(
-                HayError::new(format!(
-                    "Unknown variant `{}` for enum `{}`", 
-                    ident.base.lexeme,
-                    self.symbols.enums[&eid].lexeme,
-                ), 
-                ident.base.loc.clone(),
-            )),
+            None => {
+                return Err(HayError::new(
+                    format!(
+                        "Unknown variant `{}` for enum `{}`",
+                        ident.base.lexeme, self.symbols.enums[&eid].lexeme,
+                    ),
+                    ident.base.loc.clone(),
+                ))
+            }
         };
 
         let tid = self
@@ -1100,6 +1101,16 @@ impl<'src> TypeCheck<'src> {
                 self.format_stack(&expected, '<', '>')
             ))
             .with_hint(format!("Found: {}", self.format_stack(&found, '<', '>'))),
+            (
+                ConstraintOrigin::NamedMemberAccess(tid),
+                InferenceErrorKind::InvalidStructMember { member },
+            ) => HayError::new(
+                format!(
+                    "`{}` doesn't have a member `{member}`",
+                    self.format_tid(tid)
+                ),
+                e.meta.loc.clone(),
+            ),
             (origin, kind) => todo!("Generate Error message for {origin:?}, {kind:?}"),
         }
     }

@@ -1,0 +1,1 @@
+Error: [tests/typecheck/bad_struct_member.hay:6:5] Error: `Foo` doesn't have a member `baz`

@@ -1390,7 +1390,11 @@ where
                 };
 
                 let Some(member_idx) = lookup.get_member_idx(s.sid, member) else {
-                    todo!("Error unknown member")
+                    return Err(InferenceError::invalid_struct_member(
+                        member,
+                        &ConstraintOrigin::NamedMemberAccess(inst.tid),
+                        &expr.meta,
+                    ));
                 };
 
                 let expr = Expr::member_access(var, member_idx, expr.meta);

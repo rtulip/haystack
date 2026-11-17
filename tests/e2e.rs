@@ -75,12 +75,21 @@ mod compilation_test {
         fn conflicting_impl() {
             run_test("tests/typecheck/conflicting_impl.hay");
         }
-        
-        #[test] 
+
+        #[test]
         fn redefined_function() {
             run_test("tests/typecheck/redefined_function.hay");
         }
 
+        #[test]
+        fn redefined_free_var() {
+            run_test("tests/typecheck/redefined_free_var.hay");
+        }
+
+        #[test]
+        fn bad_metatype() {
+            run_test("tests/typecheck/bad_metatype.hay");
+        }
     }
 
     mod scanning {

@@ -1,0 +1,5 @@
+enum Foo {
+    Bar
+}
+
+fn example(Foo::Baz: _) {}

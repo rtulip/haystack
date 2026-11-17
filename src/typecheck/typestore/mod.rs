@@ -8,23 +8,26 @@ use std::{
     todo, unreachable, write,
 };
 
-use crate::typecheck::{
-    constraint::{Constraint, ConstraintType},
-    environment::{
-        Coherence, Environment, InterfaceImpl, QualifiedInterfaceImpl, QualifiedType, Scheme,
-        TypeClassId, TypePredicate, Variance,
-    },
-    expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Var},
-    typ::{
-        typ::{
-            BuiltinType, EnumDef, EnumType, FunctionType, Mutability, PointerType, Projection,
-            StructDef, StructType, Type, VariantType,
+use crate::{
+    error::HayError,
+    typecheck::{
+        constraint::{Constraint, ConstraintType},
+        environment::{
+            Coherence, Environment, InterfaceImpl, QualifiedInterfaceImpl, QualifiedType, Scheme,
+            TypeClassId, TypePredicate, Variance,
         },
-        type_id::{EnumId, StructId, TypeId},
-        type_var::TypeVar,
+        expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Var},
+        typ::{
+            typ::{
+                BuiltinType, EnumDef, EnumType, FunctionType, Mutability, PointerType, Projection,
+                StructDef, StructType, Type, VariantType,
+            },
+            type_id::{EnumId, StructId, TypeId},
+            type_var::TypeVar,
+        },
+        typestore::inference::{InferenceError, InferenceErrorKind},
+        union_find::{UnifiactionError, UnificationTable},
     },
-    typestore::inference::{InferenceError, InferenceErrorKind},
-    union_find::{UnifiactionError, UnificationTable},
 };
 
 use super::constraint::ConstraintOrigin;
@@ -2763,7 +2766,7 @@ where
         tid: TypeId,
         args: Option<Vec<TypeId>>,
         meta: &M,
-    ) -> Result<TypeId, InferenceError<M>>
+    ) -> Result<TypeId, InferenceErrorKind>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
@@ -2789,8 +2792,11 @@ where
             | Type::Pointer(_)
             | Type::Tuple(_)
             | Type::Type(_) => {
-                if args.is_some() {
-                    todo!("Passed args to type which didn't expect args ");
+                if let Some(args) = args {
+                    return Err(InferenceErrorKind::WrongNumberOfArgs {
+                        expected: vec![],
+                        found: args,
+                    });
                 }
                 Ok(tid)
             }
@@ -2974,7 +2980,7 @@ where
         tid: TypeId,
         args: Option<Vec<TypeId>>,
         meta: &M,
-    ) -> Result<TypeId, InferenceError<M>>
+    ) -> Result<TypeId, InferenceErrorKind>
     where
         M: Debug + Clone + PartialEq + Eq,
     {

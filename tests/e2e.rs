@@ -90,6 +90,16 @@ mod compilation_test {
         fn bad_metatype() {
             run_test("tests/typecheck/bad_metatype.hay");
         }
+
+        #[test]
+        fn bad_metatype2() {
+            run_test("tests/typecheck/bad_metatype2.hay");
+        }
+
+        #[test]
+        fn bad_enum_variant() {
+            run_test("tests/typecheck/bad_enum_variant.hay");
+        }
     }
 
     mod scanning {

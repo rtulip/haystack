@@ -74,6 +74,7 @@ struct VarInfo<'src> {
 struct SymbolTable<'src> {
     types: HashMap<TypeId, TypeInfo<'src>>,
     vars: HashMap<Var, VarInfo<'src>>,
+    enums: HashMap<EnumId, Token<'src>>,
     interfaces: HashMap<TypeClassId, Token<'src>>,
     variants: HashMap<(EnumId, usize), Token<'src>>,
     members: HashMap<(StructId, usize), Token<'src>>,
@@ -114,6 +115,7 @@ impl<'src> SymbolTable<'src> {
         SymbolTable {
             types,
             vars: HashMap::new(),
+            enums: HashMap::new(),
             variants: HashMap::new(),
             members: HashMap::new(),
             interfaces: HashMap::new(),
@@ -459,7 +461,13 @@ impl<'src> TypeCheck<'src> {
         } else {
             self.typestore
                 .type_instance(base_tid, Some(params), &ident.base)
-                .map_err(|e| self.map_inference_err(e))
+                .map_err(|kind| {
+                    self.map_inference_err(InferenceError {
+                        kind,
+                        origin: ConstraintOrigin::TypeInstance(base_tid),
+                        meta: ident.base.clone(),
+                    })
+                })
         }
     }
 
@@ -471,7 +479,14 @@ impl<'src> TypeCheck<'src> {
     ) -> Result<TypeId, HayError> {
         let variant_id = match self.scope.get_variant(eid, ident.base.lexeme) {
             Some(variant_id) => variant_id,
-            None => todo!(),
+            None => return Err(
+                HayError::new(format!(
+                    "Unknown variant `{}` for enum `{}`", 
+                    ident.base.lexeme,
+                    self.symbols.enums[&eid].lexeme,
+                ), 
+                ident.base.loc.clone(),
+            )),
         };
 
         let tid = self
@@ -1070,6 +1085,21 @@ impl<'src> TypeCheck<'src> {
                 self.format_stack(&expected, '[', ']')
             ))
             .with_hint(format!("Found   : {}", self.format_stack(&stack, '[', ']'))),
+            (
+                ConstraintOrigin::TypeInstance(tid),
+                InferenceErrorKind::WrongNumberOfArgs { expected, found },
+            ) => HayError::new(
+                format!(
+                    "Wrong number of type parameters for type `{}`",
+                    self.format_tid(tid)
+                ),
+                e.meta.loc.clone(),
+            )
+            .with_hint(format!(
+                "Expected: {}",
+                self.format_stack(&expected, '<', '>')
+            ))
+            .with_hint(format!("Found: {}", self.format_stack(&found, '<', '>'))),
             (origin, kind) => todo!("Generate Error message for {origin:?}, {kind:?}"),
         }
     }
@@ -1347,6 +1377,8 @@ impl<'src> TypeCheck<'src> {
                 todo!("Duplicate variant idents")
             }
         }
+
+        self.symbols.enums.insert(eid, e.name.clone());
 
         Ok(())
     }

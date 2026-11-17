@@ -124,6 +124,7 @@ pub enum ConstraintOrigin {
     ConflictingImpls,
     ImplsMustMatch,
     IfCondition,
+    TypeInstance(TypeId),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

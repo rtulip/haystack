@@ -616,7 +616,7 @@ impl<'src> Parser<'src> {
             TokenKind::Operator(operator) => match operator {
                 Operator::Plus => ParseExprKind::Ident("add"),
                 Operator::Minus => todo!(),
-                Operator::Star => todo!(),
+                Operator::Star => ParseExprKind::Ident("mul"),
                 Operator::Slash => todo!(),
                 Operator::LessThan => todo!(),
                 Operator::LessEqual => todo!(),

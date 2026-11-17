@@ -74,6 +74,7 @@ pub enum ExprKind<'src, Meta> {
     Type(TypeId),
     UncheckedCast,
     Add(TypeId),
+    Mul(TypeId),
     Pack,
     Unpack,
     NamedMemberAccess { var: Var, member: &'src str },
@@ -197,6 +198,13 @@ impl<'src, Meta> Expr<'src, Meta> {
         }
     }
 
+    pub fn mul(tid: TypeId, meta: Meta) -> Self {
+        Expr {
+            expr: ExprKind::Mul(tid),
+            meta,
+        }
+    }
+
     pub fn pack(meta: Meta) -> Self {
         Expr {
             expr: ExprKind::Pack,
@@ -262,6 +270,7 @@ impl<'src, Meta> Expr<'src, Meta> {
             ExprKind::Type(tid) => ExprKind::Type(tid),
             ExprKind::UncheckedCast => ExprKind::UncheckedCast,
             ExprKind::Add(tid) => ExprKind::Add(tid),
+            ExprKind::Mul(tid) => ExprKind::Mul(tid),
             ExprKind::Pack => ExprKind::Pack,
             ExprKind::Unpack => ExprKind::Unpack,
             ExprKind::NamedMemberAccess { var, member } => {

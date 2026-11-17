@@ -156,6 +156,7 @@ impl std::fmt::Display for Operator {
 pub enum Intrinsic {
     UncheckedCast,
     U64Add,
+    U64Mul,
 }
 
 impl std::fmt::Display for Intrinsic {
@@ -164,6 +165,7 @@ impl std::fmt::Display for Intrinsic {
         match self {
             Intrinsic::UncheckedCast => write!(f, "__unchecked_cast")?,
             Intrinsic::U64Add => write!(f, "__u64_add")?,
+            Intrinsic::U64Mul => write!(f, "__u64_mul")?,
         }
         write!(f, "`")
     }
@@ -252,6 +254,7 @@ impl Keyword {
             TokenKind::Intrinsic(Intrinsic::UncheckedCast),
         );
         map.insert("__u64_add", TokenKind::Intrinsic(Intrinsic::U64Add));
+        map.insert("__u64_mul", TokenKind::Intrinsic(Intrinsic::U64Mul));
 
         map.insert("true", TokenKind::Literal(Literal::Bool(true)));
         map.insert("false", TokenKind::Literal(Literal::Bool(false)));

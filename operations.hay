@@ -3,7 +3,17 @@ interface Add<L R> {
     fn add(L R) -> [Output]
 }
 
+interface Mul<L R> {
+    type: Output
+    fn mul(L R) -> [Output]
+}
+
 impl Add<u64 u64> {
     u64: Output
     fn add(u64 u64) -> [u64] { __u64_add }
+}
+
+impl Mul<u64 u64> {
+    u64: Output
+    fn mul(u64 u64) -> [u64] __u64_mul
 }

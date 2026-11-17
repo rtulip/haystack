@@ -582,7 +582,8 @@ where
             | ExprKind::Pack
             | ExprKind::Unpack
             | ExprKind::Read
-            | ExprKind::Add(_) => (
+            | ExprKind::Add(_) 
+            | ExprKind::Mul(_) => (
                 unbound,
                 Expr {
                     expr: expr.expr,
@@ -1674,6 +1675,15 @@ where
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::add(tid, (expr.meta.clone(), self.function(func)));
+                Ok((e, constraints))
+            }
+            ExprKind::Mul(tid) => {
+                let func = FunctionType {
+                    input: vec![tid, tid],
+                    output: vec![tid],
+                };
+                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
+                let e = Expr::mul(tid, (expr.meta.clone(), self.function(func)));
                 Ok((e, constraints))
             }
         };

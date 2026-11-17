@@ -61,6 +61,11 @@ mod compilation_test {
         fn add() {
             run_test("tests/functional/add.hay");
         }
+
+        #[test]
+        fn c() {
+            run_test("tests/functional/hello_world.hay");
+        }
     }
 
     mod typecheck {
@@ -109,6 +114,11 @@ mod compilation_test {
         #[test]
         fn non_enum_inner_type() {
             run_test("tests/typecheck/non_enum_inner_type.hay");
+        }
+
+        #[test]
+        fn mutable_pointer() {
+            run_test("tests/typecheck/mutable_pointer.hay");
         }
     }
 

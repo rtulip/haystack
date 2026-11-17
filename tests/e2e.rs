@@ -55,143 +55,163 @@ mod compilation_test {
         assert_snapshot(&path.with_extension("exitcode"), &exitcode.to_string());
     }
 
-    #[test]
-    fn add() {
-        run_test("tests/functional/add.hay");
+    mod functional {
+        use super::*;
+        #[test]
+        fn add() {
+            run_test("tests/functional/add.hay");
+        }
     }
 
-    #[test]
-    fn bad_return() {
-        run_test("tests/typecheck/bad_return.hay");
+    mod typecheck {
+        use super::*;
+
+        #[test]
+        fn bad_return() {
+            run_test("tests/typecheck/bad_return.hay");
+        }
+
+        #[test]
+        fn conflicting_impl() {
+            run_test("tests/typecheck/conflicting_impl.hay");
+        }
+        
+        #[test] 
+        fn redefined_function() {
+            run_test("tests/typecheck/redefined_function.hay");
+        }
+
     }
 
-    #[test]
-    fn conflicting_impl() {
-        run_test("tests/typecheck/conflicting_impl.hay");
+    mod scanning {
+        use super::*;
+
+        #[test]
+        fn bad_number() {
+            run_test("tests/scanning/bad_number.hay");
+        }
+
+        #[test]
+        fn bad_u8() {
+            run_test("tests/scanning/bad_u8.hay");
+        }
+
+        #[test]
+        fn u8() {
+            run_test("tests/scanning/u8.hay");
+        }
+
+        #[test]
+        fn hex() {
+            run_test("tests/scanning/hex.hay");
+        }
+
+        #[test]
+        fn octal() {
+            run_test("tests/scanning/octal.hay");
+        }
+
+        #[test]
+        fn binary() {
+            run_test("tests/scanning/binary.hay");
+        }
+
+        #[test]
+        fn char() {
+            run_test("tests/scanning/char.hay");
+        }
+
+        #[test]
+        fn unknown_escaped_char() {
+            run_test("tests/scanning/unknown_escaped_char.hay");
+        }
+
+        #[test]
+        fn unterminated_char() {
+            run_test("tests/scanning/unterminated_char.hay");
+        }
+
+        #[test]
+        fn unterminated_string() {
+            run_test("tests/scanning/unterminated_string.hay");
+        }
+
+        #[test]
+        fn unexpected_character() {
+            run_test("tests/scanning/unexpected_character.hay");
+        }
+
+        #[test]
+        fn unknown_equals() {
+            run_test("tests/scanning/unknown_equals.hay");
+        }
     }
 
-    #[test]
-    fn bad_number() {
-        run_test("tests/scanning/bad_number.hay");
-    }
+    mod parsing {
+        use super::*;
+        #[test]
+        fn bad_const_pointer() {
+            run_test("tests/parsing/bad_const_pointer.hay");
+        }
 
-    #[test]
-    fn bad_u8() {
-        run_test("tests/scanning/bad_u8.hay");
-    }
+        #[test]
+        fn pointer_missing_type() {
+            run_test("tests/parsing/pointer_missing_type.hay");
+        }
 
-    #[test]
-    fn u8() {
-        run_test("tests/scanning/u8.hay");
-    }
+        #[test]
+        fn tuple_type() {
+            run_test("tests/parsing/tuple_type.hay");
+        }
 
-    #[test]
-    fn hex() {
-        run_test("tests/scanning/hex.hay");
-    }
+        #[test]
+        fn empty_tuple() {
+            run_test("tests/parsing/empty_tuple.hay");
+        }
 
-    #[test]
-    fn octal() {
-        run_test("tests/scanning/octal.hay");
-    }
+        #[test]
+        fn bad_function_output() {
+            run_test("tests/parsing/bad_function_output.hay");
+        }
 
-    #[test]
-    fn binary() {
-        run_test("tests/scanning/binary.hay");
-    }
+        #[test]
+        fn unmatched_block() {
+            run_test("tests/parsing/unmatched_block.hay");
+        }
 
-    #[test]
-    fn char() {
-        run_test("tests/scanning/char.hay");
-    }
+        #[test]
+        fn missing_argument_name() {
+            run_test("tests/parsing/missing_argument_name.hay");
+        }
 
-    #[test]
-    fn unknown_escaped_char() {
-        run_test("tests/scanning/unknown_escaped_char.hay");
-    }
+        #[test]
+        fn function_pointer() {
+            run_test("tests/parsing/function_pointer.hay");
+        }
 
-    #[test]
-    fn unterminated_char() {
-        run_test("tests/scanning/unterminated_char.hay");
-    }
+        #[test]
+        fn type_expr_whitespace() {
+            run_test("tests/parsing/type_expr_whitespace.hay");
+        }
 
-    #[test]
-    fn unterminated_string() {
-        run_test("tests/scanning/unterminated_string.hay");
-    }
+        #[test]
+        fn type_expr_not_a_type() {
+            run_test("tests/parsing/type_expr_not_a_type.hay");
+        }
 
-    #[test]
-    fn unexpected_character() {
-        run_test("tests/scanning/unexpected_character.hay");
-    }
+        #[test]
+        fn unclosed_tuple_expr() {
+            run_test("tests/parsing/unclosed_tuple_expr.hay");
+        }
 
-    #[test]
-    fn unknown_equals() {
-        run_test("tests/scanning/unknown_equals.hay");
-    }
+        #[test]
+        fn bad_include() {
+            run_test("tests/parsing/bad_include.hay");
+        }
 
-    #[test]
-    fn bad_const_pointer() {
-        run_test("tests/parsing/bad_const_pointer.hay");
-    }
-
-    #[test]
-    fn pointer_missing_type() {
-        run_test("tests/parsing/pointer_missing_type.hay");
-    }
-
-    #[test]
-    fn tuple_type() {
-        run_test("tests/parsing/tuple_type.hay");
-    }
-
-    #[test]
-    fn empty_tuple() {
-        run_test("tests/parsing/empty_tuple.hay");
-    }
-
-    #[test]
-    fn bad_function_output() {
-        run_test("tests/parsing/bad_function_output.hay");
-    }
-
-    #[test]
-    fn unmatched_block() {
-        run_test("tests/parsing/unmatched_block.hay");
-    }
-
-    #[test]
-    fn missing_argument_name() {
-        run_test("tests/parsing/missing_argument_name.hay");
-    }
-
-    #[test]
-    fn function_pointer() {
-        run_test("tests/parsing/function_pointer.hay");
-    }
-
-    #[test]
-    fn type_expr_whitespace() {
-        run_test("tests/parsing/type_expr_whitespace.hay");
-    }
-
-    #[test]
-    fn type_expr_not_a_type() {
-        run_test("tests/parsing/type_expr_not_a_type.hay");
-    }
-
-    #[test]
-    fn unclosed_tuple_expr() {
-        run_test("tests/parsing/unclosed_tuple_expr.hay");
-    }
-
-    #[test]
-    fn bad_include() {
-        run_test("tests/parsing/bad_include.hay");
-    }
-
-    #[test]
-    fn generic_extern() {
-        run_test("tests/parsing/generic_extern.hay");
+        #[test]
+        fn generic_extern() {
+            run_test("tests/parsing/generic_extern.hay");
+        }
     }
 }

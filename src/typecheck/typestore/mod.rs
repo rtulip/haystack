@@ -583,7 +583,9 @@ where
             | ExprKind::Unpack
             | ExprKind::Read
             | ExprKind::Add(_) 
-            | ExprKind::Mul(_) => (
+            | ExprKind::Sub(_) 
+            | ExprKind::Mul(_) 
+            | ExprKind::Equal(_)=> (
                 unbound,
                 Expr {
                     expr: expr.expr,
@@ -1677,6 +1679,15 @@ where
                 let e = Expr::add(tid, (expr.meta.clone(), self.function(func)));
                 Ok((e, constraints))
             }
+            ExprKind::Sub(tid) => {
+                let func = FunctionType {
+                    input: vec![tid, tid],
+                    output: vec![tid],
+                };
+                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
+                let e = Expr::sub(tid, (expr.meta.clone(), self.function(func)));
+                Ok((e, constraints))
+            }
             ExprKind::Mul(tid) => {
                 let func = FunctionType {
                     input: vec![tid, tid],
@@ -1684,6 +1695,16 @@ where
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::mul(tid, (expr.meta.clone(), self.function(func)));
+                Ok((e, constraints))
+            }
+            ExprKind::Equal(tid) => {
+                let bool_tid = self.intern(Type::bool());
+                let func = FunctionType {
+                    input: vec![tid, tid],
+                    output: vec![bool_tid],
+                };
+                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
+                let e = Expr::eq(tid, (expr.meta.clone(), self.function(func)));
                 Ok((e, constraints))
             }
         };

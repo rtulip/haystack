@@ -63,8 +63,13 @@ mod compilation_test {
         }
 
         #[test]
-        fn c() {
+        fn hello_world() {
             run_test("tests/functional/hello_world.hay");
+        }
+
+        #[test]
+        fn fib() {
+            run_test("tests/functional/fib.hay");
         }
     }
 

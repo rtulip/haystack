@@ -649,9 +649,17 @@ impl<'src> TypeCheck<'src> {
                 let tid = self.typestore.intern(Type::u64());
                 Ok(Expr::add(tid, expr.token.clone()))
             }
+            ParseExprKind::Intrinsic(Intrinsic::U64Sub) => {
+                let tid = self.typestore.intern(Type::u64());
+                Ok(Expr::sub(tid, expr.token.clone()))
+            }
             ParseExprKind::Intrinsic(Intrinsic::U64Mul) => {
                 let tid = self.typestore.intern(Type::u64());
                 Ok(Expr::mul(tid, expr.token.clone()))
+            }
+            ParseExprKind::Intrinsic(Intrinsic::U64Eq) => {
+                let tid = self.typestore.intern(Type::u64());
+                Ok(Expr::eq(tid, expr.token.clone()))
             }
             ParseExprKind::Tuple(parse_exprs) => {
                 let mut exprs = vec![];
@@ -2287,7 +2295,9 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             ExprKind::Type(tid) => ExprKind::Type(self.request_type(tid, substitutions)),
             ExprKind::UncheckedCast => todo!(),
             ExprKind::Add(tid) => ExprKind::Add(self.request_type(tid, substitutions)),
+            ExprKind::Sub(tid) => ExprKind::Sub(self.request_type(tid, substitutions)),
             ExprKind::Mul(tid) => ExprKind::Mul(self.request_type(tid, substitutions)),
+            ExprKind::Equal(tid) => ExprKind::Equal(self.request_type(tid, substitutions)),
             ExprKind::NamedMemberAccess { var, member } => unreachable!(),
             ExprKind::Match(match_expr) => {
                 let cases = match_expr

@@ -892,6 +892,27 @@ where
 
                 stack.push((output[0], ident));
             }
+            ExprKind::Sub(_) => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() == 2);
+                assert!(output.len() == 1);
+
+                let ident = self.next_stack_ident();
+                let right = stack.pop().unwrap();
+                let left = stack.pop().unwrap();
+
+                assert_eq!(&vec![right.0, left.0], &input);
+                writeln!(
+                    self.w,
+                    "    const {} {} = {} - {};",
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(ident),
+                    Self::format_stack_ident(left.1),
+                    Self::format_stack_ident(right.1)
+                )?;
+
+                stack.push((output[0], ident));
+            }
             ExprKind::Mul(_) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 2);
@@ -905,6 +926,27 @@ where
                 writeln!(
                     self.w,
                     "    const {} {} = {} * {};",
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(ident),
+                    Self::format_stack_ident(left.1),
+                    Self::format_stack_ident(right.1)
+                )?;
+
+                stack.push((output[0], ident));
+            }
+            ExprKind::Equal(_) => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() == 2);
+                assert!(output.len() == 1);
+
+                let ident = self.next_stack_ident();
+                let right = stack.pop().unwrap();
+                let left = stack.pop().unwrap();
+
+                assert_eq!(&vec![right.0, left.0], &input);
+                writeln!(
+                    self.w,
+                    "    const {} {} = {} == {};",
                     Self::format_tid(output[0]),
                     Self::format_stack_ident(ident),
                     Self::format_stack_ident(left.1),

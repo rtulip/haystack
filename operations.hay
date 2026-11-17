@@ -3,17 +3,35 @@ interface Add<L R> {
     fn add(L R) -> [Output]
 }
 
+interface Sub<L R> {
+    type: Output
+    fn sub(L R) -> [Output]
+}
+
 interface Mul<L R> {
     type: Output
     fn mul(L R) -> [Output]
 }
 
+interface Compare<L R> {
+    fn eq(L R) -> [bool]
+}
+
 impl Add<u64 u64> {
     u64: Output
-    fn add(u64 u64) -> [u64] { __u64_add }
+    fn add(u64 u64) -> [u64] __u64_add
+}
+
+impl Sub<u64 u64> {
+    u64: Output
+    fn sub(u64 u64) -> [u64] __u64_sub
 }
 
 impl Mul<u64 u64> {
     u64: Output
     fn mul(u64 u64) -> [u64] __u64_mul
+}
+
+impl Compare<u64 u64> {
+    fn eq(u64 u64) -> [bool] __u64_eq
 }

@@ -615,14 +615,14 @@ impl<'src> Parser<'src> {
         let kind = match &token.kind {
             TokenKind::Operator(operator) => match operator {
                 Operator::Plus => ParseExprKind::Ident("add"),
-                Operator::Minus => todo!(),
+                Operator::Minus => ParseExprKind::Ident("sub"),
                 Operator::Star => ParseExprKind::Ident("mul"),
                 Operator::Slash => todo!(),
                 Operator::LessThan => todo!(),
                 Operator::LessEqual => todo!(),
                 Operator::GreaterThan => todo!(),
                 Operator::GreaterEqual => todo!(),
-                Operator::Equal => todo!(),
+                Operator::Equal => ParseExprKind::Ident("eq"),
                 Operator::BangEqual => todo!(),
                 Operator::Modulo => todo!(),
                 Operator::Read => todo!(),

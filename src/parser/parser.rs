@@ -618,7 +618,7 @@ impl<'src> Parser<'src> {
                 Operator::Minus => ParseExprKind::Ident("sub"),
                 Operator::Star => ParseExprKind::Ident("mul"),
                 Operator::Slash => todo!(),
-                Operator::LessThan => todo!(),
+                Operator::LessThan => ParseExprKind::Ident("lt"),
                 Operator::LessEqual => todo!(),
                 Operator::GreaterThan => todo!(),
                 Operator::GreaterEqual => todo!(),
@@ -685,6 +685,35 @@ impl<'src> Parser<'src> {
         }
     }
 
+    fn parse_while_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
+        let token = self.expect(TokenKind::Keyword(Keyword::While))?;
+
+        let mut condition = vec![];
+
+        loop {
+            self.strip_whitespace();
+            if self.is_at_end() {
+                todo!("Error: Expected `do`");
+            }
+
+            if let Ok(_) = self.matches(TokenKind::Keyword(Keyword::Do)) {
+                break;
+            }
+
+            condition.push(self.parse_expr()?);
+        }
+
+        let body = self.parse_expr()?;
+
+        Ok(ParseExpr {
+            kind: ParseExprKind::While {
+                condition,
+                body: Box::new(body),
+            },
+            token,
+        })
+    }
+
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
         self.strip_whitespace();
         match &self.peek().kind {
@@ -698,6 +727,7 @@ impl<'src> Parser<'src> {
             TokenKind::Keyword(Keyword::If) => self.parse_if_expr(),
             TokenKind::Keyword(Keyword::Match) => self.parse_match_expr(),
             TokenKind::Keyword(Keyword::Unpack) => Ok(self.parse_unpack_expr()),
+            TokenKind::Keyword(Keyword::While) => self.parse_while_expr(),
             TokenKind::Keyword(kw) => todo!("Parse {kw} expr"),
             TokenKind::Operator(Operator::Ampersand) => self.parse_take_ref_expr(),
             TokenKind::Operator(_) => Ok(self.parse_operator_expr()),

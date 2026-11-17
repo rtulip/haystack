@@ -66,7 +66,10 @@ pub enum ExprKind<'src, Meta> {
     Char(&'src str),
     String(&'src str),
     Ident(Var),
-    Ref { var: Var, mutability: Mutability },
+    Ref {
+        var: Var,
+        mutability: Mutability,
+    },
     Block(Vec<Expr<'src, Meta>>),
     Tuple(Vec<Expr<'src, Meta>>),
     Bind(Vec<Var>),
@@ -77,13 +80,24 @@ pub enum ExprKind<'src, Meta> {
     Sub(TypeId),
     Mul(TypeId),
     Equal(TypeId),
+    LessThan(TypeId),
     Pack,
     Unpack,
-    NamedMemberAccess { var: Var, member: &'src str },
-    MemberAccess { var: Var, member: usize },
+    NamedMemberAccess {
+        var: Var,
+        member: &'src str,
+    },
+    MemberAccess {
+        var: Var,
+        member: usize,
+    },
     Match(MatchExpr<'src, Meta>),
     If(IfExpr<'src, Meta>),
     Read,
+    While {
+        condition: Vec<Expr<'src, Meta>>,
+        body: Box<Expr<'src, Meta>>,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -221,6 +235,13 @@ impl<'src, Meta> Expr<'src, Meta> {
         }
     }
 
+    pub fn lt(tid: TypeId, meta: Meta) -> Self {
+        Expr {
+            expr: ExprKind::LessThan(tid),
+            meta,
+        }
+    }
+
     pub fn pack(meta: Meta) -> Self {
         Expr {
             expr: ExprKind::Pack,
@@ -252,6 +273,16 @@ impl<'src, Meta> Expr<'src, Meta> {
     pub fn match_(m: MatchExpr<'src, Meta>, meta: Meta) -> Self {
         Expr {
             expr: ExprKind::Match(m),
+            meta,
+        }
+    }
+
+    pub fn while_(condition: Vec<Self>, body: Self, meta: Meta) -> Self {
+        Expr {
+            expr: ExprKind::While {
+                condition,
+                body: Box::new(body),
+            },
             meta,
         }
     }
@@ -289,6 +320,7 @@ impl<'src, Meta> Expr<'src, Meta> {
             ExprKind::Sub(tid) => ExprKind::Sub(tid),
             ExprKind::Mul(tid) => ExprKind::Mul(tid),
             ExprKind::Equal(tid) => ExprKind::Equal(tid),
+            ExprKind::LessThan(tid) => ExprKind::LessThan(tid),
             ExprKind::Pack => ExprKind::Pack,
             ExprKind::Unpack => ExprKind::Unpack,
             ExprKind::NamedMemberAccess { var, member } => {
@@ -309,6 +341,11 @@ impl<'src, Meta> Expr<'src, Meta> {
 
                 ExprKind::Match(MatchExpr { cases, finally })
             }
+            ExprKind::While { condition, body } => ExprKind::While {
+                condition: condition.into_iter().map(|e| e.map_meta(f)).collect(),
+                body: Box::new(body.map_meta(f)),
+            },
+
             ExprKind::If(if_expr) => ExprKind::If(IfExpr {
                 then: Box::new(if_expr.then.map_meta(f)),
                 otherwise: Box::new(if_expr.otherwise.map_meta(f)),

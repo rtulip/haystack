@@ -661,6 +661,10 @@ impl<'src> TypeCheck<'src> {
                 let tid = self.typestore.intern(Type::u64());
                 Ok(Expr::eq(tid, expr.token.clone()))
             }
+            ParseExprKind::Intrinsic(Intrinsic::U64Lt) => {
+                let tid = self.typestore.intern(Type::u64());
+                Ok(Expr::lt(tid, expr.token.clone()))
+            }
             ParseExprKind::Tuple(parse_exprs) => {
                 let mut exprs = vec![];
                 for expr in parse_exprs {
@@ -763,6 +767,16 @@ impl<'src> TypeCheck<'src> {
                     MatchExpr::new(cases, finally),
                     expr.token.clone(),
                 ))
+            }
+            ParseExprKind::While { condition, body } => {
+                let mut cond = vec![];
+                for c in condition {
+                    cond.push(self.lower_expr(c)?)
+                }
+
+                let body = self.lower_expr(body)?;
+
+                Ok(Expr::while_(cond, body, expr.token.clone()))
             }
         }
     }
@@ -2298,6 +2312,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             ExprKind::Sub(tid) => ExprKind::Sub(self.request_type(tid, substitutions)),
             ExprKind::Mul(tid) => ExprKind::Mul(self.request_type(tid, substitutions)),
             ExprKind::Equal(tid) => ExprKind::Equal(self.request_type(tid, substitutions)),
+            ExprKind::LessThan(tid) => ExprKind::LessThan(self.request_type(tid, substitutions)),
             ExprKind::NamedMemberAccess { var, member } => unreachable!(),
             ExprKind::Match(match_expr) => {
                 let cases = match_expr
@@ -2320,6 +2335,13 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                 otherwise: Box::new(self.monomorphize_expr(*if_expr.otherwise, substitutions)),
             }),
             ExprKind::Read => todo!(),
+            ExprKind::While { condition, body } => ExprKind::While {
+                condition: condition
+                    .into_iter()
+                    .map(|e| self.monomorphize_expr(e, substitutions))
+                    .collect(),
+                body: Box::new(self.monomorphize_expr(*body, substitutions)),
+            },
         };
 
         Expr {

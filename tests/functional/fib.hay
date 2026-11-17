@@ -13,11 +13,8 @@ fn fib(u64: n) -> [u64] {
 
 fn main() {
 
-    0 fib println
-    1 fib println
-    2 fib println
-    3 fib println
-    4 fib println
-    5 fib println
-
+    0 while dup 20 < do {
+        dup fib println
+        1 +
+    } drop
 }

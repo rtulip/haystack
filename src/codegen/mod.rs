@@ -955,6 +955,27 @@ where
 
                 stack.push((output[0], ident));
             }
+            ExprKind::LessThan(_) => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() == 2);
+                assert!(output.len() == 1);
+
+                let ident = self.next_stack_ident();
+                let right = stack.pop().unwrap();
+                let left = stack.pop().unwrap();
+
+                assert_eq!(&vec![right.0, left.0], &input);
+                writeln!(
+                    self.w,
+                    "    const {} {} = {} < {};",
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(ident),
+                    Self::format_stack_ident(left.1),
+                    Self::format_stack_ident(right.1)
+                )?;
+
+                stack.push((output[0], ident));
+            }
             ExprKind::Pack => {
                 let FunctionType { mut input, output } = self.get_stack_effect(tid);
                 assert!(output.len() == 1);
@@ -1059,6 +1080,38 @@ where
                 );
             }
             ExprKind::Match(match_expr) => self.generate_match_expr(tid, &match_expr, stack)?,
+            ExprKind::While { condition, body } => {
+
+                
+                let mut fresh_stack = vec![];
+                while let Some((tid, ident)) = stack.pop() {
+                    let fresh_ident = self.next_stack_ident();
+                    writeln!(self.w, "    {} {} = {};", Self::format_tid(tid), Self::format_stack_ident(fresh_ident), Self::format_stack_ident(ident));
+                    fresh_stack.push((tid, fresh_ident));
+                }
+
+                *stack = fresh_stack.clone();
+
+                writeln!(self.w, "    while (1) {{")?;
+                for expr in condition {
+                    self.generate_expr(expr, stack)?;
+                }
+
+                let (tid, ident) = stack.pop().unwrap();
+
+                writeln!(self.w, "    if (!{}) break;", Self::format_stack_ident(ident))?;
+                self.generate_expr(body, stack)?;
+
+                assert!(stack.len() == fresh_stack.len());
+                for ((_, fresh_ident), (_, ident)) in fresh_stack.iter().zip(stack.iter()) {
+                    writeln!(self.w, "    {} = {};", Self::format_stack_ident(*fresh_ident), Self::format_stack_ident(*ident))?;
+                }
+
+                writeln!(self.w, "}}");
+
+                *stack = fresh_stack;
+
+            },
             ExprKind::If(if_expr) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
 

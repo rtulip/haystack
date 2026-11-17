@@ -126,6 +126,7 @@ pub enum ConstraintOrigin {
     IfCondition,
     TypeInstance(TypeId),
     NamedMemberAccess(TypeId),
+    WhileCondition,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

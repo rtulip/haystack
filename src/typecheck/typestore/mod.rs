@@ -582,10 +582,11 @@ where
             | ExprKind::Pack
             | ExprKind::Unpack
             | ExprKind::Read
-            | ExprKind::Add(_) 
-            | ExprKind::Sub(_) 
-            | ExprKind::Mul(_) 
-            | ExprKind::Equal(_)=> (
+            | ExprKind::Add(_)
+            | ExprKind::Sub(_)
+            | ExprKind::Mul(_)
+            | ExprKind::LessThan(_)
+            | ExprKind::Equal(_) => (
                 unbound,
                 Expr {
                     expr: expr.expr,
@@ -628,6 +629,23 @@ where
                 (
                     unbound,
                     Expr::match_(MatchExpr::new(cases, finally), (expr.meta.0, expr_tid)),
+                )
+            }
+            ExprKind::While { condition, body } => {
+                let condition = condition
+                    .into_iter()
+                    .map(|e| {
+                        let (ub, expr) = self.substitute_expr(e);
+                        unbound.extend(ub);
+                        expr
+                    })
+                    .collect();
+
+                let (ub, body) = self.substitute_expr(*body);
+                unbound.extend(ub);
+                (
+                    unbound,
+                    Expr::while_(condition, body, (expr.meta.0, expr_tid)),
                 )
             }
             ExprKind::If(iff) => {
@@ -1570,6 +1588,73 @@ where
 
                 Ok((e, constraints))
             }
+            ExprKind::While { condition, body } => {
+                let stack_before = stack.clone();
+                let mut constraints = vec![];
+                let mut cond = vec![];
+                {
+                    let mut env = env.clone();
+                    for e in condition {
+                        let (e, constrs) = self.infer(e, stack, &mut env, lookup)?;
+                        cond.push(e);
+                        constraints.extend(constrs);
+                    }
+                }
+
+                let Some(tid) = stack.pop() else {
+                    todo!("Need a condition!");
+                };
+
+                let bool_tid = self.intern(Type::bool());
+
+                constraints.push(Constraint::new(
+                    ConstraintType::Equal(tid, bool_tid),
+                    ConstraintOrigin::WhileCondition,
+                    &expr.meta,
+                ));
+
+                let (body, constrs) = self.infer(*body, stack, env, lookup)?;
+                constraints.extend(constrs);
+
+                if stack_before.len() != stack.len() {
+                    todo!("Error: Stack shapes differ")
+                }
+
+                let fresh_stack: Vec<_> = (0..stack.len())
+                    .map(|_| {
+                        let tyvar = self.fresh_type_var();
+                        self.intern(Type::TypeVar(tyvar))
+                    })
+                    .collect();
+
+                for (i, tid) in fresh_stack.iter().enumerate() {
+                    let inputs = [&stack_before, &stack]
+                        .iter()
+                        .map(|stack| stack[i])
+                        .collect();
+                    constraints.push(Constraint::new(
+                        ConstraintType::Join {
+                            output: *tid,
+                            inputs,
+                        },
+                        ConstraintOrigin::Branching {
+                            fresh_stack: fresh_stack.clone(),
+                            stacks: vec![stack.clone()],
+                        },
+                        &expr.meta,
+                    ));
+                }
+
+                let expr_tid = self.function(FunctionType {
+                    input: stack_before,
+                    output: fresh_stack.clone(),
+                });
+                let e = Expr::while_(cond, body, (expr.meta, expr_tid));
+
+                *stack = fresh_stack;
+
+                Ok((e, constraints))
+            }
             ExprKind::If(iff) => {
                 let input = stack.clone();
 
@@ -1705,6 +1790,16 @@ where
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::eq(tid, (expr.meta.clone(), self.function(func)));
+                Ok((e, constraints))
+            }
+            ExprKind::LessThan(tid) => {
+                let bool_tid = self.intern(Type::bool());
+                let func = FunctionType {
+                    input: vec![tid, tid],
+                    output: vec![bool_tid],
+                };
+                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
+                let e = Expr::lt(tid, (expr.meta.clone(), self.function(func)));
                 Ok((e, constraints))
             }
         };

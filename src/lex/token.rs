@@ -159,6 +159,7 @@ pub enum Intrinsic {
     U64Sub,
     U64Mul,
     U64Eq,
+    U64Lt,
 }
 
 impl std::fmt::Display for Intrinsic {
@@ -170,6 +171,7 @@ impl std::fmt::Display for Intrinsic {
             Intrinsic::U64Sub => write!(f, "__u64_sub")?,
             Intrinsic::U64Mul => write!(f, "__u64_mul")?,
             Intrinsic::U64Eq => write!(f, "__u64_eq")?,
+            Intrinsic::U64Lt => write!(f, "__u64_lt")?,
         }
         write!(f, "`")
     }
@@ -261,6 +263,7 @@ impl Keyword {
         map.insert("__u64_sub", TokenKind::Intrinsic(Intrinsic::U64Sub));
         map.insert("__u64_mul", TokenKind::Intrinsic(Intrinsic::U64Mul));
         map.insert("__u64_eq", TokenKind::Intrinsic(Intrinsic::U64Eq));
+        map.insert("__u64_lt", TokenKind::Intrinsic(Intrinsic::U64Lt));
 
         map.insert("true", TokenKind::Literal(Literal::Bool(true)));
         map.insert("false", TokenKind::Literal(Literal::Bool(false)));

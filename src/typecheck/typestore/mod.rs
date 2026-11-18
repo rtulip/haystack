@@ -699,6 +699,16 @@ where
         }
     }
 
+    fn freshen_vars(&mut self, vars: &[TypeVar], meta: &M) -> HashMap<TypeVar, TypeId> {
+        let mut fresh = HashMap::new();
+
+        for var in vars {
+            self.freshen_type_var(*var, &mut fresh, meta);
+        }
+
+        fresh
+    }
+
     pub fn freshen_impl(&mut self, i: &InterfaceImpl, meta: &M) -> QualifiedInterfaceImpl {
         let mut fresh = HashMap::new();
 
@@ -789,15 +799,54 @@ where
         }
     }
 
+    fn collect_type_vars(&self, tid: TypeId, vars: &mut HashSet<TypeVar>) {
+        match self.get(tid).unwrap() {
+            Type::TypeVar(type_var) => {
+                vars.insert(*type_var);
+            }
+            Type::RigidTypeVar(type_var) => (),
+            Type::Builtin(builtin_type) => (),
+            Type::Function(func) => {
+                for tid in func.input.iter().chain(func.output.iter()) {
+                    self.collect_type_vars(*tid, vars);
+                }
+            }
+            Type::Pointer(p) => {
+                self.collect_type_vars(p.tid, vars);
+            }
+            Type::Struct(StructType { args: tids, .. })
+            | Type::Enum(EnumType { args: tids, .. })
+            | Type::Tuple(tids)
+            | Type::Variant(VariantType { args: tids, .. })
+            | Type::Projection(Projection { args: tids, .. }) => {
+                for tid in tids {
+                    self.collect_type_vars(*tid, vars);
+                }
+            }
+            Type::Type(tid) => self.collect_type_vars(*tid, vars),
+            Type::Never => (),
+        }
+    }
+
+    pub fn freshen_all(&mut self, tid: TypeId, meta: &M) -> TypeId {
+        let mut vars = HashSet::new();
+
+        self.collect_type_vars(tid, &mut vars);
+
+        let mut fresh = self.freshen_vars(&vars.into_iter().collect::<Vec<_>>(), meta);
+
+        self.freshen_tid(tid, &mut fresh, meta)
+    }
+
     pub fn freshen_tid(
         &mut self,
         tid: TypeId,
-        fresh: &mut HashMap<TypeVar, TypeId>,
+        fresh: &HashMap<TypeVar, TypeId>,
         meta: &M,
     ) -> TypeId {
         match self.get(tid).expect("All TypeIds should be resolvable") {
             Type::Builtin(_) | Type::RigidTypeVar(_) | Type::Never => tid,
-            Type::TypeVar(var) => self.freshen_type_var(*var, fresh, meta),
+            Type::TypeVar(var) => *fresh.get(var).unwrap_or(&tid),
             Type::Function(func) => {
                 let func = func.clone();
                 let func = self.freshen_func(&func, fresh, meta);
@@ -864,11 +913,7 @@ where
 
     /// Given a Scheme, freshen it
     pub fn freshen(&mut self, scheme: &Scheme, meta: &M) -> QualifiedType {
-        let mut fresh = HashMap::new();
-
-        scheme.vars.iter().for_each(|var| {
-            self.freshen_type_var(*var, &mut fresh, meta);
-        });
+        let mut fresh = self.freshen_vars(&scheme.vars, meta);
         let predicates = scheme
             .predicates
             .iter()
@@ -899,7 +944,7 @@ where
     fn freshen_many_tids(
         &mut self,
         tids: &Vec<TypeId>,
-        fresh: &mut HashMap<TypeVar, TypeId>,
+        fresh: &HashMap<TypeVar, TypeId>,
         meta: &M,
     ) -> Vec<TypeId> {
         tids.into_iter()
@@ -911,7 +956,7 @@ where
     fn freshen_func(
         &mut self,
         func: &FunctionType,
-        fresh: &mut HashMap<TypeVar, TypeId>,
+        fresh: &HashMap<TypeVar, TypeId>,
         meta: &M,
     ) -> FunctionType {
         // Create fresh vars for all the types the function is paramaterized over
@@ -2893,6 +2938,7 @@ where
 
     pub fn type_instance(
         &mut self,
+        env: &Environment,
         tid: TypeId,
         args: Option<Vec<TypeId>>,
         meta: &M,
@@ -2902,17 +2948,23 @@ where
     {
         match self.get(tid).expect("TypeIds should be resolvable") {
             Type::Struct(s) => {
-                let s = if let Some(args) = args {
+                let s = s.clone();
+                let args = if let Some(args) = args {
                     if s.args.len() != args.len() {
-                        todo!("Wrong number of type parameters provided: {:?}", meta);
+                        return Err(InferenceErrorKind::WrongNumberOfArgs {
+                            expected: s.args,
+                            found: args,
+                        });
                     }
-                    // Just overwrite the args
-                    StructType { sid: s.sid, args }
+
+                    args
                 } else {
                     let s = s.clone();
-                    self.freshen_struct(&s, &mut HashMap::new(), meta)
+                    let vars = self.get_struct_def(s.sid).vars.clone();
+                    let mut fresh = self.freshen_vars(&vars, meta);
+                    self.freshen_many_tids(&s.args, &mut fresh, meta)
                 };
-                Ok(self.intern(Type::Struct(s)))
+                Ok(self.intern(Type::Struct(StructType { sid: s.sid, args })))
             }
             Type::TypeVar(_)
             | Type::RigidTypeVar(_)
@@ -2931,53 +2983,69 @@ where
                 Ok(tid)
             }
             Type::Enum(e) => {
-                let e = if let Some(args) = args {
+                let e = e.clone();
+                let args = if let Some(args) = args {
                     if e.args.len() != args.len() {
-                        todo!("Wrong number of type parameters provided");
+                        return Err(InferenceErrorKind::WrongNumberOfArgs {
+                            expected: e.args,
+                            found: args,
+                        });
                     }
-                    // Just overwrite the args
-                    EnumType { eid: e.eid, args }
+
+                    args
                 } else {
                     let e = e.clone();
-                    self.freshen_enum(&e, &mut HashMap::new(), meta)
+                    let vars = self.get_enum_def(e.eid).vars.clone();
+                    let mut fresh = self.freshen_vars(&vars, meta);
+                    self.freshen_many_tids(&e.args, &mut fresh, meta)
                 };
-
-                Ok(self.intern(Type::Enum(e)))
+                Ok(self.intern(Type::Enum(EnumType { eid: e.eid, args })))
             }
             Type::Variant(variant) => {
-                let variant = if let Some(args) = args {
-                    if variant.args.len() != args.len() {
-                        todo!("Wrong number of type parameters provided");
+                let v = variant.clone();
+                let args = if let Some(args) = args {
+                    if v.args.len() != args.len() {
+                        return Err(InferenceErrorKind::WrongNumberOfArgs {
+                            expected: v.args,
+                            found: args,
+                        });
                     }
-                    // Just overwrite the args
-                    VariantType {
-                        eid: variant.eid,
-                        args,
-                        variant: variant.variant,
-                    }
+
+                    args
                 } else {
-                    let variant = variant.clone();
-                    self.freshen_variant(&variant, &mut HashMap::new(), meta)
+                    let v = v.clone();
+                    let vars = self.get_enum_def(v.eid).vars.clone();
+                    let mut fresh = self.freshen_vars(&vars, meta);
+                    self.freshen_many_tids(&v.args, &mut fresh, meta)
                 };
 
-                Ok(self.intern(Type::Variant(variant)))
+                Ok(self.intern(Type::Variant(VariantType {
+                    eid: v.eid,
+                    args,
+                    variant: v.variant,
+                })))
             }
             Type::Projection(p) => {
-                let p = if let Some(args) = args {
+                let p = p.clone();
+                let args = if let Some(args) = args {
                     if p.args.len() != args.len() {
-                        todo!("Wrong number of type parameters provided: {:?}", meta);
+                        return Err(InferenceErrorKind::WrongNumberOfArgs {
+                            expected: p.args,
+                            found: args,
+                        });
                     }
-                    // Just overwrite the args
-                    Projection {
-                        cid: p.cid,
-                        args,
-                        idx: p.idx,
-                    }
+
+                    args
                 } else {
-                    let p = p.clone();
-                    self.freshen_projection(&p, &mut HashMap::new(), meta)
+                    let vars = env.get_typeclass(p.cid).vars.clone();
+                    let mut fresh = self.freshen_vars(&vars, meta);
+                    self.freshen_many_tids(&p.args, &mut fresh, meta)
                 };
-                Ok(self.intern(Type::Projection(p)))
+                Ok(self.intern(Type::Projection(Projection {
+                    cid: p.cid,
+                    args,
+                    idx: p.idx,
+                })))
             }
         }
     }
@@ -3107,6 +3175,7 @@ where
 
     pub fn metatype(
         &mut self,
+        env: &Environment,
         tid: TypeId,
         args: Option<Vec<TypeId>>,
         meta: &M,
@@ -3114,7 +3183,7 @@ where
     where
         M: Debug + Clone + PartialEq + Eq,
     {
-        let tid = self.type_instance(tid, args, meta)?;
+        let tid = self.type_instance(env, tid, args, meta)?;
         Ok(self.intern(Type::Type(tid)))
     }
 

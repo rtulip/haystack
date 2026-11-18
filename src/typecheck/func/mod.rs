@@ -95,8 +95,8 @@ where
         }
 
         let expr = expr.map_meta(&mut |(m, tid)| {
-            let tid = typestore.lower(tid);
             let tid = typestore.normalize_ty(&env, tid, &m).unwrap().1;
+            let tid = typestore.lower(tid);
             (m, tid)
         });
 

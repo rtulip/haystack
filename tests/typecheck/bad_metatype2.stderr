@@ -1,0 +1,3 @@
+Error: [tests/typecheck/bad_metatype2.hay:1:13] Error: Wrong number of type parameters for type `bool`
+    [Note]: Expected: <>
+    [Note]: Found: <bool>

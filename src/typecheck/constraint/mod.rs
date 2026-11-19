@@ -124,10 +124,12 @@ pub enum ConstraintOrigin {
     ConflictingImpls,
     ImplsMustMatch,
     IfCondition,
+    TypeInstance(TypeId),
+    NamedMemberAccess(TypeId),
+    WhileCondition,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-
 pub struct Constraint<M>
 where
     M: Debug + Clone + PartialEq + Eq,

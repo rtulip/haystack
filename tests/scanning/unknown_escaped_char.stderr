@@ -1,0 +1,1 @@
+Error: [tests/scanning/unknown_escaped_char.hay:2:5] Error: Unknown escaped character: `\h`

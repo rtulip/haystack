@@ -1,0 +1,20 @@
+include "prelude.hay"
+
+fn fib(u64: n) -> [u64] {
+    0 n == if {
+        1
+    } else n 1 == if {
+        1
+    } else {
+        n 1 - fib
+        n 2 - fib +
+    }
+}
+
+fn main() {
+
+    0 while dup 20 < do {
+        dup fib println
+        1 +
+    } drop
+}

@@ -1,0 +1,1 @@
+Error: [tests/parsing/type_expr_whitespace.hay:2:6] Error: Expected a type after `#`, but found whitespace instead.

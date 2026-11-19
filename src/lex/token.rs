@@ -106,7 +106,7 @@ impl PartialEq for Operator {
             | (Operator::Write, Operator::Write)
             | (Operator::Ampersand, Operator::Ampersand)
             | (Operator::Pipe, Operator::Pipe)
-            | (Operator::Caret, Operator::Caret)  => true,
+            | (Operator::Caret, Operator::Caret) => true,
             (Operator::Plus, _)
             | (Operator::Minus, _)
             | (Operator::Star, _)
@@ -156,6 +156,10 @@ impl std::fmt::Display for Operator {
 pub enum Intrinsic {
     UncheckedCast,
     U64Add,
+    U64Sub,
+    U64Mul,
+    U64Eq,
+    U64Lt,
 }
 
 impl std::fmt::Display for Intrinsic {
@@ -164,6 +168,10 @@ impl std::fmt::Display for Intrinsic {
         match self {
             Intrinsic::UncheckedCast => write!(f, "__unchecked_cast")?,
             Intrinsic::U64Add => write!(f, "__u64_add")?,
+            Intrinsic::U64Sub => write!(f, "__u64_sub")?,
+            Intrinsic::U64Mul => write!(f, "__u64_mul")?,
+            Intrinsic::U64Eq => write!(f, "__u64_eq")?,
+            Intrinsic::U64Lt => write!(f, "__u64_lt")?,
         }
         write!(f, "`")
     }
@@ -252,6 +260,10 @@ impl Keyword {
             TokenKind::Intrinsic(Intrinsic::UncheckedCast),
         );
         map.insert("__u64_add", TokenKind::Intrinsic(Intrinsic::U64Add));
+        map.insert("__u64_sub", TokenKind::Intrinsic(Intrinsic::U64Sub));
+        map.insert("__u64_mul", TokenKind::Intrinsic(Intrinsic::U64Mul));
+        map.insert("__u64_eq", TokenKind::Intrinsic(Intrinsic::U64Eq));
+        map.insert("__u64_lt", TokenKind::Intrinsic(Intrinsic::U64Lt));
 
         map.insert("true", TokenKind::Literal(Literal::Bool(true)));
         map.insert("false", TokenKind::Literal(Literal::Bool(false)));
@@ -263,7 +275,7 @@ impl Keyword {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Literal<'src> {
     Bool(bool),
-    Char(char),
+    Char(&'src str),
     String(&'src str),
     U8(u8),
     U64(u64),
@@ -455,7 +467,7 @@ mod tests {
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: true"));
         tok.kind = TokenKind::Literal(Literal::String(""));
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: lexeme"));
-        tok.kind = TokenKind::Literal(Literal::Char(' '));
+        tok.kind = TokenKind::Literal(Literal::Char(" "));
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: lexeme"));
         tok.kind = TokenKind::Literal(Literal::U64(0));
         assert_eq!(format!("{}", tok), String::from("[file:1:1]: 0"));

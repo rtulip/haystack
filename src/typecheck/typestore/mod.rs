@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    eprintln,
     f32::consts::E,
     fmt::Debug,
     format,
@@ -7,23 +8,26 @@ use std::{
     todo, unreachable, write,
 };
 
-use crate::typecheck::{
-    constraint::{Constraint, ConstraintType},
-    environment::{
-        Coherence, Environment, InterfaceImpl, QualifiedInterfaceImpl, QualifiedType, Scheme,
-        TypeClassId, TypePredicate, Variance,
-    },
-    expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Var},
-    typ::{
-        typ::{
-            BuiltinType, EnumDef, EnumType, FunctionType, Mutability, PointerType, Projection,
-            StructDef, StructType, Type, VariantType,
+use crate::{
+    error::HayError,
+    typecheck::{
+        constraint::{Constraint, ConstraintType},
+        environment::{
+            Coherence, Environment, InterfaceImpl, QualifiedInterfaceImpl, QualifiedType, Scheme,
+            TypeClassId, TypePredicate, Variance,
         },
-        type_id::{EnumId, StructId, TypeId},
-        type_var::TypeVar,
+        expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Var},
+        typ::{
+            typ::{
+                BuiltinType, EnumDef, EnumType, FunctionType, Mutability, PointerType, Projection,
+                StructDef, StructType, Type, VariantType,
+            },
+            type_id::{EnumId, StructId, TypeId},
+            type_var::TypeVar,
+        },
+        typestore::inference::{InferenceError, InferenceErrorKind},
+        union_find::{UnifiactionError, UnificationTable},
     },
-    typestore::inference::{InferenceError, InferenceErrorKind},
-    union_find::{UnifiactionError, UnificationTable},
 };
 
 use super::constraint::ConstraintOrigin;
@@ -222,6 +226,7 @@ where
                 BuiltinType::U8 => write!(w, "u8"),
                 BuiltinType::U64 => write!(w, "u64"),
                 BuiltinType::Bool => write!(w, "bool"),
+                BuiltinType::Char => write!(w, "char"),
                 BuiltinType::CVarArgs => write!(w, "..."),
             },
             Type::Function(function_type) => {
@@ -566,6 +571,7 @@ where
             | ExprKind::U64(_)
             | ExprKind::Bool(_)
             | ExprKind::String(_)
+            | ExprKind::Char(_)
             | ExprKind::Bind(_)
             | ExprKind::Call
             | ExprKind::UncheckedCast
@@ -574,8 +580,13 @@ where
             | ExprKind::MemberAccess { .. }
             | ExprKind::NamedMemberAccess { .. }
             | ExprKind::Pack
+            | ExprKind::Unpack
             | ExprKind::Read
-            | ExprKind::Add(_) => (
+            | ExprKind::Add(_)
+            | ExprKind::Sub(_)
+            | ExprKind::Mul(_)
+            | ExprKind::LessThan(_)
+            | ExprKind::Equal(_) => (
                 unbound,
                 Expr {
                     expr: expr.expr,
@@ -618,6 +629,23 @@ where
                 (
                     unbound,
                     Expr::match_(MatchExpr::new(cases, finally), (expr.meta.0, expr_tid)),
+                )
+            }
+            ExprKind::While { condition, body } => {
+                let condition = condition
+                    .into_iter()
+                    .map(|e| {
+                        let (ub, expr) = self.substitute_expr(e);
+                        unbound.extend(ub);
+                        expr
+                    })
+                    .collect();
+
+                let (ub, body) = self.substitute_expr(*body);
+                unbound.extend(ub);
+                (
+                    unbound,
+                    Expr::while_(condition, body, (expr.meta.0, expr_tid)),
                 )
             }
             ExprKind::If(iff) => {
@@ -669,6 +697,16 @@ where
             assert!(fresh.insert(var, tid).is_none());
             tid
         }
+    }
+
+    fn freshen_vars(&mut self, vars: &[TypeVar], meta: &M) -> HashMap<TypeVar, TypeId> {
+        let mut fresh = HashMap::new();
+
+        for var in vars {
+            self.freshen_type_var(*var, &mut fresh, meta);
+        }
+
+        fresh
     }
 
     pub fn freshen_impl(&mut self, i: &InterfaceImpl, meta: &M) -> QualifiedInterfaceImpl {
@@ -761,15 +799,54 @@ where
         }
     }
 
+    fn collect_type_vars(&self, tid: TypeId, vars: &mut HashSet<TypeVar>) {
+        match self.get(tid).unwrap() {
+            Type::TypeVar(type_var) => {
+                vars.insert(*type_var);
+            }
+            Type::RigidTypeVar(type_var) => (),
+            Type::Builtin(builtin_type) => (),
+            Type::Function(func) => {
+                for tid in func.input.iter().chain(func.output.iter()) {
+                    self.collect_type_vars(*tid, vars);
+                }
+            }
+            Type::Pointer(p) => {
+                self.collect_type_vars(p.tid, vars);
+            }
+            Type::Struct(StructType { args: tids, .. })
+            | Type::Enum(EnumType { args: tids, .. })
+            | Type::Tuple(tids)
+            | Type::Variant(VariantType { args: tids, .. })
+            | Type::Projection(Projection { args: tids, .. }) => {
+                for tid in tids {
+                    self.collect_type_vars(*tid, vars);
+                }
+            }
+            Type::Type(tid) => self.collect_type_vars(*tid, vars),
+            Type::Never => (),
+        }
+    }
+
+    pub fn freshen_all(&mut self, tid: TypeId, meta: &M) -> TypeId {
+        let mut vars = HashSet::new();
+
+        self.collect_type_vars(tid, &mut vars);
+
+        let mut fresh = self.freshen_vars(&vars.into_iter().collect::<Vec<_>>(), meta);
+
+        self.freshen_tid(tid, &mut fresh, meta)
+    }
+
     pub fn freshen_tid(
         &mut self,
         tid: TypeId,
-        fresh: &mut HashMap<TypeVar, TypeId>,
+        fresh: &HashMap<TypeVar, TypeId>,
         meta: &M,
     ) -> TypeId {
         match self.get(tid).expect("All TypeIds should be resolvable") {
             Type::Builtin(_) | Type::RigidTypeVar(_) | Type::Never => tid,
-            Type::TypeVar(var) => self.freshen_type_var(*var, fresh, meta),
+            Type::TypeVar(var) => *fresh.get(var).unwrap_or(&tid),
             Type::Function(func) => {
                 let func = func.clone();
                 let func = self.freshen_func(&func, fresh, meta);
@@ -836,11 +913,7 @@ where
 
     /// Given a Scheme, freshen it
     pub fn freshen(&mut self, scheme: &Scheme, meta: &M) -> QualifiedType {
-        let mut fresh = HashMap::new();
-
-        scheme.vars.iter().for_each(|var| {
-            self.freshen_type_var(*var, &mut fresh, meta);
-        });
+        let mut fresh = self.freshen_vars(&scheme.vars, meta);
         let predicates = scheme
             .predicates
             .iter()
@@ -871,7 +944,7 @@ where
     fn freshen_many_tids(
         &mut self,
         tids: &Vec<TypeId>,
-        fresh: &mut HashMap<TypeVar, TypeId>,
+        fresh: &HashMap<TypeVar, TypeId>,
         meta: &M,
     ) -> Vec<TypeId> {
         tids.into_iter()
@@ -883,7 +956,7 @@ where
     fn freshen_func(
         &mut self,
         func: &FunctionType,
-        fresh: &mut HashMap<TypeVar, TypeId>,
+        fresh: &HashMap<TypeVar, TypeId>,
         meta: &M,
     ) -> FunctionType {
         // Create fresh vars for all the types the function is paramaterized over
@@ -1142,6 +1215,29 @@ where
         }
     }
 
+    fn generate_unpack_function(&mut self, tid: TypeId) -> Result<FunctionType, InferenceError<M>>
+    where
+        M: Debug + Clone + PartialEq + Eq,
+    {
+        match self.get(tid).expect("TypeIds should be resolvable") {
+            Type::Struct(_) => todo!(),
+            Type::Variant(_) => todo!(),
+            Type::Tuple(tids) => Ok(FunctionType {
+                input: vec![tid],
+                output: tids.clone(),
+            }),
+            Type::Enum(_)
+            | Type::TypeVar(_)
+            | Type::RigidTypeVar(_)
+            | Type::Builtin(_)
+            | Type::Function(_)
+            | Type::Pointer(_)
+            | Type::Type(_)
+            | Type::Never
+            | Type::Projection(_) => todo!("Can't pack into a {}", self.fmt(tid)),
+        }
+    }
+
     /// Infer what type constraints must be placed on an Expression.
     ///
     /// Expressions may push/pop to/from the stack
@@ -1199,6 +1295,16 @@ where
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::string(s, (expr.meta, self.function(func)));
+                Ok((e, constraints))
+            }
+            ExprKind::Char(val) => {
+                let char_tid = self.intern(Type::char());
+                let func = FunctionType {
+                    input: vec![],
+                    output: vec![char_tid],
+                };
+                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
+                let e = Expr::char(val, (expr.meta.clone(), self.function(func)));
                 Ok((e, constraints))
             }
             ExprKind::Bind(vars) => {
@@ -1324,6 +1430,19 @@ where
                     )
                 }
             }
+            ExprKind::Unpack => {
+                if stack.is_empty() {
+                    todo!("Expected the product type on top of stack");
+                }
+
+                let tid = *stack.last().unwrap();
+                let unpack_fn = self.generate_unpack_function(tid)?;
+                let constraints = self.infer_fn_call(&unpack_fn, vec![], stack, &expr.meta);
+
+                let expr_tid = self.function(unpack_fn);
+                let e = Expr::unpack((expr.meta, expr_tid));
+                Ok((e, constraints))
+            }
             ExprKind::NamedMemberAccess { var, member } => {
                 let scheme = env.get_var(&var).expect("Vars should be resolvable");
                 let inst = self.freshen(scheme, &expr.meta);
@@ -1337,7 +1456,11 @@ where
                 };
 
                 let Some(member_idx) = lookup.get_member_idx(s.sid, member) else {
-                    todo!("Error unknown member")
+                    return Err(InferenceError::invalid_struct_member(
+                        member,
+                        &ConstraintOrigin::NamedMemberAccess(inst.tid),
+                        &expr.meta,
+                    ));
                 };
 
                 let expr = Expr::member_access(var, member_idx, expr.meta);
@@ -1510,6 +1633,73 @@ where
 
                 Ok((e, constraints))
             }
+            ExprKind::While { condition, body } => {
+                let stack_before = stack.clone();
+                let mut constraints = vec![];
+                let mut cond = vec![];
+                {
+                    let mut env = env.clone();
+                    for e in condition {
+                        let (e, constrs) = self.infer(e, stack, &mut env, lookup)?;
+                        cond.push(e);
+                        constraints.extend(constrs);
+                    }
+                }
+
+                let Some(tid) = stack.pop() else {
+                    todo!("Need a condition!");
+                };
+
+                let bool_tid = self.intern(Type::bool());
+
+                constraints.push(Constraint::new(
+                    ConstraintType::Equal(tid, bool_tid),
+                    ConstraintOrigin::WhileCondition,
+                    &expr.meta,
+                ));
+
+                let (body, constrs) = self.infer(*body, stack, env, lookup)?;
+                constraints.extend(constrs);
+
+                if stack_before.len() != stack.len() {
+                    todo!("Error: Stack shapes differ")
+                }
+
+                let fresh_stack: Vec<_> = (0..stack.len())
+                    .map(|_| {
+                        let tyvar = self.fresh_type_var();
+                        self.intern(Type::TypeVar(tyvar))
+                    })
+                    .collect();
+
+                for (i, tid) in fresh_stack.iter().enumerate() {
+                    let inputs = [&stack_before, &stack]
+                        .iter()
+                        .map(|stack| stack[i])
+                        .collect();
+                    constraints.push(Constraint::new(
+                        ConstraintType::Join {
+                            output: *tid,
+                            inputs,
+                        },
+                        ConstraintOrigin::Branching {
+                            fresh_stack: fresh_stack.clone(),
+                            stacks: vec![stack.clone()],
+                        },
+                        &expr.meta,
+                    ));
+                }
+
+                let expr_tid = self.function(FunctionType {
+                    input: stack_before,
+                    output: fresh_stack.clone(),
+                });
+                let e = Expr::while_(cond, body, (expr.meta, expr_tid));
+
+                *stack = fresh_stack;
+
+                Ok((e, constraints))
+            }
             ExprKind::If(iff) => {
                 let input = stack.clone();
 
@@ -1617,6 +1807,44 @@ where
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::add(tid, (expr.meta.clone(), self.function(func)));
+                Ok((e, constraints))
+            }
+            ExprKind::Sub(tid) => {
+                let func = FunctionType {
+                    input: vec![tid, tid],
+                    output: vec![tid],
+                };
+                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
+                let e = Expr::sub(tid, (expr.meta.clone(), self.function(func)));
+                Ok((e, constraints))
+            }
+            ExprKind::Mul(tid) => {
+                let func = FunctionType {
+                    input: vec![tid, tid],
+                    output: vec![tid],
+                };
+                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
+                let e = Expr::mul(tid, (expr.meta.clone(), self.function(func)));
+                Ok((e, constraints))
+            }
+            ExprKind::Equal(tid) => {
+                let bool_tid = self.intern(Type::bool());
+                let func = FunctionType {
+                    input: vec![tid, tid],
+                    output: vec![bool_tid],
+                };
+                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
+                let e = Expr::eq(tid, (expr.meta.clone(), self.function(func)));
+                Ok((e, constraints))
+            }
+            ExprKind::LessThan(tid) => {
+                let bool_tid = self.intern(Type::bool());
+                let func = FunctionType {
+                    input: vec![tid, tid],
+                    output: vec![bool_tid],
+                };
+                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
+                let e = Expr::lt(tid, (expr.meta.clone(), self.function(func)));
                 Ok((e, constraints))
             }
         };
@@ -2710,26 +2938,33 @@ where
 
     pub fn type_instance(
         &mut self,
+        env: &Environment,
         tid: TypeId,
         args: Option<Vec<TypeId>>,
         meta: &M,
-    ) -> Result<TypeId, InferenceError<M>>
+    ) -> Result<TypeId, InferenceErrorKind>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
         match self.get(tid).expect("TypeIds should be resolvable") {
             Type::Struct(s) => {
-                let s = if let Some(args) = args {
+                let s = s.clone();
+                let args = if let Some(args) = args {
                     if s.args.len() != args.len() {
-                        todo!("Wrong number of type parameters provided: {:?}", meta);
+                        return Err(InferenceErrorKind::WrongNumberOfArgs {
+                            expected: s.args,
+                            found: args,
+                        });
                     }
-                    // Just overwrite the args
-                    StructType { sid: s.sid, args }
+
+                    args
                 } else {
                     let s = s.clone();
-                    self.freshen_struct(&s, &mut HashMap::new(), meta)
+                    let vars = self.get_struct_def(s.sid).vars.clone();
+                    let mut fresh = self.freshen_vars(&vars, meta);
+                    self.freshen_many_tids(&s.args, &mut fresh, meta)
                 };
-                Ok(self.intern(Type::Struct(s)))
+                Ok(self.intern(Type::Struct(StructType { sid: s.sid, args })))
             }
             Type::TypeVar(_)
             | Type::RigidTypeVar(_)
@@ -2739,59 +2974,78 @@ where
             | Type::Pointer(_)
             | Type::Tuple(_)
             | Type::Type(_) => {
-                if args.is_some() {
-                    todo!("Passed args to type which didn't expect args ");
+                if let Some(args) = args {
+                    return Err(InferenceErrorKind::WrongNumberOfArgs {
+                        expected: vec![],
+                        found: args,
+                    });
                 }
                 Ok(tid)
             }
             Type::Enum(e) => {
-                let e = if let Some(args) = args {
+                let e = e.clone();
+                let args = if let Some(args) = args {
                     if e.args.len() != args.len() {
-                        todo!("Wrong number of type parameters provided");
+                        return Err(InferenceErrorKind::WrongNumberOfArgs {
+                            expected: e.args,
+                            found: args,
+                        });
                     }
-                    // Just overwrite the args
-                    EnumType { eid: e.eid, args }
+
+                    args
                 } else {
                     let e = e.clone();
-                    self.freshen_enum(&e, &mut HashMap::new(), meta)
+                    let vars = self.get_enum_def(e.eid).vars.clone();
+                    let mut fresh = self.freshen_vars(&vars, meta);
+                    self.freshen_many_tids(&e.args, &mut fresh, meta)
                 };
-
-                Ok(self.intern(Type::Enum(e)))
+                Ok(self.intern(Type::Enum(EnumType { eid: e.eid, args })))
             }
             Type::Variant(variant) => {
-                let variant = if let Some(args) = args {
-                    if variant.args.len() != args.len() {
-                        todo!("Wrong number of type parameters provided");
+                let v = variant.clone();
+                let args = if let Some(args) = args {
+                    if v.args.len() != args.len() {
+                        return Err(InferenceErrorKind::WrongNumberOfArgs {
+                            expected: v.args,
+                            found: args,
+                        });
                     }
-                    // Just overwrite the args
-                    VariantType {
-                        eid: variant.eid,
-                        args,
-                        variant: variant.variant,
-                    }
+
+                    args
                 } else {
-                    let variant = variant.clone();
-                    self.freshen_variant(&variant, &mut HashMap::new(), meta)
+                    let v = v.clone();
+                    let vars = self.get_enum_def(v.eid).vars.clone();
+                    let mut fresh = self.freshen_vars(&vars, meta);
+                    self.freshen_many_tids(&v.args, &mut fresh, meta)
                 };
 
-                Ok(self.intern(Type::Variant(variant)))
+                Ok(self.intern(Type::Variant(VariantType {
+                    eid: v.eid,
+                    args,
+                    variant: v.variant,
+                })))
             }
             Type::Projection(p) => {
-                let p = if let Some(args) = args {
+                let p = p.clone();
+                let args = if let Some(args) = args {
                     if p.args.len() != args.len() {
-                        todo!("Wrong number of type parameters provided: {:?}", meta);
+                        return Err(InferenceErrorKind::WrongNumberOfArgs {
+                            expected: p.args,
+                            found: args,
+                        });
                     }
-                    // Just overwrite the args
-                    Projection {
-                        cid: p.cid,
-                        args,
-                        idx: p.idx,
-                    }
+
+                    args
                 } else {
-                    let p = p.clone();
-                    self.freshen_projection(&p, &mut HashMap::new(), meta)
+                    let vars = env.get_typeclass(p.cid).vars.clone();
+                    let mut fresh = self.freshen_vars(&vars, meta);
+                    self.freshen_many_tids(&p.args, &mut fresh, meta)
                 };
-                Ok(self.intern(Type::Projection(p)))
+                Ok(self.intern(Type::Projection(Projection {
+                    cid: p.cid,
+                    args,
+                    idx: p.idx,
+                })))
             }
         }
     }
@@ -2921,14 +3175,15 @@ where
 
     pub fn metatype(
         &mut self,
+        env: &Environment,
         tid: TypeId,
         args: Option<Vec<TypeId>>,
         meta: &M,
-    ) -> Result<TypeId, InferenceError<M>>
+    ) -> Result<TypeId, InferenceErrorKind>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
-        let tid = self.type_instance(tid, args, meta)?;
+        let tid = self.type_instance(env, tid, args, meta)?;
         Ok(self.intern(Type::Type(tid)))
     }
 
@@ -2949,7 +3204,7 @@ where
             Type::Tuple(tids) => tids.iter().any(|tid| self.is_free(tid)),
             Type::Variant(v) => v.args.iter().any(|tid| self.is_free(tid)),
             Type::Type(tid) => self.is_free(tid),
-            Type::Projection(_) => todo!(),
+            Type::Projection(p) => p.args.iter().any(|tid| self.is_free(tid)),
             Type::Never => todo!(),
         }
     }
@@ -2990,39 +3245,44 @@ where
             Type::Function(FunctionType { input, output }) => {
                 let input = input.into_iter().map(|tid| self.lower(tid)).collect();
                 let output = output.into_iter().map(|tid| self.lower(tid)).collect();
-                self.function(FunctionType {
-                    input,
-                    output,
-                })
-            },
+                self.function(FunctionType { input, output })
+            }
             Type::Pointer(p) => {
                 let tid = self.lower(p.tid);
                 self.pointer(tid, p.mutability)
-            },
+            }
             Type::Struct(s) => {
                 let args = s.args.into_iter().map(|tid| self.lower(tid)).collect();
                 self.intern(Type::Struct(StructType { sid: s.sid, args }))
-            },
+            }
             Type::Enum(e) => {
                 let args = e.args.into_iter().map(|tid| self.lower(tid)).collect();
                 self.intern(Type::Enum(EnumType { eid: e.eid, args }))
-            },
+            }
             Type::Tuple(tids) => {
                 let tids = tids.into_iter().map(|tid| self.lower(tid)).collect();
                 self.intern(Type::Tuple(tids))
-            },
+            }
             Type::Variant(v) => {
                 let args = v.args.into_iter().map(|tid| self.lower(tid)).collect();
-                self.intern(Type::Variant(VariantType { eid: v.eid, args, variant: v.variant }))
-            },
+                self.intern(Type::Variant(VariantType {
+                    eid: v.eid,
+                    args,
+                    variant: v.variant,
+                }))
+            }
             Type::Type(tid) => {
                 let tid = self.lower(tid);
                 self.intern(Type::Type(tid))
-            },
+            }
             Type::Projection(p) => {
                 let args = p.args.into_iter().map(|tid| self.lower(tid)).collect();
-                self.intern(Type::Projection(Projection { cid: p.cid, args, idx: p.idx }))
-            },
+                self.intern(Type::Projection(Projection {
+                    cid: p.cid,
+                    args,
+                    idx: p.idx,
+                }))
+            }
         }
     }
 }

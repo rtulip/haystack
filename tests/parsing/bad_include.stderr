@@ -1,0 +1,1 @@
+Error: [tests/parsing/bad_include.hay:1:9] Error: Failed to open file `not_a_file`

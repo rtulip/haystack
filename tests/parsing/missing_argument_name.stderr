@@ -1,0 +1,1 @@
+Error: [tests/parsing/missing_argument_name.hay:1:12] Error: Expected an identifier (), but found `)` instead

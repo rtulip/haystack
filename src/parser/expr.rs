@@ -27,18 +27,29 @@ pub struct ParseMatchExpr<'src> {
 #[derive(Debug)]
 pub enum ParseExprKind<'src> {
     Ident(&'src str),
-    Member { base: &'src str, member: &'src str },
+    Member {
+        base: &'src str,
+        member: &'src str,
+    },
     Literal(Literal<'src>),
     Block(Vec<ParseExpr<'src>>),
     Type(ParseType<'src>),
     Tuple(Vec<ParseExpr<'src>>),
     Pack,
+    Unpack,
     Call,
     Intrinsic(Intrinsic),
     As(Vec<Token<'src>>),
-    TakeRef { mutable: bool, ident: &'src str },
+    TakeRef {
+        mutable: bool,
+        ident: &'src str,
+    },
     If(ParseIfExpr<'src>),
     Match(ParseMatchExpr<'src>),
+    While {
+        condition: Vec<ParseExpr<'src>>,
+        body: Box<ParseExpr<'src>>,
+    },
 }
 
 #[derive(Debug)]

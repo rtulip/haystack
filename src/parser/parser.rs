@@ -1,4 +1,4 @@
-use std::{format, todo, unreachable};
+use std::{format, path::Path, todo, unreachable};
 
 use crate::{
     error::HayError,
@@ -206,16 +206,13 @@ impl<'src> Parser<'src> {
             TokenKind::Operator(Operator::Write) => {
                 Ok(Some(ParseType::Never(self.tokens.pop().unwrap())))
             }
-            TokenKind::Marker(m) => todo!("Parse Type from {m}"),
             TokenKind::Operator(Operator::GreaterThan) => Ok(None),
             TokenKind::Operator(Operator::Ampersand) => self.parse_pointer_type(),
-            TokenKind::Operator(o) => todo!("Parse type from {o}: "),
             TokenKind::Keyword(Keyword::Function) => self.parse_function_type(),
-            TokenKind::Keyword(_) => todo!(),
-            TokenKind::Intrinsic(_) => todo!(),
-            TokenKind::Literal(_) => todo!(),
-            TokenKind::Whitespace => todo!(),
-            TokenKind::EoF => todo!(),
+            kind => Err(HayError::new(
+                format!("Expected a type, but found {} instead", kind),
+                self.peek().loc.clone(),
+            )),
         }
     }
 
@@ -365,7 +362,11 @@ impl<'src> Parser<'src> {
 
         let Some(ty) = self.parse_type()? else {
             return Err(HayError::new(
-                format!("Expected a type after {}", Marker::Hash),
+                format!(
+                    "Expected a type after {}, but found {} instead",
+                    Marker::Hash,
+                    self.peek().kind
+                ),
                 hash.loc,
             ));
         };
@@ -396,7 +397,18 @@ impl<'src> Parser<'src> {
         loop {
             self.strip_whitespace();
             if self.is_at_end() {
-                todo!("Didn't find matching `)`");
+                return Err(
+                    HayError::new("Unclosed tuple expression", self.peek().loc.clone())
+                        .with_hint(format!(
+                            "Expected {}, but found {} instead",
+                            Marker::RightParen,
+                            TokenKind::EoF
+                        ))
+                        .with_hint(format!(
+                            "Tuple expression started here: {}",
+                            token.loc.clone()
+                        )),
+                );
             }
 
             if self.matches(TokenKind::Marker(Marker::RightParen)).is_ok() {
@@ -603,14 +615,14 @@ impl<'src> Parser<'src> {
         let kind = match &token.kind {
             TokenKind::Operator(operator) => match operator {
                 Operator::Plus => ParseExprKind::Ident("add"),
-                Operator::Minus => todo!(),
-                Operator::Star => todo!(),
+                Operator::Minus => ParseExprKind::Ident("sub"),
+                Operator::Star => ParseExprKind::Ident("mul"),
                 Operator::Slash => todo!(),
-                Operator::LessThan => todo!(),
+                Operator::LessThan => ParseExprKind::Ident("lt"),
                 Operator::LessEqual => todo!(),
                 Operator::GreaterThan => todo!(),
                 Operator::GreaterEqual => todo!(),
-                Operator::Equal => todo!(),
+                Operator::Equal => ParseExprKind::Ident("eq"),
                 Operator::BangEqual => todo!(),
                 Operator::Modulo => todo!(),
                 Operator::Read => todo!(),
@@ -665,6 +677,43 @@ impl<'src> Parser<'src> {
         })
     }
 
+    fn parse_unpack_expr(&mut self) -> ParseExpr<'src> {
+        let token = self.matches(TokenKind::Keyword(Keyword::Unpack)).unwrap();
+        ParseExpr {
+            kind: ParseExprKind::Unpack,
+            token,
+        }
+    }
+
+    fn parse_while_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
+        let token = self.expect(TokenKind::Keyword(Keyword::While))?;
+
+        let mut condition = vec![];
+
+        loop {
+            self.strip_whitespace();
+            if self.is_at_end() {
+                todo!("Error: Expected `do`");
+            }
+
+            if let Ok(_) = self.matches(TokenKind::Keyword(Keyword::Do)) {
+                break;
+            }
+
+            condition.push(self.parse_expr()?);
+        }
+
+        let body = self.parse_expr()?;
+
+        Ok(ParseExpr {
+            kind: ParseExprKind::While {
+                condition,
+                body: Box::new(body),
+            },
+            token,
+        })
+    }
+
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
         self.strip_whitespace();
         match &self.peek().kind {
@@ -672,19 +721,22 @@ impl<'src> Parser<'src> {
             TokenKind::Marker(Marker::LeftBrace) => self.parse_block_expr(),
             TokenKind::Marker(Marker::Hash) => self.parse_type_expr(),
             TokenKind::Marker(Marker::LeftParen) => self.parse_tuple_expr(),
-            TokenKind::Marker(m) => todo!("Parse Expr from {m}"),
             TokenKind::Keyword(Keyword::Pack) => Ok(self.parse_pack_expr()),
             TokenKind::Keyword(Keyword::As) => self.parse_as_expr(),
             TokenKind::Keyword(Keyword::Call) => Ok(self.parse_call_expr()),
             TokenKind::Keyword(Keyword::If) => self.parse_if_expr(),
             TokenKind::Keyword(Keyword::Match) => self.parse_match_expr(),
+            TokenKind::Keyword(Keyword::Unpack) => Ok(self.parse_unpack_expr()),
+            TokenKind::Keyword(Keyword::While) => self.parse_while_expr(),
             TokenKind::Keyword(kw) => todo!("Parse {kw} expr"),
             TokenKind::Operator(Operator::Ampersand) => self.parse_take_ref_expr(),
             TokenKind::Operator(_) => Ok(self.parse_operator_expr()),
             TokenKind::Intrinsic(_) => Ok(self.parse_intrinsic()),
             TokenKind::Literal(_) => Ok(self.parse_literal_expr()),
-            TokenKind::Whitespace => todo!(),
-            TokenKind::EoF => todo!(),
+            kind => Err(HayError::new(
+                format!("Unable to parse an expression from {}", kind),
+                self.peek().loc.clone(),
+            )),
         }
     }
 
@@ -917,12 +969,17 @@ impl<'src> Parser<'src> {
     fn parse_include(&mut self, start: Token<'src>) -> Result<Vec<Statememt<'src>>, HayError> {
         self.strip_whitespace();
         let path = self.expect(TokenKind::string())?;
-        let file = &path.lexeme[1..path.lexeme.len() - 1];
+        let file = Path::new(&path.lexeme[1..path.lexeme.len() - 1]);
         let source: &'src str = std::fs::read_to_string(file)
-            .map_err(|e| HayError::new(format!("Failed to open file `{file}`"), path.loc.clone()))?
+            .map_err(|e| {
+                HayError::new(
+                    format!("Failed to open file `{}`", file.display()),
+                    path.loc.clone(),
+                )
+            })?
             .leak();
 
-        let tokens = Scanner::new(file, &source).scan_tokens()?;
+        let tokens = Scanner::new(file.to_str().unwrap(), &source).scan_tokens()?;
 
         Parser::parse(tokens)
     }

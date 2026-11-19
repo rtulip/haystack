@@ -1,0 +1,2 @@
+Error: [tests/typecheck/redefined_function.hay:2:4] Error: `foo` already defined
+    [Note]: `foo` was previously defined here: tests/typecheck/redefined_function.hay:1:4

@@ -129,6 +129,8 @@ impl<'src> Scanner<'src> {
                     while self.peek(0) != '\n' && !self.is_at_end() {
                         self.advance();
                     }
+
+                    self.add_token(TokenKind::Whitespace)
                 } else {
                     self.add_token(TokenKind::Operator(Operator::Slash))
                 }
@@ -170,7 +172,10 @@ impl<'src> Scanner<'src> {
             '|' => self.add_token(TokenKind::Operator(Operator::Pipe)),
             '^' => self.add_token(TokenKind::Operator(Operator::Caret)),
             ' ' | '\t' | '\r' => self.add_token(TokenKind::Whitespace),
-            '\n' => self.newline(),
+            '\n' => {
+                self.newline();
+                self.add_token(TokenKind::Whitespace)
+            }
             '"' => self.string()?,
             '\'' => self.char()?,
             '#' => self.add_token(TokenKind::Marker(Marker::Hash)),
@@ -178,7 +183,7 @@ impl<'src> Scanner<'src> {
                 if c.is_ascii_digit() {
                     self.number()?
                 } else if c.is_alphabetic() || c == '_' || c == '.' {
-                    self.identifier()?
+                    self.identifier();
                 } else {
                     return Err(HayError::new(
                         format!("Unexpected character: `{c}`"),
@@ -219,12 +224,7 @@ impl<'src> Scanner<'src> {
 
         if c == '\\' {
             match self.advance() {
-                'n' => c = '\n',
-                't' => c = '\t',
-                'r' => c = '\r',
-                '0' => c = '\0',
-                '\'' => c = '\'',
-                '\\' => c = '\\',
+                'n' | 't' | 'r' | '0' | '\'' | '\\' => (),
                 c => {
                     return Err(HayError::new(
                         format!("Unknown escaped character: `\\{c}`"),
@@ -240,6 +240,8 @@ impl<'src> Scanner<'src> {
                 Loc::new(self.file, self.line, self.token_start, self.token_end),
             ));
         }
+
+        let c = &self.source[self.start + 1..self.current - 1];
 
         self.add_token(TokenKind::Literal(Literal::Char(c)));
 
@@ -289,10 +291,11 @@ impl<'src> Scanner<'src> {
         Ok(())
     }
 
-    fn identifier(&mut self) -> Result<(), HayError> {
+    fn identifier(&mut self) {
         let keywords = Keyword::keywords();
         while ![
-            ' ', '\n', '\t', '\r', ':', '{', '}', '[', ']', '(', ')', '<', '>', '+', '-', '/', '*', '=', '\"',
+            ' ', '\n', '\t', '\r', ':', '{', '}', '[', ']', '(', ')', '<', '>', '+', '-', '/', '*',
+            '=', '\"',
         ]
         .contains(&self.peek(0))
             && !self.is_at_end()
@@ -306,7 +309,5 @@ impl<'src> Scanner<'src> {
         } else {
             self.add_token(TokenKind::Ident(ident))
         }
-
-        Ok(())
     }
 }

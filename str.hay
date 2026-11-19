@@ -5,6 +5,8 @@ struct Str {
 
 fn Str.cstr(Str: s) -> [&u8] s::data
 
+fn bool.to_str(bool) -> [Str] if { "true" } else { "false" }
+
 impl Print<Str> {
     fn print(Str: s) { 
         "%.*s" Str.cstr
@@ -14,15 +16,26 @@ impl Print<Str> {
 }
 
 impl Print<bool> {
-    fn print(bool) if {
-        "true" print
-    } else {
-        "false" print
+    fn print(bool) {
+        bool.to_str print
     }
 }
 
 impl Print<u64> {
     fn print(u64) {
-        "%llu" Str.cstr swap printf as [_]
+        "%llu" Str.cstr swap printf drop
     }
 }
+
+impl Print<u8> {
+    fn print(u8) {
+        "%u" Str.cstr swap printf drop
+    }
+}
+
+impl Print<char> {
+    fn print(char){
+        "%c" Str.cstr swap printf drop
+    }
+}
+

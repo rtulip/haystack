@@ -1,4 +1,5 @@
 use std::{
+    assert_eq,
     collections::{HashMap, HashSet},
     eprintln,
     fmt::Write,
@@ -123,6 +124,7 @@ where
                 BuiltinType::U8 => format!("uint8_t"),
                 BuiltinType::U64 => format!("uint64_t"),
                 BuiltinType::Bool => format!("bool"),
+                BuiltinType::Char => format!("char"),
                 BuiltinType::CVarArgs => format!("..."),
             },
             Type::Function(function_type) => todo!(),
@@ -228,6 +230,7 @@ where
                     BuiltinType::U8 => "uint8_t",
                     BuiltinType::U64 => "uint64_t",
                     BuiltinType::Bool => "bool",
+                    BuiltinType::Char => "char",
                     BuiltinType::CVarArgs => unreachable!(),
                 };
 
@@ -426,7 +429,7 @@ where
         Ok(())
     }
 
-    fn format_extern_input(&self, tid: TypeId, ident: &(TypeId, usize)) -> String {
+    fn format_extern_input(&self, tid: TypeId, ident: (TypeId, usize)) -> String {
         match self.typestore.get(tid).unwrap() {
             Type::Builtin(BuiltinType::CVarArgs) => match self.typestore.get(ident.0).unwrap() {
                 Type::Tuple(tids) => {
@@ -459,13 +462,16 @@ where
         assert!(input.len() == stack.len());
         let idents = stack.split_off(stack.len() - input.len());
 
-        let start = self.format_extern_input(input[0], &idents[0]);
-
-        input[1..]
+        input
             .into_iter()
-            .zip(idents[1..].into_iter())
-            .fold(start, |acc, (tid, ident)| {
-                format!("{acc}, {}", self.format_extern_input(*tid, ident))
+            .zip(idents.into_iter())
+            .rev()
+            .fold(String::new(), |acc, (tid, ident)| {
+                if acc.is_empty() {
+                    self.format_extern_input(tid, ident)
+                } else {
+                    format!("{}, {acc}", self.format_extern_input(tid, ident))
+                }
             })
     }
 
@@ -493,16 +499,12 @@ where
         Ok(())
     }
 
-    fn generate_function_call(
+    fn generate_haystack_function_call(
         &mut self,
         tid: TypeId,
-        var: &Var,
+        fn_ident: String,
         stack: &mut Vec<(TypeId, usize)>,
     ) -> std::fmt::Result {
-        if let Some((name, tid)) = self.externs.get(var) {
-            return self.generate_extern_function_call(name, *tid, stack);
-        }
-
         let func = self.get_stack_effect(tid);
         let input = self.generate_input_binding(tid, &func.input, stack)?;
 
@@ -524,7 +526,7 @@ where
         writeln!(
             self.w,
             "    {output_prefix}{}({});",
-            Self::format_var(*var),
+            fn_ident,
             match input {
                 Some(input) => Self::format_stack_ident(input),
                 None => "".into(),
@@ -534,6 +536,19 @@ where
             self.generate_output_unbinding(output, &func.output, stack)?;
         }
         Ok(())
+    }
+
+    fn generate_function_call(
+        &mut self,
+        tid: TypeId,
+        var: &Var,
+        stack: &mut Vec<(TypeId, usize)>,
+    ) -> std::fmt::Result {
+        if let Some((name, tid)) = self.externs.get(var) {
+            self.generate_extern_function_call(name, *tid, stack)
+        } else {
+            self.generate_haystack_function_call(tid, Self::format_var(*var), stack)
+        }
     }
 
     fn generate_match_case(
@@ -645,7 +660,20 @@ where
         writeln!(self.w, "    // {}", expr.meta.0)?;
         let tid = expr.meta.1;
         match &expr.expr {
-            ExprKind::U8(_) => todo!(),
+            ExprKind::U8(n) => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() == 0);
+                assert!(output.len() == 1);
+                let ident = self.next_stack_ident();
+                stack.push((output[0], ident));
+
+                writeln!(
+                    self.w,
+                    "    const {} {} = {n};",
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(ident)
+                )?;
+            }
             ExprKind::U64(n) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 0);
@@ -692,6 +720,20 @@ where
                 writeln!(self.w, "    }};")?;
 
                 stack.push((output[0], ident));
+            }
+            ExprKind::Char(c) => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() == 0);
+                assert!(output.len() == 1);
+                let ident = self.next_stack_ident();
+                stack.push((output[0], ident));
+
+                writeln!(
+                    self.w,
+                    "    const {} {} = '{c}';",
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(ident)
+                )?;
             }
             ExprKind::Ident(var) => match self.typestore.get(expr.meta.1).unwrap() {
                 Type::Function(_) => {
@@ -809,7 +851,13 @@ where
                     )?;
                 }
             }
-            ExprKind::Call => todo!(),
+            ExprKind::Call => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() >= 1);
+
+                let (tid, ident) = stack.pop().unwrap();
+                self.generate_haystack_function_call(tid, Self::format_stack_ident(ident), stack)?;
+            }
             ExprKind::Type(tid) => {
                 let ident = self.next_stack_ident();
                 // TODO: metatypes can't be handled quite like normal tids.
@@ -822,8 +870,135 @@ where
                     Self::format_metatype(*tid)
                 )?
             }
-            ExprKind::UncheckedCast => todo!(),
-            ExprKind::Add(type_id) => todo!(),
+            ExprKind::UncheckedCast => {
+                let FunctionType { input, output} = self.get_stack_effect(tid);
+                assert!(input.len() == 2);
+                assert!(output.len() == 1);
+
+                let Type::Type(inner) = self.typestore.get(input[1]).unwrap() else {
+                    todo!()
+                };
+                let inner = *inner;
+
+                stack.pop().unwrap();
+                let (_, from) = stack.pop().unwrap();
+
+                let into = self.next_stack_ident();
+                stack.push((output[0], into));
+
+                writeln!(self.w, "    {} {} = ({}){};",
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(into),
+                    Self::format_tid(inner),
+                    Self::format_stack_ident(from),
+                )?;
+
+            },
+            ExprKind::Add(_) => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() == 2);
+                assert!(output.len() == 1);
+
+                let ident = self.next_stack_ident();
+                let right = stack.pop().unwrap();
+                let left = stack.pop().unwrap();
+
+                assert_eq!(&vec![right.0, left.0], &input);
+                writeln!(
+                    self.w,
+                    "    const {} {} = {} + {};",
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(ident),
+                    Self::format_stack_ident(left.1),
+                    Self::format_stack_ident(right.1)
+                )?;
+
+                stack.push((output[0], ident));
+            }
+            ExprKind::Sub(_) => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() == 2);
+                assert!(output.len() == 1);
+
+                let ident = self.next_stack_ident();
+                let right = stack.pop().unwrap();
+                let left = stack.pop().unwrap();
+
+                assert_eq!(&vec![right.0, left.0], &input);
+                writeln!(
+                    self.w,
+                    "    const {} {} = {} - {};",
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(ident),
+                    Self::format_stack_ident(left.1),
+                    Self::format_stack_ident(right.1)
+                )?;
+
+                stack.push((output[0], ident));
+            }
+            ExprKind::Mul(_) => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() == 2);
+                assert!(output.len() == 1);
+
+                let ident = self.next_stack_ident();
+                let right = stack.pop().unwrap();
+                let left = stack.pop().unwrap();
+
+                assert_eq!(&vec![right.0, left.0], &input);
+                writeln!(
+                    self.w,
+                    "    const {} {} = {} * {};",
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(ident),
+                    Self::format_stack_ident(left.1),
+                    Self::format_stack_ident(right.1)
+                )?;
+
+                stack.push((output[0], ident));
+            }
+            ExprKind::Equal(_) => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() == 2);
+                assert!(output.len() == 1);
+
+                let ident = self.next_stack_ident();
+                let right = stack.pop().unwrap();
+                let left = stack.pop().unwrap();
+
+                assert_eq!(&vec![right.0, left.0], &input);
+                writeln!(
+                    self.w,
+                    "    const {} {} = {} == {};",
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(ident),
+                    Self::format_stack_ident(left.1),
+                    Self::format_stack_ident(right.1)
+                )?;
+
+                stack.push((output[0], ident));
+            }
+            ExprKind::LessThan(_) => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() == 2);
+                assert!(output.len() == 1);
+
+                let ident = self.next_stack_ident();
+                let right = stack.pop().unwrap();
+                let left = stack.pop().unwrap();
+
+                assert_eq!(&vec![right.0, left.0], &input);
+                writeln!(
+                    self.w,
+                    "    const {} {} = {} < {};",
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(ident),
+                    Self::format_stack_ident(left.1),
+                    Self::format_stack_ident(right.1)
+                )?;
+
+                stack.push((output[0], ident));
+            }
             ExprKind::Pack => {
                 let FunctionType { mut input, output } = self.get_stack_effect(tid);
                 assert!(output.len() == 1);
@@ -868,8 +1043,47 @@ where
 
                         stack.push((output[0], ident));
                     }
+                    Type::Tuple(_) => {
+                        let ident = self.next_stack_ident();
+                        writeln!(
+                            self.w,
+                            "    const {} {} = {{",
+                            Self::format_tid(output[0]),
+                            Self::format_stack_ident(ident)
+                        )?;
+
+                        for (idx, _) in input.iter().enumerate().rev() {
+                            let (_, ident) = stack.pop().unwrap();
+                            writeln!(
+                                self.w,
+                                "        ._{idx} = {},",
+                                Self::format_stack_ident(ident)
+                            )?;
+                        }
+                        writeln!(self.w, "}};")?;
+
+                        stack.push((output[0], ident))
+                    }
                     _ => unreachable!(),
                 };
+            }
+            ExprKind::Unpack => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+
+                assert!(input.len() == 1);
+
+                let (_, parent) = stack.pop().unwrap();
+                for (idx, tid) in output.into_iter().enumerate() {
+                    let ident = self.next_stack_ident();
+                    stack.push((tid, ident));
+                    writeln!(
+                        self.w,
+                        "    const {} {} = {}._{idx};",
+                        Self::format_tid(tid),
+                        Self::format_stack_ident(ident),
+                        Self::format_stack_ident(parent)
+                    )?;
+                }
             }
             ExprKind::NamedMemberAccess { var, member } => todo!(),
             ExprKind::MemberAccess { var, member } => {
@@ -889,6 +1103,50 @@ where
                 );
             }
             ExprKind::Match(match_expr) => self.generate_match_expr(tid, &match_expr, stack)?,
+            ExprKind::While { condition, body } => {
+                let mut fresh_stack = vec![];
+                while let Some((tid, ident)) = stack.pop() {
+                    let fresh_ident = self.next_stack_ident();
+                    writeln!(
+                        self.w,
+                        "    {} {} = {};",
+                        Self::format_tid(tid),
+                        Self::format_stack_ident(fresh_ident),
+                        Self::format_stack_ident(ident)
+                    );
+                    fresh_stack.push((tid, fresh_ident));
+                }
+
+                *stack = fresh_stack.clone();
+
+                writeln!(self.w, "    while (1) {{")?;
+                for expr in condition {
+                    self.generate_expr(expr, stack)?;
+                }
+
+                let (tid, ident) = stack.pop().unwrap();
+
+                writeln!(
+                    self.w,
+                    "    if (!{}) break;",
+                    Self::format_stack_ident(ident)
+                )?;
+                self.generate_expr(body, stack)?;
+
+                assert!(stack.len() == fresh_stack.len());
+                for ((_, fresh_ident), (_, ident)) in fresh_stack.iter().zip(stack.iter()) {
+                    writeln!(
+                        self.w,
+                        "    {} = {};",
+                        Self::format_stack_ident(*fresh_ident),
+                        Self::format_stack_ident(*ident)
+                    )?;
+                }
+
+                writeln!(self.w, "}}");
+
+                *stack = fresh_stack;
+            }
             ExprKind::If(if_expr) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
 

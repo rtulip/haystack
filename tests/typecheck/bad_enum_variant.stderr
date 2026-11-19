@@ -1,0 +1,1 @@
+Error: [tests/typecheck/bad_enum_variant.hay:5:17] Error: Unknown variant `Baz` for enum `Foo`

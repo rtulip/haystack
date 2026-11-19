@@ -41,17 +41,6 @@ pub struct MatchExpr<'src, Meta> {
 }
 
 impl<'src, Meta> MatchExpr<'src, Meta> {
-    fn map_vars(&mut self, var_map: &HashMap<Var, Var>) {
-        self.cases
-            .iter_mut()
-            .for_each(|case| case.expr.map_vars(var_map));
-        if let Some(expr) = &mut self.finally {
-            expr.map_vars(var_map);
-        }
-    }
-}
-
-impl<'src, Meta> MatchExpr<'src, Meta> {
     pub fn new<Cases>(cases: Cases, finally: Option<Expr<'src, Meta>>) -> Self
     where
         Cases: Into<Vec<MatchCase<'src, Meta>>>,
@@ -74,9 +63,13 @@ pub enum ExprKind<'src, Meta> {
     U8(u8),
     U64(u64),
     Bool(bool),
+    Char(&'src str),
     String(&'src str),
     Ident(Var),
-    Ref { var: Var, mutability: Mutability },
+    Ref {
+        var: Var,
+        mutability: Mutability,
+    },
     Block(Vec<Expr<'src, Meta>>),
     Tuple(Vec<Expr<'src, Meta>>),
     Bind(Vec<Var>),
@@ -84,12 +77,27 @@ pub enum ExprKind<'src, Meta> {
     Type(TypeId),
     UncheckedCast,
     Add(TypeId),
+    Sub(TypeId),
+    Mul(TypeId),
+    Equal(TypeId),
+    LessThan(TypeId),
     Pack,
-    NamedMemberAccess { var: Var, member: &'src str },
-    MemberAccess { var: Var, member: usize },
+    Unpack,
+    NamedMemberAccess {
+        var: Var,
+        member: &'src str,
+    },
+    MemberAccess {
+        var: Var,
+        member: usize,
+    },
     Match(MatchExpr<'src, Meta>),
     If(IfExpr<'src, Meta>),
     Read,
+    While {
+        condition: Vec<Expr<'src, Meta>>,
+        body: Box<Expr<'src, Meta>>,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -116,6 +124,13 @@ impl<'src, Meta> Expr<'src, Meta> {
     pub fn bool(b: bool, meta: Meta) -> Expr<'src, Meta> {
         Expr {
             expr: ExprKind::Bool(b),
+            meta,
+        }
+    }
+
+    pub fn char(c: &'src str, meta: Meta) -> Expr<'src, Meta> {
+        Expr {
+            expr: ExprKind::Char(c),
             meta,
         }
     }
@@ -199,9 +214,44 @@ impl<'src, Meta> Expr<'src, Meta> {
         }
     }
 
+    pub fn sub(tid: TypeId, meta: Meta) -> Self {
+        Expr {
+            expr: ExprKind::Sub(tid),
+            meta,
+        }
+    }
+
+    pub fn mul(tid: TypeId, meta: Meta) -> Self {
+        Expr {
+            expr: ExprKind::Mul(tid),
+            meta,
+        }
+    }
+
+    pub fn eq(tid: TypeId, meta: Meta) -> Self {
+        Expr {
+            expr: ExprKind::Equal(tid),
+            meta,
+        }
+    }
+
+    pub fn lt(tid: TypeId, meta: Meta) -> Self {
+        Expr {
+            expr: ExprKind::LessThan(tid),
+            meta,
+        }
+    }
+
     pub fn pack(meta: Meta) -> Self {
         Expr {
             expr: ExprKind::Pack,
+            meta,
+        }
+    }
+
+    pub fn unpack(meta: Meta) -> Self {
+        Expr {
+            expr: ExprKind::Unpack,
             meta,
         }
     }
@@ -227,6 +277,16 @@ impl<'src, Meta> Expr<'src, Meta> {
         }
     }
 
+    pub fn while_(condition: Vec<Self>, body: Self, meta: Meta) -> Self {
+        Expr {
+            expr: ExprKind::While {
+                condition,
+                body: Box::new(body),
+            },
+            meta,
+        }
+    }
+
     pub fn iff(then: Expr<'src, Meta>, otherwise: Expr<'src, Meta>, meta: Meta) -> Self {
         Expr {
             expr: ExprKind::If(IfExpr {
@@ -237,38 +297,65 @@ impl<'src, Meta> Expr<'src, Meta> {
         }
     }
 
-    pub fn map_vars(&mut self, var_map: &HashMap<Var, Var>) {
-        match &mut self.expr {
-            ExprKind::U8(_)
-            | ExprKind::U64(_)
-            | ExprKind::Bool(_)
-            | ExprKind::String(_)
-            | ExprKind::Call
-            | ExprKind::Type(_)
-            | ExprKind::UncheckedCast
-            | ExprKind::Add(_)
-            | ExprKind::Read
-            | ExprKind::Pack => (),
+    pub fn map_meta<M2, F: FnMut(Meta) -> M2>(self, f: &mut F) -> Expr<'src, M2> {
+        let kind = match self.expr {
+            ExprKind::U8(n) => ExprKind::U8(n),
+            ExprKind::U64(n) => ExprKind::U64(n),
+            ExprKind::Bool(b) => ExprKind::Bool(b),
+            ExprKind::String(s) => ExprKind::String(s),
+            ExprKind::Char(c) => ExprKind::Char(c),
+            ExprKind::Ident(var) => ExprKind::Ident(var),
+            ExprKind::Ref { var, mutability } => ExprKind::Ref { var, mutability },
+            ExprKind::Block(exprs) => {
+                ExprKind::Block(exprs.into_iter().map(|e| e.map_meta(f)).collect())
+            }
+            ExprKind::Tuple(exprs) => {
+                ExprKind::Tuple(exprs.into_iter().map(|e| e.map_meta(f)).collect())
+            }
+            ExprKind::Bind(vars) => ExprKind::Bind(vars),
+            ExprKind::Call => ExprKind::Call,
+            ExprKind::Type(tid) => ExprKind::Type(tid),
+            ExprKind::UncheckedCast => ExprKind::UncheckedCast,
+            ExprKind::Add(tid) => ExprKind::Add(tid),
+            ExprKind::Sub(tid) => ExprKind::Sub(tid),
+            ExprKind::Mul(tid) => ExprKind::Mul(tid),
+            ExprKind::Equal(tid) => ExprKind::Equal(tid),
+            ExprKind::LessThan(tid) => ExprKind::LessThan(tid),
+            ExprKind::Pack => ExprKind::Pack,
+            ExprKind::Unpack => ExprKind::Unpack,
+            ExprKind::NamedMemberAccess { var, member } => {
+                ExprKind::NamedMemberAccess { var, member }
+            }
+            ExprKind::MemberAccess { var, member } => ExprKind::MemberAccess { var, member },
+            ExprKind::Match(m) => {
+                let cases = m
+                    .cases
+                    .into_iter()
+                    .map(|case| MatchCase {
+                        pattern: case.pattern,
+                        expr: Box::new(case.expr.map_meta(f)),
+                    })
+                    .collect();
 
-            ExprKind::NamedMemberAccess { var, .. }
-            | ExprKind::MemberAccess { var, .. }
-            | ExprKind::Ref { var, .. }
-            | ExprKind::Ident(var) => match var_map.get(var) {
-                Some(new_var) => *var = *new_var,
-                None => (),
+                let finally = m.finally.map(|e| Box::new(e.map_meta(f)));
+
+                ExprKind::Match(MatchExpr { cases, finally })
+            }
+            ExprKind::While { condition, body } => ExprKind::While {
+                condition: condition.into_iter().map(|e| e.map_meta(f)).collect(),
+                body: Box::new(body.map_meta(f)),
             },
-            ExprKind::Block(exprs) | ExprKind::Tuple(exprs) => {
-                exprs.iter_mut().for_each(|e| e.map_vars(var_map));
-            }
-            ExprKind::Bind(vars) => vars.iter_mut().for_each(|var| match var_map.get(var) {
-                Some(new_var) => *var = *new_var,
-                None => (),
+
+            ExprKind::If(if_expr) => ExprKind::If(IfExpr {
+                then: Box::new(if_expr.then.map_meta(f)),
+                otherwise: Box::new(if_expr.otherwise.map_meta(f)),
             }),
-            ExprKind::Match(match_expr) => match_expr.map_vars(var_map),
-            ExprKind::If(if_expr) => {
-                if_expr.then.map_vars(var_map);
-                if_expr.otherwise.map_vars(var_map);
-            }
+            ExprKind::Read => ExprKind::Read,
+        };
+
+        Expr {
+            expr: kind,
+            meta: f(self.meta),
         }
     }
 }

@@ -248,4 +248,8 @@ impl Environment {
     pub fn get_impls(&self, cid: &TypeClassId) -> Option<&Vec<InterfaceImpl>> {
         self.impls.get(cid)
     }
+
+    pub fn get_typeclass(&self, cid: TypeClassId) -> &Interface {
+        &self.typeclasses[cid.0]
+    }
 }

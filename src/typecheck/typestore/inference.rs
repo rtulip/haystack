@@ -39,6 +39,13 @@ pub enum InferenceErrorKind {
         a: InterfaceImpl,
         b: InterfaceImpl,
     },
+    WrongNumberOfArgs {
+        expected: Vec<TypeId>,
+        found: Vec<TypeId>,
+    },
+    InvalidStructMember {
+        member: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -138,6 +145,29 @@ where
     ) -> Self {
         Self {
             kind: InferenceErrorKind::ConflictingImpls { cid, a, b },
+            origin: origin.clone(),
+            meta: meta.clone(),
+        }
+    }
+
+    pub fn wrong_number_of_args(
+        expected: Vec<TypeId>,
+        found: Vec<TypeId>,
+        origin: &ConstraintOrigin,
+        meta: &M,
+    ) -> Self {
+        Self {
+            kind: InferenceErrorKind::WrongNumberOfArgs { expected, found },
+            origin: origin.clone(),
+            meta: meta.clone(),
+        }
+    }
+
+    pub fn invalid_struct_member(member: &str, origin: &ConstraintOrigin, meta: &M) -> Self {
+        Self {
+            kind: InferenceErrorKind::InvalidStructMember {
+                member: member.into(),
+            },
             origin: origin.clone(),
             meta: meta.clone(),
         }

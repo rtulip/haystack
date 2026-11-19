@@ -1,0 +1,5 @@
+include "prelude.hay"
+
+fn main() {
+    12u8 println
+}

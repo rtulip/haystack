@@ -1,0 +1,2 @@
+Error: [tests/typecheck/redefined_free_var.hay:1:10] Error: Type `T` already defined
+    [Note]: Type `T` was previously defined here: tests/typecheck/redefined_free_var.hay:1:8

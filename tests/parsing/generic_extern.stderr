@@ -1,0 +1,1 @@
+Error: [tests/parsing/generic_extern.hay:1:15] Error: Extern functions cannot be generic

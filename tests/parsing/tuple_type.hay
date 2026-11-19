@@ -1,0 +1,17 @@
+include "prelude.hay"
+
+impl Print<(u64 bool)> {
+    fn print((u64 bool)) {
+        unpack as [n b]
+        "(%llu, %s)" Str.cstr
+        (
+            (n) 
+            (b bool.to_str Str.cstr)
+        )
+        printf drop
+    }
+}
+
+fn main() {
+    123 true #(u64 bool) pack println
+}

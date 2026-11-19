@@ -1,0 +1,13 @@
+include "prelude.hay"
+
+interface Foo<T> {
+    fn foo(T)
+}
+
+impl Foo<u64> {
+    fn foo(u64) drop
+}
+
+impl<T> Foo<T> {
+    fn foo(T) drop
+}

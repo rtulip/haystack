@@ -1,0 +1,11 @@
+include "prelude.hay"
+
+impl Print<()> {
+    fn print(()) {
+        "()" Str.cstr swap printf drop
+    }
+}
+
+fn main() {
+    () println
+}

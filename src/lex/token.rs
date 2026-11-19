@@ -47,6 +47,7 @@ pub enum Marker {
     DoubleColon,
     Arrow,
     Hash,
+    Dot,
 }
 
 impl std::fmt::Display for Marker {
@@ -63,6 +64,7 @@ impl std::fmt::Display for Marker {
             Marker::DoubleColon => write!(f, "::")?,
             Marker::Arrow => write!(f, "->")?,
             Marker::Hash => write!(f, "#")?,
+            Marker::Dot => write!(f, ".")?,
         }
         write!(f, "`")
     }

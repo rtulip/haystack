@@ -1,0 +1,13 @@
+include "prelude.hay"
+
+fn read_print(&u64) {
+    |> println
+}
+
+fn main() {
+
+    12345 as [x]
+    &x read_print
+    &.x read_print
+    &mut.x read_print
+}

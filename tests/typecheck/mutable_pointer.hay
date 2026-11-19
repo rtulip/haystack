@@ -1,5 +1,5 @@
-fn foo(&mut u64: _) {}
+fn foo(&mut.u64: _) {}
 fn main() {
     12345 as [x]
-    &mut x foo
+    &mut.x foo
 }

@@ -183,6 +183,13 @@ impl<'src> Scanner<'src> {
                 self.newline();
                 self.add_token(TokenKind::Whitespace)
             }
+            '.' => {
+                if self.peek(0) == '.' && self.peek(1) == '.' {
+                    self.identifier();
+                } else {
+                    self.add_token(TokenKind::Marker(Marker::Dot))
+                }
+            },
             '"' => self.string()?,
             '\'' => self.char()?,
             '#' => self.add_token(TokenKind::Marker(Marker::Hash)),
@@ -307,6 +314,16 @@ impl<'src> Scanner<'src> {
         .contains(&self.peek(0))
             && !self.is_at_end()
         {
+            if (self.peek(0) == '.') {
+                let prefix = &self.source[self.start..self.current];
+                if let Some(kw) = keywords.get(prefix) {
+                    self.add_token(kw.clone());
+                    self.advance();
+                    self.add_token(TokenKind::Marker(Marker::Dot));
+                    return;
+                }
+            }
+
             self.advance();
         }
 

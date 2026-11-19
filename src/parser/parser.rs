@@ -117,8 +117,18 @@ impl<'src> Parser<'src> {
         let mutable = self.matches(TokenKind::Keyword(Keyword::Mut)).is_ok();
 
         if mutable {
-            self.strip_whitespace();
+            self.expect(TokenKind::Marker(Marker::Dot))?;
+            if let Ok(token) = self.matches(TokenKind::Whitespace) {
+                return Err(HayError::new(
+                    "Expected a type after `&mut.`, but found whitespace instead",
+                    token.loc,
+                ));
+            }
+
         } else {
+            // Consume an optional `.`
+            self.matches(TokenKind::Marker(Marker::Dot));
+
             if let Ok(token) = self.matches(TokenKind::Whitespace) {
                 return Err(HayError::new(
                     format!(
@@ -458,7 +468,10 @@ impl<'src> Parser<'src> {
 
         let mutable = self.matches(TokenKind::Keyword(Keyword::Mut)).is_ok();
         if mutable {
-            self.strip_whitespace();
+            self.expect(TokenKind::Marker(Marker::Dot))?;
+        } else {
+            // optional `&.x` support
+            self.matches(TokenKind::Marker(Marker::Dot));
         }
 
         let ident = self.expect(TokenKind::ident())?;

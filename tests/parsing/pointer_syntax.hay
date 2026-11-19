@@ -1,0 +1,19 @@
+include "prelude.hay"
+
+fn main() {
+
+    #&u64     drop
+    #&.u64    drop
+    #&mut.u64 drop
+
+    #&&mut.u64  drop
+    #&.&mut.u64 drop
+    #&mut.&u64  drop
+    #&mut.&.u64 drop
+
+    12345 as [x]
+    &x  drop
+    &.x drop
+    &mut.x drop
+
+}

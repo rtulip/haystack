@@ -1823,7 +1823,7 @@ where
             ExprKind::Read => {
                 let tyvar = self.fresh_type_var();
                 let t_tid = self.intern(Type::TypeVar(tyvar));
-                let t_ptr_tid = self.pointer(t_tid, Mutability::Mutable);
+                let t_ptr_tid = self.pointer(t_tid, Mutability::Const);
 
                 let func = FunctionType {
                     input: vec![t_ptr_tid],

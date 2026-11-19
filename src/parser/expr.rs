@@ -51,6 +51,8 @@ pub enum ParseExprKind<'src> {
         body: Box<ParseExpr<'src>>,
     },
     SizeOf,
+    Read,
+    Write,
 }
 
 #[derive(Debug)]

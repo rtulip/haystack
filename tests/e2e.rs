@@ -76,6 +76,11 @@ mod compilation_test {
         fn sizeof() {
             run_test("tests/functional/sizeof.hay");
         }
+
+        #[test]
+        fn pointer() {
+            run_test("tests/functional/pointer.hay");
+        }
     }
 
     mod typecheck {

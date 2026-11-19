@@ -167,9 +167,16 @@ impl<'src> Scanner<'src> {
                     self.add_token(TokenKind::Operator(Operator::Write))
                 }
             }
-            '@' => self.add_token(TokenKind::Operator(Operator::Read)),
             '&' => self.add_token(TokenKind::Operator(Operator::Ampersand)),
-            '|' => self.add_token(TokenKind::Operator(Operator::Pipe)),
+            '|' => {
+                if (self.matches('>')) {
+                    self.add_token(TokenKind::Operator(Operator::Read))
+                } else if self.matches('<') {
+                    self.add_token(TokenKind::Operator(Operator::Write))
+                } else {
+                    self.add_token(TokenKind::Operator(Operator::Pipe))
+                }
+            }
             '^' => self.add_token(TokenKind::Operator(Operator::Caret)),
             ' ' | '\t' | '\r' => self.add_token(TokenKind::Whitespace),
             '\n' => {

@@ -95,6 +95,7 @@ pub enum ExprKind<'src, Meta> {
     Match(MatchExpr<'src, Meta>),
     If(IfExpr<'src, Meta>),
     Read,
+    Write,
     While {
         condition: Vec<Expr<'src, Meta>>,
         body: Box<Expr<'src, Meta>>,
@@ -305,6 +306,14 @@ impl<'src, Meta> Expr<'src, Meta> {
         }
     }
 
+    pub fn read(meta: Meta) -> Self {
+        Expr { expr: ExprKind::Read, meta }
+    }
+
+    pub fn write(meta: Meta) -> Self {
+        Expr { expr: ExprKind::Write, meta }
+    }
+
     pub fn map_meta<M2, F: FnMut(Meta) -> M2>(self, f: &mut F) -> Expr<'src, M2> {
         let kind = match self.expr {
             ExprKind::U8(n) => ExprKind::U8(n),
@@ -360,6 +369,7 @@ impl<'src, Meta> Expr<'src, Meta> {
                 otherwise: Box::new(if_expr.otherwise.map_meta(f)),
             }),
             ExprKind::Read => ExprKind::Read,
+            ExprKind::Write => ExprKind::Write
         };
 
         Expr {

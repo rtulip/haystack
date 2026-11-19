@@ -583,6 +583,7 @@ where
             | ExprKind::Unpack
             | ExprKind::SizeOf
             | ExprKind::Read
+            | ExprKind::Write
             | ExprKind::Add(_)
             | ExprKind::Sub(_)
             | ExprKind::Mul(_)
@@ -1819,7 +1820,37 @@ where
                 let e = Expr::tuple(exprs, (expr.meta, tid));
                 Ok((e, constraints))
             }
-            ExprKind::Read => todo!(),
+            ExprKind::Read => {
+                let tyvar = self.fresh_type_var();
+                let t_tid = self.intern(Type::TypeVar(tyvar));
+                let t_ptr_tid = self.pointer(t_tid, Mutability::Mutable);
+
+                let func = FunctionType {
+                    input: vec![t_ptr_tid],
+                    output: vec![t_tid],
+                };
+
+                let constriants = self.infer_fn_call(&func, vec![], stack, &expr.meta);
+                let expr_tid = self.function(func);
+                let e = Expr::read((expr.meta, expr_tid));
+                Ok((e, constriants))
+            },
+            ExprKind::Write => {
+                let tyvar = self.fresh_type_var();
+                let t_tid = self.intern(Type::TypeVar(tyvar));
+                let t_ptr_tid = self.pointer(t_tid, Mutability::Mutable);
+
+                let func = FunctionType {
+                    input: vec![t_tid, t_ptr_tid],
+                    output: vec![],
+                };
+
+                let constriants = self.infer_fn_call(&func, vec![], stack, &expr.meta);
+                let expr_tid = self.function(func);
+                let e = Expr::write((expr.meta, expr_tid));
+                Ok((e, constriants))
+
+            },
             ExprKind::Add(tid) => {
                 let func = FunctionType {
                     input: vec![tid, tid],

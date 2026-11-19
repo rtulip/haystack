@@ -1,0 +1,32 @@
+include "prelude.hay"
+
+extern fn realloc(&mut u8 u64) -> [&mut u8]
+
+fn null() -> [&mut u8] {
+    0 (#&mut u8) cast
+}
+
+fn new<T>(Type<T>) -> [&mut T] {
+    sizeof null swap realloc #&mut T cast
+}
+
+fn free<T>(&mut T) {
+    (#&mut u8) cast
+    0 realloc drop
+}
+
+fn main() {
+
+    {
+        #u64 new as [ptr]
+        12345 ptr |<
+        ptr |> println
+
+        54321 ptr |<
+        ptr |> println
+
+        ptr 
+    }
+    free    
+
+}

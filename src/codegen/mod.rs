@@ -362,7 +362,7 @@ where
             let tid = func.expr.meta.1;
             writeln!(
                 self.w,
-                "{} {}({});",
+                "static {} {}({});",
                 Self::format_function_output(tid),
                 Self::format_var(*var),
                 Self::format_function_input(tid)
@@ -1227,7 +1227,28 @@ where
 
                 stack.extend(outvars)
             }
-            ExprKind::Read => todo!(),
+            ExprKind::Read => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() == 1);
+                assert!(output.len() == 1);
+                let (ptr_tid, ptr) = stack.pop().unwrap();
+                
+                let ident = self.next_stack_ident();
+                stack.push((output[0], ident));
+
+                writeln!(self.w, "    const {} {} = *{};", Self::format_tid(output[0]), Self::format_stack_ident(ident), Self::format_stack_ident(ptr))?;
+
+            },
+            ExprKind::Write => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() == 2);
+                assert!(output.len() == 0);
+
+                let (ptr_tid, ptr) = stack.pop().unwrap();
+                let (val_tid, val) = stack.pop().unwrap();
+
+                writeln!(self.w, "    *{} = {};", Self::format_stack_ident(ptr), Self::format_stack_ident(val))?;
+            },
         }
 
         Ok(())
@@ -1298,7 +1319,7 @@ where
 
         writeln!(
             self.w,
-            "{} {}({}{}) {{",
+            "static {} {}({}{}) {{",
             Self::format_function_output(tid),
             Self::format_var(*var),
             Self::format_function_input(tid),

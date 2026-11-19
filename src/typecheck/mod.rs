@@ -642,6 +642,9 @@ impl<'src> TypeCheck<'src> {
             ParseExprKind::Pack => Ok(Expr::pack(expr.token.clone())),
             ParseExprKind::Unpack => Ok(Expr::unpack(expr.token.clone())),
             ParseExprKind::Call => Ok(Expr::call(expr.token.clone())),
+            ParseExprKind::SizeOf => Ok(Expr::sizeof(expr.token.clone())),
+            ParseExprKind::Read => Ok(Expr::read(expr.token.clone())),
+            ParseExprKind::Write => Ok(Expr::write(expr.token.clone())),
             ParseExprKind::Intrinsic(Intrinsic::UncheckedCast) => {
                 Ok(Expr::unchecked_cast(expr.token.clone()))
             }
@@ -2264,7 +2267,10 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             | ExprKind::Pack
             | ExprKind::Unpack
             | ExprKind::Call
-            | ExprKind::UncheckedCast 
+            | ExprKind::SizeOf
+            | ExprKind::UncheckedCast
+            | ExprKind::Read 
+            | ExprKind::Write
             | ExprKind::MemberAccess { .. } => expr.expr,
 
             ExprKind::Ident(var) => {
@@ -2334,7 +2340,6 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                 then: Box::new(self.monomorphize_expr(*if_expr.then, substitutions)),
                 otherwise: Box::new(self.monomorphize_expr(*if_expr.otherwise, substitutions)),
             }),
-            ExprKind::Read => todo!(),
             ExprKind::While { condition, body } => ExprKind::While {
                 condition: condition
                     .into_iter()

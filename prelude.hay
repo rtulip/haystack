@@ -10,7 +10,9 @@ interface Cast<From Into> {
 
 impl<T> Cast<T T> {}
 impl<From Into> Cast<&From &Into> {}
+impl<From Into> Cast<&mut.From &mut.Into> {}
 impl Cast<bool u8> {}
+impl<T> Cast<u64 &mut.T>{}
 
 interface GenericExample<T> {
     fn generic_example<U>(U T) -> [U] drop

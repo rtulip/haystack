@@ -581,7 +581,9 @@ where
             | ExprKind::NamedMemberAccess { .. }
             | ExprKind::Pack
             | ExprKind::Unpack
+            | ExprKind::SizeOf
             | ExprKind::Read
+            | ExprKind::Write
             | ExprKind::Add(_)
             | ExprKind::Sub(_)
             | ExprKind::Mul(_)
@@ -1256,7 +1258,7 @@ where
         M: Debug + Clone + PartialEq + Eq,
         Lookup: MemberLookup,
     {
-        let e = match expr.expr {
+        match expr.expr {
             ExprKind::U8(val) => {
                 let u8_tid = self.intern(Type::u8());
                 let func = FunctionType {
@@ -1441,6 +1443,25 @@ where
 
                 let expr_tid = self.function(unpack_fn);
                 let e = Expr::unpack((expr.meta, expr_tid));
+                Ok((e, constraints))
+            }
+            ExprKind::SizeOf => {
+                let u64_tid = self.intern(Type::u64());
+
+                let tyvar = self.fresh_type_var();
+                let t_tid = self.intern(Type::TypeVar(tyvar));
+                let ty_t_tid = self.metatype(env, t_tid, None, &expr.meta).map_err(|kind| todo!())?;
+
+                let func = FunctionType {
+                    input: vec![ty_t_tid],
+                    output: vec![u64_tid]
+                };
+
+                
+
+                let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
+                let expr_tid = self.function(func);
+                let e = Expr::sizeof((expr.meta, expr_tid));
                 Ok((e, constraints))
             }
             ExprKind::NamedMemberAccess { var, member } => {
@@ -1799,7 +1820,37 @@ where
                 let e = Expr::tuple(exprs, (expr.meta, tid));
                 Ok((e, constraints))
             }
-            ExprKind::Read => todo!(),
+            ExprKind::Read => {
+                let tyvar = self.fresh_type_var();
+                let t_tid = self.intern(Type::TypeVar(tyvar));
+                let t_ptr_tid = self.pointer(t_tid, Mutability::Const);
+
+                let func = FunctionType {
+                    input: vec![t_ptr_tid],
+                    output: vec![t_tid],
+                };
+
+                let constriants = self.infer_fn_call(&func, vec![], stack, &expr.meta);
+                let expr_tid = self.function(func);
+                let e = Expr::read((expr.meta, expr_tid));
+                Ok((e, constriants))
+            },
+            ExprKind::Write => {
+                let tyvar = self.fresh_type_var();
+                let t_tid = self.intern(Type::TypeVar(tyvar));
+                let t_ptr_tid = self.pointer(t_tid, Mutability::Mutable);
+
+                let func = FunctionType {
+                    input: vec![t_tid, t_ptr_tid],
+                    output: vec![],
+                };
+
+                let constriants = self.infer_fn_call(&func, vec![], stack, &expr.meta);
+                let expr_tid = self.function(func);
+                let e = Expr::write((expr.meta, expr_tid));
+                Ok((e, constriants))
+
+            },
             ExprKind::Add(tid) => {
                 let func = FunctionType {
                     input: vec![tid, tid],
@@ -1847,9 +1898,7 @@ where
                 let e = Expr::lt(tid, (expr.meta.clone(), self.function(func)));
                 Ok((e, constraints))
             }
-        };
-
-        e
+        }
     }
 
     pub fn normalize_ty(

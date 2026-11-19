@@ -83,6 +83,7 @@ pub enum ExprKind<'src, Meta> {
     LessThan(TypeId),
     Pack,
     Unpack,
+    SizeOf,
     NamedMemberAccess {
         var: Var,
         member: &'src str,
@@ -94,6 +95,7 @@ pub enum ExprKind<'src, Meta> {
     Match(MatchExpr<'src, Meta>),
     If(IfExpr<'src, Meta>),
     Read,
+    Write,
     While {
         condition: Vec<Expr<'src, Meta>>,
         body: Box<Expr<'src, Meta>>,
@@ -189,6 +191,13 @@ impl<'src, Meta> Expr<'src, Meta> {
     pub fn call(meta: Meta) -> Expr<'src, Meta> {
         Expr {
             expr: ExprKind::Call,
+            meta,
+        }
+    }
+
+    pub fn sizeof(meta: Meta) -> Expr<'src, Meta> {
+        Expr {
+            expr: ExprKind::SizeOf,
             meta,
         }
     }
@@ -297,6 +306,14 @@ impl<'src, Meta> Expr<'src, Meta> {
         }
     }
 
+    pub fn read(meta: Meta) -> Self {
+        Expr { expr: ExprKind::Read, meta }
+    }
+
+    pub fn write(meta: Meta) -> Self {
+        Expr { expr: ExprKind::Write, meta }
+    }
+
     pub fn map_meta<M2, F: FnMut(Meta) -> M2>(self, f: &mut F) -> Expr<'src, M2> {
         let kind = match self.expr {
             ExprKind::U8(n) => ExprKind::U8(n),
@@ -323,6 +340,7 @@ impl<'src, Meta> Expr<'src, Meta> {
             ExprKind::LessThan(tid) => ExprKind::LessThan(tid),
             ExprKind::Pack => ExprKind::Pack,
             ExprKind::Unpack => ExprKind::Unpack,
+            ExprKind::SizeOf => ExprKind::SizeOf,
             ExprKind::NamedMemberAccess { var, member } => {
                 ExprKind::NamedMemberAccess { var, member }
             }
@@ -351,6 +369,7 @@ impl<'src, Meta> Expr<'src, Meta> {
                 otherwise: Box::new(if_expr.otherwise.map_meta(f)),
             }),
             ExprKind::Read => ExprKind::Read,
+            ExprKind::Write => ExprKind::Write
         };
 
         Expr {

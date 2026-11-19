@@ -1,0 +1,16 @@
+include "prelude.hay"
+
+struct Pair<T> {
+    T: left
+    T: right
+}
+
+fn main() {
+    #u64             sizeof println
+    #bool            sizeof println
+    #Str             sizeof println
+    #Pair<u64>       sizeof println
+    #Pair<Str>       sizeof println
+    #Option<u64>     sizeof println
+    #Result<u64 Str> sizeof println
+}

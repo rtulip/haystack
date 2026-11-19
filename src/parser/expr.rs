@@ -50,6 +50,9 @@ pub enum ParseExprKind<'src> {
         condition: Vec<ParseExpr<'src>>,
         body: Box<ParseExpr<'src>>,
     },
+    SizeOf,
+    Read,
+    Write,
 }
 
 #[derive(Debug)]

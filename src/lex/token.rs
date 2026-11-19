@@ -47,6 +47,7 @@ pub enum Marker {
     DoubleColon,
     Arrow,
     Hash,
+    Dot,
 }
 
 impl std::fmt::Display for Marker {
@@ -63,6 +64,7 @@ impl std::fmt::Display for Marker {
             Marker::DoubleColon => write!(f, "::")?,
             Marker::Arrow => write!(f, "->")?,
             Marker::Hash => write!(f, "#")?,
+            Marker::Dot => write!(f, ".")?,
         }
         write!(f, "`")
     }
@@ -142,8 +144,8 @@ impl std::fmt::Display for Operator {
             Operator::Equal => write!(f, "==")?,
             Operator::BangEqual => write!(f, "!=")?,
             Operator::Modulo => write!(f, "%")?,
-            Operator::Read => write!(f, "@")?,
-            Operator::Write => write!(f, "!")?,
+            Operator::Read => write!(f, "|>")?,
+            Operator::Write => write!(f, "|<")?,
             Operator::Ampersand => write!(f, "&")?,
             Operator::Pipe => write!(f, "|")?,
             Operator::Caret => write!(f, "^")?,
@@ -214,7 +216,7 @@ impl std::fmt::Display for Keyword {
             Keyword::Struct => write!(f, "struct")?,
             Keyword::Enum => write!(f, "enum")?,
             Keyword::Include => write!(f, "include")?,
-            Keyword::SizeOf => write!(f, "sizeOf")?,
+            Keyword::SizeOf => write!(f, "sizeof")?,
             Keyword::Impl => write!(f, "impl")?,
             Keyword::Mut => write!(f, "mut")?,
             Keyword::Interface => write!(f, "interface")?,
@@ -425,8 +427,8 @@ mod tests {
         assert_eq!(format!("{}", Operator::Equal), format!("`==`"));
         assert_eq!(format!("{}", Operator::BangEqual), format!("`!=`"));
         assert_eq!(format!("{}", Operator::Modulo), format!("`%`"));
-        assert_eq!(format!("{}", Operator::Read), format!("`@`"));
-        assert_eq!(format!("{}", Operator::Write), format!("`!`"));
+        assert_eq!(format!("{}", Operator::Read), format!("`|>`"));
+        assert_eq!(format!("{}", Operator::Write), format!("`|<`"));
     }
 
     #[test]

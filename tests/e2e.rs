@@ -71,6 +71,21 @@ mod compilation_test {
         fn fib() {
             run_test("tests/functional/fib.hay");
         }
+
+        #[test]
+        fn sizeof() {
+            run_test("tests/functional/sizeof.hay");
+        }
+
+        #[test]
+        fn pointer() {
+            run_test("tests/functional/pointer.hay");
+        }
+
+        #[test]
+        fn pointer_subtyping() {
+            run_test("tests/functional/pointer_subtyping.hay");
+        }
     }
 
     mod typecheck {
@@ -256,6 +271,11 @@ mod compilation_test {
         #[test]
         fn generic_extern() {
             run_test("tests/parsing/generic_extern.hay");
+        }
+
+        #[test]
+        fn pointer_syntax() {
+            run_test("tests/parsing/pointer_syntax.hay");
         }
     }
 }

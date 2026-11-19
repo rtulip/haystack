@@ -642,6 +642,7 @@ impl<'src> TypeCheck<'src> {
             ParseExprKind::Pack => Ok(Expr::pack(expr.token.clone())),
             ParseExprKind::Unpack => Ok(Expr::unpack(expr.token.clone())),
             ParseExprKind::Call => Ok(Expr::call(expr.token.clone())),
+            ParseExprKind::SizeOf => Ok(Expr::sizeof(expr.token.clone())),
             ParseExprKind::Intrinsic(Intrinsic::UncheckedCast) => {
                 Ok(Expr::unchecked_cast(expr.token.clone()))
             }
@@ -2264,6 +2265,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             | ExprKind::Pack
             | ExprKind::Unpack
             | ExprKind::Call
+            | ExprKind::SizeOf
             | ExprKind::UncheckedCast 
             | ExprKind::MemberAccess { .. } => expr.expr,
 

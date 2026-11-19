@@ -214,7 +214,7 @@ impl std::fmt::Display for Keyword {
             Keyword::Struct => write!(f, "struct")?,
             Keyword::Enum => write!(f, "enum")?,
             Keyword::Include => write!(f, "include")?,
-            Keyword::SizeOf => write!(f, "sizeOf")?,
+            Keyword::SizeOf => write!(f, "sizeof")?,
             Keyword::Impl => write!(f, "impl")?,
             Keyword::Mut => write!(f, "mut")?,
             Keyword::Interface => write!(f, "interface")?,

@@ -83,6 +83,7 @@ pub enum ExprKind<'src, Meta> {
     LessThan(TypeId),
     Pack,
     Unpack,
+    SizeOf,
     NamedMemberAccess {
         var: Var,
         member: &'src str,
@@ -189,6 +190,13 @@ impl<'src, Meta> Expr<'src, Meta> {
     pub fn call(meta: Meta) -> Expr<'src, Meta> {
         Expr {
             expr: ExprKind::Call,
+            meta,
+        }
+    }
+
+    pub fn sizeof(meta: Meta) -> Expr<'src, Meta> {
+        Expr {
+            expr: ExprKind::SizeOf,
             meta,
         }
     }
@@ -323,6 +331,7 @@ impl<'src, Meta> Expr<'src, Meta> {
             ExprKind::LessThan(tid) => ExprKind::LessThan(tid),
             ExprKind::Pack => ExprKind::Pack,
             ExprKind::Unpack => ExprKind::Unpack,
+            ExprKind::SizeOf => ExprKind::SizeOf,
             ExprKind::NamedMemberAccess { var, member } => {
                 ExprKind::NamedMemberAccess { var, member }
             }

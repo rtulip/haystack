@@ -71,6 +71,11 @@ mod compilation_test {
         fn fib() {
             run_test("tests/functional/fib.hay");
         }
+
+        #[test]
+        fn sizeof() {
+            run_test("tests/functional/sizeof.hay");
+        }
     }
 
     mod typecheck {

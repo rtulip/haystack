@@ -659,6 +659,7 @@ where
     ) -> std::fmt::Result {
         writeln!(self.w, "    // {}", expr.meta.0)?;
         let tid = expr.meta.1;
+
         match &expr.expr {
             ExprKind::U8(n) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
@@ -858,16 +859,19 @@ where
                 let (tid, ident) = stack.pop().unwrap();
                 self.generate_haystack_function_call(tid, Self::format_stack_ident(ident), stack)?;
             }
-            ExprKind::Type(tid) => {
+            ExprKind::Type(inner_tid) => {
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(input.len() == 0);
+                assert!(output.len() == 1);
                 let ident = self.next_stack_ident();
                 // TODO: metatypes can't be handled quite like normal tids.
-                stack.push((expr.meta.1, ident));
+                stack.push((output[0], ident));
                 writeln!(
                     self.w,
                     "    const {} {} = {};",
                     Self::format_metatype_tid(),
                     Self::format_stack_ident(ident),
-                    Self::format_metatype(*tid)
+                    Self::format_metatype(*inner_tid)
                 )?
             }
             ExprKind::UncheckedCast => {
@@ -1084,6 +1088,27 @@ where
                         Self::format_stack_ident(parent)
                     )?;
                 }
+            }
+            ExprKind::SizeOf => {
+                let FunctionType {input, output} = self.get_stack_effect(tid);
+                assert!(input.len() == 1);
+                assert!(output.len() == 1);
+
+                let (ty_tid, _) = stack.pop().unwrap();
+                let Type::Type(inner_tid) = self.typestore.get(ty_tid).unwrap() else {
+                    todo!("{}", (*self.typestore).fmt(ty_tid));
+                };
+                let inner_tid = *inner_tid;
+
+                let ident = self.next_stack_ident();
+                stack.push((output[0], ident));
+
+                writeln!(self.w, "    const {} {} = sizeof({});",
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(ident),
+                    Self::format_tid(inner_tid),
+                )?;
+
             }
             ExprKind::NamedMemberAccess { var, member } => todo!(),
             ExprKind::MemberAccess { var, member } => {

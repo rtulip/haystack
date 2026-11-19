@@ -714,6 +714,14 @@ impl<'src> Parser<'src> {
         })
     }
 
+    fn parse_sizeof_expr(&mut self) -> ParseExpr<'src> {
+        let token = self.matches(TokenKind::Keyword(Keyword::SizeOf)).unwrap();
+        ParseExpr {
+            kind: ParseExprKind::SizeOf,
+            token,
+        }
+    }
+
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
         self.strip_whitespace();
         match &self.peek().kind {
@@ -728,6 +736,7 @@ impl<'src> Parser<'src> {
             TokenKind::Keyword(Keyword::Match) => self.parse_match_expr(),
             TokenKind::Keyword(Keyword::Unpack) => Ok(self.parse_unpack_expr()),
             TokenKind::Keyword(Keyword::While) => self.parse_while_expr(),
+            TokenKind::Keyword(Keyword::SizeOf) => Ok(self.parse_sizeof_expr()),
             TokenKind::Keyword(kw) => todo!("Parse {kw} expr"),
             TokenKind::Operator(Operator::Ampersand) => self.parse_take_ref_expr(),
             TokenKind::Operator(_) => Ok(self.parse_operator_expr()),

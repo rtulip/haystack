@@ -923,7 +923,6 @@ where
                 let right = stack.pop().unwrap();
                 let left = stack.pop().unwrap();
 
-                assert_eq!(&vec![right.0, left.0], &input);
                 writeln!(
                     self.w,
                     "    const {} {} = {} + {};",

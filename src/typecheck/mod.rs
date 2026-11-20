@@ -650,7 +650,24 @@ impl<'src> TypeCheck<'src> {
                 Ok(Expr::unchecked_cast(expr.token.clone()))
             }
             ParseExprKind::Intrinsic(Intrinsic::U64Add) => {
-                let tid = self.typestore.intern(Type::u64());
+                let u64_tid = self.typestore.intern(Type::u64());
+                let tid = self.typestore.function(FunctionType { input: vec![u64_tid, u64_tid], output: vec![u64_tid] });
+                Ok(Expr::add(tid, expr.token.clone()))
+            }
+            ParseExprKind::Intrinsic(Intrinsic::PtrAdd) => {
+                let t_tyvar = self.typestore.fresh_type_var();
+                let t_tid = self.typestore.intern(Type::TypeVar(t_tyvar));
+                let t_ptr_tid = self.typestore.pointer(t_tid, Mutability::Const);
+                let u64_tid = self.typestore.intern(Type::u64());
+                let tid = self.typestore.function(FunctionType { input: vec![t_ptr_tid, u64_tid], output: vec![t_ptr_tid] });
+                Ok(Expr::add(tid, expr.token.clone()))
+            }
+            ParseExprKind::Intrinsic(Intrinsic::PtrMutAdd) => {
+                let t_tyvar = self.typestore.fresh_type_var();
+                let t_tid = self.typestore.intern(Type::TypeVar(t_tyvar));
+                let t_ptr_tid = self.typestore.pointer(t_tid, Mutability::Mutable);
+                let u64_tid = self.typestore.intern(Type::u64());
+                let tid = self.typestore.function(FunctionType { input: vec![t_ptr_tid, u64_tid], output: vec![t_ptr_tid] });
                 Ok(Expr::add(tid, expr.token.clone()))
             }
             ParseExprKind::Intrinsic(Intrinsic::U64Sub) => {
@@ -1787,6 +1804,7 @@ impl<'src> TypeCheck<'src> {
 
         self.scope.new_scope();
         let parent_params = self.rebind_params(&iface_impl.name, &iface_impl.params)?;
+        self.typestore.solidify_vars(&parent_params).map_err(|_| todo!())?;
         let mut parent_args = vec![];
         for ty in &iface_impl.args {
             parent_args.push(self.get_tid(ty)?);

@@ -775,8 +775,7 @@ where
                 let ident = self.next_stack_ident();
                 writeln!(
                     self.w,
-                    "    {}{}* {} = &{};",
-                    Self::format_mutability(*mutability),
+                    "    {} {} = &{};",
                     Self::format_tid(output[0]),
                     Self::format_stack_ident(ident),
                     Self::format_var(*var)
@@ -1442,9 +1441,23 @@ where
         result
     }
 
-    pub fn generate_entry(&mut self, var: Var) -> std::fmt::Result {
-        writeln!(self.w, "int main() {{")?;
-        writeln!(self.w, "    {}();", Self::format_var(var))?;
+    pub fn generate_entry(&mut self, var: Var, tid: TypeId) -> std::fmt::Result {
+        
+        let argc = self.next_stack_ident();
+        let argv = self.next_stack_ident();
+
+        let mut stack = vec![];
+
+        writeln!(self.w, "int main(int {}, const char** {}) {{", Self::format_stack_ident(argc), Self::format_stack_ident(argv))?;
+        
+        let u64_tid = self.typestore.intern(Type::u64());
+        let char_tid = self.typestore.intern(Type::char());
+        let char_ptr_tid = self.typestore.pointer(char_tid, Mutability::Const);
+        let char_ptr_ptr_tid = self.typestore.pointer(char_ptr_tid, Mutability::Const);
+        stack.push((u64_tid, argc));
+        stack.push((char_ptr_ptr_tid, argv));
+
+        self.generate_function_call(tid, &var, &mut stack)?;
         writeln!(self.w, "}}")
     }
 
@@ -1454,7 +1467,7 @@ where
         types: &'a Vec<TypeId>,
         fns: &'a [(Var, TypedFunction<'src>)],
         extern_fns: &'a [(Var, &'src str, TypeId)],
-        entry: Var,
+        entry: (Var, TypeId),
     ) -> std::fmt::Result {
         let types = Self::order_types(typestore, types);
         let mut gen = CCodeGen {
@@ -1481,7 +1494,7 @@ where
         writeln!(&mut gen.w);
         gen.declare_functions()?;
         writeln!(&mut gen.w);
-        gen.generate_entry(entry)?;
+        gen.generate_entry(entry.0, entry.1)?;
 
         Ok(())
     }

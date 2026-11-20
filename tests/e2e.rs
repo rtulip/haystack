@@ -50,8 +50,8 @@ mod compilation_test {
         let stderr = String::from_utf8(output.stderr).unwrap();
         let exitcode = output.status.code().unwrap();
 
-        assert_snapshot(&path.with_extension("stdout"), &stdout);
         assert_snapshot(&path.with_extension("stderr"), &stderr);
+        assert_snapshot(&path.with_extension("stdout"), &stdout);
         assert_snapshot(&path.with_extension("exitcode"), &exitcode.to_string());
     }
 

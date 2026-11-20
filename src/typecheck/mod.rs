@@ -2490,7 +2490,8 @@ impl<'src> TypedWorld<'src> {
         typestore: &mut TypeStore<Token<'src>>,
         env: &mut Environment,
         entry: Var,
-    ) -> (Vec<TypeId>, Vec<(Var, TypedFunction<'src>)>, Var) {
+    ) -> (Vec<TypeId>, Vec<(Var, TypedFunction<'src>)>, (Var, TypeId)) {
+        let entry_tid = env.get_var(&entry).unwrap().tid;
         let mut ctx = MonoContext::new(&self, env, typestore);
 
         // Register the entry point with no generic arguments.
@@ -2498,7 +2499,7 @@ impl<'src> TypedWorld<'src> {
             var: entry,
             args: vec![],
         });
-
+        
         // Process each requested specialization.
         while let Some(instance) = ctx.pending.pop() {
             ctx.monomorphize_function(instance);
@@ -2507,7 +2508,7 @@ impl<'src> TypedWorld<'src> {
         let mut types = Vec::from_iter(ctx.types.into_iter());
         types.sort();
 
-        (types, ctx.functions, entry)
+        (types, ctx.functions, (entry, entry_tid))
     }
 }
 

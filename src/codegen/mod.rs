@@ -775,8 +775,7 @@ where
                 let ident = self.next_stack_ident();
                 writeln!(
                     self.w,
-                    "    {}{}* {} = &{};",
-                    Self::format_mutability(*mutability),
+                    "    {} {} = &{};",
                     Self::format_tid(output[0]),
                     Self::format_stack_ident(ident),
                     Self::format_var(*var)

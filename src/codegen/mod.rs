@@ -722,6 +722,22 @@ where
 
                 stack.push((output[0], ident));
             }
+            ExprKind::CString(s) => {
+                let ident = self.next_stack_ident();
+
+                let FunctionType { input, output } = self.get_stack_effect(tid);
+                assert!(output.len() == 1);
+                assert!(input.len() == 0);
+
+                writeln!(
+                    self.w,
+                    "    const {} {} = \"{s}\";",
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(ident)
+                )?;
+
+                stack.push((output[0], ident));
+            }
             ExprKind::Char(c) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 0);

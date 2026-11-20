@@ -619,6 +619,7 @@ impl<'src> TypeCheck<'src> {
                 Literal::Bool(b) => Ok(Expr::bool(*b, expr.token.clone())),
                 Literal::Char(c) => Ok(Expr::char(*c, expr.token.clone())),
                 Literal::String(s) => Ok(Expr::string(s, expr.token.clone())),
+                Literal::CString(s) => Ok(Expr::cstring(s, expr.token.clone())),
                 Literal::U8(n) => Ok(Expr::u8(*n, expr.token.clone())),
                 Literal::U64(n) => Ok(Expr::u64(*n, expr.token.clone())),
             },
@@ -2262,6 +2263,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             | ExprKind::U64(_)
             | ExprKind::Bool(_)
             | ExprKind::String(_)
+            | ExprKind::CString(_)
             | ExprKind::Char(_)
             | ExprKind::Bind(_)
             | ExprKind::Pack

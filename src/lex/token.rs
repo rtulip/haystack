@@ -279,6 +279,7 @@ pub enum Literal<'src> {
     Bool(bool),
     Char(&'src str),
     String(&'src str),
+    CString(&'src str),
     U8(u8),
     U64(u64),
 }
@@ -320,6 +321,7 @@ impl<'src> std::fmt::Display for TokenKind<'src> {
                 Literal::Bool(_) => write!(f, "`bool`"),
                 Literal::Char(_) => write!(f, "`char`"),
                 Literal::String(_) => write!(f, "`Str`"),
+                Literal::CString(_) => write!(f, "`CStr`"),
                 Literal::U64(_) => write!(f, "`u64`"),
                 Literal::U8(_) => write!(f, "`u8`"),
             },
@@ -391,6 +393,7 @@ impl<'src> std::fmt::Display for Token<'src> {
             TokenKind::Literal(literal) => match literal {
                 Literal::Bool(b) => write!(f, "{b}"),
                 Literal::String(_) => write!(f, "{}", self.lexeme),
+                Literal::CString(_) => write!(f, "{} (c)", self.lexeme),
                 Literal::Char(_) => write!(f, "{}", self.lexeme),
                 Literal::U64(u) => write!(f, "{u}"),
                 Literal::U8(u) => write!(f, "{u}u8"),

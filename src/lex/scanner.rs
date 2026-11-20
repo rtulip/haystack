@@ -228,7 +228,11 @@ impl<'src> Scanner<'src> {
         self.advance();
 
         let s = &self.source[self.start + 1..self.current - 1];
-        self.add_token(TokenKind::Literal(Literal::String(s)));
+        if self.matches('c') {
+            self.add_token(TokenKind::Literal(Literal::CString(s)));
+        } else {
+            self.add_token(TokenKind::Literal(Literal::String(s)));
+        }
 
         Ok(())
     }

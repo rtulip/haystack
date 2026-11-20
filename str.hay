@@ -9,9 +9,10 @@ fn bool.to_str(bool) -> [Str] if { "true" } else { "false" }
 
 impl Print<Str> {
     fn print(Str: s) { 
-        "%.*s" Str.cstr
-        (s::len s::data)
-        printf as [_]
+        "%.*s"c (s::len s::data) printf drop
+    }
+    fn println(Str: s) {
+        "%.*s\n"c (s::len s::data) printf drop
     }
 }
 
@@ -23,19 +24,29 @@ impl Print<bool> {
 
 impl Print<u64> {
     fn print(u64) {
-        "%llu" Str.cstr swap printf drop
+        "%lu"c swap printf drop
+    }
+    fn println(u64) {
+        "%lu\n"c swap printf drop
     }
 }
 
 impl Print<u8> {
     fn print(u8) {
-        "%u" Str.cstr swap printf drop
+        "%u"c swap printf drop
+    }
+
+    fn println(u8) {
+        "%u\n"c swap printf drop
     }
 }
 
 impl Print<char> {
     fn print(char){
-        "%c" Str.cstr swap printf drop
+        "%c"c swap printf drop
+    }
+
+    fn println(char){
+        "%c\n"c swap printf drop
     }
 }
-

@@ -1,0 +1,13 @@
+include "prelude.hay"
+
+fn main() {
+    1 as [x]
+    x println // prints 1
+    {
+        "Hello World!" as [x] // Aliasing doesn't care about types
+        x println // prints Hello World!
+    }
+    x println // prints 1
+    true as [x]
+    x println // prints true
+}

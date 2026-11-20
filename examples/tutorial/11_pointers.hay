@@ -1,0 +1,38 @@
+include "prelude.hay"
+
+fn ptr_read<T>(&T) -> [T] |>
+fn ptr_write<T>(T &mut.T) |<
+
+struct Array<T> {
+    u64: len
+    &mut.T: data
+}
+
+fn Array.memset<T>(T: value Array<T>: range) {
+    
+    0 while dup range::len < do {
+        as [i] 
+        value (range::data i +) |<
+        i 1 + 
+    } drop
+
+}
+
+fn foo<T>(&.&mut.&.&mut.&.T) drop
+
+fn main() {
+    "Hello World" as [s]
+    0 while dup s::len < do {
+        as [i]
+        s::data i + |> println
+        i 1 +
+    } 
+    drop
+
+    &s |> println    
+
+    1 &mut.s #Array pack as [arr]
+    "Pointers!" arr Array.memset
+
+    s println
+}

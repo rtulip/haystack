@@ -1,0 +1,18 @@
+include "prelude.hay"
+
+fn my_add(u64: left u64: right) -> [u64] {
+    left right +
+}
+
+fn my_add2(u64 u64) -> [u64] {
+    as [left right]
+    left right +
+}
+
+fn my_add3(u64 u64) -> [u64] { + }
+
+fn my_add4(u64 u64) -> [u64] +
+
+fn push_nums() -> [u64 u64 u64] { 1 2 3 }
+
+fn push_nums_bad() -> [u64 u64 u64] { 1 true 3 }

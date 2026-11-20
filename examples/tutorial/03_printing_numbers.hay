@@ -1,0 +1,10 @@
+include "prelude.hay"
+
+fn main() {
+    1 2 3 4 5
+    println
+    println
+    println
+    println
+    println
+}

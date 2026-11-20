@@ -50,3 +50,9 @@ impl Print<char> {
         "%c\n"c swap printf drop
     }
 }
+
+impl Print<()> {
+    fn print(()) {
+        "()"c swap printf drop
+    }
+}

@@ -1,0 +1,27 @@
+include "prelude.hay"
+
+enum Colour {
+    Red
+    Green
+    Blue
+}
+
+fn Colour.Red() -> [Colour::Red] { #Colour::Red pack }
+fn Colour.Blue() -> [Colour::Blue] { #Colour::Red pack } 
+
+fn Colour.Green() -> [Colour] { #Colour::Green pack }
+fn Colour.take(Colour) drop
+
+fn main() {
+    #Colour::Red pack Colour.take
+}
+
+enum WebEvent {
+    PageLoad         // Enum like with a empty tuple as data 
+    PageUnload       // (more on tuples in the next chapter)
+    char: KeyPress   // Just a `char` type 
+    Str: Paste       // Just a `String`
+    (u64 u64): Click // Tuple with an x and y coordinate.
+}
+
+fn Webpage.KeyPress(char) -> [WebEvent::KeyPress] { #Webevent::KeyPress pack }

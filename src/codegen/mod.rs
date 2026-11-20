@@ -1026,7 +1026,6 @@ where
                 input.pop();
 
                 match self.typestore.get(output[0]).unwrap().clone() {
-                    Type::Struct(struct_type) => todo!(),
                     Type::Variant(variant) => {
                         assert!(input.len() <= 1);
 
@@ -1061,7 +1060,7 @@ where
 
                         stack.push((output[0], ident));
                     }
-                    Type::Tuple(_) => {
+                    Type::Struct(_) | Type::Tuple(_) => {
                         let ident = self.next_stack_ident();
                         writeln!(
                             self.w,

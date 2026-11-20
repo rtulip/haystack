@@ -1,0 +1,81 @@
+include "prelude.hay"
+
+enum Message {
+    Quit
+    Str       : Write
+    (u8 u8 u8): RGB
+    (u64 u64) : Move // (x y)
+}
+
+fn Message.Quit() -> [Message::Quit] {
+    #Message::Quit pack
+}
+
+fn Message.Write(Str) -> [Message::Write] {
+    #Message::Write pack
+}
+
+fn Message.RGB(u8 u8 u8) -> [Message::RGB] {
+    #(u8 u8 u8) pack
+    #Message::RGB pack
+}
+
+fn Message.Move(u64 u64) -> [Message::Move] {
+    #(u64 u64) pack
+    #Message::Move pack
+}
+
+// fn Message.handle(Message) {
+//     match {
+//         Message::Move { drop "This is a Message::Move" }
+//         Message::RGB  { drop "This is a Message::RGB"  }
+//         else  "Either Message::Quit or Message::Write"
+//     }
+//     println
+// }
+
+fn Message.handle(Message) match {
+    Message::Move {
+        unpack as [x y]
+        "Move x: " print x println
+        "Move y: " print y println
+    }
+    Message::RGB {
+        unpack as [r g b]
+        "(R: " print r print
+        ", G: " print g print
+        ", B: " print b print
+        ")"     println
+    }
+    Message::Write {
+        "Write(" print 
+                    print 
+        ")" println
+    }
+    Message::Quit {
+        // Nothing is pushed since Message::Quit has no data 
+        "Quit" println
+    }
+    // `else` not needed, since all 4 cases are handled.
+}
+
+
+fn main() {
+                   Message.Quit  Message.handle // prints `Quit`
+    "Hello World"  Message.Write Message.handle // prints `Write(Hello World)`
+    0xFFu8 0u8 0u8 Message.RGB   Message.handle // prints `(R: 255, G: 0, B: 0)
+    5 10           Message.Move  Message.handle // prints `Move x: 5
+                                                //         Move y: 10`
+}
+
+fn process<T>(T) drop
+fn fallback() {  }
+fn handle_error<E>(E) drop
+
+fn example<T E>(Result<Option<T> E>) match {
+    Result::Ok match {
+        Option::Some process
+        Option::None fallback
+    }
+    Result::Err handle_error
+}

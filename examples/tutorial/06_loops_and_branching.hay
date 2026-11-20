@@ -1,0 +1,20 @@
+include "prelude.hay"
+
+fn fib(u64: n) -> [u64] {
+    n 0 == if {
+        1
+    } else n 1 == if {
+        1
+    } else {
+        n 1 - fib
+        n 2 - fib +
+    }
+}
+
+fn main() {
+    0 while dup 20 < do {
+        as [i]        // bind the counter to i
+        i fib println // calculate the ith Fibonacci number and print it 
+        i 1 +         // push i + 1 back onto the stack. This replaces the counter
+    } drop
+}

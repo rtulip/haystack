@@ -1223,7 +1223,12 @@ where
         M: Debug + Clone + PartialEq + Eq,
     {
         match self.get(tid).expect("TypeIds should be resolvable") {
-            Type::Struct(_) => todo!(),
+            Type::Struct(s) => {
+                let s = s.clone();
+                let members = self.get_struct_members(s);
+                Ok(FunctionType { input: vec![tid], output: members })
+
+            },
             Type::Variant(_) => todo!(),
             Type::Tuple(tids) => Ok(FunctionType {
                 input: vec![tid],

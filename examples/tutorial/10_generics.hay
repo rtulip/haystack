@@ -1,0 +1,16 @@
+include "prelude.hay"
+
+struct Pair<T> {
+    T: first
+    T: second
+}
+
+fn main() {
+    // uncomment to see the error.
+    // 1 "Hello" #Pair pack drop
+
+    12345 #Option::Some pack #Option hint println
+    #Option<u64>::None  pack #Option hint println
+
+    Option.None #Option<u64> hint println
+}

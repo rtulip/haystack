@@ -27,11 +27,11 @@ enum Option<T> {
     None
 }
 
-fn Some<T>(T) -> [Option<T>::Some] {
+fn Option.Some<T>(T) -> [Option<T>] {
     #Option::Some pack
 }
 
-fn None<T>() -> [Option<T>::None] {
+fn Option.None<T>() -> [Option<T>] {
     #Option::None pack
 }
 

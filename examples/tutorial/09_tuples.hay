@@ -1,0 +1,16 @@
+include "prelude.hay"
+
+fn main() {
+    (
+        "This is inside a tuple!" println
+        2 2 +
+    ) println
+
+    () println
+    #() pack println
+
+    (1 2 3) unpack
+    println // prints 3
+    println // prints 2
+    println // prints 1
+}

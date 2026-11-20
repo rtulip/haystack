@@ -75,6 +75,7 @@ struct SymbolTable<'src> {
     types: HashMap<TypeId, TypeInfo<'src>>,
     vars: HashMap<Var, VarInfo<'src>>,
     enums: HashMap<EnumId, Token<'src>>,
+    structs: HashMap<StructId, Token<'src>>,
     interfaces: HashMap<TypeClassId, Token<'src>>,
     variants: HashMap<(EnumId, usize), Token<'src>>,
     members: HashMap<(StructId, usize), Token<'src>>,
@@ -116,6 +117,7 @@ impl<'src> SymbolTable<'src> {
             types,
             vars: HashMap::new(),
             enums: HashMap::new(),
+            structs: HashMap::new(),
             variants: HashMap::new(),
             members: HashMap::new(),
             interfaces: HashMap::new(),
@@ -146,6 +148,10 @@ impl<'src> SymbolTable<'src> {
         token: Token<'src>,
     ) -> Option<Token<'src>> {
         self.members.insert((sid, member), token)
+    }
+
+    pub fn insert_struct(&mut self, sid: StructId, token: Token<'src>) -> Option<Token<'src>> {
+        self.structs.insert(sid, token)
     }
 
     pub fn insert_var(&mut self, var: Var, info: VarInfo<'src>) -> Option<VarInfo<'src>> {
@@ -852,7 +858,21 @@ impl<'src> TypeCheck<'src> {
                     format!("&mut {}", self.format_tid(p.tid))
                 }
             }
-            Type::Struct(_) => todo!(),
+            Type::Struct(s) => {
+
+                let args = if s.args.is_empty() {
+                    String::new()
+                } else {
+                    self.format_stack(&s.args, '<', '>')
+                };
+
+                let Some(token) = self.symbols.structs.get(&s.sid) else {
+                    todo!();
+                };
+
+                format!("{}{args}", token.lexeme)
+
+            },
             Type::Enum(e) => self.format_enum(e.eid, e.args, None),
             Type::Tuple(tids) => self.format_stack(&tids, '(', ')'),
             Type::Variant(v) => self.format_enum(v.eid, v.args, Some(v.variant)),
@@ -1365,6 +1385,10 @@ impl<'src> TypeCheck<'src> {
             if let Some(_) = self.symbols.insert_member(sid, i, ident.clone()) {
                 todo!("Duplicate member idents")
             }
+        }
+
+        if let Some(_) = self.symbols.insert_struct(sid, s.name.clone()) {
+            todo!()
         }
 
         Ok(())
@@ -2510,6 +2534,8 @@ mod tests {
         },
     };
 
+    use super::typ::type_id::StructId;
+
     const META: () = ();
     const ORIGIN: ConstraintOrigin = ConstraintOrigin::ConflictingImpls;
     const LOOKUP: () = ();
@@ -2517,7 +2543,7 @@ mod tests {
     impl MemberLookup for () {
         fn get_member_idx(
             &self,
-            sid: super::typ::type_id::StructId,
+            sid: StructId,
             member: &str,
         ) -> Option<usize> {
             None

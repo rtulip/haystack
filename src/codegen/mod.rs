@@ -1113,14 +1113,20 @@ where
             ExprKind::NamedMemberAccess { var, member } => todo!(),
             ExprKind::MemberAccess { var, member } => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
-                assert!(input.len() == 0);
+                assert!(input.len() == 1);
                 assert!(output.len() == 1);
+
+                let op = if let Some(Type::Pointer(_)) = self.typestore.get(input[0]) {
+                    "->"
+                } else {
+                    "."
+                };
 
                 let ident = self.next_stack_ident();
                 stack.push((output[0], ident));
                 writeln!(
                     self.w,
-                    "    {} {} = {}._{};",
+                    "    {} {} = {}{op}_{};",
                     Self::format_tid(output[0]),
                     Self::format_stack_ident(ident),
                     Self::format_var(*var),

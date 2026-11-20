@@ -5,11 +5,10 @@ Haysatck was heavily inspired by [Porth](https://www.gitlab.com/tsoding/porth).
 *Note*: This langue is is very early development and is subject to frequent and rapid changes.
 
 # Getting Started:
-Getting sarted with `Haystack` is pretty simple, there's three requirements: `rust`, `nasm`, and `ld`. I'm working on Ubuntu, and can give no guarantee that `Haystack` will work properly on anything else. If you do give `Haystack` a try and something goes wrong, please open a bug and provide as many details as possible, and I'll do my best to try and figure it out. If you're using Windows, I recommend using `virtualbox` or something similar and get a Linux virtual machine until Windows is a supported target.
+Getting sarted with `Haystack` is pretty simple, there's two requirements: `rust` and `gcc`. I'm working in WSL, and can give no guarantee that `Haystack` will work properly on anything else. If you do give `Haystack` a try and something goes wrong, please open a bug and provide as many details as possible, and I'll do my best to try and figure it out. 
 
-* `rust`: I'm using nightly rustc version `1.66.0`, older versions should work, but I haven't tried to figure out what else works. See more about installing rust [here](https://www.rust-lang.org/tools/install). Once you've installed rust, use the command `rustup override set nightly` to switch to the nightly version of the rustc compiler.
-* `nasm`: I'm using version `2.13.02`. I was able to install it using `apt`.
-* `ld`: I believe this was installed with the rest of the GNU Binutils, on `Ubuntu`. 
+* `rust`: I'm using stable rustc version `1.100.0`, older versions should work, but I haven't tried to figure out what else works. See more about installing rust [here](https://www.rust-lang.org/tools/install). 
+* `gcc`: I'm using version `8.3.0`. Again, I've not tested any older versions
 
 ## Install the project
 
@@ -39,25 +38,42 @@ fn main() {
 }
 ```
 
-## N'th Fibonacci Number
+## Generics 
 ```rust
-fn fib(u64: n) -> [u64] {
-    n 2 < if {
-        n
-    } else {
-        n 1 - fib
-        n 2 - fib +
+fn dup<T>(T: t) -> [T T] { t t } 
+fn swap<A B>(A: a B: b) -> [B A] { b a }
+fn drop<T>(T: _) {}
+```
+
+## Pattern Matching
+```rust
+fn process<T>(T: _)    -> [Str] "Processing..." 
+fn fallback()          -> [Str] "Fallback"
+fn handle_err<E>(E: _) -> [Str] "An Error occurred" 
+
+fn do_some_work<T E>(Result<Option<T> E>) -> [Str] match {
+    Result::Ok match {
+        Option::Some process
+        Option::None fallback
     }
+    Result::Err handle_err
 }
 ```
 
-## Print Numbers 1 to 10
+## Easy C Interoperability
 ```rust
+extern fn puts(&u8) -> [u64]
+
 fn main() {
-    1 while dup 10 <= do {
-        as [i]
-        i println
-        i 1 +
-    } drop
+    "Hello from Haystack" Str.cstr puts drop
+}
+```
+
+## Types as Values
+```rust
+fn hint<T>(T Type<T>) -> [T] drop
+
+fn main() {
+    Option.None #Option<u64> hint println
 }
 ```

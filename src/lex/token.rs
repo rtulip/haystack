@@ -162,6 +162,8 @@ pub enum Intrinsic {
     U64Mul,
     U64Eq,
     U64Lt,
+    PtrAdd,
+    PtrMutAdd,
 }
 
 impl std::fmt::Display for Intrinsic {
@@ -174,6 +176,8 @@ impl std::fmt::Display for Intrinsic {
             Intrinsic::U64Mul => write!(f, "__u64_mul")?,
             Intrinsic::U64Eq => write!(f, "__u64_eq")?,
             Intrinsic::U64Lt => write!(f, "__u64_lt")?,
+            Intrinsic::PtrAdd => write!(f, "__ptr_add")?,
+            Intrinsic::PtrMutAdd => write!(f, "__ptr_mut_add")?,
         }
         write!(f, "`")
     }
@@ -266,6 +270,8 @@ impl Keyword {
         map.insert("__u64_mul", TokenKind::Intrinsic(Intrinsic::U64Mul));
         map.insert("__u64_eq", TokenKind::Intrinsic(Intrinsic::U64Eq));
         map.insert("__u64_lt", TokenKind::Intrinsic(Intrinsic::U64Lt));
+        map.insert("__ptr_add", TokenKind::Intrinsic(Intrinsic::PtrAdd));
+        map.insert("__ptr_mut_add", TokenKind::Intrinsic(Intrinsic::PtrMutAdd));
 
         map.insert("true", TokenKind::Literal(Literal::Bool(true)));
         map.insert("false", TokenKind::Literal(Literal::Bool(false)));

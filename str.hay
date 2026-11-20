@@ -1,9 +1,9 @@
 struct Str {
-    &u8: data
+    &char: data
     u64: len
 }
 
-fn Str.cstr(Str: s) -> [&u8] s::data
+fn Str.cstr(Str: s) -> [&char] s::data
 
 fn bool.to_str(bool) -> [Str] if { "true" } else { "false" }
 

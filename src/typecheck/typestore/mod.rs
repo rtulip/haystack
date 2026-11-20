@@ -1301,11 +1301,11 @@ where
                 Ok((e, constraints))
             }
             ExprKind::CString(s) => {
-                let u8_tid = self.intern(Type::u8());
-                let u8_ptr = self.pointer(u8_tid, Mutability::Const);
+                let char_tid = self.intern(Type::char());
+                let char_ptr = self.pointer(char_tid, Mutability::Const);
                 let func = FunctionType {
                     input: vec![],
-                    output: vec![u8_ptr],
+                    output: vec![char_ptr],
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::cstring(s, (expr.meta, self.function(func)));
@@ -1864,9 +1864,9 @@ where
 
             },
             ExprKind::Add(tid) => {
-                let func = FunctionType {
-                    input: vec![tid, tid],
-                    output: vec![tid],
+                let func= match self.get(tid) {
+                    Some(Type::Function(func)) => func.clone(),
+                    _ => unreachable!()
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::add(tid, (expr.meta.clone(), self.function(func)));

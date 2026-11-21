@@ -1246,6 +1246,88 @@ where
         }
     }
 
+    fn get_direct_member_idx<'src, Lookup>(
+        &mut self, 
+        tid: TypeId, 
+        member: &str, 
+        lookup: &Lookup, 
+        meta: &M
+    ) -> Result<usize, InferenceError<M>>
+    where
+        M: Debug + Clone + PartialEq + Eq,
+        Lookup: MemberLookup {
+
+        match self.get(tid).unwrap() {
+            Type::Struct(s) => {
+                let Some(member_idx) = lookup.get_member_idx(s.sid, member) else {
+                    return Err(InferenceError::invalid_struct_member(
+                        member,
+                        &ConstraintOrigin::NamedMemberAccess(tid),
+                        meta,
+                    ));
+                };
+
+                Ok(member_idx)
+            }
+            Type::Tuple(_) => todo!("Add support for get tuple member"),
+            _ => todo!("Can't get member for a non-struct type"),
+        }
+
+    }
+
+    fn get_member_idx<'src, Lookup>(
+        &mut self, 
+        tid: TypeId, 
+        member: &str, 
+        lookup: &Lookup, 
+        meta: &M
+    ) -> Result<usize, InferenceError<M>>
+    where
+        M: Debug + Clone + PartialEq + Eq,
+        Lookup: MemberLookup {
+
+        match self.get(tid).unwrap() {
+            Type::Pointer(p) => self.get_direct_member_idx(p.tid, member, lookup, meta),
+            _ => self.get_direct_member_idx(tid, member, lookup, meta),
+        }
+
+    }
+
+    fn infer_concrete_member_access<'src>(
+        &mut self, 
+        var: Var, 
+        tid: TypeId,
+        parent_tid: TypeId, 
+        member: usize, 
+        stack: &mut Stack, 
+        meta: M
+    ) -> Result<Expr<'src, (M, TypeId)>, InferenceError<M>> {
+        if let Some(Type::Struct(s)) = self.get(tid) {
+            let def = self.get_struct_def(s.sid).clone();
+            let bindings = Self::generate_bindings(&def.vars, &s.args)?;
+            let members = self.instantiate_tids(&def.members, &bindings);
+            let tid = members[member];
+            stack.push(tid);
+
+            let expr_tid = self.function(FunctionType {
+                input: vec![parent_tid],
+                output: vec![tid],
+            });
+            let e = Expr::member_access(var, member, (meta, expr_tid));
+
+            Ok(e)
+        } else {
+            todo!("Error: Can't access member of non-struct type")
+        }
+    }
+
+    fn infer_member_access<'src>(&mut self, var: Var, tid: TypeId, member: usize, stack: &mut Stack, meta: M) -> Result<Expr<'src, (M, TypeId)>, InferenceError<M>> {
+        match self.get(tid).unwrap() {
+            Type::Pointer(p) => self.infer_concrete_member_access(var, p.tid, tid, member, stack, meta),
+            _ => self.infer_concrete_member_access(var, tid, tid, member, stack, meta),
+        }
+    }
+
     /// Infer what type constraints must be placed on an Expression.
     ///
     /// Expressions may push/pop to/from the stack
@@ -1474,8 +1556,6 @@ where
                     output: vec![u64_tid]
                 };
 
-                
-
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let expr_tid = self.function(func);
                 let e = Expr::sizeof((expr.meta, expr_tid));
@@ -1484,22 +1564,8 @@ where
             ExprKind::NamedMemberAccess { var, member } => {
                 let scheme = env.get_var(&var).expect("Vars should be resolvable");
                 let inst = self.freshen(scheme, &expr.meta);
-
-                let Some(Type::Struct(s)) = self.get(inst.tid) else {
-                    todo!(
-                        "{:?}: Error can't get member for non-struct: {}",
-                        expr.meta,
-                        self.fmt(inst.tid)
-                    )
-                };
-
-                let Some(member_idx) = lookup.get_member_idx(s.sid, member) else {
-                    return Err(InferenceError::invalid_struct_member(
-                        member,
-                        &ConstraintOrigin::NamedMemberAccess(inst.tid),
-                        &expr.meta,
-                    ));
-                };
+                
+                let member_idx = self.get_member_idx(inst.tid, member, lookup, &expr.meta)?;
 
                 let expr = Expr::member_access(var, member_idx, expr.meta);
                 self.infer(expr, stack, env, lookup)
@@ -1520,23 +1586,9 @@ where
                     })
                     .collect();
 
-                if let Some(Type::Struct(s)) = self.get(inst.tid) {
-                    let def = self.get_struct_def(s.sid).clone();
-                    let bindings = Self::generate_bindings(&def.vars, &s.args)?;
-                    let members = self.instantiate_tids(&def.members, &bindings);
-                    let tid = members[member];
-                    stack.push(tid);
+                let e = self.infer_member_access(var, inst.tid, member, stack, expr.meta)?;
 
-                    let expr_tid = self.function(FunctionType {
-                        input: vec![],
-                        output: vec![tid],
-                    });
-                    let e = Expr::member_access(var, member, (expr.meta, expr_tid));
-
-                    Ok((e, constraints))
-                } else {
-                    todo!("Error: Can't access member of non-struct type")
-                }
+                Ok((e, constraints))
             }
             ExprKind::Match(m) => {
                 let input = stack.clone();

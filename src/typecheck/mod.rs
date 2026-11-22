@@ -657,7 +657,10 @@ impl<'src> TypeCheck<'src> {
             }
             ParseExprKind::Intrinsic(Intrinsic::U64Add) => {
                 let u64_tid = self.typestore.intern(Type::u64());
-                let tid = self.typestore.function(FunctionType { input: vec![u64_tid, u64_tid], output: vec![u64_tid] });
+                let tid = self.typestore.function(FunctionType {
+                    input: vec![u64_tid, u64_tid],
+                    output: vec![u64_tid],
+                });
                 Ok(Expr::add(tid, expr.token.clone()))
             }
             ParseExprKind::Intrinsic(Intrinsic::PtrAdd) => {
@@ -665,7 +668,10 @@ impl<'src> TypeCheck<'src> {
                 let t_tid = self.typestore.intern(Type::TypeVar(t_tyvar));
                 let t_ptr_tid = self.typestore.pointer(t_tid, Mutability::Const);
                 let u64_tid = self.typestore.intern(Type::u64());
-                let tid = self.typestore.function(FunctionType { input: vec![t_ptr_tid, u64_tid], output: vec![t_ptr_tid] });
+                let tid = self.typestore.function(FunctionType {
+                    input: vec![t_ptr_tid, u64_tid],
+                    output: vec![t_ptr_tid],
+                });
                 Ok(Expr::add(tid, expr.token.clone()))
             }
             ParseExprKind::Intrinsic(Intrinsic::PtrMutAdd) => {
@@ -673,7 +679,10 @@ impl<'src> TypeCheck<'src> {
                 let t_tid = self.typestore.intern(Type::TypeVar(t_tyvar));
                 let t_ptr_tid = self.typestore.pointer(t_tid, Mutability::Mutable);
                 let u64_tid = self.typestore.intern(Type::u64());
-                let tid = self.typestore.function(FunctionType { input: vec![t_ptr_tid, u64_tid], output: vec![t_ptr_tid] });
+                let tid = self.typestore.function(FunctionType {
+                    input: vec![t_ptr_tid, u64_tid],
+                    output: vec![t_ptr_tid],
+                });
                 Ok(Expr::add(tid, expr.token.clone()))
             }
             ParseExprKind::Intrinsic(Intrinsic::U64Sub) => {
@@ -877,7 +886,6 @@ impl<'src> TypeCheck<'src> {
                 }
             }
             Type::Struct(s) => {
-
                 let args = if s.args.is_empty() {
                     String::new()
                 } else {
@@ -889,15 +897,18 @@ impl<'src> TypeCheck<'src> {
                 };
 
                 format!("{}{args}", token.lexeme)
-
-            },
+            }
             Type::Enum(e) => self.format_enum(e.eid, e.args, None),
             Type::Tuple(tids) => self.format_stack(&tids, '(', ')'),
             Type::Variant(v) => self.format_enum(v.eid, v.args, Some(v.variant)),
             Type::Type(tid) => {
                 format!("Type<{}>", self.format_tid(tid))
             }
-            Type::Projection(_) => todo!(),
+            Type::Projection(p) => {
+                let args = self.format_stack(&p.args, '<', '>');
+                let iface = self.symbols.interfaces.get(&p.cid).unwrap();
+                format!("{}{args}::{}", iface.lexeme, p.idx)
+            }
         }
     }
 
@@ -1828,7 +1839,9 @@ impl<'src> TypeCheck<'src> {
 
         self.scope.new_scope();
         let parent_params = self.rebind_params(&iface_impl.name, &iface_impl.params)?;
-        self.typestore.solidify_vars(&parent_params).map_err(|_| todo!())?;
+        self.typestore
+            .solidify_vars(&parent_params)
+            .map_err(|_| todo!())?;
         let mut parent_args = vec![];
         for ty in &iface_impl.args {
             parent_args.push(self.get_tid(ty)?);
@@ -2313,7 +2326,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             | ExprKind::Call
             | ExprKind::SizeOf
             | ExprKind::UncheckedCast
-            | ExprKind::Read 
+            | ExprKind::Read
             | ExprKind::Write
             | ExprKind::MemberAccess { .. } => expr.expr,
 
@@ -2462,12 +2475,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                 {
                     let (_, tid) = self.typestore.normalize_ty(&self.env, tid, token).unwrap();
                     // TODO: Check predicates.
-                    let args = self.infer_function_args(
-                        token,
-                        *mapped_var,
-                        tid,
-                        substitutions,
-                    );
+                    let args = self.infer_function_args(token, *mapped_var, tid, substitutions);
 
                     instance = Some(FunctionInstance {
                         var: *mapped_var,
@@ -2523,7 +2531,7 @@ impl<'src> TypedWorld<'src> {
             var: entry,
             args: vec![],
         });
-        
+
         // Process each requested specialization.
         while let Some(instance) = ctx.pending.pop() {
             ctx.monomorphize_function(instance);
@@ -2562,11 +2570,7 @@ mod tests {
     const LOOKUP: () = ();
 
     impl MemberLookup for () {
-        fn get_member_idx(
-            &self,
-            sid: StructId,
-            member: &str,
-        ) -> Option<usize> {
+        fn get_member_idx(&self, sid: StructId, member: &str) -> Option<usize> {
             None
         }
     }

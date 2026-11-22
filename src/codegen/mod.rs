@@ -890,7 +890,7 @@ where
                 )?
             }
             ExprKind::UncheckedCast => {
-                let FunctionType { input, output} = self.get_stack_effect(tid);
+                let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 2);
                 assert!(output.len() == 1);
 
@@ -905,14 +905,15 @@ where
                 let into = self.next_stack_ident();
                 stack.push((output[0], into));
 
-                writeln!(self.w, "    {} {} = ({}){};",
+                writeln!(
+                    self.w,
+                    "    {} {} = ({}){};",
                     Self::format_tid(output[0]),
                     Self::format_stack_ident(into),
                     Self::format_tid(inner),
                     Self::format_stack_ident(from),
                 )?;
-
-            },
+            }
             ExprKind::Add(_) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 2);
@@ -1103,7 +1104,7 @@ where
                 }
             }
             ExprKind::SizeOf => {
-                let FunctionType {input, output} = self.get_stack_effect(tid);
+                let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 1);
                 assert!(output.len() == 1);
 
@@ -1116,12 +1117,13 @@ where
                 let ident = self.next_stack_ident();
                 stack.push((output[0], ident));
 
-                writeln!(self.w, "    const {} {} = sizeof({});",
+                writeln!(
+                    self.w,
+                    "    const {} {} = sizeof({});",
                     Self::format_tid(output[0]),
                     Self::format_stack_ident(ident),
                     Self::format_tid(inner_tid),
                 )?;
-
             }
             ExprKind::NamedMemberAccess { var, member } => todo!(),
             ExprKind::MemberAccess { var, member } => {
@@ -1251,13 +1253,18 @@ where
                 assert!(input.len() == 1);
                 assert!(output.len() == 1);
                 let (ptr_tid, ptr) = stack.pop().unwrap();
-                
+
                 let ident = self.next_stack_ident();
                 stack.push((output[0], ident));
 
-                writeln!(self.w, "    const {} {} = *{};", Self::format_tid(output[0]), Self::format_stack_ident(ident), Self::format_stack_ident(ptr))?;
-
-            },
+                writeln!(
+                    self.w,
+                    "    const {} {} = *{};",
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(ident),
+                    Self::format_stack_ident(ptr)
+                )?;
+            }
             ExprKind::Write => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 2);
@@ -1266,8 +1273,13 @@ where
                 let (ptr_tid, ptr) = stack.pop().unwrap();
                 let (val_tid, val) = stack.pop().unwrap();
 
-                writeln!(self.w, "    *{} = {};", Self::format_stack_ident(ptr), Self::format_stack_ident(val))?;
-            },
+                writeln!(
+                    self.w,
+                    "    *{} = {};",
+                    Self::format_stack_ident(ptr),
+                    Self::format_stack_ident(val)
+                )?;
+            }
         }
 
         Ok(())
@@ -1447,14 +1459,18 @@ where
     }
 
     pub fn generate_entry(&mut self, var: Var, tid: TypeId) -> std::fmt::Result {
-        
         let argc = self.next_stack_ident();
         let argv = self.next_stack_ident();
 
         let mut stack = vec![];
 
-        writeln!(self.w, "int main(int {}, const char** {}) {{", Self::format_stack_ident(argc), Self::format_stack_ident(argv))?;
-        
+        writeln!(
+            self.w,
+            "int main(int {}, const char** {}) {{",
+            Self::format_stack_ident(argc),
+            Self::format_stack_ident(argv)
+        )?;
+
         let u64_tid = self.typestore.intern(Type::u64());
         let char_tid = self.typestore.intern(Type::char());
         let char_ptr_tid = self.typestore.pointer(char_tid, Mutability::Const);

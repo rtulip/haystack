@@ -1,7 +1,5 @@
 include "prelude.hay"
 
-extern fn realloc(&mut.u8 u64) -> [&mut.u8]
-
 fn null<T>() -> [&mut.T] {
     0 #&mut.T cast
 }

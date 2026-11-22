@@ -1,0 +1,84 @@
+include "prelude.hay" 
+
+struct Slice<T> {
+    &mut.T: data
+    u64: cap
+}
+
+fn __null<T>() -> [&mut.T] {
+    0 #&mut.T cast
+}
+
+fn Slice.new_size(u64: cap) -> [u64] {
+    cap 0 == if {
+        8
+    } else {
+        cap 2 *
+    }
+}
+
+fn Slice.resize<T>(&mut.Slice<T>: self) {
+
+    self::cap Slice.new_size as [new_cap]
+
+    (self::data #&mut.u8 cast)
+    (new_cap #T sizeof *) 
+    realloc #&mut.T cast
+    
+    new_cap
+    #Slice pack self |<
+
+}
+
+fn Slice.get<T>(u64: n Slice<T>: self) -> [T] {
+    self::data n + |>
+}
+
+struct Vec<T> {
+    Slice<T>: data
+    u64: len
+}
+
+fn Vec.new<T>() -> [Vec<T>] {
+    __null 0 #Slice pack 
+    0 
+    #Vec pack
+}
+
+fn Vec.push<T>(T: val &mut.Vec<T>: self) {
+
+    self::data as [slice]
+
+    self::len slice::cap == if {
+        &mut.slice Slice.resize
+    }
+
+    val slice::data self::len + |<
+
+    slice
+    self::len 1 +
+    #Vec pack
+    self |<
+
+}
+
+fn Vec.get<T>(u64: n &Vec<T>: self) -> [T] {
+    n self::data Slice.get
+}
+
+fn main() {
+
+    Vec.new as [v]
+
+    0 while dup 10 < do {
+        as [i]
+        i 2 * &mut.v Vec.push
+        i 1 +
+    } drop
+
+    0 while dup v::len < do {
+        as [i]
+        i &v Vec.get println
+        i 1 +
+    } drop
+}

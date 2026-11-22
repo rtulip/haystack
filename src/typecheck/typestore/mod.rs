@@ -8,6 +8,8 @@ use std::{
     todo, unreachable, write,
 };
 
+use inference::InferenceStatus;
+
 use crate::{
     error::HayError,
     typecheck::{
@@ -57,6 +59,8 @@ pub struct TypeStore<M> {
     lookup: UnificationTable<TypeVar, TypeId>,
     pub tyvar_origin: HashMap<TypeId, (TypeId, M)>,
     str_tid: Option<TypeId>,
+
+    revision: usize,
 }
 
 impl<M> TypeStore<M>
@@ -84,6 +88,7 @@ where
             lookup: UnificationTable::new(),
             tyvar_origin: HashMap::new(),
             str_tid: None,
+            revision: 0,
         }
     }
 
@@ -1226,9 +1231,11 @@ where
             Type::Struct(s) => {
                 let s = s.clone();
                 let members = self.get_struct_members(s);
-                Ok(FunctionType { input: vec![tid], output: members })
-
-            },
+                Ok(FunctionType {
+                    input: vec![tid],
+                    output: members,
+                })
+            }
             Type::Variant(_) => todo!(),
             Type::Tuple(tids) => Ok(FunctionType {
                 input: vec![tid],
@@ -1247,16 +1254,16 @@ where
     }
 
     fn get_direct_member_idx<'src, Lookup>(
-        &mut self, 
-        tid: TypeId, 
-        member: &str, 
-        lookup: &Lookup, 
-        meta: &M
+        &mut self,
+        tid: TypeId,
+        member: &str,
+        lookup: &Lookup,
+        meta: &M,
     ) -> Result<usize, InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
-        Lookup: MemberLookup {
-
+        Lookup: MemberLookup,
+    {
         match self.get(tid).unwrap() {
             Type::Struct(s) => {
                 let Some(member_idx) = lookup.get_member_idx(s.sid, member) else {
@@ -1272,35 +1279,33 @@ where
             Type::Tuple(_) => todo!("Add support for get tuple member"),
             _ => todo!("Can't get member for a non-struct type"),
         }
-
     }
 
     fn get_member_idx<'src, Lookup>(
-        &mut self, 
-        tid: TypeId, 
-        member: &str, 
-        lookup: &Lookup, 
-        meta: &M
+        &mut self,
+        tid: TypeId,
+        member: &str,
+        lookup: &Lookup,
+        meta: &M,
     ) -> Result<usize, InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
-        Lookup: MemberLookup {
-
+        Lookup: MemberLookup,
+    {
         match self.get(tid).unwrap() {
             Type::Pointer(p) => self.get_direct_member_idx(p.tid, member, lookup, meta),
             _ => self.get_direct_member_idx(tid, member, lookup, meta),
         }
-
     }
 
     fn infer_concrete_member_access<'src>(
-        &mut self, 
-        var: Var, 
+        &mut self,
+        var: Var,
         tid: TypeId,
-        parent_tid: TypeId, 
-        member: usize, 
-        stack: &mut Stack, 
-        meta: M
+        parent_tid: TypeId,
+        member: usize,
+        stack: &mut Stack,
+        meta: M,
     ) -> Result<Expr<'src, (M, TypeId)>, InferenceError<M>> {
         if let Some(Type::Struct(s)) = self.get(tid) {
             let def = self.get_struct_def(s.sid).clone();
@@ -1321,9 +1326,18 @@ where
         }
     }
 
-    fn infer_member_access<'src>(&mut self, var: Var, tid: TypeId, member: usize, stack: &mut Stack, meta: M) -> Result<Expr<'src, (M, TypeId)>, InferenceError<M>> {
+    fn infer_member_access<'src>(
+        &mut self,
+        var: Var,
+        tid: TypeId,
+        member: usize,
+        stack: &mut Stack,
+        meta: M,
+    ) -> Result<Expr<'src, (M, TypeId)>, InferenceError<M>> {
         match self.get(tid).unwrap() {
-            Type::Pointer(p) => self.infer_concrete_member_access(var, p.tid, tid, member, stack, meta),
+            Type::Pointer(p) => {
+                self.infer_concrete_member_access(var, p.tid, tid, member, stack, meta)
+            }
             _ => self.infer_concrete_member_access(var, tid, tid, member, stack, meta),
         }
     }
@@ -1549,11 +1563,13 @@ where
 
                 let tyvar = self.fresh_type_var();
                 let t_tid = self.intern(Type::TypeVar(tyvar));
-                let ty_t_tid = self.metatype(env, t_tid, None, &expr.meta).map_err(|kind| todo!())?;
+                let ty_t_tid = self
+                    .metatype(env, t_tid, None, &expr.meta)
+                    .map_err(|kind| todo!())?;
 
                 let func = FunctionType {
                     input: vec![ty_t_tid],
-                    output: vec![u64_tid]
+                    output: vec![u64_tid],
                 };
 
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
@@ -1564,7 +1580,7 @@ where
             ExprKind::NamedMemberAccess { var, member } => {
                 let scheme = env.get_var(&var).expect("Vars should be resolvable");
                 let inst = self.freshen(scheme, &expr.meta);
-                
+
                 let member_idx = self.get_member_idx(inst.tid, member, lookup, &expr.meta)?;
 
                 let expr = Expr::member_access(var, member_idx, expr.meta);
@@ -1903,7 +1919,7 @@ where
                 let expr_tid = self.function(func);
                 let e = Expr::read((expr.meta, expr_tid));
                 Ok((e, constriants))
-            },
+            }
             ExprKind::Write => {
                 let tyvar = self.fresh_type_var();
                 let t_tid = self.intern(Type::TypeVar(tyvar));
@@ -1918,12 +1934,11 @@ where
                 let expr_tid = self.function(func);
                 let e = Expr::write((expr.meta, expr_tid));
                 Ok((e, constriants))
-
-            },
+            }
             ExprKind::Add(tid) => {
-                let func= match self.get(tid) {
+                let func = match self.get(tid) {
                     Some(Type::Function(func)) => func.clone(),
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::add(tid, (expr.meta.clone(), self.function(func)));
@@ -2104,11 +2119,18 @@ where
         }
     }
 
-    fn unify_typevar(&mut self, var: TypeVar, tid: TypeId) -> Result<(), InferenceErrorKind>
+    fn unify_typevar(
+        &mut self,
+        var: TypeVar,
+        tid: TypeId,
+    ) -> Result<InferenceStatus, InferenceErrorKind>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
-        self.lookup.assign_key(var, Some(tid)).map_err(|_| todo!())
+        self.lookup
+            .assign_key(var, Some(tid))
+            .map_err(|_| todo!())?;
+        Ok(InferenceStatus::Solved)
     }
 
     fn type_is_c_vararg_compatible(&mut self, env: &Environment, tid: TypeId, meta: &M) -> bool {
@@ -2132,7 +2154,7 @@ where
         unnorm_left: TypeId,
         unnorm_right: TypeId,
         meta: &M,
-    ) -> Result<(), InferenceErrorKind>
+    ) -> Result<InferenceStatus, InferenceErrorKind>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
@@ -2140,12 +2162,14 @@ where
         let (right, right_tid) = self.normalize_ty(env, unnorm_right, meta)?;
 
         match (left, right) {
-            (a, b) if a == b => Ok(()),
-            (Type::Builtin(left), Type::Builtin(right)) if left == right => Ok(()),
+            (a, b) if a == b => Ok(InferenceStatus::Solved),
+            (Type::Builtin(left), Type::Builtin(right)) if left == right => {
+                Ok(InferenceStatus::Solved)
+            }
             (Type::Builtin(BuiltinType::CVarArgs), _)
                 if self.type_is_c_vararg_compatible(env, right_tid, meta) =>
             {
-                Ok(())
+                Ok(InferenceStatus::Solved)
             }
             (_, Type::Builtin(BuiltinType::CVarArgs)) => {
                 unreachable!("Users shouldn't be able to construct `...`")
@@ -2154,11 +2178,16 @@ where
                 expected: left_tid,
                 found: right_tid,
             }),
-            (Type::RigidTypeVar(left), Type::RigidTypeVar(right)) if left == right => Ok(()),
-            (Type::TypeVar(left), Type::TypeVar(right)) => self
-                .lookup
-                .unify_keys(left, right)
-                .map_err(|UnifiactionError(_, _)| todo!()),
+            (Type::RigidTypeVar(left), Type::RigidTypeVar(right)) if left == right => {
+                Ok(InferenceStatus::Solved)
+            }
+            (Type::TypeVar(left), Type::TypeVar(right)) => {
+                self.lookup
+                    .unify_keys(left, right)
+                    .map_err(|UnifiactionError(_, _)| todo!())?;
+                self.revision += 1;
+                Ok(InferenceStatus::Solved)
+            }
             (Type::TypeVar(var), _) => self.unify_typevar(var, right_tid),
             (_, Type::TypeVar(var)) => self.unify_typevar(var, left_tid),
             (Type::Type(left), Type::Type(right)) => self.unify_ty_ty(env, left, right, meta),
@@ -2198,6 +2227,9 @@ where
             ) if mut_left == mut_right => {
                 self.unify_ty_ty(env, left_inner_tid, right_inner_tid, meta)
             }
+            (Type::Projection(_), _) | (_, Type::Projection(_)) => {
+                Ok(InferenceStatus::Defer)
+            },
             (Type::Pointer(_), _) | (_, Type::Pointer(_)) => {
                 Err(InferenceErrorKind::TypesIncompatible {
                     expected: left_tid,
@@ -2217,13 +2249,18 @@ where
                 }
 
                 assert!(left.args.len() == right.args.len());
-                left.args
+                let status = left
+                    .args
                     .iter()
                     .zip(right.args.iter())
                     .map(|(left, right)| self.unify_ty_ty(env, *left, *right, meta))
-                    .collect::<Result<(), InferenceErrorKind>>()?;
+                    .collect::<Result<Vec<InferenceStatus>, InferenceErrorKind>>()?;
 
-                Ok(())
+                if status.iter().any(|s| *s == InferenceStatus::Defer) {
+                    Ok(InferenceStatus::Defer)
+                } else {
+                    Ok(InferenceStatus::Solved)
+                }
             }
             (Type::Enum(_), Type::Variant(_)) | (Type::Variant(_), Type::Enum(_)) => {
                 Err(InferenceErrorKind::TypesIncompatible {
@@ -2239,12 +2276,17 @@ where
                     });
                 }
 
+                let mut status = InferenceStatus::Solved;
+
                 assert!(left.args.len() == right.args.len());
                 for (left, right) in left.args.into_iter().zip(right.args.into_iter()) {
-                    self.unify_ty_ty(env, left, right, meta)?;
+                    match self.unify_ty_ty(env, left, right, meta)? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    };
                 }
 
-                Ok(())
+                Ok(status)
             }
             (Type::Enum(_), _) | (_, Type::Enum(_)) => Err(InferenceErrorKind::TypesIncompatible {
                 expected: left_tid,
@@ -2264,12 +2306,17 @@ where
                     });
                 }
 
+                let mut status = InferenceStatus::Solved;
+
                 assert!(left.args.len() == right.args.len());
                 for (left, right) in left.args.into_iter().zip(right.args.into_iter()) {
-                    self.unify_ty_ty(env, left, right, meta)?;
+                    match self.unify_ty_ty(env, left, right, meta)? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    };
                 }
 
-                Ok(())
+                Ok(status)
             }
             (Type::Struct(_), _) | (_, Type::Struct(_)) => {
                 Err(InferenceErrorKind::TypesIncompatible {
@@ -2285,11 +2332,17 @@ where
                     });
                 }
 
+                let mut status = InferenceStatus::Solved;
+
+                assert!(left.len() == right.len());
                 for (left, right) in left.into_iter().zip(right.into_iter()) {
-                    self.unify_ty_ty(env, left, right, meta)?;
+                    match self.unify_ty_ty(env, left, right, meta)? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    };
                 }
 
-                Ok(())
+                Ok(status)
             }
             (Type::Tuple(_), _) | (_, Type::Tuple(_)) => {
                 Err(InferenceErrorKind::TypesIncompatible {
@@ -2307,17 +2360,29 @@ where
                     });
                 }
 
+                let mut status = InferenceStatus::Defer;
+
                 for (left, right) in left.input.into_iter().zip(right.input.into_iter()) {
-                    self.unify_ty_ty(env, left, right, meta)?;
+                    match self.unify_ty_ty(env, left, right, meta)? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    }
                 }
 
                 for (left, right) in left.output.into_iter().zip(right.output.into_iter()) {
-                    self.unify_ty_ty(env, left, right, meta)?;
+                    match self.unify_ty_ty(env, left, right, meta)? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    }
                 }
 
-                Ok(())
+                Ok(status)
             }
-            (_, _) => todo!("Unify {}, {}", self.fmt(left_tid), self.fmt(right_tid)),
+            (_, _) => todo!(
+                "{meta:?}: Unify {}, {}",
+                self.fmt(left_tid),
+                self.fmt(right_tid)
+            ),
         }
     }
 
@@ -2329,38 +2394,50 @@ where
         super_args: &[TypeId],
         origin: &ConstraintOrigin,
         meta: &M,
-    ) -> Result<(), InferenceError<M>>
+    ) -> Result<InferenceStatus, InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
         assert!(variances.len() == sub_args.len());
         assert!(variances.len() == super_args.len());
 
+        let mut status = InferenceStatus::Solved;
+
         for ((variance, sub_tid), super_tid) in variances.iter().zip(sub_args).zip(super_args) {
             let tid = match variance {
                 Variance::Covariant => {
-                    self.check_subtype(env, *sub_tid, *super_tid, origin, meta)?
+                    match self.check_subtype(env, *sub_tid, *super_tid, origin, meta)? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    }
                 }
                 Variance::Invariant => {
-                    self.unify_ty_ty(env, *super_tid, *sub_tid, meta)
+                    match self
+                        .unify_ty_ty(env, *super_tid, *sub_tid, meta)
                         .map_err(|kind| InferenceError {
                             kind,
                             origin: origin.clone(),
                             meta: meta.clone(),
-                        })?
+                        })? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    }
                 }
-                Variance::Contravariant => self
+                Variance::Contravariant => match self
                     .check_subtype(env, *super_tid, *sub_tid, origin, meta)
                     .map_err(|e| match e.kind {
                         InferenceErrorKind::TypesIncompatible { expected, found } => {
                             InferenceError::types_incompatible(found, expected, origin, &e.meta)
                         }
                         _ => e,
-                    })?,
+                    })? {
+                    InferenceStatus::Defer => status = InferenceStatus::Defer,
+                    _ => (),
+                },
             };
         }
 
-        Ok(())
+        Ok(status)
     }
 
     pub fn check_subtype(
@@ -2370,7 +2447,7 @@ where
         superty: TypeId,
         origin: &ConstraintOrigin,
         meta: &M,
-    ) -> Result<(), InferenceError<M>>
+    ) -> Result<InferenceStatus, InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
@@ -2390,7 +2467,7 @@ where
                 })?;
 
         match (subty, superty) {
-            (Type::Never, _) => Ok(()),
+            (Type::Never, _) => Ok(InferenceStatus::Solved),
             (Type::Pointer(subty_inner), Type::Pointer(superty_inner)) => {
                 match (subty_inner.mutability, superty_inner.mutability) {
                     (Mutability::Mutable, Mutability::Mutable) => {
@@ -2436,11 +2513,15 @@ where
                 self.check_subtype_args(env, &variances, &sub_s.args, &super_s.args, origin, meta)
             }
             (Type::Tuple(sub), Type::Tuple(sup)) if sub.len() == sup.len() => {
+                let mut status = InferenceStatus::Solved;
                 for (sub, sup) in sub.into_iter().zip(sup.into_iter()) {
-                    self.check_subtype(env, sub, sup, origin, meta)?;
+                    match self.check_subtype(env, sub, sup, origin, meta)? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    }
                 }
 
-                Ok(())
+                Ok(status)
             }
             (Type::Function(sub_f), Type::Function(super_f)) => {
                 if sub_f.input.len() != super_f.input.len()
@@ -2448,13 +2529,22 @@ where
                 {
                     todo!("Incompatible arity");
                 }
+
+                let mut status = InferenceStatus::Solved;
+
                 for (subty, superty) in sub_f.input.iter().zip(super_f.input.iter()) {
-                    self.check_subtype(env, *superty, *subty, origin, meta)?;
+                    match self.check_subtype(env, *superty, *subty, origin, meta)? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    }
                 }
                 for (subty, superty) in sub_f.output.iter().zip(super_f.output.iter()) {
-                    self.check_subtype(env, *subty, *superty, origin, meta)?;
+                    match self.check_subtype(env, *subty, *superty, origin, meta)? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    }
                 }
-                Ok(())
+                Ok(status)
             }
             (_, _) => self
                 .unify_ty_ty(env, superty_tid, subty_tid, meta)
@@ -2534,7 +2624,7 @@ where
         predicate: &TypePredicate,
         origin: &ConstraintOrigin,
         meta: &M,
-    ) -> Result<(), InferenceError<M>>
+    ) -> Result<InferenceStatus, InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
@@ -2545,7 +2635,7 @@ where
                 origin: origin.clone(),
                 meta: meta.clone(),
             })? {
-            Some(_) => Ok(()),
+            Some(_) => Ok(InferenceStatus::Solved),
             None => {
                 let (_, args) = self.substitute(&predicate.args);
                 Err(InferenceError::predicate_not_met(
@@ -2943,7 +3033,7 @@ where
         input: &Vec<TypeId>,
         origin: &ConstraintOrigin,
         meta: &M,
-    ) -> Result<(), InferenceError<M>>
+    ) -> Result<InferenceStatus, InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
@@ -2964,6 +3054,58 @@ where
             })
     }
 
+    fn check_constraint(
+        &mut self,
+        env: &Environment,
+        constraint: &Constraint<M>,
+    ) -> Result<InferenceStatus, InferenceError<M>>
+    where
+        M: Debug + Clone + PartialEq + Eq,
+    {
+        match &constraint.constraint {
+            ConstraintType::Equal(left, right) => self
+                .unify_ty_ty(env, *left, *right, &constraint.meta)
+                .map_err(|kind| InferenceError {
+                    kind,
+                    origin: constraint.origin.clone(),
+                    meta: constraint.meta.clone(),
+                }),
+            ConstraintType::Subtype { subty, superty } => {
+                self.check_subtype(env, *subty, *superty, &constraint.origin, &constraint.meta)
+            }
+            ConstraintType::Join { output, inputs } => {
+                self.check_join(env, *output, inputs, &constraint.origin, &constraint.meta)
+            }
+            ConstraintType::Predicate(pred) => {
+                self.check_predicate(env, pred, &constraint.origin, &constraint.meta)
+            }
+            ConstraintType::Arity { expected, found } => {
+                if expected.len() != found.len() {
+                    return Err(InferenceError::stacks_differ(
+                        expected.clone(),
+                        found.clone(),
+                        &constraint.origin,
+                        &constraint.meta,
+                    ));
+                } else {
+                    Ok(InferenceStatus::Solved)
+                }
+            }
+            ConstraintType::HasEnoughArgs { expected, found } => {
+                if expected.len() > found.len() {
+                    return Err(InferenceError::not_enough_args(
+                        expected.clone(),
+                        found.clone(),
+                        &constraint.origin,
+                        &constraint.meta,
+                    ));
+                } else {
+                    Ok(InferenceStatus::Solved)
+                }
+            }
+        }
+    }
+
     fn check_constraints(
         &mut self,
         env: &Environment,
@@ -2973,45 +3115,39 @@ where
         M: Debug + Clone + PartialEq + Eq,
     {
         constraints.sort();
-        for c in constraints {
-            match &c.constraint {
-                ConstraintType::Equal(left, right) => self
-                    .unify_ty_ty(env, *left, *right, &c.meta)
-                    .map_err(|kind| InferenceError {
-                        kind,
-                        origin: c.origin.clone(),
-                        meta: c.meta.clone(),
-                    })?,
-                ConstraintType::Subtype { subty, superty } => {
-                    self.check_subtype(env, *subty, *superty, &c.origin, &c.meta)?
-                }
-                ConstraintType::Join { output, inputs } => {
-                    self.check_join(env, *output, inputs, &c.origin, &c.meta)?
-                }
-                ConstraintType::Predicate(pred) => {
-                    self.check_predicate(env, pred, &c.origin, &c.meta)?
-                }
-                ConstraintType::Arity { expected, found } => {
-                    if expected.len() != found.len() {
-                        return Err(InferenceError::stacks_differ(
-                            expected.clone(),
-                            found.clone(),
-                            &c.origin,
-                            &c.meta,
-                        ));
+
+        let mut pending: Vec<_> = constraints.iter().collect();
+        
+        while !pending.is_empty() {
+            let revision = self.revision;
+            let previous_len = pending.len();
+            let mut deferred = Vec::new();
+
+            for c in pending {
+                match self.check_constraint(env, c)? {
+                    InferenceStatus::Solved => {
                     }
-                }
-                ConstraintType::HasEnoughArgs { expected, found } => {
-                    if expected.len() > found.len() {
-                        return Err(InferenceError::not_enough_args(
-                            expected.clone(),
-                            found.clone(),
-                            &c.origin,
-                            &c.meta,
-                        ));
+                    InferenceStatus::Defer => {
+                        deferred.push(c);
                     }
                 }
             }
+
+            if deferred.is_empty() {
+                return Ok(());
+            }
+
+            let changed = self.revision != revision || deferred.len() != previous_len;
+
+            if !changed && !deferred.is_empty() {
+                todo!()
+                // Fixed point reached with unresolved constraints.
+                // Finalize inference or report ambiguity.
+
+                // return self.finish_deferred_constraints(env, &deferred);
+            }
+
+            pending = deferred;
         }
 
         Ok(())

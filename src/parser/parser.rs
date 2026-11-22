@@ -124,7 +124,6 @@ impl<'src> Parser<'src> {
                     token.loc,
                 ));
             }
-
         } else {
             // Consume an optional `.`
             self.matches(TokenKind::Marker(Marker::Dot));

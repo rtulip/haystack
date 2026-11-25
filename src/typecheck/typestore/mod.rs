@@ -10,7 +10,10 @@ use std::{
 
 use inference::InferenceStatus;
 
-use crate::typecheck::expr;
+use crate::typecheck::{
+    constraint::Member,
+    expr::{self, PlaceProjection},
+};
 use crate::{
     error::HayError,
     typecheck::{
@@ -57,9 +60,9 @@ pub enum MemberAccess {
 
 #[derive(Debug, Clone, Copy)]
 pub struct MemberInfo {
-    idx: usize,
-    tid: TypeId,
-    access: MemberAccess,
+    pub idx: usize,
+    pub tid: TypeId,
+    pub access: MemberAccess,
 }
 
 /// Typestore
@@ -354,14 +357,24 @@ where
                 base_tid,
                 member,
                 member_tid,
-            } => {
-                format!(
-                    "{} has member `{}` with type {}",
-                    self.fmt(*base_tid),
-                    member,
-                    self.fmt(*member_tid)
-                )
-            }
+            } => match member {
+                Member::Named(member) => {
+                    format!(
+                        "{} has member `{}` with type {}",
+                        self.fmt(*base_tid),
+                        member,
+                        self.fmt(*member_tid)
+                    )
+                }
+                Member::Idx(member) => {
+                    format!(
+                        "{} has member `{}` with type {}",
+                        self.fmt(*base_tid),
+                        member,
+                        self.fmt(*member_tid)
+                    )
+                }
+            },
         }
     }
 
@@ -655,7 +668,10 @@ where
                     },
                 )
             }
-            ExprKind::Ref { mut place, mutability } => {
+            ExprKind::Ref {
+                mut place,
+                mutability,
+            } => {
                 let Type::Function(FunctionType { input, output }) =
                     self.get(expr_tid).unwrap().clone()
                 else {
@@ -664,8 +680,6 @@ where
                 assert!(input.len() == 1);
                 assert!(output.len() == 1);
 
-                eprintln!("{:?}: {}", expr.meta.0, self.fmt(expr_tid));
-                
                 self.substitute_place_projections(
                     input[0],
                     &mut place.projections,
@@ -676,11 +690,11 @@ where
                 (
                     unbound,
                     Expr {
-                        expr: ExprKind::Ref { place, mutability},
+                        expr: ExprKind::Ref { place, mutability },
                         meta: (expr.meta.0, output[0]),
                     },
                 )
-            },
+            }
             ExprKind::Block(exprs) => {
                 let exprs = exprs.into_iter().fold(vec![], |mut exprs, e| {
                     let (ub, e) = self.substitute_expr(e, lookup);
@@ -1116,7 +1130,7 @@ where
     fn substitute_place_projection<'src, Lookup>(
         &mut self,
         tid: TypeId,
-        projection: &mut expr::Projection<'src>,
+        projection: &mut PlaceProjection<'src>,
         lookup: &Lookup,
         meta: &M,
     ) -> TypeId
@@ -1124,13 +1138,13 @@ where
         Lookup: MemberLookup,
     {
         let (proj, tid) = match projection {
-            expr::Projection::Named(member) => {
+            PlaceProjection::Named(member) => {
                 match self.get_member_idx(tid, member, lookup, meta).unwrap() {
-                    Some(info) => (expr::Projection::Indexed(info.idx, info.access), info.tid),
+                    Some(info) => (PlaceProjection::Indexed(info.idx, info.access), info.tid),
                     None => unreachable!(),
                 }
             }
-            expr::Projection::Indexed(idx, access) => todo!(),
+            PlaceProjection::Indexed(idx, access) => return tid,
         };
 
         *projection = proj;
@@ -1140,7 +1154,7 @@ where
     fn substitute_place_projections<'src, Lookup>(
         &mut self,
         tid: TypeId,
-        projections: &mut [expr::Projection<'src>],
+        projections: &mut [PlaceProjection<'src>],
         lookup: &Lookup,
         meta: &M,
     ) where
@@ -1155,18 +1169,18 @@ where
     fn infer_place_projection<'src>(
         &mut self,
         tid: TypeId,
-        projection: &expr::Projection<'src>,
+        projection: &PlaceProjection<'src>,
         meta: &M,
     ) -> (TypeId, Constraint<M>) {
         let tyvar = self.fresh_type_var();
         let member_tid = self.intern(Type::TypeVar(tyvar));
 
         match projection {
-            expr::Projection::Named(member) => {
+            PlaceProjection::Named(member) => {
                 let c = Constraint::new(
                     ConstraintType::HasMember {
                         base_tid: tid,
-                        member: String::from(*member),
+                        member: Member::Named(String::from(*member)),
                         member_tid,
                     },
                     ConstraintOrigin::PlaceProjection,
@@ -1175,14 +1189,26 @@ where
 
                 (member_tid, c)
             }
-            expr::Projection::Indexed(_, _) => todo!(),
+            PlaceProjection::Indexed(idx, _) => {
+                let c = Constraint::new(
+                    ConstraintType::HasMember {
+                        base_tid: tid,
+                        member: Member::Idx(*idx),
+                        member_tid,
+                    },
+                    ConstraintOrigin::PlaceProjection,
+                    meta,
+                );
+
+                (member_tid, c)
+            }
         }
     }
 
     fn infer_place_projections<'src>(
         &mut self,
         tid: TypeId,
-        projections: &[expr::Projection<'src>],
+        projections: &[PlaceProjection<'src>],
         meta: &M,
     ) -> (TypeId, Vec<Constraint<M>>) {
         let mut tid = tid;
@@ -1523,6 +1549,7 @@ where
         }
     }
 
+    
     fn get_member_idx<'src, Lookup>(
         &mut self,
         tid: TypeId,
@@ -1546,6 +1573,84 @@ where
             _ => self.get_direct_member_idx(tid, member, lookup, meta),
         }
     }
+
+    fn get_direct_member_from_idx<'src, Lookup>(
+        &mut self,
+        tid: TypeId,
+        idx: usize,
+        lookup: &Lookup,
+        meta: &M,
+    ) -> Result<Option<MemberInfo>, InferenceError<M>>
+    where
+        M: Debug + Clone + PartialEq + Eq,
+        Lookup: MemberLookup,
+    {
+        match self.get(tid).unwrap() {
+            Type::TypeVar(_) => Ok(None),
+            Type::Struct(s) => {
+                let s = s.clone();
+                
+                let def = self.get_struct_def(s.sid);
+                assert!(def.vars.len() == s.args.len());
+
+                if idx >= def.members.len() {
+                    todo!()
+                }
+
+                let new_tid = self.replace(
+                    def.members[idx],
+                    &HashMap::from_iter(def.vars.clone().into_iter().zip(s.args.into_iter())),
+                );
+
+                let info = MemberInfo {
+                    idx: idx,
+                    tid: new_tid,
+                    access: MemberAccess::Direct,
+                };
+
+                Ok(Some(info))
+            }
+            Type::Tuple(tids) => {
+
+                if idx >= tids.len() {
+                    todo!()
+                };
+
+                let info = MemberInfo {
+                    idx,
+                    tid: tids[idx],
+                    access: MemberAccess::Direct
+                };
+                Ok(Some(info))
+            },
+            _ => todo!("Can't get member for a non-struct type"),
+        }
+    }
+
+    fn get_member_from_idx<'src, Lookup>(
+        &mut self,
+        tid: TypeId,
+        idx: usize,
+        lookup: &Lookup,
+        meta: &M,
+    ) -> Result<Option<MemberInfo>, InferenceError<M>>
+    where
+        M: Debug + Clone + PartialEq + Eq,
+        Lookup: MemberLookup,
+    {
+        match self.get(tid).unwrap() {
+            Type::Pointer(p) => match self.get_direct_member_from_idx(p.tid, idx, lookup, meta)? {
+                Some(info) => Ok(Some(MemberInfo {
+                    idx: info.idx,
+                    tid: info.tid,
+                    access: MemberAccess::Indirect,
+                })),
+                None => Ok(None),
+            },
+            _ => self.get_direct_member_from_idx(tid, idx, lookup, meta),
+        }
+    }
+
 
     /// Infer what type constraints must be placed on an Expression.
     ///
@@ -2769,7 +2874,7 @@ where
                     }
                 }
             }
-            None => todo!(),
+            None => Err(InferenceErrorKind::PredicateNotMet { cid, args: args.clone() }),
         }
     }
 
@@ -3220,8 +3325,6 @@ where
         M: Debug + Clone + PartialEq + Eq,
         Lookup: MemberLookup,
     {
-        eprintln!("Checking Constraint: {}", self.fmt_constraint(constraint));
-
         let r = match &constraint.constraint {
             ConstraintType::Equal(left, right) => self
                 .unify_ty_ty(env, *left, *right, &constraint.meta)
@@ -3277,28 +3380,38 @@ where
                     .unwrap()
                     .1;
 
-                eprintln!("   Does {} have {member} of type {}", self.fmt(base_tid), self.fmt(member_tid));
-
-                match self.get_member_idx(base_tid, member, lookup, &constraint.meta)? {
-                    Some(info) => {
-                        let c = Constraint::new(
-                            ConstraintType::Equal(info.tid, member_tid),
-                            ConstraintOrigin::PlaceProjection,
-                            &constraint.meta,
-                        );
-                        self.check_constraint(env, &c, lookup)
+                match member {
+                    Member::Named(member) => {
+                        match self.get_member_idx(base_tid, member, lookup, &constraint.meta)? {
+                            Some(info) => {
+                                let c = Constraint::new(
+                                    ConstraintType::Equal(info.tid, member_tid),
+                                    ConstraintOrigin::PlaceProjection,
+                                    &constraint.meta,
+                                );
+                                self.check_constraint(env, &c, lookup)
+                            }
+                            None => Ok(InferenceStatus::Defer),
+                        }
                     }
-                    None => Ok(InferenceStatus::Defer),
+                    Member::Idx(idx) => {
+                        match self.get_member_from_idx(base_tid, *idx, lookup, &constraint.meta)? {
+                            Some(info) => {
+                                let c = Constraint::new(
+                                    ConstraintType::Equal(info.tid, member_tid),
+                                    ConstraintOrigin::PlaceProjection,
+                                    &constraint.meta,
+                                );
+                                self.check_constraint(env, &c, lookup)
+                            }
+                            None => Ok(InferenceStatus::Defer),
+                        }
+
+
+                    },
                 }
             }
         }?;
-
-        eprintln!(
-            "{:?}: {} -- {:?}",
-            constraint.meta,
-            self.fmt_constraint(constraint),
-            r
-        );
         Ok(r)
     }
 
@@ -3337,12 +3450,6 @@ where
             let changed = self.revision != revision || deferred.len() != previous_len;
 
             if !changed && !deferred.is_empty() {
-                eprintln!("Unable to solve all constraints");
-
-                for c in deferred {
-                    eprintln!("    {:?}: {}", &c.meta, self.fmt_constraint(c));
-                }
-
                 todo!()
             }
 

@@ -7,11 +7,16 @@ use std::{
 };
 
 use crate::{
-    lex::token::Token, typecheck::{
-        TypedFunction, expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Place, Projection, Var}, func, typ::{
+    lex::token::Token,
+    typecheck::{
+        expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Place, PlaceProjection, Var},
+        func,
+        typ::{
             typ::{BuiltinType, EnumDef, EnumType, FunctionType, Mutability, Type, VariantType},
             type_id::{EnumId, StructId, TypeId},
-        }, typestore::{MemberAccess, TypeStore},
+        },
+        typestore::{MemberAccess, TypeStore},
+        TypedFunction,
     },
 };
 
@@ -75,23 +80,20 @@ where
         format!("haystack_var_{}", var.0)
     }
 
-    fn format_projection(proj: &Projection<'_>) -> String {
+    fn format_projection(proj: &PlaceProjection<'_>) -> String {
         match proj {
-            Projection::Named(_) => unreachable!("Should have been lowered to indexed access"),
-            Projection::Indexed(idx, member_access) => {
-
+            PlaceProjection::Named(_) => unreachable!("Should have been lowered to indexed access"),
+            PlaceProjection::Indexed(idx, member_access) => {
                 let access = match member_access {
                     MemberAccess::Direct => ".",
                     MemberAccess::Indirect => "->",
                 };
                 format!("{access}_{idx}")
-
-            },
+            }
         }
     }
 
     fn format_place(place: &Place) -> String {
-
         let mut s = Self::format_var(place.base);
 
         for proj in &place.projections {
@@ -99,7 +101,6 @@ where
         }
 
         s
-
     }
 
     fn forward_declare_tid(&mut self, tid: &TypeId) -> std::fmt::Result {
@@ -245,6 +246,7 @@ where
     }
 
     fn declare_tid(&mut self, tid: TypeId) -> std::fmt::Result {
+        writeln!(self.w, "// {}", (*self.typestore).fmt(tid));
         match self.typestore.get(tid).unwrap().clone() {
             Type::TypeVar(_) | Type::RigidTypeVar(_) => unreachable!(),
             Type::Builtin(builtin_type) => {
@@ -359,7 +361,12 @@ where
 
         writeln!(self.w, "typedef enum {{")?;
         for tid in metatypes {
-            writeln!(self.w, "    {},", Self::format_metatype(**tid))?;
+            writeln!(
+                self.w,
+                "    {}, // {}",
+                Self::format_metatype(**tid),
+                (*self.typestore).fmt(**tid)
+            )?;
         }
         writeln!(self.w, "}} {};", Self::format_metatype_tid())?;
         Ok(())

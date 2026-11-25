@@ -9,6 +9,12 @@ use crate::{
 use super::{expr::Var, typ::typ::Mutability};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Member {
+    Named(String),
+    Idx(usize),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConstraintType {
     Equal(TypeId, TypeId),
     Subtype {
@@ -30,7 +36,7 @@ pub enum ConstraintType {
     },
     HasMember {
         base_tid: TypeId,
-        member: String,
+        member: Member,
         member_tid: TypeId,
     },
 }

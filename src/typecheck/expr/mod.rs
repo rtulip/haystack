@@ -62,7 +62,7 @@ pub struct IfExpr<'src, Meta> {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Projection<'src> {
+pub enum PlaceProjection<'src> {
     Named(&'src str),
     Indexed(usize, MemberAccess),
 }
@@ -70,7 +70,16 @@ pub enum Projection<'src> {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Place<'src> {
     pub base: Var,
-    pub projections: Vec<Projection<'src>>,
+    pub projections: Vec<PlaceProjection<'src>>,
+}
+
+impl<'src> Place<'src> {
+    pub fn ident(var: Var) -> Self {
+        Self {
+            base: var,
+            projections: vec![],
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -165,8 +174,18 @@ impl<'src, Meta> Expr<'src, Meta> {
                 base: var,
                 projections: projections
                     .into_iter()
-                    .map(|name| Projection::Named(name))
+                    .map(|name| PlaceProjection::Named(name))
                     .collect(),
+            }),
+            meta,
+        }
+    }
+
+    pub fn ident(var: Var, meta: Meta) -> Expr<'src, Meta> {
+        Expr {
+            expr: ExprKind::Place(Place {
+                base: var,
+                projections: vec![],
             }),
             meta,
         }

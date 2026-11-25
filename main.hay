@@ -22,16 +22,7 @@ fn Option.unwrap_or<T>(T Option<T>) -> [T] match {
     Option::None {}
 }
 
-
-fn Option.Some<T>(T) -> [Option<T>::Some] {
-    #Option::Some pack
-}
-
-fn Option.None<T>() -> [Option<T>::None] {
-    #Option::None pack
-}
-
-fn Option.map<T U>(fn(T) -> [U]: f Option<T>: opt) -> [Option<U>] {
+fn Option.map<T U>(Option<T>: opt fn(T) -> [U]: f) -> [Option<U>] {
     opt match {
         Option::Some { f Option.Some }
         Option::None Option.None 
@@ -65,15 +56,15 @@ fn Slice.zero<T>(Slice<T>: slice) {
 }
 
 fn main() {
-    &transform 12345 Some Option.map println
-    &transform None Option.map println
+    12345 Option.Some &transform Option.map println
+    Option.None &transform Option.map println
     false println
     "Hello World" println
     12345 println
-
+    
     1 2 + println
     0xFF println
-
+    
     "Hello World" Str.print_chars
 
 }

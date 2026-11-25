@@ -705,12 +705,7 @@ where
                 assert!(input.len() == 1);
                 assert!(output.len() == 1);
 
-                self.substitute_place_projections(
-                    input[0],
-                    &mut proj,
-                    lookup,
-                    &expr.meta.0,
-                );
+                self.substitute_place_projections(input[0], &mut proj, lookup, &expr.meta.0);
 
                 (
                     unbound,
@@ -719,8 +714,7 @@ where
                         meta: (expr.meta.0, expr_tid),
                     },
                 )
-
-            },
+            }
             ExprKind::Block(exprs) => {
                 let exprs = exprs.into_iter().fold(vec![], |mut exprs, e| {
                     let (ub, e) = self.substitute_expr(e, lookup);
@@ -1364,7 +1358,7 @@ where
         if stack.is_empty() {
             todo!()
         }
-        
+
         let stack_tid = stack.pop().unwrap();
 
         let (tid, constraints) = self.infer_place_projections(stack_tid, &projections, &meta);
@@ -1374,7 +1368,10 @@ where
             input: vec![stack_tid],
             output: vec![tid],
         });
-        let e = Expr { expr: ExprKind::Projection(projections), meta: (meta, e_tid) };
+        let e = Expr {
+            expr: ExprKind::Projection(projections),
+            meta: (meta, e_tid),
+        };
 
         Ok((e, constraints))
     }
@@ -1602,7 +1599,6 @@ where
         }
     }
 
-    
     fn get_member_idx<'src, Lookup>(
         &mut self,
         tid: TypeId,
@@ -1642,7 +1638,7 @@ where
             Type::TypeVar(_) => Ok(None),
             Type::Struct(s) => {
                 let s = s.clone();
-                
+
                 let def = self.get_struct_def(s.sid);
                 assert!(def.vars.len() == s.args.len());
 
@@ -1664,7 +1660,6 @@ where
                 Ok(Some(info))
             }
             Type::Tuple(tids) => {
-
                 if idx >= tids.len() {
                     todo!()
                 };
@@ -1672,10 +1667,10 @@ where
                 let info = MemberInfo {
                     idx,
                     tid: tids[idx],
-                    access: MemberAccess::Direct
+                    access: MemberAccess::Direct,
                 };
                 Ok(Some(info))
-            },
+            }
             _ => todo!("Can't get member for a non-struct type"),
         }
     }
@@ -1703,7 +1698,6 @@ where
             _ => self.get_direct_member_from_idx(tid, idx, lookup, meta),
         }
     }
-
 
     /// Infer what type constraints must be placed on an Expression.
     ///
@@ -1807,9 +1801,7 @@ where
             ExprKind::Ref { place, mutability } => {
                 self.infer_ref(place, mutability, expr.meta, stack, env)
             }
-            ExprKind::Projection(proj) => {
-                self.infer_projection(proj, expr.meta, stack)
-            },
+            ExprKind::Projection(proj) => self.infer_projection(proj, expr.meta, stack),
             ExprKind::Block(exprs) => {
                 let input = stack.clone();
 
@@ -2930,7 +2922,10 @@ where
                     }
                 }
             }
-            None => Err(InferenceErrorKind::PredicateNotMet { cid, args: args.clone() }),
+            None => Err(InferenceErrorKind::PredicateNotMet {
+                cid,
+                args: args.clone(),
+            }),
         }
     }
 
@@ -3462,9 +3457,7 @@ where
                             }
                             None => Ok(InferenceStatus::Defer),
                         }
-
-
-                    },
+                    }
                 }
             }
         }?;

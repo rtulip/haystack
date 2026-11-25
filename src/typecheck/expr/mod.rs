@@ -184,15 +184,15 @@ impl<'src, Meta> Expr<'src, Meta> {
 
     pub fn projection(projections: &Vec<&'src str>, meta: Meta) -> Expr<'src, Meta> {
         Expr {
-            expr: ExprKind::Projection(projections
-                .iter()
-                .map(|name| PlaceProjection::Named(*name))
-                .collect(),
+            expr: ExprKind::Projection(
+                projections
+                    .iter()
+                    .map(|name| PlaceProjection::Named(*name))
+                    .collect(),
             ),
             meta,
         }
     }
-
 
     pub fn ident(var: Var, meta: Meta) -> Expr<'src, Meta> {
         Expr {

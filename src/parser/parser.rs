@@ -337,10 +337,7 @@ impl<'src> Parser<'src> {
                 break;
             }
 
-            if self
-                .matches(TokenKind::Marker(Marker::Arrow))
-                .is_err()
-            {
+            if self.matches(TokenKind::Marker(Marker::Arrow)).is_err() {
                 break;
             }
 
@@ -738,15 +735,12 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_projection_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
-
-        
         let token = self.expect(TokenKind::Marker(Marker::Arrow))?;
         let ident = self.expect(TokenKind::ident())?;
-        
+
         let mut projections = vec![ident.lexeme];
 
         loop {
-
             if self.is_at_end() {
                 break;
             }
@@ -763,7 +757,6 @@ impl<'src> Parser<'src> {
             kind: ParseExprKind::Projection(projections),
             token,
         })
-
     }
 
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {

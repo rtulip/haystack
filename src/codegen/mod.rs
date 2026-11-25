@@ -103,7 +103,11 @@ where
     }
 
     fn format_place(place: &Place) -> String {
-        format!("{}{}", Self::format_var(place.base), Self::format_projections(&place.projections))
+        format!(
+            "{}{}",
+            Self::format_var(place.base),
+            Self::format_projections(&place.projections)
+        )
     }
 
     fn forward_declare_tid(&mut self, tid: &TypeId) -> std::fmt::Result {
@@ -810,18 +814,16 @@ where
                 let ident = self.next_stack_ident();
 
                 stack.push((output[0], ident));
-                
+
                 writeln!(
-                    self.w, 
-                    "    const {} {} = {}{};", 
-                    Self::format_tid(output[0]), 
-                    Self::format_stack_ident(ident), 
-                    Self::format_stack_ident(base), 
+                    self.w,
+                    "    const {} {} = {}{};",
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(ident),
+                    Self::format_stack_ident(base),
                     Self::format_projections(proj)
                 )?;
-
-
-            },
+            }
             ExprKind::Ref { place, mutability } => {
                 let ident = self.next_stack_ident();
                 writeln!(

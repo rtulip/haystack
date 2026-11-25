@@ -19,9 +19,9 @@ fn Slice.new_size(u64: cap) -> [u64] {
 
 fn Slice.resize<T>(&mut.Slice<T>: self) {
 
-    self::cap Slice.new_size as [new_cap]
+    self->cap Slice.new_size as [new_cap]
 
-    (self::data #&mut.u8 cast)
+    (self->data #&mut.u8 cast)
     (new_cap #T sizeof *) 
     realloc #&mut.T cast
     
@@ -31,8 +31,8 @@ fn Slice.resize<T>(&mut.Slice<T>: self) {
 }
 
 fn Slice.get<T>(u64: n Slice<T>: self) -> [Option<T>] {
-    n self::cap < if {
-        self::data n + |> Option.Some    
+    n self->cap < if {
+        self->data n + |> Option.Some    
     } else {
         Option.None
     }
@@ -51,19 +51,19 @@ fn Vec.new<T>() -> [Vec<T>] {
 
 fn Vec.push<T>(T: val &mut.Vec<T>: self) {
 
-    self::len self::slice::cap == if {
-        &mut.self::slice Slice.resize
+    self->len self->slice->cap == if {
+        &mut.self->slice Slice.resize
     }
 
-    val self::slice::data self::len + |<
+    val self->slice->data self->len + |<
 
-    self::len 1 + &mut.self::len |<
+    self->len 1 + &mut.self->len |<
 
 }
 
 fn Vec.get<T>(u64: n &Vec<T>: self) -> [Option<T>] {  
-    n self::len < if {
-        n self::slice Slice.get
+    n self->len < if {
+        n self->slice Slice.get
     } else {
         Option.None
     }
@@ -85,6 +85,6 @@ fn main() {
         i 1 +
     } drop
 
-    "Capacity: " print v ::slice::cap println
-    "Length:   " print v ::len println
+    "Capacity: " print v ->slice->cap println
+    "Length:   " print v ->len println
 }

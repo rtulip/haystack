@@ -338,7 +338,7 @@ impl<'src> Parser<'src> {
             }
 
             if self
-                .matches(TokenKind::Marker(Marker::DoubleColon))
+                .matches(TokenKind::Marker(Marker::Arrow))
                 .is_err()
             {
                 break;
@@ -740,7 +740,7 @@ impl<'src> Parser<'src> {
     fn parse_projection_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
 
         
-        let token = self.expect(TokenKind::Marker(Marker::DoubleColon))?;
+        let token = self.expect(TokenKind::Marker(Marker::Arrow))?;
         let ident = self.expect(TokenKind::ident())?;
         
         let mut projections = vec![ident.lexeme];
@@ -751,7 +751,7 @@ impl<'src> Parser<'src> {
                 break;
             }
 
-            if self.matches(TokenKind::Marker(Marker::DoubleColon)).is_err() {
+            if self.matches(TokenKind::Marker(Marker::Arrow)).is_err() {
                 break;
             }
 
@@ -773,7 +773,7 @@ impl<'src> Parser<'src> {
             TokenKind::Marker(Marker::LeftBrace) => self.parse_block_expr(),
             TokenKind::Marker(Marker::Hash) => self.parse_type_expr(),
             TokenKind::Marker(Marker::LeftParen) => self.parse_tuple_expr(),
-            TokenKind::Marker(Marker::DoubleColon) => self.parse_projection_expr(),
+            TokenKind::Marker(Marker::Arrow) => self.parse_projection_expr(),
             TokenKind::Keyword(Keyword::Pack) => Ok(self.parse_pack_expr()),
             TokenKind::Keyword(Keyword::As) => self.parse_as_expr(),
             TokenKind::Keyword(Keyword::Call) => Ok(self.parse_call_expr()),

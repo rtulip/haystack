@@ -32,9 +32,9 @@ fn Option.map<T U>(Option<T>: opt fn(T) -> [U]: f) -> [Option<U>] {
 fn transform(u64: _) -> [bool] true
 
 fn Str.print_chars(Str: s) {
-    0 while dup s::len < do {
+    0 while dup s->len < do {
         as [i]
-        "`%c`\n"c s::data i + |> printf drop
+        "`%c`\n"c s->data i + |> printf drop
         i 1 + 
     } drop
 }
@@ -45,8 +45,8 @@ struct Slice<T> {
 }
 
 fn Slice.zero<T>(Slice<T>: slice) {
-    slice::data #&mut.u8 cast as [data]
-    slice::cap #T sizeof * as [n]
+    slice->data #&mut.u8 cast as [data]
+    slice->cap #T sizeof * as [n]
 
     0 while dup n < do {
         as [i]

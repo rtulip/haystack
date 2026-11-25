@@ -46,6 +46,7 @@ impl<'src> ParsePlace<'src> {
 #[derive(Debug)]
 pub enum ParseExprKind<'src> {
     Place(ParsePlace<'src>),
+    Projection(Vec<&'src str>),
     Literal(Literal<'src>),
     Block(Vec<ParseExpr<'src>>),
     Type(ParseType<'src>),

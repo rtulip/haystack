@@ -621,6 +621,7 @@ impl<'src> TypeCheck<'src> {
                     expr.token.clone(),
                 ))
             }
+            ParseExprKind::Projection(proj) => Ok(Expr::projection(proj, expr.token.clone())),
             ParseExprKind::Literal(literal) => match literal {
                 Literal::Bool(b) => Ok(Expr::bool(*b, expr.token.clone())),
                 Literal::Char(c) => Ok(Expr::char(*c, expr.token.clone())),
@@ -2330,6 +2331,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             | ExprKind::CString(_)
             | ExprKind::Char(_)
             | ExprKind::Bind(_)
+            | ExprKind::Projection(_)
             | ExprKind::Pack
             | ExprKind::Unpack
             | ExprKind::Call

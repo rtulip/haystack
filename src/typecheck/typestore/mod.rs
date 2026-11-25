@@ -695,6 +695,32 @@ where
                     },
                 )
             }
+            ExprKind::Projection(mut proj) => {
+                let Type::Function(FunctionType { input, output }) =
+                    self.get(expr_tid).unwrap().clone()
+                else {
+                    unreachable!()
+                };
+
+                assert!(input.len() == 1);
+                assert!(output.len() == 1);
+
+                self.substitute_place_projections(
+                    input[0],
+                    &mut proj,
+                    lookup,
+                    &expr.meta.0,
+                );
+
+                (
+                    unbound,
+                    Expr {
+                        expr: ExprKind::Projection(proj),
+                        meta: (expr.meta.0, expr_tid),
+                    },
+                )
+
+            },
             ExprKind::Block(exprs) => {
                 let exprs = exprs.into_iter().fold(vec![], |mut exprs, e| {
                     let (ub, e) = self.substitute_expr(e, lookup);
@@ -1326,6 +1352,33 @@ where
         Ok((e, constraints))
     }
 
+    fn infer_projection<'src>(
+        &mut self,
+        projections: Vec<PlaceProjection<'src>>,
+        meta: M,
+        stack: &mut Stack,
+    ) -> Result<(Expr<'src, (M, TypeId)>, Vec<Constraint<M>>), InferenceError<M>>
+    where
+        M: Debug + Clone + PartialEq + Eq,
+    {
+        if stack.is_empty() {
+            todo!()
+        }
+        
+        let stack_tid = stack.pop().unwrap();
+
+        let (tid, constraints) = self.infer_place_projections(stack_tid, &projections, &meta);
+
+        stack.push(tid);
+        let e_tid = self.function(FunctionType {
+            input: vec![stack_tid],
+            output: vec![tid],
+        });
+        let e = Expr { expr: ExprKind::Projection(projections), meta: (meta, e_tid) };
+
+        Ok((e, constraints))
+    }
+
     fn uncheckec_cast_fn(&mut self) -> FunctionType {
         let from_tyvar = self.fresh_type_var();
         let into_tyvar = self.fresh_type_var();
@@ -1754,6 +1807,9 @@ where
             ExprKind::Ref { place, mutability } => {
                 self.infer_ref(place, mutability, expr.meta, stack, env)
             }
+            ExprKind::Projection(proj) => {
+                self.infer_projection(proj, expr.meta, stack)
+            },
             ExprKind::Block(exprs) => {
                 let input = stack.clone();
 

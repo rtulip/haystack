@@ -737,6 +737,35 @@ impl<'src> Parser<'src> {
         }
     }
 
+    fn parse_projection_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
+
+        
+        let token = self.expect(TokenKind::Marker(Marker::DoubleColon))?;
+        let ident = self.expect(TokenKind::ident())?;
+        
+        let mut projections = vec![ident.lexeme];
+
+        loop {
+
+            if self.is_at_end() {
+                break;
+            }
+
+            if self.matches(TokenKind::Marker(Marker::DoubleColon)).is_err() {
+                break;
+            }
+
+            let ident = self.expect(TokenKind::ident())?;
+            projections.push(ident.lexeme);
+        }
+
+        Ok(ParseExpr {
+            kind: ParseExprKind::Projection(projections),
+            token,
+        })
+
+    }
+
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
         self.strip_whitespace();
         match &self.peek().kind {
@@ -744,6 +773,7 @@ impl<'src> Parser<'src> {
             TokenKind::Marker(Marker::LeftBrace) => self.parse_block_expr(),
             TokenKind::Marker(Marker::Hash) => self.parse_type_expr(),
             TokenKind::Marker(Marker::LeftParen) => self.parse_tuple_expr(),
+            TokenKind::Marker(Marker::DoubleColon) => self.parse_projection_expr(),
             TokenKind::Keyword(Keyword::Pack) => Ok(self.parse_pack_expr()),
             TokenKind::Keyword(Keyword::As) => self.parse_as_expr(),
             TokenKind::Keyword(Keyword::Call) => Ok(self.parse_call_expr()),

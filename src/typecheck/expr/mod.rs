@@ -91,6 +91,7 @@ pub enum ExprKind<'src, Meta> {
     String(&'src str),
     CString(&'src str),
     Place(Place<'src>),
+    Projection(Vec<PlaceProjection<'src>>),
     Ref {
         place: Place<'src>,
         mutability: Mutability,
@@ -180,6 +181,18 @@ impl<'src, Meta> Expr<'src, Meta> {
             meta,
         }
     }
+
+    pub fn projection(projections: &Vec<&'src str>, meta: Meta) -> Expr<'src, Meta> {
+        Expr {
+            expr: ExprKind::Projection(projections
+                .iter()
+                .map(|name| PlaceProjection::Named(*name))
+                .collect(),
+            ),
+            meta,
+        }
+    }
+
 
     pub fn ident(var: Var, meta: Meta) -> Expr<'src, Meta> {
         Expr {
@@ -355,6 +368,7 @@ impl<'src, Meta> Expr<'src, Meta> {
             ExprKind::CString(s) => ExprKind::CString(s),
             ExprKind::Char(c) => ExprKind::Char(c),
             ExprKind::Place(place) => ExprKind::Place(place),
+            ExprKind::Projection(proj) => ExprKind::Projection(proj),
             ExprKind::Ref { place, mutability } => ExprKind::Ref { place, mutability },
             ExprKind::Block(exprs) => {
                 ExprKind::Block(exprs.into_iter().map(|e| e.map_meta(f)).collect())

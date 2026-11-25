@@ -25,12 +25,28 @@ pub struct ParseMatchExpr<'src> {
 }
 
 #[derive(Debug)]
+pub struct ParsePlace<'src> {
+    pub base: &'src str,
+    pub projections: Vec<&'src str>,
+}
+
+impl<'src> ParsePlace<'src> {
+    pub fn new(base: &'src str, projections: Vec<&'src str>) -> Self {
+        Self { base, projections }
+    }
+
+    pub fn ident(base: &'src str) -> Self {
+        Self {
+            base,
+            projections: vec![],
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum ParseExprKind<'src> {
-    Ident(&'src str),
-    Member {
-        base: &'src str,
-        member: &'src str,
-    },
+    Place(ParsePlace<'src>),
+    Projection(Vec<&'src str>),
     Literal(Literal<'src>),
     Block(Vec<ParseExpr<'src>>),
     Type(ParseType<'src>),
@@ -41,8 +57,8 @@ pub enum ParseExprKind<'src> {
     Intrinsic(Intrinsic),
     As(Vec<Token<'src>>),
     TakeRef {
+        place: ParsePlace<'src>,
         mutable: bool,
-        ident: &'src str,
     },
     If(ParseIfExpr<'src>),
     Match(ParseMatchExpr<'src>),

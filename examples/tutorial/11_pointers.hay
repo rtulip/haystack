@@ -10,9 +10,9 @@ struct Array<T> {
 
 fn Array.memset<T>(T: value Array<T>: range) {
     
-    0 while dup range::len < do {
+    0 while dup range->len < do {
         as [i] 
-        value (range::data i +) |<
+        value (range->data i +) |<
         i 1 + 
     } drop
 
@@ -22,9 +22,9 @@ fn foo<T>(&.&mut.&.&mut.&.T) drop
 
 fn main() {
     "Hello World" as [s]
-    0 while dup s::len < do {
+    0 while dup s->len < do {
         as [i]
-        s::data i + |> println
+        s->data i + |> println
         i 1 +
     } 
     drop

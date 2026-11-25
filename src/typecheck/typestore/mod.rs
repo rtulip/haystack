@@ -8,6 +8,12 @@ use std::{
     todo, unreachable, write,
 };
 
+use inference::InferenceStatus;
+
+use crate::typecheck::{
+    constraint::Member,
+    expr::{self, PlaceProjection},
+};
 use crate::{
     error::HayError,
     typecheck::{
@@ -16,7 +22,7 @@ use crate::{
             Coherence, Environment, InterfaceImpl, QualifiedInterfaceImpl, QualifiedType, Scheme,
             TypeClassId, TypePredicate, Variance,
         },
-        expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Var},
+        expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Place, Var},
         typ::{
             typ::{
                 BuiltinType, EnumDef, EnumType, FunctionType, Mutability, PointerType, Projection,
@@ -40,6 +46,25 @@ pub trait MemberLookup {
     fn get_member_idx(&self, sid: StructId, member: &str) -> Option<usize>;
 }
 
+pub enum ImplResolution {
+    Match(QualifiedInterfaceImpl),
+    Unmatched,
+    Defer,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MemberAccess {
+    Direct,
+    Indirect,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct MemberInfo {
+    pub idx: usize,
+    pub tid: TypeId,
+    pub access: MemberAccess,
+}
+
 /// Typestore
 ///
 /// This is a container that's responsible for mapping a TypeId into a type. This will mean that types
@@ -57,6 +82,8 @@ pub struct TypeStore<M> {
     lookup: UnificationTable<TypeVar, TypeId>,
     pub tyvar_origin: HashMap<TypeId, (TypeId, M)>,
     str_tid: Option<TypeId>,
+
+    revision: usize,
 }
 
 impl<M> TypeStore<M>
@@ -84,6 +111,7 @@ where
             lookup: UnificationTable::new(),
             tyvar_origin: HashMap::new(),
             str_tid: None,
+            revision: 0,
         }
     }
 
@@ -325,6 +353,28 @@ where
                 self.fmt_many(expected),
                 self.fmt_many(found)
             ),
+            ConstraintType::HasMember {
+                base_tid,
+                member,
+                member_tid,
+            } => match member {
+                Member::Named(member) => {
+                    format!(
+                        "{} has member `{}` with type {}",
+                        self.fmt(*base_tid),
+                        member,
+                        self.fmt(*member_tid)
+                    )
+                }
+                Member::Idx(member) => {
+                    format!(
+                        "{} has member `{}` with type {}",
+                        self.fmt(*base_tid),
+                        member,
+                        self.fmt(*member_tid)
+                    )
+                }
+            },
         }
     }
 
@@ -557,12 +607,14 @@ where
     }
 
     /// Substitute all types referenced in an Expression into common form.
-    fn substitute_expr<'src>(
+    fn substitute_expr<'src, Lookup>(
         &mut self,
         expr: Expr<'src, (M, TypeId)>,
+        lookup: &Lookup,
     ) -> (HashSet<TypeVar>, Expr<'src, (M, TypeId)>)
     where
         M: Debug,
+        Lookup: MemberLookup,
     {
         let (mut unbound, expr_tid) = self.substitute_one(expr.meta.1);
 
@@ -576,10 +628,6 @@ where
             | ExprKind::Bind(_)
             | ExprKind::Call
             | ExprKind::UncheckedCast
-            | ExprKind::Ident(_)
-            | ExprKind::Ref { .. }
-            | ExprKind::MemberAccess { .. }
-            | ExprKind::NamedMemberAccess { .. }
             | ExprKind::Pack
             | ExprKind::Unpack
             | ExprKind::SizeOf
@@ -596,9 +644,80 @@ where
                     meta: (expr.meta.0, expr_tid),
                 },
             ),
+            ExprKind::Place(mut place) => {
+                let Type::Function(FunctionType { input, output }) =
+                    self.get(expr_tid).unwrap().clone()
+                else {
+                    unreachable!()
+                };
+                assert!(input.len() == 1);
+                assert!(output.len() == 1);
+
+                self.substitute_place_projections(
+                    input[0],
+                    &mut place.projections,
+                    lookup,
+                    &expr.meta.0,
+                );
+
+                (
+                    unbound,
+                    Expr {
+                        expr: ExprKind::Place(place),
+                        meta: (expr.meta.0, output[0]),
+                    },
+                )
+            }
+            ExprKind::Ref {
+                mut place,
+                mutability,
+            } => {
+                let Type::Function(FunctionType { input, output }) =
+                    self.get(expr_tid).unwrap().clone()
+                else {
+                    unreachable!()
+                };
+                assert!(input.len() == 1);
+                assert!(output.len() == 1);
+
+                self.substitute_place_projections(
+                    input[0],
+                    &mut place.projections,
+                    lookup,
+                    &expr.meta.0,
+                );
+
+                (
+                    unbound,
+                    Expr {
+                        expr: ExprKind::Ref { place, mutability },
+                        meta: (expr.meta.0, output[0]),
+                    },
+                )
+            }
+            ExprKind::Projection(mut proj) => {
+                let Type::Function(FunctionType { input, output }) =
+                    self.get(expr_tid).unwrap().clone()
+                else {
+                    unreachable!()
+                };
+
+                assert!(input.len() == 1);
+                assert!(output.len() == 1);
+
+                self.substitute_place_projections(input[0], &mut proj, lookup, &expr.meta.0);
+
+                (
+                    unbound,
+                    Expr {
+                        expr: ExprKind::Projection(proj),
+                        meta: (expr.meta.0, expr_tid),
+                    },
+                )
+            }
             ExprKind::Block(exprs) => {
                 let exprs = exprs.into_iter().fold(vec![], |mut exprs, e| {
-                    let (ub, e) = self.substitute_expr(e);
+                    let (ub, e) = self.substitute_expr(e, lookup);
                     unbound.extend(ub);
                     exprs.push(e);
                     exprs
@@ -616,13 +735,13 @@ where
                     .cases
                     .into_iter()
                     .map(|case| {
-                        let (case_unbound, expr) = self.substitute_expr(*case.expr);
+                        let (case_unbound, expr) = self.substitute_expr(*case.expr, lookup);
                         unbound.extend(case_unbound);
                         MatchCase::new(case.pattern, expr)
                     })
                     .collect();
                 let finally = if let Some(expr) = m.finally {
-                    let (finally_unbound, expr) = self.substitute_expr(*expr);
+                    let (finally_unbound, expr) = self.substitute_expr(*expr, lookup);
                     unbound.extend(finally_unbound);
                     Some(expr)
                 } else {
@@ -638,13 +757,13 @@ where
                 let condition = condition
                     .into_iter()
                     .map(|e| {
-                        let (ub, expr) = self.substitute_expr(e);
+                        let (ub, expr) = self.substitute_expr(e, lookup);
                         unbound.extend(ub);
                         expr
                     })
                     .collect();
 
-                let (ub, body) = self.substitute_expr(*body);
+                let (ub, body) = self.substitute_expr(*body, lookup);
                 unbound.extend(ub);
                 (
                     unbound,
@@ -652,8 +771,8 @@ where
                 )
             }
             ExprKind::If(iff) => {
-                let (then_unbound, then) = self.substitute_expr(*iff.then);
-                let (otherwise_unbound, otherwise) = self.substitute_expr(*iff.otherwise);
+                let (then_unbound, then) = self.substitute_expr(*iff.then, lookup);
+                let (otherwise_unbound, otherwise) = self.substitute_expr(*iff.otherwise, lookup);
 
                 unbound.extend(then_unbound);
                 unbound.extend(otherwise_unbound);
@@ -662,7 +781,7 @@ where
             }
             ExprKind::Tuple(exprs) => {
                 let exprs = exprs.into_iter().fold(vec![], |mut acc, e| {
-                    let (ub, e) = self.substitute_expr(e);
+                    let (ub, e) = self.substitute_expr(e, lookup);
                     unbound.extend(ub);
                     acc.push(e);
                     acc
@@ -1028,9 +1147,105 @@ where
         constraints.collect()
     }
 
-    fn infer_ident<'src>(
+    fn substitute_place_projection<'src, Lookup>(
         &mut self,
-        var: Var,
+        tid: TypeId,
+        projection: &mut PlaceProjection<'src>,
+        lookup: &Lookup,
+        meta: &M,
+    ) -> TypeId
+    where
+        Lookup: MemberLookup,
+    {
+        let (proj, tid) = match projection {
+            PlaceProjection::Named(member) => {
+                match self.get_member_idx(tid, member, lookup, meta).unwrap() {
+                    Some(info) => (PlaceProjection::Indexed(info.idx, info.access), info.tid),
+                    None => unreachable!(),
+                }
+            }
+            PlaceProjection::Indexed(idx, access) => return tid,
+        };
+
+        *projection = proj;
+        tid
+    }
+
+    fn substitute_place_projections<'src, Lookup>(
+        &mut self,
+        tid: TypeId,
+        projections: &mut [PlaceProjection<'src>],
+        lookup: &Lookup,
+        meta: &M,
+    ) where
+        Lookup: MemberLookup,
+    {
+        let mut tid = tid;
+        for proj in projections {
+            tid = self.substitute_place_projection(tid, proj, lookup, meta);
+        }
+    }
+
+    fn infer_place_projection<'src>(
+        &mut self,
+        tid: TypeId,
+        projection: &PlaceProjection<'src>,
+        meta: &M,
+    ) -> (TypeId, Constraint<M>) {
+        let tyvar = self.fresh_type_var();
+        let member_tid = self.intern(Type::TypeVar(tyvar));
+
+        match projection {
+            PlaceProjection::Named(member) => {
+                let c = Constraint::new(
+                    ConstraintType::HasMember {
+                        base_tid: tid,
+                        member: Member::Named(String::from(*member)),
+                        member_tid,
+                    },
+                    ConstraintOrigin::PlaceProjection,
+                    meta,
+                );
+
+                (member_tid, c)
+            }
+            PlaceProjection::Indexed(idx, _) => {
+                let c = Constraint::new(
+                    ConstraintType::HasMember {
+                        base_tid: tid,
+                        member: Member::Idx(*idx),
+                        member_tid,
+                    },
+                    ConstraintOrigin::PlaceProjection,
+                    meta,
+                );
+
+                (member_tid, c)
+            }
+        }
+    }
+
+    fn infer_place_projections<'src>(
+        &mut self,
+        tid: TypeId,
+        projections: &[PlaceProjection<'src>],
+        meta: &M,
+    ) -> (TypeId, Vec<Constraint<M>>) {
+        let mut tid = tid;
+        let mut constraints = vec![];
+
+        for p in projections {
+            let (next_tid, c) = self.infer_place_projection(tid, p, meta);
+            tid = next_tid;
+            constraints.push(c);
+        }
+
+        (tid, constraints)
+    }
+
+    fn infer_place<'src>(
+        &mut self,
+        place: Place<'src>,
         meta: M,
         stack: &mut Stack,
         env: &mut Environment,
@@ -1038,19 +1253,27 @@ where
     where
         M: Debug + Clone + PartialEq + Eq,
     {
-        let scheme = env.get_var(&var).expect("Vars should be resolvable");
+        let scheme = env.get_var(&place.base).expect("Vars should be resolvable");
         let inst = self.freshen(scheme, &meta);
 
         let (tid, constraints) = if let Some(func) = self.get_func(&inst.tid).cloned() {
+            if !place.projections.is_empty() {
+                todo!()
+            }
+
+            let tid = self.function(FunctionType {
+                input: vec![inst.tid],
+                output: vec![inst.tid],
+            });
+
             (
-                inst.tid,
+                tid,
                 self.infer_fn_call(&func, inst.predicates, stack, &meta),
             )
         } else {
             // If an identifier _isn't_ a funciton, then add the value to the stack.
-            stack.push(inst.tid);
             let tid = inst.tid;
-            let constraints = inst
+            let mut constraints: Vec<Constraint<M>> = inst
                 .predicates
                 .into_iter()
                 .map(|pred| {
@@ -1061,10 +1284,94 @@ where
                     )
                 })
                 .collect();
+
+            let (tid, proj_constrs) = self.infer_place_projections(tid, &place.projections, &meta);
+            stack.push(tid);
+
+            constraints.extend(proj_constrs);
+
+            let tid = self.function(FunctionType {
+                input: vec![inst.tid],
+                output: vec![tid],
+            });
             (tid, constraints)
         };
 
-        let e = Expr::ident(var, (meta, tid));
+        let e = Expr {
+            expr: ExprKind::Place(place),
+            meta: (meta, tid),
+        };
+
+        Ok((e, constraints))
+    }
+
+    fn infer_ref<'src>(
+        &mut self,
+        place: Place<'src>,
+        mutability: Mutability,
+        meta: M,
+        stack: &mut Stack,
+        env: &mut Environment,
+    ) -> Result<(Expr<'src, (M, TypeId)>, Vec<Constraint<M>>), InferenceError<M>>
+    where
+        M: Debug + Clone + PartialEq + Eq,
+    {
+        let scheme = env.get_var(&place.base).expect("Vars should be resolvable");
+        let inst = self.freshen(scheme, &meta);
+        let (tid, constraints) = self.infer_place_projections(inst.tid, &place.projections, &meta);
+
+        let tid = if let Some(func) = self.get_func(&inst.tid).cloned() {
+            if mutability != Mutability::Const {
+                return Err(InferenceError::mutable_ref_to_fn(
+                    place.base,
+                    &ConstraintOrigin::TakeRef {
+                        var: place.base,
+                        mutability,
+                    },
+                    &meta,
+                ));
+            }
+            self.function(func)
+        } else {
+            self.pointer(tid, mutability)
+        };
+
+        stack.push(tid);
+        let e_tid = self.function(FunctionType {
+            input: vec![inst.tid],
+            output: vec![tid],
+        });
+        let e = Expr::take_ref(place, mutability, (meta, e_tid));
+
+        Ok((e, constraints))
+    }
+
+    fn infer_projection<'src>(
+        &mut self,
+        projections: Vec<PlaceProjection<'src>>,
+        meta: M,
+        stack: &mut Stack,
+    ) -> Result<(Expr<'src, (M, TypeId)>, Vec<Constraint<M>>), InferenceError<M>>
+    where
+        M: Debug + Clone + PartialEq + Eq,
+    {
+        if stack.is_empty() {
+            todo!()
+        }
+
+        let stack_tid = stack.pop().unwrap();
+
+        let (tid, constraints) = self.infer_place_projections(stack_tid, &projections, &meta);
+
+        stack.push(tid);
+        let e_tid = self.function(FunctionType {
+            input: vec![stack_tid],
+            output: vec![tid],
+        });
+        let e = Expr {
+            expr: ExprKind::Projection(projections),
+            meta: (meta, e_tid),
+        };
 
         Ok((e, constraints))
     }
@@ -1226,9 +1533,11 @@ where
             Type::Struct(s) => {
                 let s = s.clone();
                 let members = self.get_struct_members(s);
-                Ok(FunctionType { input: vec![tid], output: members })
-
-            },
+                Ok(FunctionType {
+                    input: vec![tid],
+                    output: members,
+                })
+            }
             Type::Variant(_) => todo!(),
             Type::Tuple(tids) => Ok(FunctionType {
                 input: vec![tid],
@@ -1247,18 +1556,20 @@ where
     }
 
     fn get_direct_member_idx<'src, Lookup>(
-        &mut self, 
-        tid: TypeId, 
-        member: &str, 
-        lookup: &Lookup, 
-        meta: &M
-    ) -> Result<usize, InferenceError<M>>
+        &mut self,
+        tid: TypeId,
+        member: &str,
+        lookup: &Lookup,
+        meta: &M,
+    ) -> Result<Option<MemberInfo>, InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
-        Lookup: MemberLookup {
-
+        Lookup: MemberLookup,
+    {
         match self.get(tid).unwrap() {
+            Type::TypeVar(_) => Ok(None),
             Type::Struct(s) => {
+                let s = s.clone();
                 let Some(member_idx) = lookup.get_member_idx(s.sid, member) else {
                     return Err(InferenceError::invalid_struct_member(
                         member,
@@ -1267,64 +1578,124 @@ where
                     ));
                 };
 
-                Ok(member_idx)
+                let def = self.get_struct_def(s.sid);
+                assert!(def.vars.len() == s.args.len());
+
+                let new_tid = self.replace(
+                    def.members[member_idx],
+                    &HashMap::from_iter(def.vars.clone().into_iter().zip(s.args.into_iter())),
+                );
+
+                let info = MemberInfo {
+                    idx: member_idx,
+                    tid: new_tid,
+                    access: MemberAccess::Direct,
+                };
+
+                Ok(Some(info))
             }
             Type::Tuple(_) => todo!("Add support for get tuple member"),
             _ => todo!("Can't get member for a non-struct type"),
         }
-
     }
 
     fn get_member_idx<'src, Lookup>(
-        &mut self, 
-        tid: TypeId, 
-        member: &str, 
-        lookup: &Lookup, 
-        meta: &M
-    ) -> Result<usize, InferenceError<M>>
+        &mut self,
+        tid: TypeId,
+        member: &str,
+        lookup: &Lookup,
+        meta: &M,
+    ) -> Result<Option<MemberInfo>, InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
-        Lookup: MemberLookup {
-
+        Lookup: MemberLookup,
+    {
         match self.get(tid).unwrap() {
-            Type::Pointer(p) => self.get_direct_member_idx(p.tid, member, lookup, meta),
+            Type::Pointer(p) => match self.get_direct_member_idx(p.tid, member, lookup, meta)? {
+                Some(info) => Ok(Some(MemberInfo {
+                    idx: info.idx,
+                    tid: info.tid,
+                    access: MemberAccess::Indirect,
+                })),
+                None => Ok(None),
+            },
             _ => self.get_direct_member_idx(tid, member, lookup, meta),
         }
-
     }
 
-    fn infer_concrete_member_access<'src>(
-        &mut self, 
-        var: Var, 
+    fn get_direct_member_from_idx<'src, Lookup>(
+        &mut self,
         tid: TypeId,
-        parent_tid: TypeId, 
-        member: usize, 
-        stack: &mut Stack, 
-        meta: M
-    ) -> Result<Expr<'src, (M, TypeId)>, InferenceError<M>> {
-        if let Some(Type::Struct(s)) = self.get(tid) {
-            let def = self.get_struct_def(s.sid).clone();
-            let bindings = Self::generate_bindings(&def.vars, &s.args)?;
-            let members = self.instantiate_tids(&def.members, &bindings);
-            let tid = members[member];
-            stack.push(tid);
+        idx: usize,
+        lookup: &Lookup,
+        meta: &M,
+    ) -> Result<Option<MemberInfo>, InferenceError<M>>
+    where
+        M: Debug + Clone + PartialEq + Eq,
+        Lookup: MemberLookup,
+    {
+        match self.get(tid).unwrap() {
+            Type::TypeVar(_) => Ok(None),
+            Type::Struct(s) => {
+                let s = s.clone();
 
-            let expr_tid = self.function(FunctionType {
-                input: vec![parent_tid],
-                output: vec![tid],
-            });
-            let e = Expr::member_access(var, member, (meta, expr_tid));
+                let def = self.get_struct_def(s.sid);
+                assert!(def.vars.len() == s.args.len());
 
-            Ok(e)
-        } else {
-            todo!("Error: Can't access member of non-struct type")
+                if idx >= def.members.len() {
+                    todo!()
+                }
+
+                let new_tid = self.replace(
+                    def.members[idx],
+                    &HashMap::from_iter(def.vars.clone().into_iter().zip(s.args.into_iter())),
+                );
+
+                let info = MemberInfo {
+                    idx: idx,
+                    tid: new_tid,
+                    access: MemberAccess::Direct,
+                };
+
+                Ok(Some(info))
+            }
+            Type::Tuple(tids) => {
+                if idx >= tids.len() {
+                    todo!()
+                };
+
+                let info = MemberInfo {
+                    idx,
+                    tid: tids[idx],
+                    access: MemberAccess::Direct,
+                };
+                Ok(Some(info))
+            }
+            _ => todo!("Can't get member for a non-struct type"),
         }
     }
 
-    fn infer_member_access<'src>(&mut self, var: Var, tid: TypeId, member: usize, stack: &mut Stack, meta: M) -> Result<Expr<'src, (M, TypeId)>, InferenceError<M>> {
+    fn get_member_from_idx<'src, Lookup>(
+        &mut self,
+        tid: TypeId,
+        idx: usize,
+        lookup: &Lookup,
+        meta: &M,
+    ) -> Result<Option<MemberInfo>, InferenceError<M>>
+    where
+        M: Debug + Clone + PartialEq + Eq,
+        Lookup: MemberLookup,
+    {
         match self.get(tid).unwrap() {
-            Type::Pointer(p) => self.infer_concrete_member_access(var, p.tid, tid, member, stack, meta),
-            _ => self.infer_concrete_member_access(var, tid, tid, member, stack, meta),
+            Type::Pointer(p) => match self.get_direct_member_from_idx(p.tid, idx, lookup, meta)? {
+                Some(info) => Ok(Some(MemberInfo {
+                    idx: info.idx,
+                    tid: info.tid,
+                    access: MemberAccess::Indirect,
+                })),
+                None => Ok(None),
+            },
+            _ => self.get_direct_member_from_idx(tid, idx, lookup, meta),
         }
     }
 
@@ -1426,33 +1797,11 @@ where
                 let e = Expr::bind(vars, (expr.meta, tid));
                 Ok((e, vec![]))
             }
-            ExprKind::Ident(var) => self.infer_ident(var, expr.meta, stack, env),
-            ExprKind::Ref { var, mutability } => {
-                let scheme = env.get_var(&var).expect("Vars should be resolvable");
-                let inst = self.freshen(scheme, &expr.meta);
-
-                let tid = if let Some(func) = self.get_func(&inst.tid).cloned() {
-                    if mutability != Mutability::Const {
-                        return Err(InferenceError::mutable_ref_to_fn(
-                            var,
-                            &ConstraintOrigin::TakeRef { var, mutability },
-                            &expr.meta,
-                        ));
-                    }
-                    self.function(func)
-                } else {
-                    self.pointer(inst.tid, mutability)
-                };
-
-                stack.push(tid);
-                let e_tid = self.function(FunctionType {
-                    input: vec![],
-                    output: vec![tid],
-                });
-                let e = Expr::take_ref(var, mutability, (expr.meta, e_tid));
-
-                Ok((e, vec![]))
+            ExprKind::Place(place) => self.infer_place(place, expr.meta, stack, env),
+            ExprKind::Ref { place, mutability } => {
+                self.infer_ref(place, mutability, expr.meta, stack, env)
             }
+            ExprKind::Projection(proj) => self.infer_projection(proj, expr.meta, stack),
             ExprKind::Block(exprs) => {
                 let input = stack.clone();
 
@@ -1549,45 +1898,18 @@ where
 
                 let tyvar = self.fresh_type_var();
                 let t_tid = self.intern(Type::TypeVar(tyvar));
-                let ty_t_tid = self.metatype(env, t_tid, None, &expr.meta).map_err(|kind| todo!())?;
+                let ty_t_tid = self
+                    .metatype(env, t_tid, None, &expr.meta)
+                    .map_err(|kind| todo!())?;
 
                 let func = FunctionType {
                     input: vec![ty_t_tid],
-                    output: vec![u64_tid]
+                    output: vec![u64_tid],
                 };
 
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let expr_tid = self.function(func);
                 let e = Expr::sizeof((expr.meta, expr_tid));
-                Ok((e, constraints))
-            }
-            ExprKind::NamedMemberAccess { var, member } => {
-                let scheme = env.get_var(&var).expect("Vars should be resolvable");
-                let inst = self.freshen(scheme, &expr.meta);
-                
-                let member_idx = self.get_member_idx(inst.tid, member, lookup, &expr.meta)?;
-
-                let expr = Expr::member_access(var, member_idx, expr.meta);
-                self.infer(expr, stack, env, lookup)
-            }
-            ExprKind::MemberAccess { var, member } => {
-                let scheme = env.get_var(&var).expect("Vars should be resolvable");
-                let inst = self.freshen(scheme, &expr.meta);
-
-                let constraints = inst
-                    .predicates
-                    .into_iter()
-                    .map(|pred| {
-                        Constraint::new(
-                            ConstraintType::Predicate(pred),
-                            ConstraintOrigin::MemberAccess { var, member },
-                            &expr.meta,
-                        )
-                    })
-                    .collect();
-
-                let e = self.infer_member_access(var, inst.tid, member, stack, expr.meta)?;
-
                 Ok((e, constraints))
             }
             ExprKind::Match(m) => {
@@ -1903,7 +2225,7 @@ where
                 let expr_tid = self.function(func);
                 let e = Expr::read((expr.meta, expr_tid));
                 Ok((e, constriants))
-            },
+            }
             ExprKind::Write => {
                 let tyvar = self.fresh_type_var();
                 let t_tid = self.intern(Type::TypeVar(tyvar));
@@ -1918,12 +2240,11 @@ where
                 let expr_tid = self.function(func);
                 let e = Expr::write((expr.meta, expr_tid));
                 Ok((e, constriants))
-
-            },
+            }
             ExprKind::Add(tid) => {
-                let func= match self.get(tid) {
+                let func = match self.get(tid) {
                     Some(Type::Function(func)) => func.clone(),
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::add(tid, (expr.meta.clone(), self.function(func)));
@@ -2075,7 +2396,7 @@ where
             }
             Type::Projection(p) => {
                 let p = p.clone();
-                if let Some(QualifiedInterfaceImpl {
+                if let ImplResolution::Match(QualifiedInterfaceImpl {
                     associated_types, ..
                 }) = self.get_matching_impl(env, p.cid, &p.args, meta)?
                 {
@@ -2104,11 +2425,18 @@ where
         }
     }
 
-    fn unify_typevar(&mut self, var: TypeVar, tid: TypeId) -> Result<(), InferenceErrorKind>
+    fn unify_typevar(
+        &mut self,
+        var: TypeVar,
+        tid: TypeId,
+    ) -> Result<InferenceStatus, InferenceErrorKind>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
-        self.lookup.assign_key(var, Some(tid)).map_err(|_| todo!())
+        self.lookup
+            .assign_key(var, Some(tid))
+            .map_err(|_| todo!())?;
+        Ok(InferenceStatus::Solved)
     }
 
     fn type_is_c_vararg_compatible(&mut self, env: &Environment, tid: TypeId, meta: &M) -> bool {
@@ -2132,7 +2460,7 @@ where
         unnorm_left: TypeId,
         unnorm_right: TypeId,
         meta: &M,
-    ) -> Result<(), InferenceErrorKind>
+    ) -> Result<InferenceStatus, InferenceErrorKind>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
@@ -2140,12 +2468,14 @@ where
         let (right, right_tid) = self.normalize_ty(env, unnorm_right, meta)?;
 
         match (left, right) {
-            (a, b) if a == b => Ok(()),
-            (Type::Builtin(left), Type::Builtin(right)) if left == right => Ok(()),
+            (a, b) if a == b => Ok(InferenceStatus::Solved),
+            (Type::Builtin(left), Type::Builtin(right)) if left == right => {
+                Ok(InferenceStatus::Solved)
+            }
             (Type::Builtin(BuiltinType::CVarArgs), _)
                 if self.type_is_c_vararg_compatible(env, right_tid, meta) =>
             {
-                Ok(())
+                Ok(InferenceStatus::Solved)
             }
             (_, Type::Builtin(BuiltinType::CVarArgs)) => {
                 unreachable!("Users shouldn't be able to construct `...`")
@@ -2154,11 +2484,16 @@ where
                 expected: left_tid,
                 found: right_tid,
             }),
-            (Type::RigidTypeVar(left), Type::RigidTypeVar(right)) if left == right => Ok(()),
-            (Type::TypeVar(left), Type::TypeVar(right)) => self
-                .lookup
-                .unify_keys(left, right)
-                .map_err(|UnifiactionError(_, _)| todo!()),
+            (Type::RigidTypeVar(left), Type::RigidTypeVar(right)) if left == right => {
+                Ok(InferenceStatus::Solved)
+            }
+            (Type::TypeVar(left), Type::TypeVar(right)) => {
+                self.lookup
+                    .unify_keys(left, right)
+                    .map_err(|UnifiactionError(_, _)| todo!())?;
+                self.revision += 1;
+                Ok(InferenceStatus::Solved)
+            }
             (Type::TypeVar(var), _) => self.unify_typevar(var, right_tid),
             (_, Type::TypeVar(var)) => self.unify_typevar(var, left_tid),
             (Type::Type(left), Type::Type(right)) => self.unify_ty_ty(env, left, right, meta),
@@ -2198,6 +2533,7 @@ where
             ) if mut_left == mut_right => {
                 self.unify_ty_ty(env, left_inner_tid, right_inner_tid, meta)
             }
+            (Type::Projection(_), _) | (_, Type::Projection(_)) => Ok(InferenceStatus::Defer),
             (Type::Pointer(_), _) | (_, Type::Pointer(_)) => {
                 Err(InferenceErrorKind::TypesIncompatible {
                     expected: left_tid,
@@ -2217,13 +2553,18 @@ where
                 }
 
                 assert!(left.args.len() == right.args.len());
-                left.args
+                let status = left
+                    .args
                     .iter()
                     .zip(right.args.iter())
                     .map(|(left, right)| self.unify_ty_ty(env, *left, *right, meta))
-                    .collect::<Result<(), InferenceErrorKind>>()?;
+                    .collect::<Result<Vec<InferenceStatus>, InferenceErrorKind>>()?;
 
-                Ok(())
+                if status.iter().any(|s| *s == InferenceStatus::Defer) {
+                    Ok(InferenceStatus::Defer)
+                } else {
+                    Ok(InferenceStatus::Solved)
+                }
             }
             (Type::Enum(_), Type::Variant(_)) | (Type::Variant(_), Type::Enum(_)) => {
                 Err(InferenceErrorKind::TypesIncompatible {
@@ -2239,12 +2580,17 @@ where
                     });
                 }
 
+                let mut status = InferenceStatus::Solved;
+
                 assert!(left.args.len() == right.args.len());
                 for (left, right) in left.args.into_iter().zip(right.args.into_iter()) {
-                    self.unify_ty_ty(env, left, right, meta)?;
+                    match self.unify_ty_ty(env, left, right, meta)? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    };
                 }
 
-                Ok(())
+                Ok(status)
             }
             (Type::Enum(_), _) | (_, Type::Enum(_)) => Err(InferenceErrorKind::TypesIncompatible {
                 expected: left_tid,
@@ -2264,12 +2610,17 @@ where
                     });
                 }
 
+                let mut status = InferenceStatus::Solved;
+
                 assert!(left.args.len() == right.args.len());
                 for (left, right) in left.args.into_iter().zip(right.args.into_iter()) {
-                    self.unify_ty_ty(env, left, right, meta)?;
+                    match self.unify_ty_ty(env, left, right, meta)? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    };
                 }
 
-                Ok(())
+                Ok(status)
             }
             (Type::Struct(_), _) | (_, Type::Struct(_)) => {
                 Err(InferenceErrorKind::TypesIncompatible {
@@ -2285,11 +2636,17 @@ where
                     });
                 }
 
+                let mut status = InferenceStatus::Solved;
+
+                assert!(left.len() == right.len());
                 for (left, right) in left.into_iter().zip(right.into_iter()) {
-                    self.unify_ty_ty(env, left, right, meta)?;
+                    match self.unify_ty_ty(env, left, right, meta)? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    };
                 }
 
-                Ok(())
+                Ok(status)
             }
             (Type::Tuple(_), _) | (_, Type::Tuple(_)) => {
                 Err(InferenceErrorKind::TypesIncompatible {
@@ -2307,17 +2664,29 @@ where
                     });
                 }
 
+                let mut status = InferenceStatus::Defer;
+
                 for (left, right) in left.input.into_iter().zip(right.input.into_iter()) {
-                    self.unify_ty_ty(env, left, right, meta)?;
+                    match self.unify_ty_ty(env, left, right, meta)? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    }
                 }
 
                 for (left, right) in left.output.into_iter().zip(right.output.into_iter()) {
-                    self.unify_ty_ty(env, left, right, meta)?;
+                    match self.unify_ty_ty(env, left, right, meta)? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    }
                 }
 
-                Ok(())
+                Ok(status)
             }
-            (_, _) => todo!("Unify {}, {}", self.fmt(left_tid), self.fmt(right_tid)),
+            (_, _) => todo!(
+                "{meta:?}: Unify {}, {}",
+                self.fmt(left_tid),
+                self.fmt(right_tid)
+            ),
         }
     }
 
@@ -2329,38 +2698,50 @@ where
         super_args: &[TypeId],
         origin: &ConstraintOrigin,
         meta: &M,
-    ) -> Result<(), InferenceError<M>>
+    ) -> Result<InferenceStatus, InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
         assert!(variances.len() == sub_args.len());
         assert!(variances.len() == super_args.len());
 
+        let mut status = InferenceStatus::Solved;
+
         for ((variance, sub_tid), super_tid) in variances.iter().zip(sub_args).zip(super_args) {
             let tid = match variance {
                 Variance::Covariant => {
-                    self.check_subtype(env, *sub_tid, *super_tid, origin, meta)?
+                    match self.check_subtype(env, *sub_tid, *super_tid, origin, meta)? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    }
                 }
                 Variance::Invariant => {
-                    self.unify_ty_ty(env, *super_tid, *sub_tid, meta)
+                    match self
+                        .unify_ty_ty(env, *super_tid, *sub_tid, meta)
                         .map_err(|kind| InferenceError {
                             kind,
                             origin: origin.clone(),
                             meta: meta.clone(),
-                        })?
+                        })? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    }
                 }
-                Variance::Contravariant => self
+                Variance::Contravariant => match self
                     .check_subtype(env, *super_tid, *sub_tid, origin, meta)
                     .map_err(|e| match e.kind {
                         InferenceErrorKind::TypesIncompatible { expected, found } => {
                             InferenceError::types_incompatible(found, expected, origin, &e.meta)
                         }
                         _ => e,
-                    })?,
+                    })? {
+                    InferenceStatus::Defer => status = InferenceStatus::Defer,
+                    _ => (),
+                },
             };
         }
 
-        Ok(())
+        Ok(status)
     }
 
     pub fn check_subtype(
@@ -2370,7 +2751,7 @@ where
         superty: TypeId,
         origin: &ConstraintOrigin,
         meta: &M,
-    ) -> Result<(), InferenceError<M>>
+    ) -> Result<InferenceStatus, InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
@@ -2390,7 +2771,7 @@ where
                 })?;
 
         match (subty, superty) {
-            (Type::Never, _) => Ok(()),
+            (Type::Never, _) => Ok(InferenceStatus::Solved),
             (Type::Pointer(subty_inner), Type::Pointer(superty_inner)) => {
                 match (subty_inner.mutability, superty_inner.mutability) {
                     (Mutability::Mutable, Mutability::Mutable) => {
@@ -2436,11 +2817,15 @@ where
                 self.check_subtype_args(env, &variances, &sub_s.args, &super_s.args, origin, meta)
             }
             (Type::Tuple(sub), Type::Tuple(sup)) if sub.len() == sup.len() => {
+                let mut status = InferenceStatus::Solved;
                 for (sub, sup) in sub.into_iter().zip(sup.into_iter()) {
-                    self.check_subtype(env, sub, sup, origin, meta)?;
+                    match self.check_subtype(env, sub, sup, origin, meta)? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    }
                 }
 
-                Ok(())
+                Ok(status)
             }
             (Type::Function(sub_f), Type::Function(super_f)) => {
                 if sub_f.input.len() != super_f.input.len()
@@ -2448,13 +2833,22 @@ where
                 {
                     todo!("Incompatible arity");
                 }
+
+                let mut status = InferenceStatus::Solved;
+
                 for (subty, superty) in sub_f.input.iter().zip(super_f.input.iter()) {
-                    self.check_subtype(env, *superty, *subty, origin, meta)?;
+                    match self.check_subtype(env, *superty, *subty, origin, meta)? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    }
                 }
                 for (subty, superty) in sub_f.output.iter().zip(super_f.output.iter()) {
-                    self.check_subtype(env, *subty, *superty, origin, meta)?;
+                    match self.check_subtype(env, *subty, *superty, origin, meta)? {
+                        InferenceStatus::Defer => status = InferenceStatus::Defer,
+                        _ => (),
+                    }
                 }
-                Ok(())
+                Ok(status)
             }
             (_, _) => self
                 .unify_ty_ty(env, superty_tid, subty_tid, meta)
@@ -2472,59 +2866,66 @@ where
         cid: TypeClassId,
         args: &Vec<TypeId>,
         meta: &M,
-    ) -> Result<Option<QualifiedInterfaceImpl>, InferenceErrorKind> {
+    ) -> Result<ImplResolution, InferenceErrorKind> {
         let (unbound, args) = self.substitute(&args);
         if !unbound.is_empty() {
-            return Ok(None);
+            return Ok(ImplResolution::Defer);
         }
+
+        let mut matching_impls = vec![];
+        let mut defer = false;
 
         match env.get_impls(&cid) {
             Some(impls) => {
-                let mut matches: Vec<_> = impls
-                    .iter()
-                    .filter_map(|i| {
-                        let i = self.freshen_impl(i, meta);
-                        assert!(i.args.len() == args.len());
+                'candidate: for i in impls {
+                    let i = self.freshen_impl(i, meta);
+                    assert_eq!(i.args.len(), args.len());
 
-                        let types_match =
-                            i.args.iter().zip(args.iter()).all(|(expected, found)| {
-                                self.unify_ty_ty(env, *expected, *found, meta).is_ok()
-                            });
+                    let mut candidate_defer = false;
 
-                        if !types_match {
-                            return None;
+                    for (expected, found) in i.args.iter().zip(args.iter()) {
+                        match self.unify_ty_ty(env, *expected, *found, meta) {
+                            Ok(InferenceStatus::Defer) => candidate_defer = true,
+                            Ok(InferenceStatus::Solved) => (),
+                            Err(_) => continue 'candidate,
                         }
+                    }
 
-                        if i.predicates.iter().all(|p| {
-                            if let Ok(Some(_)) = self.get_matching_impl(env, p.cid, &p.args, meta) {
-                                true
-                            } else {
-                                false
-                            }
-                        }) {
-                            Some(i)
-                        } else {
-                            None
+                    for p in &i.predicates {
+                        match self.get_matching_impl(env, p.cid, &p.args, meta)? {
+                            ImplResolution::Match(_) => (),
+                            ImplResolution::Defer => candidate_defer = true,
+                            ImplResolution::Unmatched => continue 'candidate,
                         }
-                    })
-                    .collect();
+                    }
 
-                match matches.len() {
-                    0 => Ok(None),
-                    1 => Ok(Some(matches.pop().unwrap())),
+                    if candidate_defer {
+                        defer = true;
+                    } else {
+                        matching_impls.push(i);
+                    }
+                }
+
+                match matching_impls.len() {
+                    _ if defer => Ok(ImplResolution::Defer),
+                    0 => Ok(ImplResolution::Unmatched),
+                    1 => Ok(ImplResolution::Match(matching_impls.pop().unwrap())),
                     _ => {
-                        if matches
+                        if matching_impls
                             .iter()
                             .all(|i| i.coherence == Coherence::Overlapping)
                         {
-                            Ok(Some(matches.pop().unwrap()))
+                            Ok(ImplResolution::Match(matching_impls.pop().unwrap()))
                         } else {
                             todo!("Multiple matching implementations with unique coherence");
                         }
                     }
                 }
             }
-            None => Ok(None),
+            None => Err(InferenceErrorKind::PredicateNotMet {
+                cid,
+                args: args.clone(),
+            }),
         }
     }
 
@@ -2534,7 +2935,7 @@ where
         predicate: &TypePredicate,
         origin: &ConstraintOrigin,
         meta: &M,
-    ) -> Result<(), InferenceError<M>>
+    ) -> Result<InferenceStatus, InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
@@ -2545,8 +2946,9 @@ where
                 origin: origin.clone(),
                 meta: meta.clone(),
             })? {
-            Some(_) => Ok(()),
-            None => {
+            ImplResolution::Match(_) => Ok(InferenceStatus::Solved),
+            ImplResolution::Defer => Ok(InferenceStatus::Defer),
+            ImplResolution::Unmatched => {
                 let (_, args) = self.substitute(&predicate.args);
                 Err(InferenceError::predicate_not_met(
                     predicate.cid,
@@ -2943,7 +3345,7 @@ where
         input: &Vec<TypeId>,
         origin: &ConstraintOrigin,
         meta: &M,
-    ) -> Result<(), InferenceError<M>>
+    ) -> Result<InferenceStatus, InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
@@ -2964,54 +3366,143 @@ where
             })
     }
 
-    fn check_constraints(
+    fn check_constraint<Lookup>(
         &mut self,
         env: &Environment,
-        constraints: &mut Vec<Constraint<M>>,
-    ) -> Result<(), InferenceError<M>>
+        constraint: &Constraint<M>,
+        lookup: &Lookup,
+    ) -> Result<InferenceStatus, InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
+        Lookup: MemberLookup,
     {
-        constraints.sort();
-        for c in constraints {
-            match &c.constraint {
-                ConstraintType::Equal(left, right) => self
-                    .unify_ty_ty(env, *left, *right, &c.meta)
-                    .map_err(|kind| InferenceError {
-                        kind,
-                        origin: c.origin.clone(),
-                        meta: c.meta.clone(),
-                    })?,
-                ConstraintType::Subtype { subty, superty } => {
-                    self.check_subtype(env, *subty, *superty, &c.origin, &c.meta)?
+        let r = match &constraint.constraint {
+            ConstraintType::Equal(left, right) => self
+                .unify_ty_ty(env, *left, *right, &constraint.meta)
+                .map_err(|kind| InferenceError {
+                    kind,
+                    origin: constraint.origin.clone(),
+                    meta: constraint.meta.clone(),
+                }),
+            ConstraintType::Subtype { subty, superty } => {
+                self.check_subtype(env, *subty, *superty, &constraint.origin, &constraint.meta)
+            }
+            ConstraintType::Join { output, inputs } => {
+                self.check_join(env, *output, inputs, &constraint.origin, &constraint.meta)
+            }
+            ConstraintType::Predicate(pred) => {
+                self.check_predicate(env, pred, &constraint.origin, &constraint.meta)
+            }
+            ConstraintType::Arity { expected, found } => {
+                if expected.len() != found.len() {
+                    return Err(InferenceError::stacks_differ(
+                        expected.clone(),
+                        found.clone(),
+                        &constraint.origin,
+                        &constraint.meta,
+                    ));
+                } else {
+                    Ok(InferenceStatus::Solved)
                 }
-                ConstraintType::Join { output, inputs } => {
-                    self.check_join(env, *output, inputs, &c.origin, &c.meta)?
+            }
+            ConstraintType::HasEnoughArgs { expected, found } => {
+                if expected.len() > found.len() {
+                    return Err(InferenceError::not_enough_args(
+                        expected.clone(),
+                        found.clone(),
+                        &constraint.origin,
+                        &constraint.meta,
+                    ));
+                } else {
+                    Ok(InferenceStatus::Solved)
                 }
-                ConstraintType::Predicate(pred) => {
-                    self.check_predicate(env, pred, &c.origin, &c.meta)?
-                }
-                ConstraintType::Arity { expected, found } => {
-                    if expected.len() != found.len() {
-                        return Err(InferenceError::stacks_differ(
-                            expected.clone(),
-                            found.clone(),
-                            &c.origin,
-                            &c.meta,
-                        ));
+            }
+            ConstraintType::HasMember {
+                base_tid,
+                member,
+                member_tid,
+            } => {
+                let base_tid = self
+                    .normalize_ty(env, *base_tid, &constraint.meta)
+                    .unwrap()
+                    .1;
+                let member_tid = self
+                    .normalize_ty(env, *member_tid, &constraint.meta)
+                    .unwrap()
+                    .1;
+
+                match member {
+                    Member::Named(member) => {
+                        match self.get_member_idx(base_tid, member, lookup, &constraint.meta)? {
+                            Some(info) => {
+                                let c = Constraint::new(
+                                    ConstraintType::Equal(info.tid, member_tid),
+                                    ConstraintOrigin::PlaceProjection,
+                                    &constraint.meta,
+                                );
+                                self.check_constraint(env, &c, lookup)
+                            }
+                            None => Ok(InferenceStatus::Defer),
+                        }
                     }
-                }
-                ConstraintType::HasEnoughArgs { expected, found } => {
-                    if expected.len() > found.len() {
-                        return Err(InferenceError::not_enough_args(
-                            expected.clone(),
-                            found.clone(),
-                            &c.origin,
-                            &c.meta,
-                        ));
+                    Member::Idx(idx) => {
+                        match self.get_member_from_idx(base_tid, *idx, lookup, &constraint.meta)? {
+                            Some(info) => {
+                                let c = Constraint::new(
+                                    ConstraintType::Equal(info.tid, member_tid),
+                                    ConstraintOrigin::PlaceProjection,
+                                    &constraint.meta,
+                                );
+                                self.check_constraint(env, &c, lookup)
+                            }
+                            None => Ok(InferenceStatus::Defer),
+                        }
                     }
                 }
             }
+        }?;
+        Ok(r)
+    }
+
+    fn check_constraints<Lookup>(
+        &mut self,
+        env: &Environment,
+        constraints: &mut Vec<Constraint<M>>,
+        lookup: &Lookup,
+    ) -> Result<(), InferenceError<M>>
+    where
+        M: Debug + Clone + PartialEq + Eq,
+        Lookup: MemberLookup,
+    {
+        // constraints.sort();
+
+        let mut pending: Vec<_> = constraints.iter().collect();
+
+        while !pending.is_empty() {
+            let revision = self.revision;
+            let previous_len = pending.len();
+            let mut deferred = Vec::new();
+
+            for c in pending {
+                match self.check_constraint(env, c, lookup)? {
+                    InferenceStatus::Solved => {}
+                    InferenceStatus::Defer => {
+                        deferred.push(c);
+                    }
+                }
+            }
+
+            if deferred.is_empty() {
+                return Ok(());
+            }
+
+            let changed = self.revision != revision || deferred.len() != previous_len;
+
+            if !changed && !deferred.is_empty() {
+                todo!()
+            }
+
+            pending = deferred;
         }
 
         Ok(())
@@ -3043,10 +3534,10 @@ where
         ));
 
         // Make sure that constraints can be resolved.
-        self.check_constraints(&env, &mut constraints)?;
+        self.check_constraints(&env, &mut constraints, lookup)?;
 
         let (unbound_stack, _) = self.substitute(&stack);
-        let (unbound_expr, expr) = self.substitute_expr(out_expr);
+        let (unbound_expr, expr) = self.substitute_expr(out_expr, lookup);
 
         unbound.extend(unbound_stack);
         unbound.extend(unbound_expr);

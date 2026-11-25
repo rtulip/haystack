@@ -3,5 +3,5 @@ struct Foo {
 }
 
 fn foo(Foo: f) {
-    f::baz
+    f->baz
 }

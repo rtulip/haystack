@@ -3,16 +3,16 @@ struct Str {
     u64: len
 }
 
-fn Str.cstr(Str: s) -> [&char] s::data
+fn Str.cstr(Str) -> [&char] ->data
 
 fn bool.to_str(bool) -> [Str] if { "true" } else { "false" }
 
 impl Print<Str> {
     fn print(Str: s) { 
-        "%.*s"c (s::len s::data) printf drop
+        "%.*s"c (s->len s->data) printf drop
     }
     fn println(Str: s) {
-        "%.*s\n"c (s::len s::data) printf drop
+        "%.*s\n"c (s->len s->data) printf drop
     }
 }
 

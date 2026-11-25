@@ -189,7 +189,7 @@ impl<'src> Scanner<'src> {
                 } else {
                     self.add_token(TokenKind::Marker(Marker::Dot))
                 }
-            },
+            }
             '"' => self.string()?,
             '\'' => self.char()?,
             '#' => self.add_token(TokenKind::Marker(Marker::Hash)),

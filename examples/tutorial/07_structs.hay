@@ -9,8 +9,8 @@ fn Pair.new(u64: left u64: right) -> [Pair] {
     left right #Pair pack
 }
 
-fn Pair.left(Pair: p) -> [u64] p::left
-fn Pair.right(Pair: p) -> [u64] p::right
+fn Pair.left(Pair: p) -> [u64] p->left
+fn Pair.right(Pair: p) -> [u64] p->right
 fn Pair.split(Pair) -> [u64 u64] unpack
 
 

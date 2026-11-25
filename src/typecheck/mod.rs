@@ -25,7 +25,9 @@ use crate::{
         environment::{
             Coherence, Environment, Interface, InterfaceImpl, Scheme, TypeClassId, TypePredicate,
         },
-        expr::{Expr, ExprKind, IfExpr, MatchCase, MatchExpr, MatchPattern, Var},
+        expr::{
+            Expr, ExprKind, IfExpr, MatchCase, MatchExpr, MatchPattern, Place, PlaceProjection, Var,
+        },
         func::Function,
         typ::{
             typ::{
@@ -608,19 +610,18 @@ impl<'src> TypeCheck<'src> {
 
     fn lower_expr(&mut self, expr: &ParseExpr<'src>) -> Result<Expr<'src, Token<'src>>, HayError> {
         match &expr.kind {
-            ParseExprKind::Ident(ident) => {
-                let Some((var, _)) = self.scope.get_var(ident) else {
-                    todo!("{}: No var found for `{ident}`", expr.token)
-                };
-                Ok(Expr::ident(var, expr.token.clone()))
-            }
-            ParseExprKind::Member { base, member } => {
-                let Some((var, _)) = self.scope.get_var(base) else {
-                    todo!("{}: No var found for `{base}`", expr.token)
+            ParseExprKind::Place(place) => {
+                let Some((var, _)) = self.scope.get_var(place.base) else {
+                    todo!("{}: No var found for `{}`", place.base, expr.token)
                 };
 
-                Ok(Expr::named_member_access(var, member, expr.token.clone()))
+                Ok(Expr::place(
+                    var,
+                    place.projections.clone(),
+                    expr.token.clone(),
+                ))
             }
+            ParseExprKind::Projection(proj) => Ok(Expr::projection(proj, expr.token.clone())),
             ParseExprKind::Literal(literal) => match literal {
                 Literal::Bool(b) => Ok(Expr::bool(*b, expr.token.clone())),
                 Literal::Char(c) => Ok(Expr::char(*c, expr.token.clone())),
@@ -657,7 +658,10 @@ impl<'src> TypeCheck<'src> {
             }
             ParseExprKind::Intrinsic(Intrinsic::U64Add) => {
                 let u64_tid = self.typestore.intern(Type::u64());
-                let tid = self.typestore.function(FunctionType { input: vec![u64_tid, u64_tid], output: vec![u64_tid] });
+                let tid = self.typestore.function(FunctionType {
+                    input: vec![u64_tid, u64_tid],
+                    output: vec![u64_tid],
+                });
                 Ok(Expr::add(tid, expr.token.clone()))
             }
             ParseExprKind::Intrinsic(Intrinsic::PtrAdd) => {
@@ -665,7 +669,10 @@ impl<'src> TypeCheck<'src> {
                 let t_tid = self.typestore.intern(Type::TypeVar(t_tyvar));
                 let t_ptr_tid = self.typestore.pointer(t_tid, Mutability::Const);
                 let u64_tid = self.typestore.intern(Type::u64());
-                let tid = self.typestore.function(FunctionType { input: vec![t_ptr_tid, u64_tid], output: vec![t_ptr_tid] });
+                let tid = self.typestore.function(FunctionType {
+                    input: vec![t_ptr_tid, u64_tid],
+                    output: vec![t_ptr_tid],
+                });
                 Ok(Expr::add(tid, expr.token.clone()))
             }
             ParseExprKind::Intrinsic(Intrinsic::PtrMutAdd) => {
@@ -673,7 +680,10 @@ impl<'src> TypeCheck<'src> {
                 let t_tid = self.typestore.intern(Type::TypeVar(t_tyvar));
                 let t_ptr_tid = self.typestore.pointer(t_tid, Mutability::Mutable);
                 let u64_tid = self.typestore.intern(Type::u64());
-                let tid = self.typestore.function(FunctionType { input: vec![t_ptr_tid, u64_tid], output: vec![t_ptr_tid] });
+                let tid = self.typestore.function(FunctionType {
+                    input: vec![t_ptr_tid, u64_tid],
+                    output: vec![t_ptr_tid],
+                });
                 Ok(Expr::add(tid, expr.token.clone()))
             }
             ParseExprKind::Intrinsic(Intrinsic::U64Sub) => {
@@ -717,9 +727,18 @@ impl<'src> TypeCheck<'src> {
 
                 Ok(Expr::bind(vars, expr.token.clone()))
             }
-            ParseExprKind::TakeRef { mutable, ident } => {
-                let Some((var, _)) = self.scope.get_var(*ident) else {
-                    todo!("Unknown var `{ident}");
+            ParseExprKind::TakeRef { mutable, place } => {
+                let Some((var, _)) = self.scope.get_var(place.base) else {
+                    todo!("Unknown var `{}`", place.base);
+                };
+
+                let place = Place {
+                    base: var,
+                    projections: place
+                        .projections
+                        .iter()
+                        .map(|name| PlaceProjection::Named(*name))
+                        .collect(),
                 };
 
                 let mutability = if *mutable {
@@ -728,7 +747,7 @@ impl<'src> TypeCheck<'src> {
                     Mutability::Const
                 };
 
-                Ok(Expr::take_ref(var, mutability, expr.token.clone()))
+                Ok(Expr::take_ref(place, mutability, expr.token.clone()))
             }
             ParseExprKind::If(if_expr) => {
                 self.scope.new_scope();
@@ -877,7 +896,6 @@ impl<'src> TypeCheck<'src> {
                 }
             }
             Type::Struct(s) => {
-
                 let args = if s.args.is_empty() {
                     String::new()
                 } else {
@@ -889,15 +907,18 @@ impl<'src> TypeCheck<'src> {
                 };
 
                 format!("{}{args}", token.lexeme)
-
-            },
+            }
             Type::Enum(e) => self.format_enum(e.eid, e.args, None),
             Type::Tuple(tids) => self.format_stack(&tids, '(', ')'),
             Type::Variant(v) => self.format_enum(v.eid, v.args, Some(v.variant)),
             Type::Type(tid) => {
                 format!("Type<{}>", self.format_tid(tid))
             }
-            Type::Projection(_) => todo!(),
+            Type::Projection(p) => {
+                let args = self.format_stack(&p.args, '<', '>');
+                let iface = self.symbols.interfaces.get(&p.cid).unwrap();
+                format!("{}{args}::{}", iface.lexeme, p.idx)
+            }
         }
     }
 
@@ -1828,7 +1849,9 @@ impl<'src> TypeCheck<'src> {
 
         self.scope.new_scope();
         let parent_params = self.rebind_params(&iface_impl.name, &iface_impl.params)?;
-        self.typestore.solidify_vars(&parent_params).map_err(|_| todo!())?;
+        self.typestore
+            .solidify_vars(&parent_params)
+            .map_err(|_| todo!())?;
         let mut parent_args = vec![];
         for ty in &iface_impl.args {
             parent_args.push(self.get_tid(ty)?);
@@ -2308,41 +2331,49 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             | ExprKind::CString(_)
             | ExprKind::Char(_)
             | ExprKind::Bind(_)
+            | ExprKind::Projection(_)
             | ExprKind::Pack
             | ExprKind::Unpack
             | ExprKind::Call
             | ExprKind::SizeOf
             | ExprKind::UncheckedCast
-            | ExprKind::Read 
-            | ExprKind::Write
-            | ExprKind::MemberAccess { .. } => expr.expr,
+            | ExprKind::Read
+            | ExprKind::Write => expr.expr,
 
-            ExprKind::Ident(var) => {
-                if self.world.functions.contains_key(&var)
-                    || self.world.interface_fns.contains_key(&var)
+            ExprKind::Place(place) => {
+                if (self.world.functions.contains_key(&place.base)
+                    || self.world.interface_fns.contains_key(&place.base))
+                    && place.projections.is_empty()
                 {
-                    ExprKind::Ident(self.resolve_function_instance(&token, var, tid, substitutions))
+                    ExprKind::Place(Place {
+                        base: self.resolve_function_instance(
+                            &token,
+                            place.base,
+                            tid,
+                            substitutions,
+                        ),
+                        projections: vec![],
+                    })
                 } else {
-                    ExprKind::Ident(var)
+                    ExprKind::Place(place)
                 }
             }
-            ExprKind::Ref { var, mutability } => {
-                if self.world.functions.contains_key(&var) {
-                    let Type::Function(FunctionType { input, output }) =
-                        self.typestore.get(tid).unwrap()
-                    else {
-                        todo!()
-                    };
-
-                    assert!(input.is_empty());
-                    assert!(output.len() == 1);
-
+            ExprKind::Ref { place, mutability } => {
+                if self.world.functions.contains_key(&place.base) && place.projections.is_empty() {
                     ExprKind::Ref {
-                        var: self.resolve_function_instance(&token, var, output[0], substitutions),
+                        place: Place {
+                            base: self.resolve_function_instance(
+                                &token,
+                                place.base,
+                                tid,
+                                substitutions,
+                            ),
+                            projections: vec![],
+                        },
                         mutability,
                     }
                 } else {
-                    ExprKind::Ref { var, mutability }
+                    ExprKind::Ref { place, mutability }
                 }
             }
             ExprKind::Block(exprs) => ExprKind::Block(
@@ -2363,7 +2394,6 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             ExprKind::Mul(tid) => ExprKind::Mul(self.request_type(tid, substitutions)),
             ExprKind::Equal(tid) => ExprKind::Equal(self.request_type(tid, substitutions)),
             ExprKind::LessThan(tid) => ExprKind::LessThan(self.request_type(tid, substitutions)),
-            ExprKind::NamedMemberAccess { var, member } => unreachable!(),
             ExprKind::Match(match_expr) => {
                 let cases = match_expr
                     .cases
@@ -2462,12 +2492,7 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                 {
                     let (_, tid) = self.typestore.normalize_ty(&self.env, tid, token).unwrap();
                     // TODO: Check predicates.
-                    let args = self.infer_function_args(
-                        token,
-                        *mapped_var,
-                        tid,
-                        substitutions,
-                    );
+                    let args = self.infer_function_args(token, *mapped_var, tid, substitutions);
 
                     instance = Some(FunctionInstance {
                         var: *mapped_var,
@@ -2523,7 +2548,7 @@ impl<'src> TypedWorld<'src> {
             var: entry,
             args: vec![],
         });
-        
+
         // Process each requested specialization.
         while let Some(instance) = ctx.pending.pop() {
             ctx.monomorphize_function(instance);
@@ -2543,7 +2568,7 @@ mod tests {
     use crate::typecheck::{
         constraint::ConstraintOrigin,
         environment::{Coherence, Environment, Interface, InterfaceImpl, Scheme, TypePredicate},
-        expr::{Expr, MatchCase, MatchExpr, MatchPattern, Var},
+        expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Place, PlaceProjection, Var},
         func::Function,
         typ::{
             typ::{EnumDef, FunctionType, Mutability, PointerType, Projection, StructDef, Type},
@@ -2551,7 +2576,7 @@ mod tests {
         },
         typestore::{
             inference::{InferenceError, InferenceErrorKind},
-            MemberLookup, TypeStore,
+            MemberAccess, MemberLookup, TypeStore,
         },
     };
 
@@ -2562,11 +2587,7 @@ mod tests {
     const LOOKUP: () = ();
 
     impl MemberLookup for () {
-        fn get_member_idx(
-            &self,
-            sid: StructId,
-            member: &str,
-        ) -> Option<usize> {
+        fn get_member_idx(&self, sid: StructId, member: &str) -> Option<usize> {
             None
         }
     }
@@ -2947,7 +2968,7 @@ mod tests {
         let mut typestore = TypeStore::new();
         let env = Environment::new();
 
-        let x = Var(0);
+        let x = Place::ident(Var(0));
 
         let u8_tid = typestore.intern(Type::u8());
         let u8_const_ptr = Type::Pointer(PointerType {
@@ -2963,7 +2984,10 @@ mod tests {
             [],
             [],
             Expr::block(
-                [Expr::bind(x, ()), Expr::take_ref(x, Mutability::Const, ())],
+                [
+                    Expr::bind(x.base, ()),
+                    Expr::take_ref(x, Mutability::Const, ()),
+                ],
                 (),
             ),
         );
@@ -2976,7 +3000,7 @@ mod tests {
         let mut typestore = TypeStore::new();
         let mut env = Environment::new();
 
-        let dup = Var(0);
+        let dup = Place::ident(Var(0));
         let dup_tyvar = typestore.fresh_type_var();
         let dup_t_tid = typestore.intern(Type::TypeVar(dup_tyvar));
         let dup_tid = typestore.intern(Type::Function(FunctionType {
@@ -2985,7 +3009,7 @@ mod tests {
         }));
 
         let dup_scheme = Scheme::new([dup_tyvar], dup_tid, vec![]);
-        env.bind_scheme(dup, dup_scheme);
+        env.bind_scheme(dup.base, dup_scheme);
 
         let test = Function::new(
             [],
@@ -3009,26 +3033,26 @@ mod tests {
         let mut typestore = TypeStore::new();
         let mut env = Environment::new();
 
-        let f = Var(0);
+        let f = Place::ident(Var(0));
         let func_tid = typestore.function(FunctionType {
             input: vec![],
             output: vec![],
         });
         let func_scheme = Scheme::new([], func_tid, []);
-        env.bind_scheme(f, func_scheme);
+        env.bind_scheme(f.base, func_scheme);
 
         let test = Function::new(
             [],
             [func_tid],
             [],
             [],
-            Expr::take_ref(f, Mutability::Mutable, ()),
+            Expr::take_ref(f.clone(), Mutability::Mutable, ()),
         );
 
         assert_eq!(
             test.type_check(&mut typestore, &env, &LOOKUP),
             Err(InferenceError::mutable_ref_to_fn(
-                f,
+                f.base,
                 &ConstraintOrigin::TakeRef {
                     var: Var(0),
                     mutability: Mutability::Mutable,
@@ -3045,14 +3069,14 @@ mod tests {
 
         let u8_tid = typestore.intern(Type::u8());
         let bool_tid = typestore.intern(Type::bool());
-        let f = Var(0);
+        let f = Place::ident(Var(0));
         let func_tid = typestore.function(FunctionType {
             input: vec![u8_tid],
             output: vec![],
         });
 
         let func_scheme = Scheme::new([], func_tid, []);
-        env.bind_scheme(f, func_scheme);
+        env.bind_scheme(f.base, func_scheme);
 
         let test_not_enough_args = Function::new(
             [],
@@ -3060,7 +3084,10 @@ mod tests {
             [],
             [],
             Expr::block(
-                [Expr::take_ref(f, Mutability::Const, ()), Expr::call(())],
+                [
+                    Expr::take_ref(f.clone(), Mutability::Const, ()),
+                    Expr::call(()),
+                ],
                 (),
             ),
         );
@@ -3086,7 +3113,7 @@ mod tests {
             Expr::block(
                 [
                     Expr::bool(true, ()),
-                    Expr::take_ref(f, Mutability::Const, ()),
+                    Expr::take_ref(f.clone(), Mutability::Const, ()),
                     Expr::call(()),
                 ],
                 (),
@@ -3469,7 +3496,7 @@ mod tests {
                 vec![u8_tid, bool_ptr_tid],
                 &ConstraintOrigin::FunctionCall {
                     input: vec![u8_tid],
-                    expected: vec![TypeId(22)]
+                    expected: vec![TypeId(24)]
                 },
                 &META
             ))
@@ -3483,7 +3510,7 @@ mod tests {
                 vec![u8_ptr_tid, bool_tid],
                 &ConstraintOrigin::FunctionCall {
                     input: vec![u8_ptr_tid],
-                    expected: vec![TypeId(30)]
+                    expected: vec![TypeId(33)]
                 },
                 &META
             ))
@@ -3566,7 +3593,7 @@ mod tests {
                 vec![bool_tid],
                 &ConstraintOrigin::FunctionCall {
                     input: vec![bool_tid],
-                    expected: vec![TypeId(16)]
+                    expected: vec![TypeId(18)]
                 },
                 &META
             ))
@@ -3585,7 +3612,7 @@ mod tests {
                 vec![bool_ptr_tid],
                 &ConstraintOrigin::FunctionCall {
                     input: vec![TypeId(4)],
-                    expected: vec![TypeId(27)]
+                    expected: vec![TypeId(32)]
                 },
                 &META
             ))
@@ -3610,8 +3637,8 @@ mod tests {
                 print_cid,
                 vec![bool_ptr_ptr_tid],
                 &ConstraintOrigin::FunctionCall {
-                    input: vec![TypeId(43)],
-                    expected: vec![TypeId(44)]
+                    input: vec![TypeId(51)],
+                    expected: vec![TypeId(52)]
                 },
                 &META
             ))
@@ -3700,7 +3727,7 @@ mod tests {
                 vec![bool_tid],
                 &ConstraintOrigin::FunctionCall {
                     input: vec![TypeId(2)],
-                    expected: vec![TypeId(8)]
+                    expected: vec![TypeId(10)]
                 },
                 &META
             ))
@@ -4107,13 +4134,24 @@ mod tests {
 
         let (str_tid, _) = typestore.add_struct(str_def);
 
+        let place = Place {
+            base: Var(0),
+            projections: vec![PlaceProjection::Indexed(0, MemberAccess::Direct)],
+        };
+
         let test = Function::new(
             [str_tid],
             [u8_tid],
             [],
             [],
             Expr::block(
-                [Expr::bind(Var(0), ()), Expr::member_access(Var(0), 0, ())],
+                [
+                    Expr::bind(place.base, ()),
+                    Expr {
+                        expr: ExprKind::Place(place),
+                        meta: (),
+                    },
+                ],
                 (),
             ),
         );
@@ -4136,13 +4174,25 @@ mod tests {
         let pair_bool_tid = typestore
             .type_instance(&env, pair_tid, Some(vec![bool_tid]), &META)
             .unwrap();
+
+        let place = Place {
+            base: Var(0),
+            projections: vec![PlaceProjection::Indexed(0, MemberAccess::Direct)],
+        };
+
         let test = Function::new(
             [pair_bool_tid],
             [bool_tid],
             [],
             [],
             Expr::block(
-                [Expr::bind(Var(0), ()), Expr::member_access(Var(0), 0, ())],
+                [
+                    Expr::bind(place.base, ()),
+                    Expr {
+                        expr: ExprKind::Place(place),
+                        meta: META,
+                    },
+                ],
                 (),
             ),
         );
@@ -4296,7 +4346,7 @@ mod tests {
                             Expr::block(
                                 [
                                     Expr::bind(Var(0), META),
-                                    Expr::take_ref(Var(0), Mutability::Mutable, META),
+                                    Expr::take_ref(Place::ident(Var(0)), Mutability::Mutable, META),
                                 ],
                                 META,
                             ),
@@ -4306,7 +4356,7 @@ mod tests {
                             Expr::block(
                                 [
                                     Expr::bind(Var(0), META),
-                                    Expr::take_ref(Var(0), Mutability::Const, META),
+                                    Expr::take_ref(Place::ident(Var(0)), Mutability::Const, META),
                                 ],
                                 META,
                             ),
@@ -4333,7 +4383,7 @@ mod tests {
                             Expr::block(
                                 [
                                     Expr::bind(Var(0), META),
-                                    Expr::take_ref(Var(0), Mutability::Const, META),
+                                    Expr::take_ref(Place::ident(Var(0)), Mutability::Const, META),
                                 ],
                                 META,
                             ),
@@ -4343,7 +4393,7 @@ mod tests {
                             Expr::block(
                                 [
                                     Expr::bind(Var(0), META),
-                                    Expr::take_ref(Var(0), Mutability::Mutable, META),
+                                    Expr::take_ref(Place::ident(Var(0)), Mutability::Mutable, META),
                                 ],
                                 META,
                             ),

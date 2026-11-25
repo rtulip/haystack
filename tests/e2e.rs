@@ -34,8 +34,20 @@ mod compilation_test {
         );
     }
 
-    fn run_test(path: impl AsRef<Path>) {
-        let path = path.as_ref();
+    fn run_test<P>(path: P)
+    where
+        P: AsRef<Path> + Copy,
+    {
+        run_test_with_meta_path(path, path);
+    }
+
+    fn run_test_with_meta_path<P1, P2>(source_path: P1, meta_path: P2)
+    where
+        P1: AsRef<Path>,
+        P2: AsRef<Path>,
+    {
+        let path = source_path.as_ref();
+        let metapath = meta_path.as_ref();
 
         let executable = path.with_extension("");
         let _cleanup = Cleanup(executable);
@@ -50,9 +62,9 @@ mod compilation_test {
         let stderr = String::from_utf8(output.stderr).unwrap();
         let exitcode = output.status.code().unwrap();
 
-        assert_snapshot(&path.with_extension("stderr"), &stderr);
-        assert_snapshot(&path.with_extension("stdout"), &stdout);
-        assert_snapshot(&path.with_extension("exitcode"), &exitcode.to_string());
+        assert_snapshot(&metapath.with_extension("stderr"), &stderr);
+        assert_snapshot(&metapath.with_extension("stdout"), &stdout);
+        assert_snapshot(&metapath.with_extension("exitcode"), &exitcode.to_string());
     }
 
     mod functional {
@@ -276,6 +288,109 @@ mod compilation_test {
         #[test]
         fn pointer_syntax() {
             run_test("tests/parsing/pointer_syntax.hay");
+        }
+    }
+
+    mod examples {
+
+        mod tutorial {
+            use crate::compilation_test::run_test_with_meta_path;
+
+            #[test]
+            fn _02() {
+                run_test_with_meta_path(
+                    "examples/tutorial/02_hello_world.hay",
+                    "tests/examples/tutorial/02_hello_world",
+                );
+            }
+
+            #[test]
+            fn _03_operators() {
+                run_test_with_meta_path(
+                    "examples/tutorial/03_operators.hay",
+                    "tests/examples/tutorial/03_operators",
+                );
+            }
+
+            #[test]
+            fn _03_printing_numbers() {
+                run_test_with_meta_path(
+                    "examples/tutorial/03_printing_numbers.hay",
+                    "tests/examples/tutorial/03_printing_numbers",
+                );
+            }
+
+            #[test]
+            fn _04() {
+                run_test_with_meta_path(
+                    "examples/tutorial/04_variables.hay",
+                    "tests/examples/tutorial/04_variables",
+                );
+            }
+
+            #[test]
+            fn _05() {
+                run_test_with_meta_path(
+                    "examples/tutorial/05_functions.hay",
+                    "tests/examples/tutorial/05_functions",
+                );
+            }
+
+            #[test]
+            fn _06() {
+                run_test_with_meta_path(
+                    "examples/tutorial/06_loops_and_branching.hay",
+                    "tests/examples/tutorial/06_loops_and_branching",
+                );
+            }
+
+            #[test]
+            fn _07_enums() {
+                run_test_with_meta_path(
+                    "examples/tutorial/enums.hay",
+                    "tests/examples/tutorial/enums",
+                );
+            }
+
+            #[test]
+            fn _07_structs() {
+                run_test_with_meta_path(
+                    "examples/tutorial/structs.hay",
+                    "tests/examples/tutorial/structs",
+                );
+            }
+
+            #[test]
+            fn _08() {
+                run_test_with_meta_path(
+                    "examples/tutorial/match.hay",
+                    "tests/examples/tutorial/match",
+                );
+            }
+
+            #[test]
+            fn _09() {
+                run_test_with_meta_path(
+                    "examples/tutorial/tuples.hay",
+                    "tests/examples/tutorial/tuples",
+                );
+            }
+
+            #[test]
+            fn _10() {
+                run_test_with_meta_path(
+                    "examples/tutorial/generics.hay",
+                    "tests/examples/tutorial/generics",
+                );
+            }
+
+            #[test]
+            fn _11() {
+                run_test_with_meta_path(
+                    "examples/tutorial/pointers.hay",
+                    "tests/examples/tutorial/pointers",
+                );
+            }
         }
     }
 }

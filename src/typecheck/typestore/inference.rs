@@ -173,3 +173,9 @@ where
         }
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InferenceStatus {
+    Solved,
+    Defer,
+}

@@ -3,6 +3,7 @@ use std::{format, path::Path, todo, unreachable};
 use crate::{
     error::HayError,
     lex::{
+        base,
         scanner::Scanner,
         token::{
             Intrinsic, Keyword,
@@ -12,7 +13,7 @@ use crate::{
     },
     parser::{
         argument::Argument,
-        expr::{ParseExpr, ParseExprKind, ParseMatchExpr},
+        expr::{ParseExpr, ParseExprKind, ParseMatchExpr, ParsePlace},
         signature::Signature,
         statement::{
             EnumDefinition, FunctionDefinition, InterfaceDefinition, InterfaceFunctionDefinition,
@@ -328,28 +329,33 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_ident_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
-        let token = self.tokens.pop().unwrap();
-        let TokenKind::Ident(i) = &token.kind else {
-            unreachable!(
-                "parse_literal_expr should only be called if we know we have a literal token next"
-            )
-        };
+    fn parse_place(&mut self) -> Result<(ParsePlace<'src>, Token<'src>), HayError> {
+        let token = self.expect(TokenKind::ident())?;
+        let mut projections = vec![];
+        loop {
+            if self.is_at_end() {
+                break;
+            }
 
-        if self.matches(TokenKind::Marker(Marker::DoubleColon)).is_ok() {
+            if self
+                .matches(TokenKind::Marker(Marker::DoubleColon))
+                .is_err()
+            {
+                break;
+            }
+
             let ident = self.expect(TokenKind::ident())?;
-
-            return Ok(ParseExpr {
-                kind: ParseExprKind::Member {
-                    base: *i,
-                    member: ident.lexeme,
-                },
-                token,
-            });
+            projections.push(ident.lexeme);
         }
 
+        Ok((ParsePlace::new(token.lexeme, projections), token))
+    }
+
+    fn parse_place_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
+        let (place, token) = self.parse_place()?;
+
         Ok(ParseExpr {
-            kind: ParseExprKind::Ident(*i),
+            kind: ParseExprKind::Place(place),
             token,
         })
     }
@@ -473,13 +479,10 @@ impl<'src> Parser<'src> {
             self.matches(TokenKind::Marker(Marker::Dot));
         }
 
-        let ident = self.expect(TokenKind::ident())?;
+        let (place, _) = self.parse_place()?;
 
         Ok(ParseExpr {
-            kind: ParseExprKind::TakeRef {
-                mutable,
-                ident: ident.lexeme,
-            },
+            kind: ParseExprKind::TakeRef { mutable, place },
             token: start,
         })
     }
@@ -626,15 +629,15 @@ impl<'src> Parser<'src> {
 
         let kind = match &token.kind {
             TokenKind::Operator(operator) => match operator {
-                Operator::Plus => ParseExprKind::Ident("add"),
-                Operator::Minus => ParseExprKind::Ident("sub"),
-                Operator::Star => ParseExprKind::Ident("mul"),
+                Operator::Plus => ParseExprKind::Place(ParsePlace::ident("add")),
+                Operator::Minus => ParseExprKind::Place(ParsePlace::ident("sub")),
+                Operator::Star => ParseExprKind::Place(ParsePlace::ident("mul")),
                 Operator::Slash => todo!(),
-                Operator::LessThan => ParseExprKind::Ident("lt"),
+                Operator::LessThan => ParseExprKind::Place(ParsePlace::ident("lt")),
                 Operator::LessEqual => todo!(),
                 Operator::GreaterThan => todo!(),
                 Operator::GreaterEqual => todo!(),
-                Operator::Equal => ParseExprKind::Ident("eq"),
+                Operator::Equal => ParseExprKind::Place(ParsePlace::ident("eq")),
                 Operator::BangEqual => todo!(),
                 Operator::Modulo => todo!(),
                 Operator::Read => ParseExprKind::Read,
@@ -737,7 +740,7 @@ impl<'src> Parser<'src> {
     fn parse_expr(&mut self) -> Result<ParseExpr<'src>, HayError> {
         self.strip_whitespace();
         match &self.peek().kind {
-            TokenKind::Ident(_) => self.parse_ident_expr(),
+            TokenKind::Ident(_) => self.parse_place_expr(),
             TokenKind::Marker(Marker::LeftBrace) => self.parse_block_expr(),
             TokenKind::Marker(Marker::Hash) => self.parse_type_expr(),
             TokenKind::Marker(Marker::LeftParen) => self.parse_tuple_expr(),

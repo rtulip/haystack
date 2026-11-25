@@ -7,16 +7,11 @@ use std::{
 };
 
 use crate::{
-    lex::token::Token,
-    typecheck::{
-        expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Var},
-        func,
-        typ::{
+    lex::token::Token, typecheck::{
+        TypedFunction, expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Place, Projection, Var}, func, typ::{
             typ::{BuiltinType, EnumDef, EnumType, FunctionType, Mutability, Type, VariantType},
             type_id::{EnumId, StructId, TypeId},
-        },
-        typestore::TypeStore,
-        TypedFunction,
+        }, typestore::{MemberAccess, TypeStore},
     },
 };
 
@@ -78,6 +73,33 @@ where
 
     fn format_var(var: Var) -> String {
         format!("haystack_var_{}", var.0)
+    }
+
+    fn format_projection(proj: &Projection<'_>) -> String {
+        match proj {
+            Projection::Named(_) => unreachable!("Should have been lowered to indexed access"),
+            Projection::Indexed(idx, member_access) => {
+
+                let access = match member_access {
+                    MemberAccess::Direct => ".",
+                    MemberAccess::Indirect => "->",
+                };
+                format!("{access}_{idx}")
+
+            },
+        }
+    }
+
+    fn format_place(place: &Place) -> String {
+
+        let mut s = Self::format_var(place.base);
+
+        for proj in &place.projections {
+            s = format!("{s}{}", Self::format_projection(proj));
+        }
+
+        s
+
     }
 
     fn forward_declare_tid(&mut self, tid: &TypeId) -> std::fmt::Result {
@@ -752,9 +774,9 @@ where
                     Self::format_stack_ident(ident)
                 )?;
             }
-            ExprKind::Ident(var) => match self.typestore.get(expr.meta.1).unwrap() {
+            ExprKind::Place(place) => match self.typestore.get(expr.meta.1).unwrap() {
                 Type::Function(_) => {
-                    self.generate_function_call(tid, var, stack)?;
+                    self.generate_function_call(tid, &place.base, stack)?;
                 }
                 _ => {
                     let ident = self.next_stack_ident();
@@ -764,24 +786,21 @@ where
                         "    const {} {} = {};",
                         Self::format_tid(tid),
                         Self::format_stack_ident(ident),
-                        Self::format_var(*var)
+                        Self::format_place(place)
                     );
                 }
             },
-            ExprKind::Ref { var, mutability } => {
-                let FunctionType { input, output } = self.get_stack_effect(tid);
-                assert!(input.len() == 0);
-                assert!(output.len() == 1);
+            ExprKind::Ref { place, mutability } => {
                 let ident = self.next_stack_ident();
                 writeln!(
                     self.w,
                     "    {} {} = &{};",
-                    Self::format_tid(output[0]),
+                    Self::format_tid(tid),
                     Self::format_stack_ident(ident),
-                    Self::format_var(*var)
+                    Self::format_place(place)
                 )?;
 
-                stack.push((output[0], ident));
+                stack.push((tid, ident));
             }
             ExprKind::Block(exprs) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
@@ -1124,29 +1143,6 @@ where
                     Self::format_stack_ident(ident),
                     Self::format_tid(inner_tid),
                 )?;
-            }
-            ExprKind::NamedMemberAccess { var, member } => todo!(),
-            ExprKind::MemberAccess { var, member } => {
-                let FunctionType { input, output } = self.get_stack_effect(tid);
-                assert!(input.len() == 1);
-                assert!(output.len() == 1);
-
-                let op = if let Some(Type::Pointer(_)) = self.typestore.get(input[0]) {
-                    "->"
-                } else {
-                    "."
-                };
-
-                let ident = self.next_stack_ident();
-                stack.push((output[0], ident));
-                writeln!(
-                    self.w,
-                    "    {} {} = {}{op}_{};",
-                    Self::format_tid(output[0]),
-                    Self::format_stack_ident(ident),
-                    Self::format_var(*var),
-                    *member
-                );
             }
             ExprKind::Match(match_expr) => self.generate_match_expr(tid, &match_expr, stack)?,
             ExprKind::While { condition, body } => {

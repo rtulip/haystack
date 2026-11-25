@@ -1,8 +1,11 @@
 use std::{collections::HashMap, vec};
 
-use crate::typecheck::typ::{
-    typ::{BuiltinType, Mutability},
-    type_id::TypeId,
+use crate::typecheck::{
+    typ::{
+        typ::{BuiltinType, Mutability},
+        type_id::TypeId,
+    },
+    typestore::MemberAccess,
 };
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -59,6 +62,18 @@ pub struct IfExpr<'src, Meta> {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Projection<'src> {
+    Named(&'src str),
+    Indexed(usize, MemberAccess),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Place<'src> {
+    pub base: Var,
+    pub projections: Vec<Projection<'src>>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ExprKind<'src, Meta> {
     U8(u8),
     U64(u64),
@@ -66,9 +81,9 @@ pub enum ExprKind<'src, Meta> {
     Char(&'src str),
     String(&'src str),
     CString(&'src str),
-    Ident(Var),
+    Place(Place<'src>),
     Ref {
-        var: Var,
+        place: Place<'src>,
         mutability: Mutability,
     },
     Block(Vec<Expr<'src, Meta>>),
@@ -85,14 +100,6 @@ pub enum ExprKind<'src, Meta> {
     Pack,
     Unpack,
     SizeOf,
-    NamedMemberAccess {
-        var: Var,
-        member: &'src str,
-    },
-    MemberAccess {
-        var: Var,
-        member: usize,
-    },
     Match(MatchExpr<'src, Meta>),
     If(IfExpr<'src, Meta>),
     Read,
@@ -152,9 +159,15 @@ impl<'src, Meta> Expr<'src, Meta> {
         }
     }
 
-    pub fn ident(var: Var, meta: Meta) -> Expr<'src, Meta> {
+    pub fn place(var: Var, projections: Vec<&'src str>, meta: Meta) -> Expr<'src, Meta> {
         Expr {
-            expr: ExprKind::Ident(var),
+            expr: ExprKind::Place(Place {
+                base: var,
+                projections: projections
+                    .into_iter()
+                    .map(|name| Projection::Named(name))
+                    .collect(),
+            }),
             meta,
         }
     }
@@ -189,9 +202,9 @@ impl<'src, Meta> Expr<'src, Meta> {
         }
     }
 
-    pub fn take_ref(var: Var, mutability: Mutability, meta: Meta) -> Expr<'src, Meta> {
+    pub fn take_ref(place: Place<'src>, mutability: Mutability, meta: Meta) -> Expr<'src, Meta> {
         Expr {
-            expr: ExprKind::Ref { var, mutability },
+            expr: ExprKind::Ref { place, mutability },
             meta,
         }
     }
@@ -273,20 +286,6 @@ impl<'src, Meta> Expr<'src, Meta> {
         }
     }
 
-    pub fn member_access(var: Var, member: usize, meta: Meta) -> Self {
-        Expr {
-            expr: ExprKind::MemberAccess { var, member },
-            meta,
-        }
-    }
-
-    pub fn named_member_access(var: Var, member: &'src str, meta: Meta) -> Self {
-        Expr {
-            expr: ExprKind::NamedMemberAccess { var, member },
-            meta,
-        }
-    }
-
     pub fn match_(m: MatchExpr<'src, Meta>, meta: Meta) -> Self {
         Expr {
             expr: ExprKind::Match(m),
@@ -336,8 +335,8 @@ impl<'src, Meta> Expr<'src, Meta> {
             ExprKind::String(s) => ExprKind::String(s),
             ExprKind::CString(s) => ExprKind::CString(s),
             ExprKind::Char(c) => ExprKind::Char(c),
-            ExprKind::Ident(var) => ExprKind::Ident(var),
-            ExprKind::Ref { var, mutability } => ExprKind::Ref { var, mutability },
+            ExprKind::Place(place) => ExprKind::Place(place),
+            ExprKind::Ref { place, mutability } => ExprKind::Ref { place, mutability },
             ExprKind::Block(exprs) => {
                 ExprKind::Block(exprs.into_iter().map(|e| e.map_meta(f)).collect())
             }
@@ -356,10 +355,6 @@ impl<'src, Meta> Expr<'src, Meta> {
             ExprKind::Pack => ExprKind::Pack,
             ExprKind::Unpack => ExprKind::Unpack,
             ExprKind::SizeOf => ExprKind::SizeOf,
-            ExprKind::NamedMemberAccess { var, member } => {
-                ExprKind::NamedMemberAccess { var, member }
-            }
-            ExprKind::MemberAccess { var, member } => ExprKind::MemberAccess { var, member },
             ExprKind::Match(m) => {
                 let cases = m
                     .cases

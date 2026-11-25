@@ -47,18 +47,13 @@ fn Vec.new<T>() -> [Vec<T>] {
 
 fn Vec.push<T>(T: val &mut.Vec<T>: self) {
 
-    self::data as [slice]
-
-    self::len slice::cap == if {
-        &mut.slice Slice.resize
+    self::len self::data::cap == if {
+        &mut.self::data Slice.resize
     }
 
-    val slice::data self::len + |<
+    val self::data::data self::len + |<
 
-    slice
-    self::len 1 +
-    #Vec pack
-    self |<
+    self::len 1 + &mut.self::len |<
 
 }
 

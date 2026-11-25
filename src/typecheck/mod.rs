@@ -25,7 +25,7 @@ use crate::{
         environment::{
             Coherence, Environment, Interface, InterfaceImpl, Scheme, TypeClassId, TypePredicate,
         },
-        expr::{Expr, ExprKind, IfExpr, MatchCase, MatchExpr, MatchPattern, Var},
+        expr::{Expr, ExprKind, IfExpr, MatchCase, MatchExpr, MatchPattern, Place, Var},
         func::Function,
         typ::{
             typ::{
@@ -608,18 +608,16 @@ impl<'src> TypeCheck<'src> {
 
     fn lower_expr(&mut self, expr: &ParseExpr<'src>) -> Result<Expr<'src, Token<'src>>, HayError> {
         match &expr.kind {
-            ParseExprKind::Ident(ident) => {
-                let Some((var, _)) = self.scope.get_var(ident) else {
-                    todo!("{}: No var found for `{ident}`", expr.token)
-                };
-                Ok(Expr::ident(var, expr.token.clone()))
-            }
-            ParseExprKind::Member { base, member } => {
-                let Some((var, _)) = self.scope.get_var(base) else {
-                    todo!("{}: No var found for `{base}`", expr.token)
+            ParseExprKind::Place(place) => {
+                let Some((var, _)) = self.scope.get_var(place.base) else {
+                    todo!("{}: No var found for `{}`", place.base, expr.token)
                 };
 
-                Ok(Expr::named_member_access(var, member, expr.token.clone()))
+                Ok(Expr::place(
+                    var,
+                    place.projections.clone(),
+                    expr.token.clone(),
+                ))
             }
             ParseExprKind::Literal(literal) => match literal {
                 Literal::Bool(b) => Ok(Expr::bool(*b, expr.token.clone())),
@@ -726,9 +724,18 @@ impl<'src> TypeCheck<'src> {
 
                 Ok(Expr::bind(vars, expr.token.clone()))
             }
-            ParseExprKind::TakeRef { mutable, ident } => {
-                let Some((var, _)) = self.scope.get_var(*ident) else {
-                    todo!("Unknown var `{ident}");
+            ParseExprKind::TakeRef { mutable, place } => {
+                let Some((var, _)) = self.scope.get_var(place.base) else {
+                    todo!("Unknown var `{}`", place.base);
+                };
+
+                let place = Place {
+                    base: var,
+                    projections: place
+                        .projections
+                        .iter()
+                        .map(|name| expr::Projection::Named(*name))
+                        .collect(),
                 };
 
                 let mutability = if *mutable {
@@ -737,7 +744,7 @@ impl<'src> TypeCheck<'src> {
                     Mutability::Const
                 };
 
-                Ok(Expr::take_ref(var, mutability, expr.token.clone()))
+                Ok(Expr::take_ref(place, mutability, expr.token.clone()))
             }
             ParseExprKind::If(if_expr) => {
                 self.scope.new_scope();
@@ -2327,35 +2334,43 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             | ExprKind::SizeOf
             | ExprKind::UncheckedCast
             | ExprKind::Read
-            | ExprKind::Write
-            | ExprKind::MemberAccess { .. } => expr.expr,
+            | ExprKind::Write => expr.expr,
 
-            ExprKind::Ident(var) => {
-                if self.world.functions.contains_key(&var)
-                    || self.world.interface_fns.contains_key(&var)
+            ExprKind::Place(place) => {
+                if (self.world.functions.contains_key(&place.base)
+                    || self.world.interface_fns.contains_key(&place.base))
+                    && place.projections.is_empty()
                 {
-                    ExprKind::Ident(self.resolve_function_instance(&token, var, tid, substitutions))
+                    ExprKind::Place(Place {
+                        base: self.resolve_function_instance(
+                            &token,
+                            place.base,
+                            tid,
+                            substitutions,
+                        ),
+                        projections: vec![],
+                    })
                 } else {
-                    ExprKind::Ident(var)
+                    ExprKind::Place(place)
                 }
             }
-            ExprKind::Ref { var, mutability } => {
-                if self.world.functions.contains_key(&var) {
-                    let Type::Function(FunctionType { input, output }) =
-                        self.typestore.get(tid).unwrap()
-                    else {
-                        todo!()
-                    };
-
-                    assert!(input.is_empty());
-                    assert!(output.len() == 1);
+            ExprKind::Ref { place, mutability } => {
+                if self.world.functions.contains_key(&place.base) && place.projections.is_empty() {
 
                     ExprKind::Ref {
-                        var: self.resolve_function_instance(&token, var, output[0], substitutions),
+                        place: Place {
+                            base: self.resolve_function_instance(
+                                &token,
+                                place.base,
+                                tid,
+                                substitutions,
+                            ),
+                            projections: vec![],
+                        },
                         mutability,
                     }
                 } else {
-                    ExprKind::Ref { var, mutability }
+                    ExprKind::Ref { place, mutability }
                 }
             }
             ExprKind::Block(exprs) => ExprKind::Block(
@@ -2376,7 +2391,6 @@ impl<'a, 'src> MonoContext<'a, 'src> {
             ExprKind::Mul(tid) => ExprKind::Mul(self.request_type(tid, substitutions)),
             ExprKind::Equal(tid) => ExprKind::Equal(self.request_type(tid, substitutions)),
             ExprKind::LessThan(tid) => ExprKind::LessThan(self.request_type(tid, substitutions)),
-            ExprKind::NamedMemberAccess { var, member } => unreachable!(),
             ExprKind::Match(match_expr) => {
                 let cases = match_expr
                     .cases

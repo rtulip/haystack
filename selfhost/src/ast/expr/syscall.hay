@@ -1,6 +1,0 @@
-include "selfhost/src/lex/token.hay"
-
-struct SyscallExpr {
-    pub u64: n
-    pub Token: token
-}

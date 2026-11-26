@@ -1,7 +1,0 @@
-include "selfhost/src/lex/operator.hay"
-include "selfhost/src/lex/token.hay"
-
-struct OperatorExpr {
-    pub Operator: op
-    pub Token: token
-}

@@ -1,6 +1,0 @@
-include "selfhost/src/lex/token.hay"
-
-struct CastExpr {
-    pub Token: token
-    pub Token: type
-}

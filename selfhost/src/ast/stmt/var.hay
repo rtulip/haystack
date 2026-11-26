@@ -1,7 +1,0 @@
-include "selfhost/src/lex/token.hay"
-include "selfhost/src/ast/expr/var.hay"
-
-struct VarStmt {
-    pub Token: token
-    pub VarExpr: expr
-}

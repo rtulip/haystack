@@ -1,7 +1,0 @@
-include "selfhost/src/lex/literal.hay"
-include "selfhost/src/lex/token.hay"
-
-struct LiteralExpr {
-    pub Literal: literal
-    pub Token: token
-}

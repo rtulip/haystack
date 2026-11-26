@@ -1,36 +1,9 @@
-fn char.as_str(&char) -> [Str] {
-    1 swap cast(Str)
-}
-
-impl Write<char> {
-    inline fn write(char: c u64: fd) {
-        &c char.as_str fd write
+impl Print<char> {
+    fn print(char){
+        "%c"c swap printf drop
     }
-}
 
-impl Add<char char> {
-    char: Output
-    inline fn Op.add(char: left char: right) -> [char] {
-        left cast(u64) right cast(u64) + cast(char)
+    fn println(char){
+        "%c\n"c swap printf drop
     }
-}
-
-impl ToString<&char> {
-    inline fn to_string(&char) -> [String] {
-        char.as_str String.new
-    }
-}
-
-impl ToString<char> {
-    inline fn to_string(char: c) -> [String] {
-        &c to_string
-    }
-}
-
-impl Format<char> {
-    inline fn fmt(String char) -> [String] { String.push }
-}
-
-impl Format<&char> {
-    inline fn fmt(String &char) -> [String] { @ String.push }
 }

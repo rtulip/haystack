@@ -1,5 +1,3 @@
-include "prelude.hay"
-
 struct Pair<T> {
     T: first
     T: second

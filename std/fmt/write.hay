@@ -1,3 +1,0 @@
-interface Write<T> {
-    fn write(T: to_write u64: file_descriptor)
-}

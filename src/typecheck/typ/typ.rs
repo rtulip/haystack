@@ -163,7 +163,6 @@ pub enum Type {
     Variant(VariantType),
     Type(TypeId),
     Projection(Projection),
-    Never,
 }
 
 impl Type {
@@ -193,7 +192,6 @@ impl Type {
             | Type::Variant(_)
             | Type::Type(_)
             | Type::Projection(_)
-            | Type::Never
             | Type::Tuple(_) => false,
 
             Type::Builtin(BuiltinType::U8)

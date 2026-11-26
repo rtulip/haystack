@@ -235,9 +235,6 @@ impl<'src> Parser<'src> {
             TokenKind::Marker(Marker::RightParen) => Ok(None),
             TokenKind::Marker(Marker::RightBracket) => Ok(None),
             TokenKind::Marker(Marker::LeftParen) => Ok(Some(self.parse_tuple_type()?)),
-            TokenKind::Operator(Operator::Write) => {
-                Ok(Some(ParseType::Never(self.tokens.pop().unwrap())))
-            }
             TokenKind::Operator(Operator::GreaterThan) => Ok(None),
             TokenKind::Operator(Operator::Ampersand) => self.parse_pointer_type(),
             TokenKind::Keyword(Keyword::Function) => self.parse_function_type(),

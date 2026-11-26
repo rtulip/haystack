@@ -136,7 +136,6 @@ where
             Type::Variant(_) => (),
             Type::Type(_) => (),
             Type::Projection(_) => todo!(),
-            Type::Never => todo!(),
         }
         Ok(())
     }
@@ -162,7 +161,6 @@ where
                 let modifier = Self::format_mutability(p.mutability);
                 format!("{modifier}{}*", self.format_c_compat_type(p.tid))
             }
-            Type::Never => format!("void"),
             ty => unreachable!("{ty:?}"),
         }
     }
@@ -355,7 +353,6 @@ where
                 );
             }
             Type::Projection(projection) => todo!(),
-            Type::Never => todo!(),
         }
 
         Ok(())
@@ -1438,7 +1435,6 @@ where
             }
             Type::Type(tid) => vec![*tid],
             Type::Projection(projection) => todo!(),
-            Type::Never => todo!(),
         }
     }
 

@@ -541,16 +541,9 @@ impl<'src> TypeCheck<'src> {
 
     fn get_tid(&mut self, ty: &ParseType<'src>) -> Result<TypeId, HayError> {
         match ty {
-            ParseType::Never(_) => Ok(self.typestore.intern(Type::Never)),
             ParseType::Simple(ident) => Ok(self.get_paramatarized_ident_tid(ident)?),
             ParseType::Path(path) => {
                 self.get_type_path_tid(path)
-
-                // let Some((base_tid, _)) = self.scope.get_tid(&base.lexeme.into()) else {
-                //     todo!("Unknown type {base}");
-                // };
-
-                // todo!()
             }
             ParseType::Pointer { inner, mutable } => {
                 let inner = self.get_tid(inner)?;
@@ -864,7 +857,6 @@ impl<'src> TypeCheck<'src> {
             .expect("TypeIds should be resolvable")
             .clone()
         {
-            Type::Never => "!".into(),
             Type::TypeVar(tyvar) | Type::RigidTypeVar(tyvar) => {
                 let tid = self.typestore.intern(Type::TypeVar(tyvar));
                 if let Some(info) = self.symbols.types.get(&tid) {
@@ -2239,7 +2231,6 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                     .args
                     .iter()
                     .for_each(|tid| concrete.extend(self.request_type_inner(*tid, substitutions))),
-                Type::Never => todo!(),
             };
         };
 

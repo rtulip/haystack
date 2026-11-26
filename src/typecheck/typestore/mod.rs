@@ -247,7 +247,6 @@ where
     ) -> Result<(), std::fmt::Error> {
         let t = &self.types[tid.0];
         match t {
-            Type::Never => write!(w, "!"),
             Type::TypeVar(type_var) => write!(w, "TV({})", type_var.0),
             Type::RigidTypeVar(type_var) => write!(w, "RV({})", type_var.0),
             Type::Builtin(builtin_type) => match builtin_type {
@@ -380,7 +379,6 @@ where
 
     pub fn get_variance(&self, tid: TypeId, tyvar: TypeVar) -> Option<Variance> {
         match self.types.get(tid.0).expect("TypeIds should be resolvable") {
-            Type::Never => None,
             Type::TypeVar(tv) => {
                 if tyvar == *tv {
                     Some(Variance::Covariant)
@@ -499,7 +497,7 @@ where
             .get(tid)
             .expect("All TypeIds must be present in typestore")
         {
-            Type::Builtin(_) | Type::RigidTypeVar(_) | Type::Never => (HashSet::new(), tid),
+            Type::Builtin(_) | Type::RigidTypeVar(_) => (HashSet::new(), tid),
             Type::Type(tid) => {
                 let (unbound, tid) = self.substitute_one(*tid);
                 let tid = self.intern(Type::Type(tid));
@@ -946,7 +944,6 @@ where
                 }
             }
             Type::Type(tid) => self.collect_type_vars(*tid, vars),
-            Type::Never => (),
         }
     }
 
@@ -967,7 +964,7 @@ where
         meta: &M,
     ) -> TypeId {
         match self.get(tid).expect("All TypeIds should be resolvable") {
-            Type::Builtin(_) | Type::RigidTypeVar(_) | Type::Never => tid,
+            Type::Builtin(_) | Type::RigidTypeVar(_) => tid,
             Type::TypeVar(var) => *fresh.get(var).unwrap_or(&tid),
             Type::Function(func) => {
                 let func = func.clone();
@@ -1413,7 +1410,7 @@ where
                     tid
                 }
             }
-            Type::RigidTypeVar(_) | Type::Builtin(_) | Type::Never => tid,
+            Type::RigidTypeVar(_) | Type::Builtin(_) => tid,
             Type::Function(function_type) => {
                 let input = self.instantiate_tids(&function_type.input, bindings);
                 let output = self.instantiate_tids(&function_type.output, bindings);
@@ -1520,7 +1517,6 @@ where
             | Type::Function(_)
             | Type::Pointer(_)
             | Type::Type(_)
-            | Type::Never
             | Type::Projection(_) => todo!("Can't pack into a {}", self.fmt(tid)),
         }
     }
@@ -1550,7 +1546,6 @@ where
             | Type::Function(_)
             | Type::Pointer(_)
             | Type::Type(_)
-            | Type::Never
             | Type::Projection(_) => todo!("Can't pack into a {}", self.fmt(tid)),
         }
     }
@@ -2298,7 +2293,6 @@ where
         meta: &M,
     ) -> Result<(Type, TypeId), InferenceErrorKind> {
         match self.get(tid).expect("Type Ids should be resolvable") {
-            Type::Never => Ok((Type::Never, tid)),
             Type::Builtin(b) => Ok((Type::Builtin(*b), tid)),
             Type::TypeVar(var) => match self.lookup.get(*var).clone() {
                 Some(tid) => self.normalize_ty(env, tid, meta),
@@ -2771,7 +2765,6 @@ where
                 })?;
 
         match (subty, superty) {
-            (Type::Never, _) => Ok(InferenceStatus::Solved),
             (Type::Pointer(subty_inner), Type::Pointer(superty_inner)) => {
                 match (subty_inner.mutability, superty_inner.mutability) {
                     (Mutability::Mutable, Mutability::Mutable) => {
@@ -3029,7 +3022,6 @@ where
                 })?;
         match (left, right) {
             (_, _) if left_tid == right_tid => Ok(left_tid),
-            (Type::Never, _) | (_, Type::Never) => Ok(self.intern(Type::Never)),
             (Type::Pointer(left), Type::Pointer(right)) => {
                 match (left.mutability, right.mutability) {
                     (Mutability::Mutable, Mutability::Mutable) => {
@@ -3222,8 +3214,6 @@ where
                 })?;
         match (left, right) {
             (_, _) if left_tid == right_tid => Ok(left_tid),
-            (Type::Never, _) => Ok(right_tid),
-            (_, Type::Never) => Ok(left_tid),
             (Type::Pointer(left), Type::Pointer(right)) => {
                 let left_normal = self
                     .normalize_ty(env, left.tid, meta)
@@ -3578,7 +3568,6 @@ where
             Type::TypeVar(_)
             | Type::RigidTypeVar(_)
             | Type::Builtin(_)
-            | Type::Never
             | Type::Function(_)
             | Type::Pointer(_)
             | Type::Tuple(_)
@@ -3740,7 +3729,6 @@ where
                     .collect();
                 self.intern(Type::Projection(p))
             }
-            Type::Never => todo!(),
         }
     }
 
@@ -3775,7 +3763,6 @@ where
             | Type::Variant(_)
             | Type::Type(_)
             | Type::Tuple(_)
-            | Type::Never
             | Type::Projection(_) => todo!("{} is not an enum", self.fmt(enum_tid)),
         };
 
@@ -3814,7 +3801,6 @@ where
             Type::Variant(v) => v.args.iter().any(|tid| self.is_free(tid)),
             Type::Type(tid) => self.is_free(tid),
             Type::Projection(p) => p.args.iter().any(|tid| self.is_free(tid)),
-            Type::Never => todo!(),
         }
     }
 
@@ -3849,7 +3835,7 @@ where
 
     pub fn lower(&mut self, tid: TypeId) -> TypeId {
         match self.get(tid).unwrap().clone() {
-            Type::Never | Type::Builtin(_) | Type::TypeVar(_) => tid,
+            Type::Builtin(_) | Type::TypeVar(_) => tid,
             Type::RigidTypeVar(tyvar) => self.intern(Type::TypeVar(tyvar)),
             Type::Function(FunctionType { input, output }) => {
                 let input = input.into_iter().map(|tid| self.lower(tid)).collect();

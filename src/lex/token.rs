@@ -82,6 +82,7 @@ pub enum Operator {
     GreaterEqual,
     Equal,
     BangEqual,
+    Bang,
     Modulo,
     Read,
     Write,
@@ -108,7 +109,8 @@ impl PartialEq for Operator {
             | (Operator::Write, Operator::Write)
             | (Operator::Ampersand, Operator::Ampersand)
             | (Operator::Pipe, Operator::Pipe)
-            | (Operator::Caret, Operator::Caret) => true,
+            | (Operator::Caret, Operator::Caret) 
+            | (Operator::Bang, Operator::Bang) => true,
             (Operator::Plus, _)
             | (Operator::Minus, _)
             | (Operator::Star, _)
@@ -124,7 +126,8 @@ impl PartialEq for Operator {
             | (Operator::Write, _)
             | (Operator::Ampersand, _)
             | (Operator::Pipe, _)
-            | (Operator::Caret, _) => false,
+            | (Operator::Caret, _) 
+            | (Operator::Bang, _) => false,
         }
     }
 }
@@ -143,6 +146,7 @@ impl std::fmt::Display for Operator {
             Operator::GreaterEqual => write!(f, ">=")?,
             Operator::Equal => write!(f, "==")?,
             Operator::BangEqual => write!(f, "!=")?,
+            Operator::Bang => write!(f, "!")?,
             Operator::Modulo => write!(f, "%")?,
             Operator::Read => write!(f, "|>")?,
             Operator::Write => write!(f, "|<")?,

@@ -281,11 +281,15 @@ impl<'src> Parser<'src> {
         Ok(args)
     }
 
-    fn parse_return_list(&mut self) -> Result<Vec<ParseType<'src>>, HayError> {
+    fn parse_return_list(&mut self) -> Result<Option<Vec<ParseType<'src>>>, HayError> {
         self.strip_whitespace();
 
         if self.matches(TokenKind::Marker(Marker::Arrow)).is_ok() {
             self.strip_whitespace();
+
+            if self.matches(TokenKind::Operator(Operator::Bang)).is_ok() {
+                return Ok(None)
+            }
 
             self.expect(TokenKind::Marker(Marker::LeftBracket))?;
 
@@ -296,9 +300,9 @@ impl<'src> Parser<'src> {
 
             self.strip_whitespace();
             self.expect(TokenKind::Marker(Marker::RightBracket))?;
-            Ok(types)
+            Ok(Some(types))
         } else {
-            Ok(vec![])
+            Ok(Some(vec![]))
         }
     }
 
@@ -661,6 +665,7 @@ impl<'src> Parser<'src> {
                 Operator::Ampersand => todo!(),
                 Operator::Pipe => todo!(),
                 Operator::Caret => todo!(),
+                Operator::Bang => todo!(),
             },
             TokenKind::Ident(_)
             | TokenKind::Marker(_)

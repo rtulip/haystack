@@ -575,9 +575,10 @@ impl<'src> TypeCheck<'src> {
                     input.push(self.get_tid(&arg.typ)?);
                 }
 
-                for ty in &sig.output {
-                    output.push(self.get_tid(&ty)?);
-                }
+                todo!();
+                // for ty in &sig.output {
+                //     output.push(self.get_tid(&ty)?);
+                // }
 
                 Ok(self.typestore.function(FunctionType { input, output }))
             }
@@ -591,11 +592,13 @@ impl<'src> TypeCheck<'src> {
                 .iter()
                 .map(|arg| self.get_tid(&arg.typ))
                 .collect::<Result<Vec<_>, _>>()?,
-            output: signature
-                .output
-                .iter()
-                .map(|ty| self.get_tid(ty))
-                .collect::<Result<Vec<_>, _>>()?,
+            
+            output: todo!(),
+            // signature
+            //     .output
+            //     .iter()
+            //     .map(|ty| self.get_tid(ty))
+            //     .collect::<Result<Vec<_>, _>>()?,
         };
 
         Ok(self.typestore.function(function_type))
@@ -1247,7 +1250,7 @@ impl<'src> TypeCheck<'src> {
         let scheme = self.create_scheme(
             &func.params,
             &func.signature.input,
-            &func.signature.output,
+            todo!(), //&func.signature.output,
             &[],
             &func.name,
         )?;
@@ -1272,7 +1275,7 @@ impl<'src> TypeCheck<'src> {
         let mut scheme = self.create_scheme(
             &func.params,
             &func.signature.input,
-            &func.signature.output,
+            todo!(), //&func.signature.output,
             &[predicate.clone()],
             &func.name,
         )?;

@@ -164,7 +164,7 @@ impl<'src> Scanner<'src> {
                 if self.matches('=') {
                     self.add_token(TokenKind::Operator(Operator::BangEqual))
                 } else {
-                    self.add_token(TokenKind::Operator(Operator::Write))
+                    self.add_token(TokenKind::Operator(Operator::Bang))
                 }
             }
             '&' => self.add_token(TokenKind::Operator(Operator::Ampersand)),

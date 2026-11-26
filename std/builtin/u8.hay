@@ -1,78 +1,9 @@
-
-impl Write<u8> {
-    fn write(u8: n u64: fd) {
-        n cast(u64) fd write
+impl Print<u8> {
+    fn print(u8) {
+        "%u"c swap printf drop
     }
-}
 
-impl Add<u8 u8> {
-    u8: Output
-    inline fn Op.add(u8: left u8: right) -> [u8] {
-        left cast(u64) right cast(u64) + cast(u8)
+    fn println(u8) {
+        "%u\n"c swap printf drop
     }
-}
-
-impl Add<u8 u64> {
-    u64: Output
-    inline fn Op.add(u8: left u64: right) -> [u64] {
-        left cast(u64) right +
-    }
-}
-
-impl Sub<u8 u8> {
-    u8: Output
-    inline fn Op.sub(u8: left u8: right) -> [u8] {
-        left cast(u64) right cast(u64) - cast(u8)
-    }
-}
-
-impl Sub<u8 u64> {
-    u64: Output
-    inline fn Op.sub(u8: left u64: right) -> [u64] {
-        left cast(u64) right - 
-    }
-}
-
-impl Mul<u8 u8> {
-    u64: Output
-    inline fn Op.mul(u8: left u8: right) -> [u64] {
-        left cast(u64) right cast(u64) *
-    }
-}
-
-impl Mul<u8 u64> {
-    u64: Output
-    inline fn Op.mul(u8: left u64: right) -> [u64] {
-        left cast(u64) right *
-    }
-}
-
-impl Div<u8 u8> {
-    u8: Output
-    inline fn Op.div(u8: left u8: right) -> [u8] {
-        left cast(u64) right cast(u64) / cast(u8)
-    }
-}
-
-impl Div<u8 u64> {
-    u8: Output
-    inline fn Op.div(u8: left u64: right) -> [u8] {
-        left cast(u64) right / cast(u8)
-    }
-}
-
-impl ToString<u8> {
-    inline fn to_string(u8) -> [String] { cast(u64) to_string }
-}
-
-impl ToString<&u8> {
-    inline fn to_string(&u8) -> [String] { @ to_string }
-}
-
-impl Format<u8> {
-    inline fn fmt(String u8) -> [String] { cast(u64) fmt }
-}
-
-impl Format<&u8> {
-    inline fn fmt(String &u8) -> [String] { @ fmt }
 }

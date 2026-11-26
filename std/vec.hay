@@ -1,162 +1,30 @@
-include "std/assert.hay"
 struct Vec<T> {
-    Arr<T>: slice
+    Slice<T>: slice
     u64: len
-impl:
-
-    inline fn Vec.from_parts<T>(Arr<T> u64) -> [Vec<T>] {
-        cast(Vec)
-    }
-
-    inline fn Vec.new<T>() -> [Vec<T>] {
-        8 malloc::<T> 0 cast(Vec) 
-    }
-
-    inline fn Vec.with_capacity<T>(u64) -> [Vec<T>] {
-        malloc::<T> 0 cast(Vec)
-    }
-
-    inline fn Vec.delete<T>(&Vec<T>: self) {
-        self::slice @ free
-    }
-
-    inline fn Vec.is_empty<T>(&Vec<T>: self) -> [bool] {
-        self::len @ 0 ==
-    }
-
-    inline fn Vec.slice_mut<T>(*Vec<T>: self) -> [Arr<T>] {
-        self::slice @
-    }
-
-    inline fn Vec.slice<T>(&Vec<T>: self) -> [ConstArr<T>] {
-        self::slice::size @
-        self::slice::data @
-        cast(ConstArr)
-    }
-
-    fn Vec.push<T>(T: value *Vec<T>: self) {
-        self::len @ 0 == if {
-            2 self::slice @ realloc self::slice ! 
-        } else self::len @ self::slice::size @ == if {
-            self::slice::size @ 2 * self::slice @ realloc self::slice !
-        }
-        value self::len @ self::slice @ Arr.set
-        self::len @ 1 + self::len !
-    }
-
-    fn Vec.pop<T>(*Vec<T>: self) -> [Option<T>] {
-        self::len @ 0 == if {
-            Option.None::<T>
-        } else {
-            self::len @ 1 - self::len !
-            self::len @ self::slice @ Arr.get Option.Some
-        }
-    }
-
-    fn Vec.get<T>(u64: idx &Vec<T>: self) -> [Option<&T>] {
-        idx self::len @ >= if {
-            Option.None::<&T>
-        } else {
-            idx self::slice @ Arr.get_ref Option.Some
-        }
-    }
-
-    fn Vec.get_mut<T>(u64: idx *Vec<T>: self) -> [Option<*T>] {
-        idx self::len @ >= if {
-            Option.None::<*T>
-        } else {
-            idx self::slice @ Arr.get_ref_mut Option.Some
-        }
-    }
-
-    fn Vec.at<T>(u64: idx &Vec<T>: self) -> [Option<T>] {
-        idx self::len @ >= if {
-            Option.None::<T>
-        } else {
-            idx self::slice @ Arr.get Option.Some
-        }
-    }
-
-    inline fn Vec.last<T>(&Vec<T>: self) -> [Option<&T>] {
-        self::len @ 1- self Vec.get
-    }
-
-    fn Vec.capacity<T>(&Vec<T>: self) -> [u64] {
-        self::slice::size @
-    }
-
-    fn Vec.len<T>(&Vec<T>: self) -> [u64] {
-        self::len @
-    }
-
-    fn Vec.contains<T>(T: item &Vec<T>: self) -> [bool] {
-
-        0 while dup self Vec.len < do {
-            as [i]
-            i self Vec.at Option.unwrap item == if {
-                true return
-            }
-            i 1 +
-        } drop
-
-        false
-
-    }
-
-    fn Vec.append<T>(*Vec<T>: other *Vec<T>: self) {
-        Vec.new::<T> as [mut temp]
-
-        while other Vec.is_empty lnot do {
-            other Vec.pop Option.unwrap *temp Vec.push
-        }
-
-        while &temp Vec.is_empty lnot do {
-            *temp Vec.pop Option.unwrap self Vec.push
-        }
-
-        &temp Vec.delete
-
-    }
-
-    fn Vec.reverse<T>(Vec<T>: mut self) -> [Vec<T>] {
-
-        Vec.new::<T> as [mut rev]
-        while &self Vec.is_empty lnot do {
-            *self Vec.pop Option.unwrap *rev Vec.push
-        }
-
-        &self Vec.delete
-        rev
-
-    }
 }
 
-impl<T> Format<&Vec<T>>
-requires: [Format<T>] {
+fn Vec.new<T>() -> [Vec<T>] {
+    __null 0 #Slice pack 
+    0 
+    #Vec pack
+}
 
-    fn fmt(String &Vec<T>) -> [String] {
-        as [self]
-        self Vec.len 0 == if { "[ ]" fmt return }
-        
-        '[' fmt
-        0 while dup self Vec.len 1 - < do {
-            as [i]
-            i self Vec.get Option.unwrap @ fmt
-            ' '              fmt
-            i 1 +
-        } drop
+fn Vec.push<T>(T: val &mut.Vec<T>: self) {
 
-        self Vec.last Option.unwrap @ fmt 
-        ']' fmt
+    self->len self->slice->cap == if {
+        &mut.self->slice Slice.resize
     }
+
+    val self->slice->data self->len + |<
+
+    self->len 1 + &mut.self->len |<
 
 }
 
-impl<T> Format<Vec<T>>
-requires: [Format<T>] {
-    fn fmt(String Vec<T>) -> [String] {
-        as [self]
-        &self fmt
-        &self Vec.delete
+fn Vec.get<T>(u64: n &Vec<T>: self) -> [Option<T>] {  
+    n self->len < if {
+        n self->slice Slice.get
+    } else {
+        Option.None
     }
 }

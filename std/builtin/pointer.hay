@@ -1,0 +1,18 @@
+impl<T> Print<&T>
+requires [Print<T>] {
+    fn print(&T) { |> print }
+}
+
+impl<T> Add<&T u64> {
+    &T: Output
+    fn add(&T u64) -> [&T] __ptr_add
+}
+
+impl<T> Add<&mut.T u64> {
+    &mut.T: Output
+    fn add(&mut.T u64) -> [&mut.T] __ptr_mut_add
+}
+
+fn __null<T>() -> [&mut.T] {
+    0 #&mut.T cast
+}

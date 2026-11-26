@@ -1,11 +1,5 @@
-include "prelude.hay"
-
-fn null<T>() -> [&mut.T] {
-    0 #&mut.T cast
-}
-
 fn new<T>(Type<T>) -> [&mut.T] {
-    sizeof null swap realloc #&mut.T cast
+    sizeof __null swap realloc #&mut.T cast
 }
 
 fn free<T>(&mut.T) {

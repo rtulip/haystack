@@ -1,0 +1,44 @@
+struct Slice<T> {
+    &mut.T: data
+    u64: cap
+}
+
+fn Slice.new_size(u64: cap) -> [u64] {
+    cap 0 == if {
+        8
+    } else {
+        cap 2 *
+    }
+}
+
+fn Slice.resize<T>(&mut.Slice<T>: self) {
+
+    self->cap Slice.new_size as [new_cap]
+
+    (self->data #&mut.u8 cast)
+    (new_cap #T sizeof *) 
+    realloc #&mut.T cast
+    
+    new_cap
+    #Slice pack self |<
+
+}
+
+fn Slice.get<T>(u64: n Slice<T>: self) -> [Option<T>] {
+    n self->cap < if {
+        self->data n + |> Option.Some    
+    } else {
+        Option.None
+    }
+}
+
+fn Slice.zero<T>(Slice<T>: slice) {
+    slice->data #&mut.u8 cast as [data]
+    slice->cap #T sizeof * as [n]
+
+    0 while dup n < do {
+        as [i]
+        0u8 data i + |<
+        i 1 +
+    } drop
+}

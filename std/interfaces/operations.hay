@@ -1,0 +1,19 @@
+interface Add<L R> {
+    type: Output
+    fn add(L R) -> [Output]
+}
+
+interface Sub<L R> {
+    type: Output
+    fn sub(L R) -> [Output]
+}
+
+interface Mul<L R> {
+    type: Output
+    fn mul(L R) -> [Output]
+}
+
+interface Compare<L R> {
+    fn eq(L R) -> [bool]
+    fn lt(L R) -> [bool]
+}

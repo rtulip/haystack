@@ -1,3 +1,8 @@
+struct Str {
+    &char: data
+    u64: len
+}
+
 fn drop<T>(T: _) { }
 fn dup<T>(T: t) -> [T T] { t t }
 fn typeof<T>(T: _) -> [Type<T>] #T

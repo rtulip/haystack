@@ -1,47 +1,37 @@
-enum struct Option<T> {
-    []: None
-    T : Some
-impl:
-
-    inline fn Option.Some<T>(T) -> [Option<T>] cast(Option::Some)
-    inline fn Option.None<T>() -> [Option<T>] { [] cast(Option::None) }
-    inline fn Option.is_some<T>(&Option<T>) -> [bool] {
-        @ match {
-            Option::Some { true }
-            Option::None { false }
-        }
-    }
-    inline fn Option.is_none<T>(&Option<T>) -> [bool] {
-        Option.is_some lnot
-    }
-
-    inline fn Option.take_is_some<T>(Option<T>: option) -> [bool] {
-        &option Option.is_some
-    }
-
-    inline fn Option.unwrap<T>(Option<T>) -> [T] match {
-        Option::Some as [t] { t }
-        Option::None { 
-            "Unwrapped a None variant" println 
-            1 exit
-        }
-    }
-
-    fn Option.unwrap_or<T>(T Option<T>) -> [T] match {
-        Option::Some as [t] { drop t }
-        Option::None {}
-    }
-
+enum Option<T> {
+    T: Some
+    None
 }
 
-impl<T> Print<Option<T>>
-requires: [Print<T>] {
+impl<T> Print<Option<T>> 
+requires [Print<T>] 
+{
     fn print(Option<T>) match {
-        Option::Some as [t] { 
+         Option::Some { 
             "Some(" print 
-            t       print 
-            ")"     print
+                    print 
+            ")"     print 
         }
         Option::None { "None" print }
+    }
+}
+
+fn Option.Some<T>(T) -> [Option<T>::Some] { #Option::Some pack }
+fn Option.None<T>() -> [Option<T>::None] { #Option::None pack }
+
+fn Option.unwrap<T>(Option<T>) -> [T] match {
+    Option::Some {}
+    Option::None { 1 exit }
+}
+
+fn Option.unwrap_or<T>(T Option<T>) -> [T] match {
+    Option::Some { swap drop }
+    Option::None {}
+}
+
+fn Option.map<T U>(Option<T>: opt fn(T) -> [U]: f) -> [Option<U>] {
+    opt match {
+        Option::Some { f Option.Some }
+        Option::None Option.None 
     }
 }

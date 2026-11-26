@@ -1,4 +1,4 @@
-Error: [examples/tutorial/05_functions.hay:18:4] Error: Incompatible Stacks at end of function
+Error: [examples/tutorial/05_functions.hay:16:4] Error: Incompatible Stacks at end of function
     [Note]: Expected: [u64 u64 u64]
     [Note]: Found   : [u64 bool u64]
     [Note]: Type `u64` is incompatible with `bool`

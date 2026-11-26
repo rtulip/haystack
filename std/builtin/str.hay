@@ -1,0 +1,12 @@
+
+
+fn Str.cstr(Str) -> [&char] ->data
+
+impl Print<Str> {
+    fn print(Str: s) { 
+        "%.*s"c (s->len s->data) printf drop
+    }
+    fn println(Str: s) {
+        "%.*s\n"c (s->len s->data) printf drop
+    }
+}

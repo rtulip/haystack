@@ -1,17 +1,11 @@
-use std::{format, path::Path, todo, unreachable};
+use std::{collections::HashSet, format, path::{Path, PathBuf}, todo, unreachable};
 
 use crate::{
-    error::HayError,
-    lex::{
-        base,
-        scanner::Scanner,
-        token::{
-            Intrinsic, Keyword,
-            Marker::{self, LeftParen},
-            Operator, Token, TokenKind,
+    error::HayError, lex::{
+        base, scanner::Scanner, token::{
+            Intrinsic, Keyword, Loc, Marker::{self, LeftParen}, Operator, Token, TokenKind,
         },
-    },
-    parser::{
+    }, parser::{
         argument::Argument,
         expr::{ParseExpr, ParseExprKind, ParseMatchExpr, ParsePlace},
         signature::Signature,
@@ -29,24 +23,52 @@ use super::{
 };
 
 pub struct Parser<'src> {
+    visited: HashSet<PathBuf>,
     tokens: Vec<Token<'src>>,
+    statements: Vec<Statememt<'src>>,
 }
 
 impl<'src> Parser<'src> {
-    pub fn parse(mut tokens: Vec<Token<'src>>) -> Result<Vec<Statememt<'src>>, HayError> {
-        let mut parser = Parser {
-            tokens: tokens.drain(..).rev().collect(),
-        };
+    pub fn new() -> Result<Self, HayError> {
 
-        let mut stmts = vec![];
+        let source = include_str!("../../std/prelude.hay");
+        let file = "std/prelude.hay";
+        let tokens = Scanner::new(file, &source).scan_tokens()?;
+
+        let mut visited = HashSet::new();
+        visited.insert(Path::new(file).canonicalize().unwrap());
+
+        let mut parser = Parser {
+            tokens: vec![],
+            statements: vec![],
+            visited
+        };
+        
+
+        parser.parse(tokens)?;
+
+        Ok(parser)
+    }
+
+    pub fn finish(self) -> Vec<Statememt<'src>> {
+        self.statements
+    }
+
+    pub fn parse(&mut self, mut tokens: Vec<Token<'src>>) -> Result<(), HayError> {
+        self.tokens.extend(tokens.drain(..).rev());
+
         loop {
-            parser.strip_whitespace();
-            if parser.is_at_end() {
+            self.strip_whitespace();
+            if self.is_at_end() {
                 break;
             }
-            stmts.extend(parser.parse_declaration()?)
+            let statements =self.parse_declaration()?;
+            self.statements.extend(statements)
         }
-        Ok(stmts)
+
+        assert!(TokenKind::EoF == self.tokens.pop().unwrap().kind);
+
+        Ok(())
     }
 
     fn strip_whitespace(&mut self) {
@@ -1013,22 +1035,28 @@ impl<'src> Parser<'src> {
         }))
     }
 
-    fn parse_include(&mut self, start: Token<'src>) -> Result<Vec<Statememt<'src>>, HayError> {
+    fn parse_include(&mut self, start: Token<'src>) -> Result<(), HayError> {
         self.strip_whitespace();
         let path = self.expect(TokenKind::string())?;
-        let file = Path::new(&path.lexeme[1..path.lexeme.len() - 1]);
-        let source: &'src str = std::fs::read_to_string(file)
-            .map_err(|e| {
-                HayError::new(
-                    format!("Failed to open file `{}`", file.display()),
+        let path_lexeme = &path.lexeme[1..path.lexeme.len() - 1];
+        let file = Path::new(path_lexeme).canonicalize().map_err(|_| HayError::new(
+                    format!("Failed to open file `{path_lexeme}`"),
                     path.loc.clone(),
-                )
-            })?
+                ))?;
+
+        if self.visited.contains(&file) {
+            return Ok(())
+        }
+
+        let source: &'src str = std::fs::read_to_string(&file)
+            .expect("filepath should have already been checked")
             .leak();
 
-        let tokens = Scanner::new(file.to_str().unwrap(), &source).scan_tokens()?;
+        let tokens = Scanner::new(path_lexeme, &source).scan_tokens()?;
 
-        Parser::parse(tokens)
+        self.visited.insert(file);
+
+        self.parse(tokens)
     }
 
     fn parse_extern_function(&mut self, start: Token<'src>) -> Result<Statememt<'src>, HayError> {
@@ -1058,8 +1086,12 @@ impl<'src> Parser<'src> {
             TokenKind::Keyword(Keyword::Enum) => Ok(vec![self.parse_enum(token)?]),
             TokenKind::Keyword(Keyword::Interface) => Ok(vec![self.parse_interface(token)?]),
             TokenKind::Keyword(Keyword::Impl) => Ok(vec![self.parse_impl(token)?]),
-            TokenKind::Keyword(Keyword::Include) => self.parse_include(token),
+            TokenKind::Keyword(Keyword::Include) => {
+                self.parse_include(token)?;
+                Ok(vec![])
+            },
             TokenKind::Keyword(Keyword::Extern) => Ok(vec![self.parse_extern_function(token)?]),
+            TokenKind::EoF => Ok(vec![]),
             kind => Err(HayError::new(
                 format!("Unexpected token: {kind}"),
                 token.loc,

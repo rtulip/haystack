@@ -1,5 +1,3 @@
-include "prelude.hay"
-
 fn read_print(&u64) {
     |> println
 }

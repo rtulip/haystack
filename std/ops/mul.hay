@@ -1,4 +1,0 @@
-interface Mul<A B> {
-    _: Output
-    fn Op.mul(A B) -> [Output]
-}

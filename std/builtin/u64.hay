@@ -1,101 +1,28 @@
-fn u64.to_str(u64: u Arr<char>: chars) -> [Str] {
-
-    chars::size 20 < if {
-        "Must provide at least 20 chars of buffer to copy u64" println
-        1 exit 
+impl Print<u64> {
+    fn print(u64) {
+        "%lu"c swap printf drop
     }
-
-    0 u == if {
-        "0" as [str] { str::size str::data } chars::data memcpy
-        1 chars::data cast(Str) 
-    } else {
-        19 u while dup 0 != do {
-            as [i x]
-            x 10 % cast(char) '0' + chars::data i ptr+_mut !
-            
-            i 1 -
-            x 10 /    
-        } drop
-        
-        as [i]
-        19 i - chars::data i 1 + ptr+ cast(Str)
-    }    
-
-}
-
-impl Write<u64> {
-    fn write(u64: n u64: fd) {
-        var char[32]: buffer
-        n buffer @ u64.to_str fd write
-    }
-}
-
-impl Add<u64 u8> {
-    u64: Output
-    inline fn Op.add(u64: left u8: right) -> [u64] {
-        left right cast(u64) +
+    fn println(u64) {
+        "%lu\n"c swap printf drop
     }
 }
 
 impl Add<u64 u64> {
     u64: Output
-    inline fn Op.add(u64 u64) -> [u64] { + }
-}
-
-impl Sub<u64 u8> {
-    u64: Output
-    inline fn Op.sub(u64: left u8: right) -> [u64] {
-        left right cast(u64) -
-    }
+    fn add(u64 u64) -> [u64] __u64_add
 }
 
 impl Sub<u64 u64> {
     u64: Output
-    inline fn Op.sub(u64 u64) -> [u64] { - }
-}
-
-impl Div<u64 u8> {
-    u64: Output
-    inline fn Op.div(u64: left u8: right) -> [u64] {
-        left right cast(u64) /
-    }
-}
-
-impl Div<u64 u64> {
-    u64: Output
-    inline fn Op.div(u64 u64) -> [u64] { / }
-}
-
-impl Mul<u64 u8> {
-    u64: Output
-    inline fn Op.mul(u64: left u8: right) -> [u64] {
-        left right cast(u64) *
-    }
+    fn sub(u64 u64) -> [u64] __u64_sub
 }
 
 impl Mul<u64 u64> {
     u64: Output
-    inline fn Op.mul(u64 u64) -> [u64] { * }
+    fn mul(u64 u64) -> [u64] __u64_mul
 }
 
-impl ToString<u64> {
-    inline fn to_string(u64) -> [String] {
-        var char[32]: buffer
-        buffer @ u64.to_str String.new
-    }
-}
-
-impl ToString<&u64> {
-    inline fn to_string(&u64) -> [String] { @ to_string }
-}
-
-impl Format<u64> {
-    inline fn fmt(String u64) -> [String] { 
-        var char[32]: buffer
-        buffer @ u64.to_str String.push_str
-    }
-}
-
-impl Format<&u64> {
-    inline fn fmt(String &u64) -> [String] { @ fmt }
+impl Compare<u64 u64> {
+    fn eq(u64 u64) -> [bool] __u64_eq
+    fn lt(u64 u64) -> [bool] __u64_lt
 }

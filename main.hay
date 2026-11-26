@@ -1,5 +1,3 @@
-include "prelude.hay"
-
 fn process<T>(T: _) {} 
 fn fallback() {}
 fn handle_err<E>(E: _) {}
@@ -12,23 +10,6 @@ fn example<T E>(Result<Option<T> E>) match {
     Result::Err handle_err
 }
 
-fn Option.unwrap<T>(Option<T>) -> [T] match {
-    Option::Some {}
-    Option::None { 1 exit }
-}
-
-fn Option.unwrap_or<T>(T Option<T>) -> [T] match {
-    Option::Some { swap drop }
-    Option::None {}
-}
-
-fn Option.map<T U>(Option<T>: opt fn(T) -> [U]: f) -> [Option<U>] {
-    opt match {
-        Option::Some { f Option.Some }
-        Option::None Option.None 
-    }
-}
-
 fn transform(u64: _) -> [bool] true
 
 fn Str.print_chars(Str: s) {
@@ -36,22 +17,6 @@ fn Str.print_chars(Str: s) {
         as [i]
         "`%c`\n"c s->data i + |> printf drop
         i 1 + 
-    } drop
-}
-
-struct Slice<T> {
-    &mut.T: data
-    u64: cap
-}
-
-fn Slice.zero<T>(Slice<T>: slice) {
-    slice->data #&mut.u8 cast as [data]
-    slice->cap #T sizeof * as [n]
-
-    0 while dup n < do {
-        as [i]
-        0u8 data i + |<
-        i 1 +
     } drop
 }
 

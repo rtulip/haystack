@@ -35,7 +35,10 @@ fn main() -> Result<(), HayError> {
     })?;
 
     let tokens = Scanner::new(file.to_str().unwrap(), &source).scan_tokens()?;
-    let statements = Parser::parse(tokens)?;
+    let mut parser = Parser::new()?;
+    parser.parse(tokens)?;
+
+    let statements = parser.finish();
 
     let (world, mut typestore, mut env, externs, entry) = TypeCheck::build_world(statements)?;
     let Some(entry) = entry else {

@@ -1,4 +1,0 @@
-interface Div<A B> {
-    _: Output
-    fn Op.div(A B) -> [Output]
-}

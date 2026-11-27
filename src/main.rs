@@ -49,7 +49,7 @@ fn main() -> Result<(), HayError> {
     let (types, fns, entry) = world.monomorphize(&mut typestore, &mut env, entry);
 
     let mut s = String::new();
-    CCodeGen::generate(&mut s, &mut typestore, &types, &fns, &externs, entry).unwrap();
+    CCodeGen::generate(&mut s, &mut typestore, &types, &fns, &env, &externs, entry).unwrap();
 
     let c_exe_path = Path::new("target/").join(filename);
     let c_source_path = c_exe_path.with_extension("c");

@@ -28,6 +28,7 @@ pub enum ConstraintType {
         output: TypeId,
         inputs: Vec<TypeId>,
     },
+    Unreachable(StackState),
     Predicate(TypePredicate),
     Arity {
         expected: Vec<TypeId>,
@@ -46,6 +47,7 @@ pub enum ConstraintType {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConstraintOrigin {
+    OutputUnreachable,
     OutputSubtyping {
         expected: Stack,
         found: Stack,

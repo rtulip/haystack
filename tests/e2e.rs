@@ -152,6 +152,11 @@ mod compilation_test {
         fn mutable_pointer() {
             run_test("tests/typecheck/mutable_pointer.hay");
         }
+
+         #[test]
+        fn unreachable1() {
+            run_test("tests/typecheck/unreachable1.hay");
+        }
     }
 
     mod scanning {

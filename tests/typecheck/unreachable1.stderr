@@ -1,0 +1,1 @@
+Error: [tests/typecheck/unreachable1.hay:1:4] Error: Reached end of function `foo` which shouldn't return

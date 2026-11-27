@@ -7,19 +7,14 @@ use std::{
 };
 
 use crate::{
-    lex::token::Token,
-    typecheck::{
-        expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Place, PlaceProjection, Var},
-        func,
-        typ::{
+    lex::token::Token, typecheck::{
+        TypedFunction, environment::Environment, expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Place, PlaceProjection, Var}, func, typ::{
             typ::{
                 BuiltinType, EnumDef, EnumType, FunctionType, Mutability, StackState, Type,
                 VariantType,
             },
             type_id::{EnumId, StructId, TypeId},
-        },
-        typestore::{MemberAccess, TypeStore},
-        TypedFunction,
+        }, typestore::{MemberAccess, TypeStore},
     },
 };
 
@@ -30,6 +25,7 @@ where
     typestore: &'a mut TypeStore<Token<'src>>,
     types: &'a Vec<TypeId>,
     fns: &'a [(Var, TypedFunction<'src>)],
+    env: &'a Environment,
     externs: &'a HashMap<Var, (&'src str, TypeId)>,
     w: &'a mut W,
     ident_count: usize,
@@ -544,17 +540,13 @@ where
                 )?;
 
                 stack.push((output[0], ident));
-            },
+            }
             StackState::Unreachable => {
                 let inputs = self.format_extern_function_inputs(input, stack);
 
-                writeln!(
-                    self.w,
-                    "    {name}({inputs});",
-                )?;
-            },
+                writeln!(self.w, "    {name}({inputs});",)?;
+            }
         }
-        
 
         Ok(())
     }
@@ -828,8 +820,8 @@ where
                     Self::format_stack_ident(ident)
                 )?;
             }
-            ExprKind::Place(place) => match self.typestore.get(expr.meta.1).unwrap() {
-                Type::Function(_) => {
+            ExprKind::Place(place) => match self.typestore.get(tid).unwrap() {
+                Type::Function(f) => {
                     self.generate_function_call(tid, &place.base, stack)?;
                 }
                 _ => {
@@ -1609,6 +1601,7 @@ where
         typestore: &'a mut TypeStore<Token<'src>>,
         types: &'a Vec<TypeId>,
         fns: &'a [(Var, TypedFunction<'src>)],
+        env: &'a Environment,
         extern_fns: &'a [(Var, &'src str, TypeId)],
         entry: (Var, TypeId),
     ) -> std::fmt::Result {
@@ -1617,6 +1610,7 @@ where
             typestore,
             types: &types,
             fns,
+            env,
             externs: &HashMap::from_iter(
                 extern_fns
                     .iter()

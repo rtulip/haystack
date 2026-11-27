@@ -1,13 +1,11 @@
 use std::fmt::Debug;
 
-use crate::{
-    typecheck::environment::{InterfaceImpl, TypeClassId},
-    typecheck::expr::Var,
-    typecheck::typestore::Stack,
-    typecheck::{
-        constraint::ConstraintOrigin,
-        typ::{type_id::TypeId, type_var::TypeVar},
-    },
+use crate::typecheck::{
+    constraint::ConstraintOrigin,
+    environment::{InterfaceImpl, TypeClassId},
+    expr::Var,
+    typ::{typ::StackState, type_id::TypeId, type_var::TypeVar},
+    typestore::Stack,
 };
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -45,6 +43,9 @@ pub enum InferenceErrorKind {
     },
     InvalidStructMember {
         member: String,
+    },
+    UnreachableStateReached {
+        stack: StackState,
     },
 }
 
@@ -168,6 +169,18 @@ where
             kind: InferenceErrorKind::InvalidStructMember {
                 member: member.into(),
             },
+            origin: origin.clone(),
+            meta: meta.clone(),
+        }
+    }
+
+    pub fn unreachable_state_reached(
+        stack: StackState,
+        origin: &ConstraintOrigin,
+        meta: &M,
+    ) -> Self {
+        Self {
+            kind: InferenceErrorKind::UnreachableStateReached { stack },
             origin: origin.clone(),
             meta: meta.clone(),
         }

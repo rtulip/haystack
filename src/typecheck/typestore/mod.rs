@@ -340,6 +340,7 @@ where
             ConstraintType::Join { output, inputs } => {
                 format!("join {} {}", self.fmt(*output), self.fmt_many(inputs))
             }
+            ConstraintType::Unreachable(stack) => format!("Expect an unreachable state: {stack:?}"),
             ConstraintType::Predicate(type_predicate) => format!(
                 "Predicate: Cid: {} Args: {}",
                 type_predicate.cid.0,
@@ -3464,6 +3465,13 @@ where
             ConstraintType::Predicate(pred) => {
                 self.check_predicate(env, pred, &constraint.origin, &constraint.meta)
             }
+            ConstraintType::Unreachable(stack) => {
+                if stack.is_reachable() {
+                    Err(InferenceError::unreachable_state_reached(stack.clone(), &constraint.origin, &constraint.meta))
+                } else {
+                    Ok(InferenceStatus::Solved)
+                }
+            }
             ConstraintType::Arity { expected, found } => {
                 if expected.len() != found.len() {
                     return Err(InferenceError::stacks_differ(
@@ -3599,12 +3607,19 @@ where
         let (out_expr, mut constraints) = self.infer(expr, &mut stack, env, lookup)?;
 
         // Add constraint that the target and stack must be equal.
-        if let StackState::Reachable(target) = target {
-            constraints.extend(Constraint::output_subtyping(
-                target,
-                &stack,
+        match target {
+            StackState::Reachable(target) => {
+                constraints.extend(Constraint::output_subtyping(
+                    target,
+                    &stack,
+                    &out_expr.meta.0,
+                ));
+            }
+            StackState::Unreachable => constraints.push(Constraint::new(
+                ConstraintType::Unreachable(stack.clone()),
+                ConstraintOrigin::OutputUnreachable,
                 &out_expr.meta.0,
-            ));
+            )),
         }
 
         // Make sure that constraints can be resolved.

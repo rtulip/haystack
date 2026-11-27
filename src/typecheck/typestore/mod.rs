@@ -2127,7 +2127,14 @@ where
                 }
 
                 if !stack.is_reachable() {
-                    todo!("TODO: Unreachable condition")
+                    *stack = StackState::Unreachable;
+                    let tid = self.function(FunctionType {
+                        input: stack_before.reachable().clone(),
+                        output: StackState::Unreachable,
+                    });
+
+                    let expr = Expr::block(cond, (expr.meta, tid));
+                    return Ok((expr, constraints));
                 }
 
                 let Some(tid) = stack.pop() else {
@@ -2144,15 +2151,6 @@ where
 
                 let (body, constrs) = self.infer(*body, stack, env, lookup)?;
                 constraints.extend(constrs);
-
-                match &stack {
-                    StackState::Reachable(stack) => {
-                        if stack_before.reachable().len() != stack.len() {
-                            todo!("Error: Stack shapes differ")
-                        }
-                    }
-                    StackState::Unreachable => todo!(),
-                }
 
                 let fresh_stack = self
                     .join_stacks(
@@ -3467,7 +3465,11 @@ where
             }
             ConstraintType::Unreachable(stack) => {
                 if stack.is_reachable() {
-                    Err(InferenceError::unreachable_state_reached(stack.clone(), &constraint.origin, &constraint.meta))
+                    Err(InferenceError::unreachable_state_reached(
+                        stack.clone(),
+                        &constraint.origin,
+                        &constraint.meta,
+                    ))
                 } else {
                     Ok(InferenceStatus::Solved)
                 }

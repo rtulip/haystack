@@ -7,14 +7,20 @@ use std::{
 };
 
 use crate::{
-    lex::token::Token, typecheck::{
-        TypedFunction, environment::Environment, expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Place, PlaceProjection, Var}, func, typ::{
+    lex::token::Token,
+    typecheck::{
+        environment::Environment,
+        expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Place, PlaceProjection, Var},
+        func,
+        typ::{
             typ::{
                 BuiltinType, EnumDef, EnumType, FunctionType, Mutability, StackState, Type,
                 VariantType,
             },
             type_id::{EnumId, StructId, TypeId},
-        }, typestore::{MemberAccess, TypeStore},
+        },
+        typestore::{MemberAccess, TypeStore},
+        TypedFunction,
     },
 };
 
@@ -399,7 +405,7 @@ where
 
     fn forward_declare_functions(&mut self) -> std::fmt::Result {
         for (var, func) in self.fns {
-            let tid = func.expr.meta.1;
+            let tid = self.typestore.intern(Type::Function(func.ty.clone()));
             writeln!(
                 self.w,
                 "static {} {}({});",
@@ -501,7 +507,7 @@ where
             return String::new();
         }
 
-        assert!(input.len() == stack.len());
+        assert!(input.len() <= stack.len());
         let idents = stack.split_off(stack.len() - input.len());
 
         input
@@ -591,15 +597,23 @@ where
         Ok(())
     }
 
+    fn get_function_tid(&mut self, var: &Var) -> TypeId {
+        self.fns
+            .iter()
+            .find(|(v, _)| v == var)
+            .map(|(_, f)| self.typestore.intern(Type::Function(f.ty.clone())))
+            .expect("Vars should be resolvable")
+    }
+
     fn generate_function_call(
         &mut self,
-        tid: TypeId,
         var: &Var,
         stack: &mut Vec<(TypeId, usize)>,
     ) -> std::fmt::Result {
         if let Some((name, tid)) = self.externs.get(var) {
             self.generate_extern_function_call(name, *tid, stack)
         } else {
+            let tid = self.get_function_tid(var);
             self.generate_haystack_function_call(tid, Self::format_var(*var), stack)
         }
     }
@@ -648,16 +662,7 @@ where
                 }
 
                 self.generate_expr(&case.expr, &mut stack)?;
-
-                for (_, outvar) in outvars.iter().rev() {
-                    let (_, ident) = stack.pop().unwrap();
-                    writeln!(
-                        self.w,
-                        "    {} = {};",
-                        Self::format_stack_ident(*outvar),
-                        Self::format_stack_ident(ident)
-                    )?;
-                }
+                self.generate_back_assignment(&case_output, outvars, &mut stack)?;
 
                 writeln!(self.w, "    }}")?;
             }
@@ -703,6 +708,30 @@ where
 
         for output in outvars {
             stack.push(output);
+        }
+
+        Ok(())
+    }
+
+    fn generate_back_assignment(
+        &mut self,
+        output: &StackState,
+        outvars: &[(TypeId, usize)],
+        stack: &mut Vec<(TypeId, usize)>,
+    ) -> std::fmt::Result {
+        if !output.is_reachable() {
+            return Ok(());
+        }
+
+        for (_, outvar) in outvars.iter().rev() {
+            let (_, ident) = stack.pop().unwrap();
+
+            writeln!(
+                self.w,
+                "    {} = {};",
+                Self::format_stack_ident(*outvar),
+                Self::format_stack_ident(ident)
+            )?;
         }
 
         Ok(())
@@ -822,7 +851,7 @@ where
             }
             ExprKind::Place(place) => match self.typestore.get(tid).unwrap() {
                 Type::Function(f) => {
-                    self.generate_function_call(tid, &place.base, stack)?;
+                    self.generate_function_call(&place.base, stack)?;
                 }
                 _ => {
                     let ident = self.next_stack_ident();
@@ -1248,16 +1277,16 @@ where
             ExprKind::Match(match_expr) => self.generate_match_expr(tid, &match_expr, stack)?,
             ExprKind::While { condition, body } => {
                 let mut fresh_stack = vec![];
-                while let Some((tid, ident)) = stack.pop() {
+                for (tid, ident) in stack.iter() {
                     let fresh_ident = self.next_stack_ident();
                     writeln!(
                         self.w,
                         "    {} {} = {};",
-                        Self::format_tid(tid),
+                        Self::format_tid(*tid),
                         Self::format_stack_ident(fresh_ident),
-                        Self::format_stack_ident(ident)
+                        Self::format_stack_ident(*ident)
                     );
-                    fresh_stack.push((tid, fresh_ident));
+                    fresh_stack.push((*tid, fresh_ident));
                 }
 
                 *stack = fresh_stack.clone();
@@ -1276,15 +1305,11 @@ where
                 )?;
                 self.generate_expr(body, stack)?;
 
-                assert!(stack.len() == fresh_stack.len());
-                for ((_, fresh_ident), (_, ident)) in fresh_stack.iter().zip(stack.iter()) {
-                    writeln!(
-                        self.w,
-                        "    {} = {};",
-                        Self::format_stack_ident(*fresh_ident),
-                        Self::format_stack_ident(*ident)
-                    )?;
-                }
+                let FunctionType {
+                    output: body_output,
+                    ..
+                } = self.get_stack_effect(body.meta.1);
+                self.generate_back_assignment(&body_output, &fresh_stack, stack)?;
 
                 writeln!(self.w, "}}");
 
@@ -1316,28 +1341,23 @@ where
                 )?;
                 let mut then_stack = stack.clone();
                 self.generate_expr(&if_expr.then, &mut then_stack)?;
-                for (_, outvar) in outvars.iter().rev() {
-                    let (_, ident) = then_stack.pop().unwrap();
-                    writeln!(
-                        self.w,
-                        "    {} = {};",
-                        Self::format_stack_ident(*outvar),
-                        Self::format_stack_ident(ident)
-                    )?;
-                }
+
+                let FunctionType {
+                    output: then_output,
+                    ..
+                } = self.get_stack_effect(if_expr.then.meta.1);
+                self.generate_back_assignment(&then_output, &outvars, &mut then_stack)?;
 
                 writeln!(self.w, "    }} else {{")?;
+
                 let mut otherwise_stack = stack.clone();
                 self.generate_expr(&if_expr.otherwise, &mut otherwise_stack)?;
-                for (_, outvar) in outvars.iter().rev() {
-                    let (_, ident) = otherwise_stack.pop().unwrap();
-                    writeln!(
-                        self.w,
-                        "    {} = {};",
-                        Self::format_stack_ident(*outvar),
-                        Self::format_stack_ident(ident)
-                    )?;
-                }
+                let FunctionType {
+                    output: otherwise_output,
+                    ..
+                } = self.get_stack_effect(if_expr.otherwise.meta.1);
+                self.generate_back_assignment(&otherwise_output, &outvars, &mut otherwise_stack)?;
+
                 writeln!(self.w, "    }}")?;
 
                 for _ in &input[1..] {
@@ -1449,12 +1469,7 @@ where
     }
 
     fn declare_function(&mut self, var: &Var, func: &TypedFunction<'src>) -> std::fmt::Result {
-        let tid = func.expr.meta.1;
-        let Type::Function(FunctionType { input, output }) =
-            self.typestore.get(tid).unwrap().clone()
-        else {
-            unreachable!();
-        };
+        let tid = self.typestore.intern(Type::Function(func.ty.clone()));
 
         writeln!(
             self.w,
@@ -1462,13 +1477,19 @@ where
             Self::format_function_output(tid),
             Self::format_var(*var),
             Self::format_function_input(tid),
-            match input.len() {
+            match func.ty.input.len() {
                 0 => "",
                 _ => " input",
             }
         )?;
-        let mut stack = self.generate_input_unbinding(&input)?;
+        let mut stack = self.generate_input_unbinding(&func.ty.input)?;
         self.generate_expr(&func.expr, &mut stack)?;
+
+        let Type::Function(FunctionType { output, .. }) =
+            self.typestore.get(func.expr.meta.1).cloned().unwrap()
+        else {
+            unreachable!();
+        };
         self.generate_return(tid, &output, &mut stack)?;
         writeln!(self.w, "}}");
 
@@ -1592,7 +1613,7 @@ where
         stack.push((u64_tid, argc));
         stack.push((char_ptr_ptr_tid, argv));
 
-        self.generate_function_call(tid, &var, &mut stack)?;
+        self.generate_function_call(&var, &mut stack)?;
         writeln!(self.w, "}}")
     }
 

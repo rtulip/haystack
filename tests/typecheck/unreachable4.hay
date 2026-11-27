@@ -1,0 +1,14 @@
+enum Foo {
+    Bar
+    Baz
+}
+
+fn foo(Foo) -> [Str] match {
+    Foo::Bar "Foo::Bar"
+    Foo::Baz { "Exiting..." println 1 exit }
+}
+
+fn main() {
+    #Foo::Bar pack foo println
+    #Foo::Baz pack foo println
+}

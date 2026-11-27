@@ -1,0 +1,3 @@
+fn main() {
+    (42 "Exiting..." println 0 exit)
+}

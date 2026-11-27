@@ -1,0 +1,7 @@
+fn main() {
+    1 while dup 10 < do {
+        1 + 
+        "Exiting..." println
+        0 exit
+    } drop
+}

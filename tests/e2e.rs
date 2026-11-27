@@ -153,9 +153,44 @@ mod compilation_test {
             run_test("tests/typecheck/mutable_pointer.hay");
         }
 
-         #[test]
+        #[test]
         fn unreachable1() {
             run_test("tests/typecheck/unreachable1.hay");
+        }
+
+        #[test]
+        fn unreachable2() {
+            run_test("tests/typecheck/unreachable2.hay");
+        }
+
+        #[test]
+        fn unreachable3() {
+            run_test("tests/typecheck/unreachable3.hay");
+        }
+
+        #[test]
+        fn unreachable4() {
+            run_test("tests/typecheck/unreachable4.hay");
+        }
+
+        #[test]
+        fn unreachable5() {
+            run_test("tests/typecheck/unreachable5.hay");
+        }
+
+        #[test]
+        fn unreachable6() {
+            run_test("tests/typecheck/unreachable6.hay");
+        }
+
+        #[test]
+        fn unreachable7() {
+            run_test("tests/typecheck/unreachable7.hay");
+        }
+
+        #[test]
+        fn unreachable8() {
+            run_test("tests/typecheck/unreachable8.hay");
         }
     }
 

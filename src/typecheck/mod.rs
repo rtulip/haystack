@@ -1207,9 +1207,16 @@ impl<'src> TypeCheck<'src> {
                 ),
                 e.meta.loc.clone(),
             ),
-            (ConstraintOrigin::OutputUnreachable, InferenceErrorKind::UnreachableStateReached { stack }) => {
-                HayError::new(format!("Reached end of function `{}` which shouldn't return", e.meta.lexeme), e.meta.loc.clone())
-            }
+            (
+                ConstraintOrigin::OutputUnreachable,
+                InferenceErrorKind::UnreachableStateReached { stack },
+            ) => HayError::new(
+                format!(
+                    "Reached end of function `{}` which shouldn't return",
+                    e.meta.lexeme
+                ),
+                e.meta.loc.clone(),
+            ),
             (origin, kind) => todo!("Generate Error message for {origin:?}, {kind:?}"),
         }
     }
@@ -2309,7 +2316,8 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                 .map(|(var, tid)| (*var, *tid)),
         );
 
-        let tid = self.request_type(original.expr.meta.1, &substitutions);
+        let tid = self.typestore.intern(Type::Function(original.ty.clone()));
+        let tid = self.request_type(tid, &substitutions);
 
         // Specialize the function body.
         let expr = self.monomorphize_expr(original.expr.clone(), &substitutions);

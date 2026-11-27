@@ -3,7 +3,11 @@ use std::{fmt::Debug, todo, vec};
 use crate::typecheck::{
     environment::{Coherence, Environment, InterfaceImpl, TypePredicate},
     expr::Expr,
-    typ::{typ::FunctionType, type_id::TypeId, type_var::TypeVar},
+    typ::{
+        typ::{FunctionType, StackState, Type},
+        type_id::TypeId,
+        type_var::TypeVar,
+    },
     typestore::{inference::InferenceError, MemberLookup, TypeStore},
 };
 
@@ -30,7 +34,7 @@ where
     ) -> Self
     where
         Input: Into<Vec<TypeId>>,
-        Output: Into<Vec<TypeId>>,
+        Output: Into<StackState>,
         Vars: Into<Vec<TypeVar>>,
         Preds: Into<Vec<TypePredicate>>,
     {
@@ -94,14 +98,27 @@ where
             ));
         }
 
-        let expr = expr.map_meta(&mut |(m, tid)| {
+        let mut expr = expr.map_meta(&mut |(m, tid)| {
             let tid = typestore.normalize_ty(&env, tid, &m).unwrap().1;
             let tid = typestore.lower(tid);
             (m, tid)
         });
 
+        let ty = FunctionType {
+            input: self.ty.input,
+            output: match &self.ty.output {
+                StackState::Reachable(output) => StackState::Reachable(
+                    output
+                        .iter()
+                        .map(|tid| typestore.normalize_ty(&env, *tid, &expr.meta.0).unwrap().1)
+                        .collect(),
+                ),
+                StackState::Unreachable => StackState::Unreachable,
+            },
+        };
+
         Ok(Function {
-            ty: self.ty,
+            ty,
             params: self.params,
             predicates: self.predicates,
             expr,

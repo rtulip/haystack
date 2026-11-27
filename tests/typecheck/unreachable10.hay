@@ -1,0 +1,12 @@
+fn f(bool) -> [u64] if {
+    12345
+} else {
+    1 2 3
+    exit
+}
+
+fn main() {
+
+    true f println
+    false f println
+}

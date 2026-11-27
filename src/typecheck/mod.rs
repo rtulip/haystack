@@ -31,8 +31,8 @@ use crate::{
         func::Function,
         typ::{
             typ::{
-                BuiltinType, EnumDef, EnumType, FunctionType, Mutability, Projection, StructDef,
-                Type,
+                BuiltinType, EnumDef, EnumType, FunctionType, Mutability, Projection, StackState,
+                StructDef, Type,
             },
             type_id::{EnumId, StructId, TypeId},
             type_var::TypeVar,
@@ -541,17 +541,8 @@ impl<'src> TypeCheck<'src> {
 
     fn get_tid(&mut self, ty: &ParseType<'src>) -> Result<TypeId, HayError> {
         match ty {
-            ParseType::Never(_) => Ok(self.typestore.intern(Type::Never)),
             ParseType::Simple(ident) => Ok(self.get_paramatarized_ident_tid(ident)?),
-            ParseType::Path(path) => {
-                self.get_type_path_tid(path)
-
-                // let Some((base_tid, _)) = self.scope.get_tid(&base.lexeme.into()) else {
-                //     todo!("Unknown type {base}");
-                // };
-
-                // todo!()
-            }
+            ParseType::Path(path) => self.get_type_path_tid(path),
             ParseType::Pointer { inner, mutable } => {
                 let inner = self.get_tid(inner)?;
                 let tid = self.typestore.pointer(
@@ -576,15 +567,22 @@ impl<'src> TypeCheck<'src> {
             }
             ParseType::Function(_, sig) => {
                 let mut input = vec![];
-                let mut output = vec![];
 
                 for arg in &sig.input {
                     input.push(self.get_tid(&arg.typ)?);
                 }
 
-                for ty in &sig.output {
-                    output.push(self.get_tid(&ty)?);
-                }
+                let output = match &sig.output {
+                    Some(tys) => {
+                        let mut output = vec![];
+                        for ty in tys {
+                            output.push(self.get_tid(&ty)?);
+                        }
+
+                        StackState::Reachable(output)
+                    }
+                    None => StackState::Unreachable,
+                };
 
                 Ok(self.typestore.function(FunctionType { input, output }))
             }
@@ -598,11 +596,15 @@ impl<'src> TypeCheck<'src> {
                 .iter()
                 .map(|arg| self.get_tid(&arg.typ))
                 .collect::<Result<Vec<_>, _>>()?,
-            output: signature
-                .output
-                .iter()
-                .map(|ty| self.get_tid(ty))
-                .collect::<Result<Vec<_>, _>>()?,
+
+            output: match &signature.output {
+                Some(output) => output
+                    .iter()
+                    .map(|ty| self.get_tid(ty))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into(),
+                None => StackState::Unreachable,
+            },
         };
 
         Ok(self.typestore.function(function_type))
@@ -660,7 +662,7 @@ impl<'src> TypeCheck<'src> {
                 let u64_tid = self.typestore.intern(Type::u64());
                 let tid = self.typestore.function(FunctionType {
                     input: vec![u64_tid, u64_tid],
-                    output: vec![u64_tid],
+                    output: vec![u64_tid].into(),
                 });
                 Ok(Expr::add(tid, expr.token.clone()))
             }
@@ -671,7 +673,7 @@ impl<'src> TypeCheck<'src> {
                 let u64_tid = self.typestore.intern(Type::u64());
                 let tid = self.typestore.function(FunctionType {
                     input: vec![t_ptr_tid, u64_tid],
-                    output: vec![t_ptr_tid],
+                    output: vec![t_ptr_tid].into(),
                 });
                 Ok(Expr::add(tid, expr.token.clone()))
             }
@@ -682,7 +684,7 @@ impl<'src> TypeCheck<'src> {
                 let u64_tid = self.typestore.intern(Type::u64());
                 let tid = self.typestore.function(FunctionType {
                     input: vec![t_ptr_tid, u64_tid],
-                    output: vec![t_ptr_tid],
+                    output: vec![t_ptr_tid].into(),
                 });
                 Ok(Expr::add(tid, expr.token.clone()))
             }
@@ -864,7 +866,6 @@ impl<'src> TypeCheck<'src> {
             .expect("TypeIds should be resolvable")
             .clone()
         {
-            Type::Never => "!".into(),
             Type::TypeVar(tyvar) | Type::RigidTypeVar(tyvar) => {
                 let tid = self.typestore.intern(Type::TypeVar(tyvar));
                 if let Some(info) = self.symbols.types.get(&tid) {
@@ -882,10 +883,10 @@ impl<'src> TypeCheck<'src> {
             },
             Type::Function(func) => {
                 let mut s = format!("fn{}", self.format_stack(&func.input, '(', ')'));
-                if !func.output.is_empty() {
-                    s = format!("{s} -> {}", self.format_stack(&func.output, '[', ']'));
+                match &func.output {
+                    StackState::Reachable(tids) if tids.is_empty() => (),
+                    _ => s = format!("{s} -> {}", self.format_stack_state(&func.output, '[', ']')),
                 }
-
                 s
             }
             Type::Pointer(p) => {
@@ -952,6 +953,13 @@ impl<'src> TypeCheck<'src> {
             }
             s = format!("{s}{close}");
             s
+        }
+    }
+
+    fn format_stack_state(&mut self, stack: &StackState, open: char, close: char) -> String {
+        match stack {
+            StackState::Reachable(stack) => self.format_stack(stack, open, close),
+            StackState::Unreachable => String::from("!"),
         }
     }
 
@@ -1120,7 +1128,7 @@ impl<'src> TypeCheck<'src> {
                     e = e.with_hint(format!(
                         "Branch {}: {}",
                         i + 1,
-                        self.format_stack(&stack, '[', ']')
+                        self.format_stack_state(&stack, '[', ']')
                     ))
                 }
                 e = e.with_hint(format!(
@@ -1199,6 +1207,16 @@ impl<'src> TypeCheck<'src> {
                 ),
                 e.meta.loc.clone(),
             ),
+            (
+                ConstraintOrigin::OutputUnreachable,
+                InferenceErrorKind::UnreachableStateReached { stack },
+            ) => HayError::new(
+                format!(
+                    "Reached end of function `{}` which shouldn't return",
+                    e.meta.lexeme
+                ),
+                e.meta.loc.clone(),
+            ),
             (origin, kind) => todo!("Generate Error message for {origin:?}, {kind:?}"),
         }
     }
@@ -1222,7 +1240,7 @@ impl<'src> TypeCheck<'src> {
         &mut self,
         params: &[ParseType<'src>],
         inputs: &[Argument<'src>],
-        outputs: &[ParseType<'src>],
+        outputs: &Option<Vec<ParseType<'src>>>,
         predicates: &[TypePredicate],
         token: &Token<'src>,
     ) -> Result<Scheme, HayError> {
@@ -1234,15 +1252,21 @@ impl<'src> TypeCheck<'src> {
             input.push(tid);
         }
 
-        let mut output = vec![];
-        for ty in outputs {
-            let tid = self.get_tid(&ty)?;
-            output.push(tid);
-        }
+        let output = match outputs {
+            Some(outputs) => {
+                let mut output = vec![];
+                for ty in outputs {
+                    let tid = self.get_tid(&ty)?;
+                    output.push(tid);
+                }
+                StackState::Reachable(output)
+            }
+            None => StackState::Unreachable,
+        };
 
         let tid = self.typestore.function(FunctionType {
             input: input.clone(),
-            output: output.clone(),
+            output: output,
         });
 
         Ok(Scheme::new(tyvar_params, tid, predicates))
@@ -2178,9 +2202,15 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                 }
                 Type::Builtin(_) => (),
                 Type::Function(f) => {
-                    f.input.iter().chain(f.output.iter()).for_each(
-                        (|tid| concrete.extend(self.request_type_inner(*tid, substitutions))),
-                    );
+                    f.input.iter().for_each(|tid| {
+                        concrete.extend(self.request_type_inner(*tid, substitutions))
+                    });
+                    match &f.output {
+                        StackState::Reachable(output) => output.iter().for_each(|tid| {
+                            concrete.extend(self.request_type_inner(*tid, substitutions))
+                        }),
+                        StackState::Unreachable => (),
+                    }
                 }
                 Type::Pointer(pointer_type) => {
                     concrete.extend(self.request_type_inner(pointer_type.tid, substitutions));
@@ -2239,7 +2269,6 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                     .args
                     .iter()
                     .for_each(|tid| concrete.extend(self.request_type_inner(*tid, substitutions))),
-                Type::Never => todo!(),
             };
         };
 
@@ -2287,7 +2316,8 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                 .map(|(var, tid)| (*var, *tid)),
         );
 
-        let tid = self.request_type(original.expr.meta.1, &substitutions);
+        let tid = self.typestore.intern(Type::Function(original.ty.clone()));
+        let tid = self.request_type(tid, &substitutions);
 
         // Specialize the function body.
         let expr = self.monomorphize_expr(original.expr.clone(), &substitutions);
@@ -2678,7 +2708,7 @@ mod tests {
         let dup_typevar_tid = typestore.intern(Type::TypeVar(dup_typevar));
         let dup_fn_ty = Type::Function(FunctionType {
             input: vec![dup_typevar_tid],
-            output: vec![dup_typevar_tid, dup_typevar_tid],
+            output: vec![dup_typevar_tid, dup_typevar_tid].into(),
         });
 
         let dup_tid = typestore.intern(dup_fn_ty);
@@ -2718,7 +2748,7 @@ mod tests {
         let gt = Var(0);
         let ty = Type::Function(FunctionType {
             input: vec![u8_tid, u8_tid],
-            output: vec![bool_tid],
+            output: vec![bool_tid].into(),
         });
         let tid = typestore.intern(ty);
 
@@ -2730,7 +2760,7 @@ mod tests {
         let expr = Expr::block([Expr::u8(0, ()), Expr::u8(0, ()), Expr::ident(gt, ())], ());
 
         let stack = vec![];
-        let target = vec![bool_tid];
+        let target = vec![bool_tid].into();
 
         assert!(typestore
             .type_check(expr, &stack, &target, &mut env, &LOOKUP)
@@ -2752,7 +2782,7 @@ mod tests {
         let foo = Var(0);
         let ty = Type::Function(FunctionType {
             input: vec![u8_tid],
-            output: vec![],
+            output: vec![].into(),
         });
         let tid = typestore.intern(ty);
 
@@ -2764,7 +2794,7 @@ mod tests {
         let expr = Expr::ident(foo, ());
 
         let stack = vec![];
-        let target = vec![];
+        let target = vec![].into();
 
         assert_eq!(
             typestore.type_check(expr, &stack, &target, &mut env, &LOOKUP),
@@ -2864,7 +2894,7 @@ mod tests {
         let drop = Var(1);
         let drop_ty = Type::Function(FunctionType {
             input: vec![t_tid],
-            output: vec![],
+            output: vec![].into(),
         });
 
         let drop_tid = typestore.intern(drop_ty);
@@ -2877,7 +2907,7 @@ mod tests {
         let foo = Var(2);
         let foo_ty = Type::Function(FunctionType {
             input: vec![],
-            output: vec![foo_param_tid],
+            output: vec![foo_param_tid].into(),
         });
         let foo_tid = typestore.intern(foo_ty);
         let foo_scheme = Scheme::new([foo_param_typevar], foo_tid, []);
@@ -2912,7 +2942,7 @@ mod tests {
         let dup = Var(1);
         let dup_ty = Type::Function(FunctionType {
             input: vec![t_tid],
-            output: vec![t_tid, t_tid],
+            output: vec![t_tid, t_tid].into(),
         });
 
         let dup_tid = typestore.intern(dup_ty);
@@ -3005,7 +3035,7 @@ mod tests {
         let dup_t_tid = typestore.intern(Type::TypeVar(dup_tyvar));
         let dup_tid = typestore.intern(Type::Function(FunctionType {
             input: vec![dup_t_tid],
-            output: vec![dup_t_tid, dup_t_tid],
+            output: vec![dup_t_tid, dup_t_tid].into(),
         }));
 
         let dup_scheme = Scheme::new([dup_tyvar], dup_tid, vec![]);
@@ -3036,7 +3066,7 @@ mod tests {
         let f = Place::ident(Var(0));
         let func_tid = typestore.function(FunctionType {
             input: vec![],
-            output: vec![],
+            output: vec![].into(),
         });
         let func_scheme = Scheme::new([], func_tid, []);
         env.bind_scheme(f.base, func_scheme);
@@ -3072,7 +3102,7 @@ mod tests {
         let f = Place::ident(Var(0));
         let func_tid = typestore.function(FunctionType {
             input: vec![u8_tid],
-            output: vec![],
+            output: vec![].into(),
         });
 
         let func_scheme = Scheme::new([], func_tid, []);
@@ -3146,7 +3176,7 @@ mod tests {
         let foo = Var(0);
         let foo_tid = typestore.function(FunctionType {
             input: vec![t_tid],
-            output: vec![t_ptr_tid],
+            output: vec![t_ptr_tid].into(),
         });
 
         let foo_scheme = Scheme::new([t_typevar], foo_tid, []);
@@ -3169,7 +3199,7 @@ mod tests {
         let u8_mut_ptr_tid = typestore.pointer(u8_tid, Mutability::Mutable);
         let take_const_ptr_tid = typestore.function(FunctionType {
             input: vec![u8_const_ptr_tid],
-            output: vec![],
+            output: vec![].into(),
         });
 
         let take_const_ptr_scheme = Scheme::new([], take_const_ptr_tid, []);
@@ -3190,7 +3220,7 @@ mod tests {
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
         let identity_tid = typestore.function(FunctionType {
             input: vec![t_tid],
-            output: vec![t_tid],
+            output: vec![t_tid].into(),
         });
 
         let identity_scheme = Scheme::new([t_tyvar], identity_tid, []);
@@ -3240,7 +3270,7 @@ mod tests {
         let sizeof = Var(0);
         let sizeof_tid = typestore.function(FunctionType {
             input: vec![t_typ_tid],
-            output: vec![u8_tid],
+            output: vec![u8_tid].into(),
         });
         let sizeof_scheme = Scheme::new([t_typevar], sizeof_tid, []);
         env.bind_scheme(sizeof, sizeof_scheme);
@@ -3274,7 +3304,7 @@ mod tests {
         );
         let type_of_tid = typestore.function(FunctionType {
             input: vec![t_tid],
-            output: vec![t_ty_tid],
+            output: vec![t_ty_tid].into(),
         });
 
         let type_of_scheme = Scheme::new([t_tyvar], type_of_tid, []);
@@ -3319,7 +3349,7 @@ mod tests {
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
         let bar_tid = typestore.function(FunctionType {
             input: vec![t_tid],
-            output: vec![],
+            output: vec![].into(),
         });
         let bar_scheme = Scheme::new(
             [t_tyvar],
@@ -3384,7 +3414,7 @@ mod tests {
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
         let bar_tid = typestore.function(FunctionType {
             input: vec![t_tid],
-            output: vec![],
+            output: vec![].into(),
         });
         let bar_scheme = Scheme::new(
             [t_tyvar],
@@ -3466,7 +3496,7 @@ mod tests {
         let into_tid = typestore.intern(Type::TypeVar(into_tyvar));
         let cast_tid = typestore.function(FunctionType {
             input: vec![from_tid],
-            output: vec![into_tid],
+            output: vec![into_tid].into(),
         });
 
         // fn cast<From Into>(From) -> [Into] requires: Castable<From Into>
@@ -3569,7 +3599,7 @@ mod tests {
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
         let print_fn_tid = typestore.function(FunctionType {
             input: vec![t_tid],
-            output: vec![],
+            output: vec![].into(),
         });
         let print_scheme = Scheme::new(
             [t_tyvar],
@@ -3670,7 +3700,7 @@ mod tests {
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
         let print_tid = typestore.function(FunctionType {
             input: vec![t_tid],
-            output: vec![],
+            output: vec![].into(),
         });
 
         let print_iface = Interface {
@@ -3790,7 +3820,7 @@ mod tests {
         let t_tid = typestore.intern(Type::TypeVar(t_tyvar));
         let print_tid = typestore.function(FunctionType {
             input: vec![t_tid],
-            output: vec![],
+            output: vec![].into(),
         });
 
         let print_iface = Interface {
@@ -4077,7 +4107,7 @@ mod tests {
         let generate_option = Var(0);
         let generate_option_tid = typestore.function(FunctionType {
             input: vec![],
-            output: vec![option_t_tid],
+            output: vec![option_t_tid].into(),
         });
         let generate_option_scheme = Scheme::new([], generate_option_tid, []);
         env.bind_scheme(generate_option, generate_option_scheme);
@@ -4090,7 +4120,7 @@ mod tests {
         let take_option_some = Var(1);
         let take_option_some_tid = typestore.function(FunctionType {
             input: vec![option_some_t_tid],
-            output: vec![],
+            output: vec![].into(),
         });
         let take_option_some_scheme = Scheme::new([], take_option_some_tid, []);
         env.bind_scheme(take_option_some, take_option_some_scheme);
@@ -4528,7 +4558,7 @@ mod tests {
 
         let bar_tid = typestore.function(FunctionType {
             input: vec![a_tid],
-            output: vec![b_tid],
+            output: vec![b_tid].into(),
         });
         let bar_scheme = Scheme::new(
             [a_tyvar],
@@ -4594,7 +4624,7 @@ mod tests {
 
         let extract_tid = typestore.function(FunctionType {
             input: vec![t_tid],
-            output: vec![inner_tid],
+            output: vec![inner_tid].into(),
         });
         let extract_scheme = Scheme::new(
             [t_tyvar],
@@ -5102,7 +5132,7 @@ mod variance_tests {
 
         let f_tid = typestore.function(FunctionType {
             input: vec![t_tid],
-            output: vec![],
+            output: vec![].into(),
         });
 
         let def = StructDef::new(&typestore, vec![t_tyvar], vec![f_tid], &META).unwrap();
@@ -5695,7 +5725,7 @@ mod variance_tests {
         // Contravariant on `B`
         let f_tid = typestore.function(FunctionType {
             input: vec![b_tid],
-            output: vec![],
+            output: vec![].into(),
         });
 
         let def = StructDef::new(
@@ -6082,7 +6112,7 @@ mod variance_tests {
         // A is covariant, B is contravariant.
         let f_tid = typestore.function(FunctionType {
             input: vec![b_tid],
-            output: vec![],
+            output: vec![].into(),
         });
 
         let def = StructDef::new(
@@ -6146,7 +6176,7 @@ mod variance_tests {
 
         let f_tid = typestore.function(FunctionType {
             input: vec![b_tid],
-            output: vec![],
+            output: vec![].into(),
         });
 
         let def = StructDef::new(
@@ -6210,7 +6240,7 @@ mod variance_tests {
 
         let f_tid = typestore.function(FunctionType {
             input: vec![b_tid],
-            output: vec![],
+            output: vec![].into(),
         });
 
         let def = StructDef::new(
@@ -6269,7 +6299,7 @@ mod variance_tests {
 
         let f_tid = typestore.function(FunctionType {
             input: vec![b_tid],
-            output: vec![],
+            output: vec![].into(),
         });
 
         let def = StructDef::new(
@@ -6354,7 +6384,7 @@ mod variance_tests {
 
         let f_tid = typestore.function(FunctionType {
             input: vec![t_tid],
-            output: vec![],
+            output: vec![].into(),
         });
 
         let def = EnumDef::new(&typestore, vec![t_tyvar], vec![Some(f_tid)], &META).unwrap();
@@ -6945,7 +6975,7 @@ mod variance_tests {
         // Contravariant on `B`
         let f_tid = typestore.function(FunctionType {
             input: vec![b_tid],
-            output: vec![],
+            output: vec![].into(),
         });
 
         let def = EnumDef::new(
@@ -7331,7 +7361,7 @@ mod variance_tests {
         // A is covariant, B is contravariant.
         let f_tid = typestore.function(FunctionType {
             input: vec![b_tid],
-            output: vec![],
+            output: vec![].into(),
         });
 
         let def = EnumDef::new(
@@ -7395,7 +7425,7 @@ mod variance_tests {
 
         let f_tid = typestore.function(FunctionType {
             input: vec![b_tid],
-            output: vec![],
+            output: vec![].into(),
         });
 
         let def = EnumDef::new(
@@ -7459,7 +7489,7 @@ mod variance_tests {
 
         let f_tid = typestore.function(FunctionType {
             input: vec![b_tid],
-            output: vec![],
+            output: vec![].into(),
         });
 
         let def = EnumDef::new(
@@ -7518,7 +7548,7 @@ mod variance_tests {
 
         let f_tid = typestore.function(FunctionType {
             input: vec![b_tid],
-            output: vec![],
+            output: vec![].into(),
         });
 
         let def = EnumDef::new(

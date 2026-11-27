@@ -13,6 +13,7 @@ use inference::InferenceStatus;
 use crate::typecheck::{
     constraint::Member,
     expr::{self, PlaceProjection},
+    typ::typ::{Stack, StackState},
 };
 use crate::{
     error::HayError,
@@ -39,8 +40,6 @@ use crate::{
 use super::constraint::ConstraintOrigin;
 
 pub mod inference;
-
-pub type Stack = Vec<TypeId>;
 
 pub trait MemberLookup {
     fn get_member_idx(&self, sid: StructId, member: &str) -> Option<usize>;
@@ -247,7 +246,6 @@ where
     ) -> Result<(), std::fmt::Error> {
         let t = &self.types[tid.0];
         match t {
-            Type::Never => write!(w, "!"),
             Type::TypeVar(type_var) => write!(w, "TV({})", type_var.0),
             Type::RigidTypeVar(type_var) => write!(w, "RV({})", type_var.0),
             Type::Builtin(builtin_type) => match builtin_type {
@@ -263,15 +261,19 @@ where
                     s += " ";
                     self.pretty_print(*tid, &mut s)?;
                 }
-                s += " ) -> [";
+                s += " ) -> ";
 
-                for tid in &function_type.output {
-                    s += " ";
-                    self.pretty_print(*tid, &mut s)?;
+                match &function_type.output {
+                    StackState::Reachable(output) => {
+                        s += "[";
+                        for tid in output {
+                            s += " ";
+                            self.pretty_print(*tid, &mut s)?;
+                        }
+                        s += "]"
+                    }
+                    StackState::Unreachable => s += "!",
                 }
-
-                s += " ]";
-
                 write!(w, "{s}")
             }
             Type::Pointer(pointer_type) => match pointer_type.mutability {
@@ -338,6 +340,7 @@ where
             ConstraintType::Join { output, inputs } => {
                 format!("join {} {}", self.fmt(*output), self.fmt_many(inputs))
             }
+            ConstraintType::Unreachable(stack) => format!("Expect an unreachable state: {stack:?}"),
             ConstraintType::Predicate(type_predicate) => format!(
                 "Predicate: Cid: {} Args: {}",
                 type_predicate.cid.0,
@@ -380,7 +383,6 @@ where
 
     pub fn get_variance(&self, tid: TypeId, tyvar: TypeVar) -> Option<Variance> {
         match self.types.get(tid.0).expect("TypeIds should be resolvable") {
-            Type::Never => None,
             Type::TypeVar(tv) => {
                 if tyvar == *tv {
                     Some(Variance::Covariant)
@@ -400,12 +402,15 @@ where
                     Variance::combine(result, variance)
                 });
 
-                let output_variance = f.output.iter().fold(None, |result, tid| {
-                    let variance = self
-                        .get_variance(*tid, tyvar)
-                        .map(|v| Variance::Covariant.compose(v));
-                    Variance::combine(result, variance)
-                });
+                let output_variance = match &f.output {
+                    StackState::Reachable(output) => output.iter().fold(None, |result, tid| {
+                        let variance = self
+                            .get_variance(*tid, tyvar)
+                            .map(|v| Variance::Covariant.compose(v));
+                        Variance::combine(result, variance)
+                    }),
+                    StackState::Unreachable => None,
+                };
 
                 Variance::combine(input_variance, output_variance)
             }
@@ -499,7 +504,7 @@ where
             .get(tid)
             .expect("All TypeIds must be present in typestore")
         {
-            Type::Builtin(_) | Type::RigidTypeVar(_) | Type::Never => (HashSet::new(), tid),
+            Type::Builtin(_) | Type::RigidTypeVar(_) => (HashSet::new(), tid),
             Type::Type(tid) => {
                 let (unbound, tid) = self.substitute_one(*tid);
                 let tid = self.intern(Type::Type(tid));
@@ -516,8 +521,8 @@ where
             Type::Function(func) => {
                 let func = func.clone();
                 // Substitute the input and output
-                let (unbound_input, input) = self.substitute(&func.input);
-                let (unbound_output, output) = self.substitute(&func.output);
+                let (unbound_input, input) = self.substitute_stack(&func.input);
+                let (unbound_output, output) = self.substitute_stack_state(&func.output);
 
                 // Combine all unbound variables.
                 let unbound = unbound_input.into_iter().chain(unbound_output).collect();
@@ -535,21 +540,21 @@ where
             }
             Type::Struct(s) => {
                 let s = s.clone();
-                let (unbound, args) = self.substitute(&s.args);
+                let (unbound, args) = self.substitute_stack(&s.args);
                 let s = StructType { sid: s.sid, args };
                 let tid = self.intern(Type::Struct(s));
                 (unbound, tid)
             }
             Type::Enum(e) => {
                 let e = e.clone();
-                let (unbound, args) = self.substitute(&e.args);
+                let (unbound, args) = self.substitute_stack(&e.args);
                 let e = EnumType { eid: e.eid, args };
                 let tid = self.intern(Type::Enum(e));
                 (unbound, tid)
             }
             Type::Variant(v) => {
                 let v = v.clone();
-                let (unbound, args) = self.substitute(&v.args);
+                let (unbound, args) = self.substitute_stack(&v.args);
                 let v = VariantType {
                     eid: v.eid,
                     args,
@@ -560,13 +565,13 @@ where
             }
             Type::Tuple(tids) => {
                 let tids = tids.clone();
-                let (unbound, tids) = self.substitute(&tids);
+                let (unbound, tids) = self.substitute_stack(&tids);
                 let tid = self.tuple(tids);
                 (unbound, tid)
             }
             Type::Projection(p) => {
                 let p = p.clone();
-                let (unbound, args) = self.substitute(&p.args);
+                let (unbound, args) = self.substitute_stack(&p.args);
                 let p = Projection {
                     cid: p.cid,
                     args,
@@ -579,10 +584,9 @@ where
     }
 
     /// Substitute all TypeVars into common form
-    fn substitute(&mut self, stack: &Stack) -> (HashSet<TypeVar>, Vec<TypeId>) {
+    fn substitute_stack(&mut self, stack: &Stack) -> (HashSet<TypeVar>, Stack) {
         let mut unbound = HashSet::new();
         let mut stk = vec![];
-
         for tid in stack {
             let (ub, tid) = self.substitute_one(*tid);
             unbound.extend(ub);
@@ -592,11 +596,21 @@ where
         (unbound, stk)
     }
 
+    fn substitute_stack_state(&mut self, stack: &StackState) -> (HashSet<TypeVar>, StackState) {
+        match stack {
+            StackState::Reachable(stack) => {
+                let (unbound, stack) = self.substitute_stack(stack);
+                (unbound, stack.into())
+            }
+            StackState::Unreachable => (HashSet::new(), StackState::Unreachable),
+        }
+    }
+
     pub fn substitute_predicate(
         &mut self,
         predicate: &TypePredicate,
     ) -> (HashSet<TypeVar>, TypePredicate) {
-        let (unbound, args) = self.substitute(&predicate.args);
+        let (unbound, args) = self.substitute_stack(&predicate.args);
         (
             unbound,
             TypePredicate {
@@ -651,7 +665,8 @@ where
                     unreachable!()
                 };
                 assert!(input.len() == 1);
-                assert!(output.len() == 1);
+                assert!(output.is_reachable());
+                assert!(output.reachable().len() == 1);
 
                 self.substitute_place_projections(
                     input[0],
@@ -664,7 +679,7 @@ where
                     unbound,
                     Expr {
                         expr: ExprKind::Place(place),
-                        meta: (expr.meta.0, output[0]),
+                        meta: (expr.meta.0, output.reachable()[0]),
                     },
                 )
             }
@@ -678,7 +693,8 @@ where
                     unreachable!()
                 };
                 assert!(input.len() == 1);
-                assert!(output.len() == 1);
+                assert!(output.is_reachable());
+                assert!(output.reachable().len() == 1);
 
                 self.substitute_place_projections(
                     input[0],
@@ -691,7 +707,7 @@ where
                     unbound,
                     Expr {
                         expr: ExprKind::Ref { place, mutability },
-                        meta: (expr.meta.0, output[0]),
+                        meta: (expr.meta.0, output.reachable()[0]),
                     },
                 )
             }
@@ -703,7 +719,8 @@ where
                 };
 
                 assert!(input.len() == 1);
-                assert!(output.len() == 1);
+                assert!(output.is_reachable());
+                assert!(output.reachable().len() == 1);
 
                 self.substitute_place_projections(input[0], &mut proj, lookup, &expr.meta.0);
 
@@ -929,7 +946,10 @@ where
             Type::RigidTypeVar(type_var) => (),
             Type::Builtin(builtin_type) => (),
             Type::Function(func) => {
-                for tid in func.input.iter().chain(func.output.iter()) {
+                for tid in func.input.iter().chain(match &func.output {
+                    StackState::Reachable(output) => output.iter(),
+                    StackState::Unreachable => [].iter(),
+                }) {
                     self.collect_type_vars(*tid, vars);
                 }
             }
@@ -946,7 +966,6 @@ where
                 }
             }
             Type::Type(tid) => self.collect_type_vars(*tid, vars),
-            Type::Never => (),
         }
     }
 
@@ -967,7 +986,7 @@ where
         meta: &M,
     ) -> TypeId {
         match self.get(tid).expect("All TypeIds should be resolvable") {
-            Type::Builtin(_) | Type::RigidTypeVar(_) | Type::Never => tid,
+            Type::Builtin(_) | Type::RigidTypeVar(_) => tid,
             Type::TypeVar(var) => *fresh.get(var).unwrap_or(&tid),
             Type::Function(func) => {
                 let func = func.clone();
@@ -1083,8 +1102,12 @@ where
     ) -> FunctionType {
         // Create fresh vars for all the types the function is paramaterized over
         let input = self.freshen_many_tids(&func.input, fresh, meta);
-        let output = self.freshen_many_tids(&func.output, fresh, meta);
-
+        let output = match &func.output {
+            StackState::Reachable(output) => {
+                StackState::Reachable(self.freshen_many_tids(output, fresh, meta))
+            }
+            StackState::Unreachable => StackState::Unreachable,
+        };
         FunctionType { input, output }
     }
 
@@ -1092,12 +1115,14 @@ where
         &mut self,
         func: &FunctionType,
         predicates: Vec<TypePredicate>,
-        stack: &mut Stack,
+        stack: &mut StackState,
         meta: &M,
     ) -> Vec<Constraint<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
+        assert!(stack.is_reachable());
+
         // We're going to defer the check for enough arguments to get as
         // much typing information as possible. So if we don't have enough
         // args, just consume the stack. The error will be reported during
@@ -1105,19 +1130,20 @@ where
         let argument_constraint = Constraint::new(
             ConstraintType::HasEnoughArgs {
                 expected: func.input.clone(),
-                found: stack.clone(),
+                found: stack.reachable().clone(),
             },
             ConstraintOrigin::FunctionCall {
-                input: stack.clone(),
+                input: stack.reachable().clone(),
                 expected: func.input.clone(),
             },
             meta,
         );
-        let split = if stack.len() < func.input.len() {
+        let split = if stack.reachable().len() < func.input.len() {
             stack.split_off(0)
         } else {
-            stack.split_off(stack.len() - func.input.len())
-        };
+            stack.split_off(stack.reachable().len() - func.input.len())
+        }
+        .unwrap();
         let constraint = ConstraintOrigin::FunctionCall {
             input: split.clone(),
             expected: func.input.clone(),
@@ -1142,7 +1168,7 @@ where
             }))
             .chain([argument_constraint]);
 
-        stack.extend(func.output.clone());
+        stack.append_output(func.output.clone());
 
         constraints.collect()
     }
@@ -1247,7 +1273,7 @@ where
         &mut self,
         place: Place<'src>,
         meta: M,
-        stack: &mut Stack,
+        stack: &mut StackState,
         env: &mut Environment,
     ) -> Result<(Expr<'src, (M, TypeId)>, Vec<Constraint<M>>), InferenceError<M>>
     where
@@ -1263,7 +1289,7 @@ where
 
             let tid = self.function(FunctionType {
                 input: vec![inst.tid],
-                output: vec![inst.tid],
+                output: vec![inst.tid].into(),
             });
 
             (
@@ -1292,7 +1318,7 @@ where
 
             let tid = self.function(FunctionType {
                 input: vec![inst.tid],
-                output: vec![tid],
+                output: vec![tid].into(),
             });
             (tid, constraints)
         };
@@ -1310,7 +1336,7 @@ where
         place: Place<'src>,
         mutability: Mutability,
         meta: M,
-        stack: &mut Stack,
+        stack: &mut StackState,
         env: &mut Environment,
     ) -> Result<(Expr<'src, (M, TypeId)>, Vec<Constraint<M>>), InferenceError<M>>
     where
@@ -1339,7 +1365,7 @@ where
         stack.push(tid);
         let e_tid = self.function(FunctionType {
             input: vec![inst.tid],
-            output: vec![tid],
+            output: vec![tid].into(),
         });
         let e = Expr::take_ref(place, mutability, (meta, e_tid));
 
@@ -1350,12 +1376,14 @@ where
         &mut self,
         projections: Vec<PlaceProjection<'src>>,
         meta: M,
-        stack: &mut Stack,
+        stack: &mut StackState,
     ) -> Result<(Expr<'src, (M, TypeId)>, Vec<Constraint<M>>), InferenceError<M>>
     where
         M: Debug + Clone + PartialEq + Eq,
     {
-        if stack.is_empty() {
+        assert!(stack.is_reachable());
+
+        if stack.reachable().is_empty() {
             todo!()
         }
 
@@ -1366,7 +1394,7 @@ where
         stack.push(tid);
         let e_tid = self.function(FunctionType {
             input: vec![stack_tid],
-            output: vec![tid],
+            output: vec![tid].into(),
         });
         let e = Expr {
             expr: ExprKind::Projection(projections),
@@ -1384,7 +1412,7 @@ where
         let into_ty_tid = self.intern(Type::Type(into_tid));
         FunctionType {
             input: vec![from_tid, into_ty_tid],
-            output: vec![into_tid],
+            output: vec![into_tid].into(),
         }
     }
 
@@ -1413,10 +1441,15 @@ where
                     tid
                 }
             }
-            Type::RigidTypeVar(_) | Type::Builtin(_) | Type::Never => tid,
+            Type::RigidTypeVar(_) | Type::Builtin(_) => tid,
             Type::Function(function_type) => {
                 let input = self.instantiate_tids(&function_type.input, bindings);
-                let output = self.instantiate_tids(&function_type.output, bindings);
+                let output = match &function_type.output {
+                    StackState::Reachable(output) => {
+                        StackState::Reachable(self.instantiate_tids(output, bindings))
+                    }
+                    StackState::Unreachable => StackState::Unreachable,
+                };
                 self.function(FunctionType { input, output })
             }
             Type::Pointer(p) => {
@@ -1468,7 +1501,7 @@ where
             // (s.args) -> [s]
             Ok(FunctionType {
                 input: members,
-                output: vec![tid],
+                output: vec![tid].into(),
             })
         } else {
             todo!("Expected a struct, found {}", self.fmt(tid));
@@ -1495,7 +1528,7 @@ where
             // (s.args) -> [s]
             Ok(FunctionType {
                 input,
-                output: vec![tid],
+                output: vec![tid].into(),
             })
         } else {
             todo!("Expected a struct, found {}", self.fmt(tid));
@@ -1511,7 +1544,7 @@ where
             Type::Variant(_) => self.generate_variant_constructor(tid),
             Type::Tuple(tids) => Ok(FunctionType {
                 input: tids.clone(),
-                output: vec![tid],
+                output: vec![tid].into(),
             }),
             Type::Enum(_)
             | Type::TypeVar(_)
@@ -1520,7 +1553,6 @@ where
             | Type::Function(_)
             | Type::Pointer(_)
             | Type::Type(_)
-            | Type::Never
             | Type::Projection(_) => todo!("Can't pack into a {}", self.fmt(tid)),
         }
     }
@@ -1535,13 +1567,13 @@ where
                 let members = self.get_struct_members(s);
                 Ok(FunctionType {
                     input: vec![tid],
-                    output: members,
+                    output: members.into(),
                 })
             }
             Type::Variant(_) => todo!(),
             Type::Tuple(tids) => Ok(FunctionType {
                 input: vec![tid],
-                output: tids.clone(),
+                output: tids.clone().into(),
             }),
             Type::Enum(_)
             | Type::TypeVar(_)
@@ -1550,7 +1582,6 @@ where
             | Type::Function(_)
             | Type::Pointer(_)
             | Type::Type(_)
-            | Type::Never
             | Type::Projection(_) => todo!("Can't pack into a {}", self.fmt(tid)),
         }
     }
@@ -1699,6 +1730,64 @@ where
         }
     }
 
+    fn join_stacks(
+        &mut self,
+        stacks: &[StackState],
+        constraints: &mut Vec<Constraint<M>>,
+        meta: &M,
+    ) -> Result<StackState, InferenceErrorKind> {
+        let reachable: Vec<_> = stacks
+            .iter()
+            .filter_map(|stack| match stack {
+                StackState::Reachable(stack) => Some(stack),
+                StackState::Unreachable => None,
+            })
+            .collect();
+
+        let len = match reachable.as_slice() {
+            // All branches diverge.
+            [] => return Ok(StackState::Unreachable),
+
+            // Only one branch returns.
+            [stack] => {
+                return Ok(StackState::Reachable((*stack).clone()));
+            }
+
+            [first, ..] => first.len(),
+        };
+
+        if !reachable.iter().all(|stack| stack.len() == len) {
+            todo!("Error: Stack shapes differ")
+        }
+
+        let fresh_stack: Stack = (0..len)
+            .map(|_| {
+                let tyvar = self.fresh_type_var();
+                self.intern(Type::TypeVar(tyvar))
+            })
+            .collect();
+
+        let output = StackState::Reachable(fresh_stack.clone());
+
+        for (i, tid) in fresh_stack.into_iter().enumerate() {
+            let inputs = reachable.iter().map(|stack| stack[i]).collect();
+
+            constraints.push(Constraint::new(
+                ConstraintType::Join {
+                    output: tid,
+                    inputs,
+                },
+                ConstraintOrigin::Branching {
+                    fresh_stack: output.reachable().clone(),
+                    stacks: stacks.to_vec(),
+                },
+                meta,
+            ));
+        }
+
+        Ok(output)
+    }
+
     /// Infer what type constraints must be placed on an Expression.
     ///
     /// Expressions may push/pop to/from the stack
@@ -1709,7 +1798,7 @@ where
     fn infer<'src, Lookup>(
         &mut self,
         expr: Expr<'src, M>,
-        stack: &mut Stack,
+        stack: &mut StackState,
         env: &mut Environment,
         lookup: &Lookup,
     ) -> Result<(Expr<'src, (M, TypeId)>, Vec<Constraint<M>>), InferenceError<M>>
@@ -1717,12 +1806,16 @@ where
         M: Debug + Clone + PartialEq + Eq,
         Lookup: MemberLookup,
     {
+        if !stack.is_reachable() {
+            todo!("Unreachable expression")
+        }
+
         match expr.expr {
             ExprKind::U8(val) => {
                 let u8_tid = self.intern(Type::u8());
                 let func = FunctionType {
                     input: vec![],
-                    output: vec![u8_tid],
+                    output: vec![u8_tid].into(),
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::u8(val, (expr.meta.clone(), self.function(func)));
@@ -1732,7 +1825,7 @@ where
                 let u8_tid = self.intern(Type::u64());
                 let func = FunctionType {
                     input: vec![],
-                    output: vec![u8_tid],
+                    output: vec![u8_tid].into(),
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::u64(val, (expr.meta.clone(), self.function(func)));
@@ -1742,7 +1835,7 @@ where
                 let bool_tid = self.intern(Type::bool());
                 let func = FunctionType {
                     input: vec![],
-                    output: vec![bool_tid],
+                    output: vec![bool_tid].into(),
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::bool(val, (expr.meta, self.function(func)));
@@ -1752,7 +1845,7 @@ where
                 let str_tid = self.str_tid.expect("Str tid must be provided");
                 let func = FunctionType {
                     input: vec![],
-                    output: vec![str_tid],
+                    output: vec![str_tid].into(),
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::string(s, (expr.meta, self.function(func)));
@@ -1763,7 +1856,7 @@ where
                 let char_ptr = self.pointer(char_tid, Mutability::Const);
                 let func = FunctionType {
                     input: vec![],
-                    output: vec![char_ptr],
+                    output: vec![char_ptr].into(),
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::cstring(s, (expr.meta, self.function(func)));
@@ -1773,18 +1866,20 @@ where
                 let char_tid = self.intern(Type::char());
                 let func = FunctionType {
                     input: vec![],
-                    output: vec![char_tid],
+                    output: vec![char_tid].into(),
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::char(val, (expr.meta.clone(), self.function(func)));
                 Ok((e, constraints))
             }
             ExprKind::Bind(vars) => {
-                if stack.len() < vars.len() {
+                if stack.reachable().len() < vars.len() {
                     todo!("Too few elements to bind")
                 }
 
-                let popped = stack.split_off(stack.len() - vars.len());
+                let popped = stack
+                    .split_off(stack.reachable().len() - vars.len())
+                    .unwrap();
                 popped
                     .iter()
                     .zip(vars.iter())
@@ -1792,7 +1887,7 @@ where
 
                 let tid = self.function(FunctionType {
                     input: popped,
-                    output: vec![],
+                    output: vec![].into(),
                 });
                 let e = Expr::bind(vars, (expr.meta, tid));
                 Ok((e, vec![]))
@@ -1803,7 +1898,7 @@ where
             }
             ExprKind::Projection(proj) => self.infer_projection(proj, expr.meta, stack),
             ExprKind::Block(exprs) => {
-                let input = stack.clone();
+                let input = stack.reachable().clone();
 
                 let mut local_env = env.clone();
                 let (exprs, constraints) = exprs
@@ -1826,7 +1921,7 @@ where
                 Ok((e, constraints))
             }
             ExprKind::Call => {
-                if stack.is_empty() {
+                if stack.reachable().is_empty() {
                     todo!("Can't call when there's nothing on the stack!");
                 }
 
@@ -1847,7 +1942,7 @@ where
 
                 let expr_tid = self.function(FunctionType {
                     input: vec![],
-                    output: vec![tid],
+                    output: vec![tid].into(),
                 });
                 let e = Expr::typ(tid, (expr.meta, expr_tid));
                 Ok((e, vec![]))
@@ -1860,7 +1955,7 @@ where
                 Ok((e, constraints))
             }
             ExprKind::Pack => {
-                if stack.is_empty() {
+                if stack.reachable().is_empty() {
                     todo!("Expected the type to pack to on top of stack");
                 }
 
@@ -1881,11 +1976,11 @@ where
                 }
             }
             ExprKind::Unpack => {
-                if stack.is_empty() {
+                if stack.reachable().is_empty() {
                     todo!("Expected the product type on top of stack");
                 }
 
-                let tid = *stack.last().unwrap();
+                let tid = *stack.reachable().last().unwrap();
                 let unpack_fn = self.generate_unpack_function(tid)?;
                 let constraints = self.infer_fn_call(&unpack_fn, vec![], stack, &expr.meta);
 
@@ -1904,7 +1999,7 @@ where
 
                 let func = FunctionType {
                     input: vec![ty_t_tid],
-                    output: vec![u64_tid],
+                    output: vec![u64_tid].into(),
                 };
 
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
@@ -1913,10 +2008,11 @@ where
                 Ok((e, constraints))
             }
             ExprKind::Match(m) => {
-                let input = stack.clone();
+                let input = stack.reachable().clone();
 
+                assert!(stack.is_reachable());
                 // pop an enum off of the stack.
-                if stack.is_empty() {
+                if stack.reachable().is_empty() {
                     todo!("Error: Expected an enum")
                 }
 
@@ -2004,37 +2100,9 @@ where
                     todo!("Error: Empty match")
                 }
 
-                let len = stacks[0].len();
-                if !stacks.iter().all(|stack| stack.len() == len) {
-                    stacks
-                        .iter()
-                        .for_each(|stack| eprintln!("{}", self.fmt_many(stack)));
-
-                    todo!("Error: Stack shapes differ")
-                }
-
-                let fresh_stack: Vec<_> = (0..len)
-                    .map(|_| {
-                        let tyvar = self.fresh_type_var();
-                        self.intern(Type::TypeVar(tyvar))
-                    })
-                    .collect();
-
-                for (i, tid) in fresh_stack.iter().enumerate() {
-                    let inputs = stacks.iter().map(|stack| stack[i]).collect();
-                    constraints.push(Constraint::new(
-                        ConstraintType::Join {
-                            output: *tid,
-                            inputs,
-                        },
-                        ConstraintOrigin::Branching {
-                            fresh_stack: fresh_stack.clone(),
-                            stacks: stacks.clone(),
-                        },
-                        &expr.meta,
-                    ));
-                }
-
+                let fresh_stack = self
+                    .join_stacks(&stacks, &mut constraints, &expr.meta)
+                    .map_err(|_| todo!())?;
                 let expr_tid = self.function(FunctionType {
                     input,
                     output: fresh_stack.clone(),
@@ -2058,6 +2126,17 @@ where
                     }
                 }
 
+                if !stack.is_reachable() {
+                    *stack = StackState::Unreachable;
+                    let tid = self.function(FunctionType {
+                        input: stack_before.reachable().clone(),
+                        output: StackState::Unreachable,
+                    });
+
+                    let expr = Expr::block(cond, (expr.meta, tid));
+                    return Ok((expr, constraints));
+                }
+
                 let Some(tid) = stack.pop() else {
                     todo!("Need a condition!");
                 };
@@ -2073,37 +2152,15 @@ where
                 let (body, constrs) = self.infer(*body, stack, env, lookup)?;
                 constraints.extend(constrs);
 
-                if stack_before.len() != stack.len() {
-                    todo!("Error: Stack shapes differ")
-                }
-
-                let fresh_stack: Vec<_> = (0..stack.len())
-                    .map(|_| {
-                        let tyvar = self.fresh_type_var();
-                        self.intern(Type::TypeVar(tyvar))
-                    })
-                    .collect();
-
-                for (i, tid) in fresh_stack.iter().enumerate() {
-                    let inputs = [&stack_before, &stack]
-                        .iter()
-                        .map(|stack| stack[i])
-                        .collect();
-                    constraints.push(Constraint::new(
-                        ConstraintType::Join {
-                            output: *tid,
-                            inputs,
-                        },
-                        ConstraintOrigin::Branching {
-                            fresh_stack: fresh_stack.clone(),
-                            stacks: vec![stack.clone()],
-                        },
+                let fresh_stack = self
+                    .join_stacks(
+                        &[stack.clone(), stack_before.clone()],
+                        &mut constraints,
                         &expr.meta,
-                    ));
-                }
-
+                    )
+                    .map_err(|e| todo!())?;
                 let expr_tid = self.function(FunctionType {
-                    input: stack_before,
+                    input: stack_before.reachable().clone(),
                     output: fresh_stack.clone(),
                 });
                 let e = Expr::while_(cond, body, (expr.meta, expr_tid));
@@ -2113,11 +2170,10 @@ where
                 Ok((e, constraints))
             }
             ExprKind::If(iff) => {
-                let input = stack.clone();
-
+                let input = stack.reachable().clone();
                 // pop an enum off of the stack.
-                if stack.is_empty() {
-                    todo!("Error: Expected an enum")
+                if input.is_empty() {
+                    todo!("Error: Expected an bool")
                 }
 
                 let tid = stack.pop().unwrap();
@@ -2143,34 +2199,9 @@ where
                 )?;
                 constraints.extend(constrs);
 
-                if then_stack.len() != otherwise_stack.len() {
-                    todo!("Error: Stack shapes differ")
-                }
-
-                let fresh_stack: Vec<_> = (0..then_stack.len())
-                    .map(|_| {
-                        let tyvar = self.fresh_type_var();
-                        self.intern(Type::TypeVar(tyvar))
-                    })
-                    .collect();
-
-                for (i, tid) in fresh_stack.iter().enumerate() {
-                    let inputs = [&then_stack, &otherwise_stack]
-                        .iter()
-                        .map(|stack| stack[i])
-                        .collect();
-                    constraints.push(Constraint::new(
-                        ConstraintType::Join {
-                            output: *tid,
-                            inputs,
-                        },
-                        ConstraintOrigin::Branching {
-                            fresh_stack: fresh_stack.clone(),
-                            stacks: vec![then_stack.clone(), otherwise_stack.clone()],
-                        },
-                        &expr.meta,
-                    ));
-                }
+                let fresh_stack = self
+                    .join_stacks(&[then_stack, otherwise_stack], &mut constraints, &expr.meta)
+                    .map_err(|_| todo!())?;
 
                 let expr_tid = self.function(FunctionType {
                     input,
@@ -2183,7 +2214,7 @@ where
                 Ok((e, constraints))
             }
             ExprKind::Tuple(exprs) => {
-                let mut inner_stack = vec![];
+                let mut inner_stack = StackState::Reachable(vec![]);
 
                 let mut local_env = env.clone();
                 let (exprs, constraints) = exprs
@@ -2200,15 +2231,27 @@ where
                         },
                     );
 
-                let tuple_tid = self.tuple(inner_stack);
+                let output = match inner_stack {
+                    StackState::Reachable(inner_stack) => {
+                        let tuple_tid = self.tuple(inner_stack);
 
-                stack.push(tuple_tid);
+                        stack.push(tuple_tid);
+
+                        vec![tuple_tid].into()
+                    }
+                    StackState::Unreachable => {
+                        *stack = StackState::Unreachable;
+                        StackState::Unreachable
+                    }
+                };
 
                 let tid = self.function(FunctionType {
                     input: vec![],
-                    output: vec![tuple_tid],
+                    output,
                 });
+
                 let e = Expr::tuple(exprs, (expr.meta, tid));
+
                 Ok((e, constraints))
             }
             ExprKind::Read => {
@@ -2218,7 +2261,7 @@ where
 
                 let func = FunctionType {
                     input: vec![t_ptr_tid],
-                    output: vec![t_tid],
+                    output: vec![t_tid].into(),
                 };
 
                 let constriants = self.infer_fn_call(&func, vec![], stack, &expr.meta);
@@ -2233,7 +2276,7 @@ where
 
                 let func = FunctionType {
                     input: vec![t_tid, t_ptr_tid],
-                    output: vec![],
+                    output: vec![].into(),
                 };
 
                 let constriants = self.infer_fn_call(&func, vec![], stack, &expr.meta);
@@ -2253,7 +2296,7 @@ where
             ExprKind::Sub(tid) => {
                 let func = FunctionType {
                     input: vec![tid, tid],
-                    output: vec![tid],
+                    output: vec![tid].into(),
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::sub(tid, (expr.meta.clone(), self.function(func)));
@@ -2262,7 +2305,7 @@ where
             ExprKind::Mul(tid) => {
                 let func = FunctionType {
                     input: vec![tid, tid],
-                    output: vec![tid],
+                    output: vec![tid].into(),
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::mul(tid, (expr.meta.clone(), self.function(func)));
@@ -2272,7 +2315,7 @@ where
                 let bool_tid = self.intern(Type::bool());
                 let func = FunctionType {
                     input: vec![tid, tid],
-                    output: vec![bool_tid],
+                    output: vec![bool_tid].into(),
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::eq(tid, (expr.meta.clone(), self.function(func)));
@@ -2282,7 +2325,7 @@ where
                 let bool_tid = self.intern(Type::bool());
                 let func = FunctionType {
                     input: vec![tid, tid],
-                    output: vec![bool_tid],
+                    output: vec![bool_tid].into(),
                 };
                 let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                 let e = Expr::lt(tid, (expr.meta.clone(), self.function(func)));
@@ -2298,7 +2341,6 @@ where
         meta: &M,
     ) -> Result<(Type, TypeId), InferenceErrorKind> {
         match self.get(tid).expect("Type Ids should be resolvable") {
-            Type::Never => Ok((Type::Never, tid)),
             Type::Builtin(b) => Ok((Type::Builtin(*b), tid)),
             Type::TypeVar(var) => match self.lookup.get(*var).clone() {
                 Some(tid) => self.normalize_ty(env, tid, meta),
@@ -2322,11 +2364,15 @@ where
                     .iter()
                     .map(|tid| self.normalize_ty(env, *tid, meta).map(|(_, tid)| tid))
                     .collect::<Result<_, _>>()?;
-                let output = func
-                    .output
-                    .iter()
-                    .map(|tid| self.normalize_ty(env, *tid, meta).map(|(_, tid)| tid))
-                    .collect::<Result<_, _>>()?;
+                let output = match func.output {
+                    StackState::Reachable(output) => StackState::Reachable(
+                        output
+                            .iter()
+                            .map(|tid| self.normalize_ty(env, *tid, meta).map(|(_, tid)| tid))
+                            .collect::<Result<_, _>>()?,
+                    ),
+                    StackState::Unreachable => StackState::Unreachable,
+                };
 
                 let ty = Type::Function(FunctionType { input, output });
                 Ok((ty.clone(), self.intern(ty)))
@@ -2655,9 +2701,7 @@ where
                 })
             }
             (Type::Function(left), Type::Function(right)) => {
-                if (left.input.len() != right.input.len())
-                    || (left.output.len() != right.output.len())
-                {
+                if (left.input.len() != right.input.len()) {
                     return Err(InferenceErrorKind::TypesIncompatible {
                         expected: left_tid,
                         found: right_tid,
@@ -2673,10 +2717,29 @@ where
                     }
                 }
 
-                for (left, right) in left.output.into_iter().zip(right.output.into_iter()) {
-                    match self.unify_ty_ty(env, left, right, meta)? {
-                        InferenceStatus::Defer => status = InferenceStatus::Defer,
-                        _ => (),
+                match (left.output, right.output) {
+                    (StackState::Unreachable, StackState::Unreachable) => (),
+                    (StackState::Reachable(left), StackState::Reachable(right)) => {
+                        if left.len() != right.len() {
+                            return Err(InferenceErrorKind::TypesIncompatible {
+                                expected: left_tid,
+                                found: right_tid,
+                            });
+                        }
+
+                        for (left, right) in left.into_iter().zip(right) {
+                            match self.unify_ty_ty(env, left, right, meta)? {
+                                InferenceStatus::Defer => status = InferenceStatus::Defer,
+                                _ => (),
+                            }
+                        }
+                    }
+
+                    _ => {
+                        return Err(InferenceErrorKind::TypesIncompatible {
+                            expected: left_tid,
+                            found: right_tid,
+                        });
                     }
                 }
 
@@ -2771,7 +2834,6 @@ where
                 })?;
 
         match (subty, superty) {
-            (Type::Never, _) => Ok(InferenceStatus::Solved),
             (Type::Pointer(subty_inner), Type::Pointer(superty_inner)) => {
                 match (subty_inner.mutability, superty_inner.mutability) {
                     (Mutability::Mutable, Mutability::Mutable) => {
@@ -2828,10 +2890,8 @@ where
                 Ok(status)
             }
             (Type::Function(sub_f), Type::Function(super_f)) => {
-                if sub_f.input.len() != super_f.input.len()
-                    || sub_f.output.len() != super_f.output.len()
-                {
-                    todo!("Incompatible arity");
+                if sub_f.input.len() != super_f.input.len() {
+                    todo!("Incompatible input arity");
                 }
 
                 let mut status = InferenceStatus::Solved;
@@ -2842,12 +2902,25 @@ where
                         _ => (),
                     }
                 }
-                for (subty, superty) in sub_f.output.iter().zip(super_f.output.iter()) {
-                    match self.check_subtype(env, *subty, *superty, origin, meta)? {
-                        InferenceStatus::Defer => status = InferenceStatus::Defer,
-                        _ => (),
+
+                match (sub_f.output, super_f.output) {
+                    (StackState::Unreachable, _) => (),
+                    (StackState::Reachable(type_ids), StackState::Unreachable) => todo!(),
+
+                    (StackState::Reachable(sub), StackState::Reachable(sup)) => {
+                        if (sub.len() != sup.len()) {
+                            todo!("Incompatible output arity")
+                        }
+
+                        for (subty, superty) in sub.iter().zip(sup.iter()) {
+                            match self.check_subtype(env, *subty, *superty, origin, meta)? {
+                                InferenceStatus::Defer => status = InferenceStatus::Defer,
+                                _ => (),
+                            }
+                        }
                     }
                 }
+
                 Ok(status)
             }
             (_, _) => self
@@ -2867,7 +2940,7 @@ where
         args: &Vec<TypeId>,
         meta: &M,
     ) -> Result<ImplResolution, InferenceErrorKind> {
-        let (unbound, args) = self.substitute(&args);
+        let (unbound, args) = self.substitute_stack(&args);
         if !unbound.is_empty() {
             return Ok(ImplResolution::Defer);
         }
@@ -2949,7 +3022,7 @@ where
             ImplResolution::Match(_) => Ok(InferenceStatus::Solved),
             ImplResolution::Defer => Ok(InferenceStatus::Defer),
             ImplResolution::Unmatched => {
-                let (_, args) = self.substitute(&predicate.args);
+                let (_, args) = self.substitute_stack(&predicate.args);
                 Err(InferenceError::predicate_not_met(
                     predicate.cid,
                     args,
@@ -3029,7 +3102,6 @@ where
                 })?;
         match (left, right) {
             (_, _) if left_tid == right_tid => Ok(left_tid),
-            (Type::Never, _) | (_, Type::Never) => Ok(self.intern(Type::Never)),
             (Type::Pointer(left), Type::Pointer(right)) => {
                 match (left.mutability, right.mutability) {
                     (Mutability::Mutable, Mutability::Mutable) => {
@@ -3222,8 +3294,6 @@ where
                 })?;
         match (left, right) {
             (_, _) if left_tid == right_tid => Ok(left_tid),
-            (Type::Never, _) => Ok(right_tid),
-            (_, Type::Never) => Ok(left_tid),
             (Type::Pointer(left), Type::Pointer(right)) => {
                 let left_normal = self
                     .normalize_ty(env, left.tid, meta)
@@ -3393,6 +3463,17 @@ where
             ConstraintType::Predicate(pred) => {
                 self.check_predicate(env, pred, &constraint.origin, &constraint.meta)
             }
+            ConstraintType::Unreachable(stack) => {
+                if stack.is_reachable() {
+                    Err(InferenceError::unreachable_state_reached(
+                        stack.clone(),
+                        &constraint.origin,
+                        &constraint.meta,
+                    ))
+                } else {
+                    Ok(InferenceStatus::Solved)
+                }
+            }
             ConstraintType::Arity { expected, found } => {
                 if expected.len() != found.len() {
                     return Err(InferenceError::stacks_differ(
@@ -3512,7 +3593,7 @@ where
         &mut self,
         expr: Expr<'src, M>,
         stack: &Stack,
-        target: &Stack,
+        target: &StackState,
         env: &mut Environment,
         lookup: &Lookup,
     ) -> Result<(Expr<'src, (M, TypeId)>, HashSet<TypeVar>), InferenceError<M>>
@@ -3522,21 +3603,31 @@ where
     {
         // Determine which types are unbound at the start.
 
-        let (mut unbound, mut stack) = self.substitute(stack);
+        let (mut unbound, stack) = self.substitute_stack(stack);
+        let mut stack = StackState::Reachable(stack);
         // Get constraints from inference
         let (out_expr, mut constraints) = self.infer(expr, &mut stack, env, lookup)?;
 
         // Add constraint that the target and stack must be equal.
-        constraints.extend(Constraint::output_subtyping(
-            target,
-            &stack,
-            &out_expr.meta.0,
-        ));
+        match target {
+            StackState::Reachable(target) => {
+                constraints.extend(Constraint::output_subtyping(
+                    target,
+                    &stack,
+                    &out_expr.meta.0,
+                ));
+            }
+            StackState::Unreachable => constraints.push(Constraint::new(
+                ConstraintType::Unreachable(stack.clone()),
+                ConstraintOrigin::OutputUnreachable,
+                &out_expr.meta.0,
+            )),
+        }
 
         // Make sure that constraints can be resolved.
         self.check_constraints(&env, &mut constraints, lookup)?;
 
-        let (unbound_stack, _) = self.substitute(&stack);
+        let (unbound_stack, _) = self.substitute_stack_state(&stack);
         let (unbound_expr, expr) = self.substitute_expr(out_expr, lookup);
 
         unbound.extend(unbound_stack);
@@ -3578,7 +3669,6 @@ where
             Type::TypeVar(_)
             | Type::RigidTypeVar(_)
             | Type::Builtin(_)
-            | Type::Never
             | Type::Function(_)
             | Type::Pointer(_)
             | Type::Tuple(_)
@@ -3676,11 +3766,15 @@ where
                     .into_iter()
                     .map(|tid| self.replace(tid, replacements))
                     .collect();
-                func.output = func
-                    .output
-                    .into_iter()
-                    .map(|tid| self.replace(tid, replacements))
-                    .collect();
+                func.output = match func.output {
+                    StackState::Reachable(output) => StackState::Reachable(
+                        output
+                            .into_iter()
+                            .map(|tid| self.replace(tid, replacements))
+                            .collect(),
+                    ),
+                    StackState::Unreachable => StackState::Unreachable,
+                };
                 self.function(func)
             }
             Type::Pointer(p) => {
@@ -3740,7 +3834,6 @@ where
                     .collect();
                 self.intern(Type::Projection(p))
             }
-            Type::Never => todo!(),
         }
     }
 
@@ -3775,7 +3868,6 @@ where
             | Type::Variant(_)
             | Type::Type(_)
             | Type::Tuple(_)
-            | Type::Never
             | Type::Projection(_) => todo!("{} is not an enum", self.fmt(enum_tid)),
         };
 
@@ -3805,7 +3897,10 @@ where
             Type::Function(func) => func
                 .input
                 .iter()
-                .chain(func.output.iter())
+                .chain(match &func.output {
+                    StackState::Reachable(tids) => tids.iter(),
+                    StackState::Unreachable => [].iter(),
+                })
                 .any(|tid| self.is_free(tid)),
             Type::Pointer(p) => self.is_free(&p.tid),
             Type::Struct(s) => s.args.iter().any(|tid| self.is_free(tid)),
@@ -3814,7 +3909,6 @@ where
             Type::Variant(v) => v.args.iter().any(|tid| self.is_free(tid)),
             Type::Type(tid) => self.is_free(tid),
             Type::Projection(p) => p.args.iter().any(|tid| self.is_free(tid)),
-            Type::Never => todo!(),
         }
     }
 
@@ -3849,11 +3943,16 @@ where
 
     pub fn lower(&mut self, tid: TypeId) -> TypeId {
         match self.get(tid).unwrap().clone() {
-            Type::Never | Type::Builtin(_) | Type::TypeVar(_) => tid,
+            Type::Builtin(_) | Type::TypeVar(_) => tid,
             Type::RigidTypeVar(tyvar) => self.intern(Type::TypeVar(tyvar)),
             Type::Function(FunctionType { input, output }) => {
                 let input = input.into_iter().map(|tid| self.lower(tid)).collect();
-                let output = output.into_iter().map(|tid| self.lower(tid)).collect();
+                let output = match output {
+                    StackState::Reachable(output) => StackState::Reachable(
+                        output.into_iter().map(|tid| self.lower(tid)).collect(),
+                    ),
+                    StackState::Unreachable => StackState::Unreachable,
+                };
                 self.function(FunctionType { input, output })
             }
             Type::Pointer(p) => {

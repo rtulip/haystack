@@ -49,7 +49,7 @@ fn main() -> Result<(), HayError> {
     let (types, fns, entry) = world.monomorphize(&mut typestore, &mut env, entry);
 
     let mut s = String::new();
-    CCodeGen::generate(&mut s, &mut typestore, &types, &fns, &externs, entry).unwrap();
+    CCodeGen::generate(&mut s, &mut typestore, &types, &fns, &env, &externs, entry).unwrap();
 
     let c_exe_path = Path::new("target/").join(filename);
     let c_source_path = c_exe_path.with_extension("c");
@@ -72,13 +72,11 @@ fn main() -> Result<(), HayError> {
     }
 
     if (args.len() >= 3 && (args[2] == "-r" || args[2] == "--run")) {
-        let output = std::process::Command::new(&format!("./{}", c_exe_path.display()))
-            .output()
+        let status = std::process::Command::new(&format!("./{}", c_exe_path.display()))
+            .status()
             .unwrap();
-        if output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            print!("{}", stdout);
-        }
+
+        std::process::exit(status.code().unwrap_or(1));
     } else {
         eprintln!("All done");
     }

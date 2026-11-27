@@ -98,6 +98,16 @@ mod compilation_test {
         fn pointer_subtyping() {
             run_test("tests/functional/pointer_subtyping.hay");
         }
+
+        #[test]
+        fn enum_subtyping() {
+            run_test("tests/functional/enum_subtyping.hay");
+        }
+
+        #[test]
+        fn loop_header_return() {
+            run_test("tests/functional/loop_header_return.hay");
+        }
     }
 
     mod typecheck {
@@ -151,6 +161,61 @@ mod compilation_test {
         #[test]
         fn mutable_pointer() {
             run_test("tests/typecheck/mutable_pointer.hay");
+        }
+
+        #[test]
+        fn unreachable1() {
+            run_test("tests/typecheck/unreachable1.hay");
+        }
+
+        #[test]
+        fn unreachable2() {
+            run_test("tests/typecheck/unreachable2.hay");
+        }
+
+        #[test]
+        fn unreachable3() {
+            run_test("tests/typecheck/unreachable3.hay");
+        }
+
+        #[test]
+        fn unreachable4() {
+            run_test("tests/typecheck/unreachable4.hay");
+        }
+
+        #[test]
+        fn unreachable5() {
+            run_test("tests/typecheck/unreachable5.hay");
+        }
+
+        #[test]
+        fn unreachable6() {
+            run_test("tests/typecheck/unreachable6.hay");
+        }
+
+        #[test]
+        fn unreachable7() {
+            run_test("tests/typecheck/unreachable7.hay");
+        }
+
+        #[test]
+        fn unreachable8() {
+            run_test("tests/typecheck/unreachable8.hay");
+        }
+
+        #[test]
+        fn unreachable9() {
+            run_test("tests/typecheck/unreachable9.hay");
+        }
+
+        #[test]
+        fn unreachable10() {
+            run_test("tests/typecheck/unreachable10.hay");
+        }
+
+        #[test]
+        fn unreachable11() {
+            run_test("tests/typecheck/unreachable11.hay");
         }
     }
 

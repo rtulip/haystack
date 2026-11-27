@@ -1,0 +1,14 @@
+enum Foo {
+    Bar
+}
+
+fn Foo.new() -> [Foo] { #Foo::Bar pack }
+fn Foo.bar() -> [Foo::Bar] { #Foo::Bar pack }
+fn take_foo(Foo) { drop "Take Foo" println } 
+fn take_foo_bar(Foo::Bar) { drop "Take Foo::Bar" println } 
+
+fn main() {
+    Foo.bar take_foo 
+    Foo.bar take_foo_bar
+    Foo.new take_foo
+}

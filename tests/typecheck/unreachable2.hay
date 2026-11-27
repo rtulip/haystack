@@ -1,0 +1,5 @@
+fn f() -> [u64] { "Exiting..." println 123 exit }
+
+fn main() {
+    f println
+}

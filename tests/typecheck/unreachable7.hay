@@ -1,0 +1,9 @@
+fn f(bool) -> ! if {
+    1 exit
+} else {
+    2 exit
+}
+
+fn main() -> ! {
+    false f
+}

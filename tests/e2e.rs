@@ -98,6 +98,16 @@ mod compilation_test {
         fn pointer_subtyping() {
             run_test("tests/functional/pointer_subtyping.hay");
         }
+
+        #[test]
+        fn enum_subtyping() {
+            run_test("tests/functional/enum_subtyping.hay");
+        }
+
+        #[test]
+        fn loop_header_return() {
+            run_test("tests/functional/loop_header_return.hay");
+        }
     }
 
     mod typecheck {

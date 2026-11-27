@@ -72,11 +72,9 @@ fn main() -> Result<(), HayError> {
     }
 
     if (args.len() >= 3 && (args[2] == "-r" || args[2] == "--run")) {
-        let status = std::process::Command::new(
-        &format!("./{}", c_exe_path.display())
-        )
-        .status()
-        .unwrap();
+        let status = std::process::Command::new(&format!("./{}", c_exe_path.display()))
+            .status()
+            .unwrap();
 
         std::process::exit(status.code().unwrap_or(1));
     } else {

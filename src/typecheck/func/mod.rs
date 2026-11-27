@@ -3,7 +3,11 @@ use std::{fmt::Debug, todo, vec};
 use crate::typecheck::{
     environment::{Coherence, Environment, InterfaceImpl, TypePredicate},
     expr::Expr,
-    typ::{typ::FunctionType, type_id::TypeId, type_var::TypeVar},
+    typ::{
+        typ::{FunctionType, StackState},
+        type_id::TypeId,
+        type_var::TypeVar,
+    },
     typestore::{inference::InferenceError, MemberLookup, TypeStore},
 };
 
@@ -30,7 +34,7 @@ where
     ) -> Self
     where
         Input: Into<Vec<TypeId>>,
-        Output: Into<Vec<TypeId>>,
+        Output: Into<StackState>,
         Vars: Into<Vec<TypeVar>>,
         Preds: Into<Vec<TypePredicate>>,
     {

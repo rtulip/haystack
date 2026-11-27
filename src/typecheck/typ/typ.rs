@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, matches, panic};
 
 use crate::typecheck::{
     constraint::ConstraintOrigin,
@@ -9,6 +9,70 @@ use crate::typecheck::{
     },
     typestore::{inference::InferenceError, TypeStore},
 };
+
+pub type Stack = Vec<TypeId>;
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum StackState {
+    Reachable(Stack),
+    Unreachable,
+}
+
+impl StackState {
+    pub fn append_output(&mut self, output: StackState) {
+        match (self, output) {
+            (Self::Reachable(stack), Self::Reachable(output)) => {
+                stack.extend(output);
+            }
+
+            (stack, Self::Unreachable) => {
+                *stack = Self::Unreachable;
+            }
+
+            (Self::Unreachable, _) => (),
+        }
+    }
+
+    pub fn split_off(&mut self, at: usize) -> Option<Stack> {
+        match self {
+            StackState::Reachable(stack) => Some(stack.split_off(at)),
+            StackState::Unreachable => None,
+        }
+    }
+
+    pub fn pop(&mut self) -> Option<TypeId> {
+        match self {
+            StackState::Reachable(stack) => stack.pop(),
+            StackState::Unreachable => None,
+        }
+    }
+
+    pub fn push(&mut self, tid: TypeId) {
+        match self {
+            StackState::Reachable(stack) => stack.push(tid),
+            StackState::Unreachable => (),
+        }
+    }
+
+    pub fn reachable(&self) -> &Stack {
+        match self {
+            StackState::Reachable(stack) => stack,
+            StackState::Unreachable => panic!(),
+        }
+    }
+
+    pub fn is_reachable(&self) -> bool {
+        matches!(self, StackState::Reachable(_))
+    }
+}
+
+impl<S> From<S> for StackState
+where
+    S: Into<Stack>,
+{
+    fn from(value: S) -> Self {
+        StackState::Reachable(value.into())
+    }
+}
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BuiltinType {
@@ -22,7 +86,7 @@ pub enum BuiltinType {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FunctionType {
     pub input: Vec<TypeId>,
-    pub output: Vec<TypeId>,
+    pub output: StackState,
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]

@@ -3,7 +3,7 @@ use std::{
     collections::{HashMap, HashSet},
     eprintln,
     fmt::Write,
-    format, matches, todo, unreachable, vec, writeln,
+    format, iter, matches, todo, unreachable, vec, writeln,
 };
 
 use crate::{
@@ -12,7 +12,10 @@ use crate::{
         expr::{Expr, ExprKind, MatchCase, MatchExpr, MatchPattern, Place, PlaceProjection, Var},
         func,
         typ::{
-            typ::{BuiltinType, EnumDef, EnumType, FunctionType, Mutability, Type, VariantType},
+            typ::{
+                BuiltinType, EnumDef, EnumType, FunctionType, Mutability, StackState, Type,
+                VariantType,
+            },
             type_id::{EnumId, StructId, TypeId},
         },
         typestore::{MemberAccess, TypeStore},
@@ -119,7 +122,8 @@ where
                 if (!f.input.is_empty()) {
                     writeln!(self.w, "struct {};", Self::format_function_input(*tid))?;
                 }
-                if !f.output.is_empty() {
+
+                if f.output.is_reachable() && !f.output.reachable().is_empty() {
                     writeln!(self.w, "struct {};", Self::format_function_output(*tid))?;
                 }
             }
@@ -186,12 +190,17 @@ where
     fn declare_extern_fn(&mut self, name: &str, tid: TypeId) -> std::fmt::Result {
         let FunctionType { input, output } = self.get_stack_effect(tid);
 
-        assert!(output.len() == 1);
+        let out_ty = match output {
+            StackState::Reachable(output) => {
+                assert!(output.len() == 1);
+                Self::format_c_compat_type(&self, output[0])
+            }
+            StackState::Unreachable => String::from("void"),
+        };
 
         writeln!(
             self.w,
-            "extern {} {name}({});",
-            Self::format_c_compat_type(&self, output[0]),
+            "extern {out_ty} {name}({});",
             Self::format_c_compat_args(&self, &input)
         )?;
         Ok(())
@@ -229,14 +238,16 @@ where
         Ok(())
     }
 
-    fn declare_function_output(&mut self, tid: TypeId, output: &[TypeId]) -> std::fmt::Result {
-        if output.is_empty() {
+    fn declare_function_output(&mut self, tid: TypeId, output: &StackState) -> std::fmt::Result {
+        if !output.is_reachable() || output.reachable().is_empty() {
             return writeln!(
                 self.w,
                 "typedef void {};",
                 Self::format_function_output(tid)
             );
         }
+
+        let output = output.reachable();
 
         writeln!(
             self.w,
@@ -445,19 +456,21 @@ where
     fn generate_output_unbinding(
         &mut self,
         output_ident: usize,
-        output: &[TypeId],
+        output: &StackState,
         stack: &mut Vec<(TypeId, usize)>,
     ) -> std::fmt::Result {
-        for (idx, tid) in output.iter().enumerate() {
-            let ident = self.next_stack_ident();
-            writeln!(
-                self.w,
-                "    const {} {} = {}._{idx};",
-                Self::format_tid(*tid),
-                Self::format_stack_ident(ident),
-                Self::format_stack_ident(output_ident)
-            )?;
-            stack.push((*tid, ident));
+        if let StackState::Reachable(output) = output {
+            for (idx, tid) in output.iter().enumerate() {
+                let ident = self.next_stack_ident();
+                writeln!(
+                    self.w,
+                    "    const {} {} = {}._{idx};",
+                    Self::format_tid(*tid),
+                    Self::format_stack_ident(ident),
+                    Self::format_stack_ident(output_ident)
+                )?;
+                stack.push((*tid, ident));
+            }
         }
         Ok(())
     }
@@ -515,19 +528,33 @@ where
         stack: &mut Vec<(TypeId, usize)>,
     ) -> std::fmt::Result {
         let FunctionType { input, output } = self.get_stack_effect(tid);
-        assert!(output.len() == 1);
 
-        let ident = self.next_stack_ident();
-        let inputs = self.format_extern_function_inputs(input, stack);
+        match output {
+            StackState::Reachable(output) => {
+                assert!(output.len() == 1);
 
-        writeln!(
-            self.w,
-            "    {} {} = {name}({inputs});",
-            Self::format_tid(output[0]),
-            Self::format_stack_ident(ident),
-        )?;
+                let ident = self.next_stack_ident();
+                let inputs = self.format_extern_function_inputs(input, stack);
 
-        stack.push((output[0], ident));
+                writeln!(
+                    self.w,
+                    "    {} {} = {name}({inputs});",
+                    Self::format_tid(output[0]),
+                    Self::format_stack_ident(ident),
+                )?;
+
+                stack.push((output[0], ident));
+            },
+            StackState::Unreachable => {
+                let inputs = self.format_extern_function_inputs(input, stack);
+
+                writeln!(
+                    self.w,
+                    "    {name}({inputs});",
+                )?;
+            },
+        }
+        
 
         Ok(())
     }
@@ -541,9 +568,10 @@ where
         let func = self.get_stack_effect(tid);
         let input = self.generate_input_binding(tid, &func.input, stack)?;
 
-        let (output_prefix, output) = match func.output.len() {
-            0 => (String::new(), None),
-            _ => {
+        let (output_prefix, output) = match &func.output {
+            StackState::Unreachable => (String::new(), None),
+            StackState::Reachable(output) if output.len() == 0 => (String::new(), None),
+            StackState::Reachable(_) => {
                 let output = self.next_stack_ident();
                 (
                     format!(
@@ -656,18 +684,21 @@ where
 
         let FunctionType { input, output } = self.get_stack_effect(tid);
 
-        let mut outvars = vec![];
-        for tid in &output {
-            let ident = self.next_stack_ident();
-            outvars.push((*tid, ident));
-            writeln!(
-                self.w,
-                "    {} {};",
-                Self::format_tid(*tid),
-                Self::format_stack_ident(ident)
-            )?;
-        }
         assert!(input.len() == 1);
+
+        let mut outvars = vec![];
+        if let StackState::Reachable(output) = &output {
+            for tid in output {
+                let ident = self.next_stack_ident();
+                outvars.push((*tid, ident));
+                writeln!(
+                    self.w,
+                    "    {} {};",
+                    Self::format_tid(*tid),
+                    Self::format_stack_ident(ident)
+                )?;
+            }
+        }
 
         let mut first = true;
         for case in &match_expr.cases {
@@ -697,6 +728,8 @@ where
             ExprKind::U8(n) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 0);
+                assert!(output.is_reachable());
+                let output = output.reachable();
                 assert!(output.len() == 1);
                 let ident = self.next_stack_ident();
                 stack.push((output[0], ident));
@@ -711,6 +744,8 @@ where
             ExprKind::U64(n) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 0);
+                assert!(output.is_reachable());
+                let output = output.reachable();
                 assert!(output.len() == 1);
                 let ident = self.next_stack_ident();
                 stack.push((output[0], ident));
@@ -725,6 +760,8 @@ where
             ExprKind::Bool(b) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 0);
+                assert!(output.is_reachable());
+                let output = output.reachable();
                 assert!(output.len() == 1);
                 let ident = self.next_stack_ident();
                 stack.push((output[0], ident));
@@ -740,8 +777,10 @@ where
                 let ident = self.next_stack_ident();
 
                 let FunctionType { input, output } = self.get_stack_effect(tid);
-                assert!(output.len() == 1);
                 assert!(input.len() == 0);
+                assert!(output.is_reachable());
+                let output = output.reachable();
+                assert!(output.len() == 1);
 
                 writeln!(
                     self.w,
@@ -759,8 +798,10 @@ where
                 let ident = self.next_stack_ident();
 
                 let FunctionType { input, output } = self.get_stack_effect(tid);
-                assert!(output.len() == 1);
                 assert!(input.len() == 0);
+                assert!(output.is_reachable());
+                let output = output.reachable();
+                assert!(output.len() == 1);
 
                 writeln!(
                     self.w,
@@ -774,6 +815,8 @@ where
             ExprKind::Char(c) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 0);
+                assert!(output.is_reachable());
+                let output = output.reachable();
                 assert!(output.len() == 1);
                 let ident = self.next_stack_ident();
                 stack.push((output[0], ident));
@@ -805,6 +848,8 @@ where
                 let FunctionType { input, output } = self.get_stack_effect(tid);
 
                 assert!(input.len() == 1);
+                assert!(output.is_reachable());
+                let output = output.reachable();
                 assert!(output.len() == 1);
 
                 let (_, base) = stack.pop().unwrap();
@@ -837,15 +882,17 @@ where
                 let FunctionType { input, output } = self.get_stack_effect(tid);
 
                 let mut idents = vec![];
-                for tid in &output {
-                    let ident = self.next_stack_ident();
-                    idents.push((*tid, ident));
-                    writeln!(
-                        self.w,
-                        "    {} {};",
-                        Self::format_tid(*tid),
-                        Self::format_stack_ident(ident)
-                    );
+                if let StackState::Reachable(output) = &output {
+                    for tid in output {
+                        let ident = self.next_stack_ident();
+                        idents.push((*tid, ident));
+                        writeln!(
+                            self.w,
+                            "    {} {};",
+                            Self::format_tid(*tid),
+                            Self::format_stack_ident(ident)
+                        );
+                    }
                 }
 
                 writeln!(self.w, "    {{")?;
@@ -871,38 +918,50 @@ where
                 let FunctionType { input, output } = self.get_stack_effect(tid);
 
                 assert!(input.len() == 0);
-                assert!(output.len() == 1);
 
-                let output_ident = self.next_stack_ident();
-                writeln!(
-                    self.w,
-                    "    {} {};",
-                    Self::format_tid(output[0]),
-                    Self::format_stack_ident(output_ident)
-                );
+                let output_info = match output {
+                    StackState::Reachable(output) => {
+                        assert!(output.len() == 1);
+                        let output_ident = self.next_stack_ident();
+                        writeln!(
+                            self.w,
+                            "    {} {};",
+                            Self::format_tid(output[0]),
+                            Self::format_stack_ident(output_ident)
+                        );
+
+                        (Some((output[0], output_ident)))
+                    }
+                    StackState::Unreachable => None,
+                };
+
                 writeln!(self.w, "    {{")?;
                 let mut fresh_stack = vec![];
                 for expr in exprs {
                     self.generate_expr(expr, &mut fresh_stack)?;
                 }
 
-                writeln!(
-                    self.w,
-                    "    {} = ({}){{",
-                    Self::format_stack_ident(output_ident),
-                    Self::format_tid(output[0]),
-                )?;
-                for (_, ident) in fresh_stack {
-                    writeln!(self.w, "        {},", Self::format_stack_ident(ident))?;
-                }
-                writeln!(self.w, "    }};")?;
-                writeln!(self.w, "    }}")?;
+                if let Some((tid, ident)) = output_info {
+                    writeln!(
+                        self.w,
+                        "    {} = ({}){{",
+                        Self::format_stack_ident(ident),
+                        Self::format_tid(tid),
+                    )?;
+                    for (_, ident) in fresh_stack {
+                        writeln!(self.w, "        {},", Self::format_stack_ident(ident))?;
+                    }
+                    writeln!(self.w, "    }};")?;
+                    writeln!(self.w, "    }}")?;
 
-                stack.push((output[0], output_ident));
+                    stack.push((tid, ident));
+                }
             }
             ExprKind::Bind(vars) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == vars.len());
+                assert!(output.is_reachable());
+                let output = output.reachable();
                 assert!(output.len() == 0);
                 assert!(vars.len() <= stack.len());
 
@@ -927,6 +986,8 @@ where
             ExprKind::Type(inner_tid) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 0);
+                assert!(output.is_reachable());
+                let output = output.reachable();
                 assert!(output.len() == 1);
                 let ident = self.next_stack_ident();
                 // TODO: metatypes can't be handled quite like normal tids.
@@ -942,6 +1003,8 @@ where
             ExprKind::UncheckedCast => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 2);
+                assert!(output.is_reachable());
+                let output = output.reachable();
                 assert!(output.len() == 1);
 
                 let Type::Type(inner) = self.typestore.get(input[1]).unwrap() else {
@@ -967,6 +1030,8 @@ where
             ExprKind::Add(_) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 2);
+                assert!(output.is_reachable());
+                let output = output.reachable();
                 assert!(output.len() == 1);
 
                 let ident = self.next_stack_ident();
@@ -987,6 +1052,8 @@ where
             ExprKind::Sub(_) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 2);
+                assert!(output.is_reachable());
+                let output = output.reachable();
                 assert!(output.len() == 1);
 
                 let ident = self.next_stack_ident();
@@ -1008,6 +1075,8 @@ where
             ExprKind::Mul(_) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 2);
+                assert!(output.is_reachable());
+                let output = output.reachable();
                 assert!(output.len() == 1);
 
                 let ident = self.next_stack_ident();
@@ -1029,6 +1098,8 @@ where
             ExprKind::Equal(_) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 2);
+                assert!(output.is_reachable());
+                let output = output.reachable();
                 assert!(output.len() == 1);
 
                 let ident = self.next_stack_ident();
@@ -1050,6 +1121,8 @@ where
             ExprKind::LessThan(_) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 2);
+                assert!(output.is_reachable());
+                let output = output.reachable();
                 assert!(output.len() == 1);
 
                 let ident = self.next_stack_ident();
@@ -1070,6 +1143,8 @@ where
             }
             ExprKind::Pack => {
                 let FunctionType { mut input, output } = self.get_stack_effect(tid);
+                assert!(output.is_reachable());
+                let output = output.reachable();
                 assert!(output.len() == 1);
 
                 // discard the metatype
@@ -1139,15 +1214,16 @@ where
                 let FunctionType { input, output } = self.get_stack_effect(tid);
 
                 assert!(input.len() == 1);
-
+                assert!(output.is_reachable());
+                let output = output.reachable();
                 let (_, parent) = stack.pop().unwrap();
                 for (idx, tid) in output.into_iter().enumerate() {
                     let ident = self.next_stack_ident();
-                    stack.push((tid, ident));
+                    stack.push((*tid, ident));
                     writeln!(
                         self.w,
                         "    const {} {} = {}._{idx};",
-                        Self::format_tid(tid),
+                        Self::format_tid(*tid),
                         Self::format_stack_ident(ident),
                         Self::format_stack_ident(parent)
                     )?;
@@ -1156,6 +1232,8 @@ where
             ExprKind::SizeOf => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 1);
+                assert!(output.is_reachable());
+                let output = output.reachable();
                 assert!(output.len() == 1);
 
                 let (ty_tid, _) = stack.pop().unwrap();
@@ -1226,17 +1304,18 @@ where
                 assert!(input.len() >= 1);
 
                 let mut outvars = vec![];
-                for tid in &output {
-                    let ident = self.next_stack_ident();
-                    writeln!(
-                        self.w,
-                        "    {} {};",
-                        Self::format_tid(*tid),
-                        Self::format_stack_ident(ident)
-                    )?;
-                    outvars.push((*tid, ident))
+                if let StackState::Reachable(output) = &output {
+                    for tid in output {
+                        let ident = self.next_stack_ident();
+                        writeln!(
+                            self.w,
+                            "    {} {};",
+                            Self::format_tid(*tid),
+                            Self::format_stack_ident(ident)
+                        )?;
+                        outvars.push((*tid, ident))
+                    }
                 }
-
                 let (_, condition) = stack.pop().unwrap();
                 writeln!(
                     self.w,
@@ -1278,6 +1357,8 @@ where
             ExprKind::Read => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 1);
+                assert!(output.is_reachable());
+                let output = output.reachable();
                 assert!(output.len() == 1);
                 let (ptr_tid, ptr) = stack.pop().unwrap();
 
@@ -1295,6 +1376,8 @@ where
             ExprKind::Write => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);
                 assert!(input.len() == 2);
+                assert!(output.is_reachable());
+                let output = output.reachable();
                 assert!(output.len() == 0);
 
                 let (ptr_tid, ptr) = stack.pop().unwrap();
@@ -1340,9 +1423,15 @@ where
     fn generate_return(
         &mut self,
         tid: TypeId,
-        output: &[TypeId],
+        output: &StackState,
         stack: &mut Vec<(TypeId, usize)>,
     ) -> std::fmt::Result {
+        if !output.is_reachable() {
+            return Ok(());
+        }
+
+        let output = output.reachable();
+
         if output.len() == 0 {
             return Ok(());
         }
@@ -1408,7 +1497,14 @@ where
             Type::Builtin(_) => vec![],
             Type::Function(f) => {
                 let f = f.clone();
-                f.input.into_iter().chain(f.output.into_iter()).collect()
+                let mut dependencies = vec![];
+                dependencies.extend(f.input);
+                match f.output {
+                    StackState::Reachable(output) => dependencies.extend(output),
+                    StackState::Unreachable => (),
+                };
+
+                dependencies
             }
             Type::Pointer(p) => {
                 vec![p.tid]

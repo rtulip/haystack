@@ -1,11 +1,22 @@
-use std::{collections::HashSet, format, path::{Path, PathBuf}, todo, unreachable};
+use std::{
+    collections::HashSet,
+    format,
+    path::{Path, PathBuf},
+    todo, unreachable,
+};
 
 use crate::{
-    error::HayError, lex::{
-        base, scanner::Scanner, token::{
-            Intrinsic, Keyword, Loc, Marker::{self, LeftParen}, Operator, Token, TokenKind,
+    error::HayError,
+    lex::{
+        base,
+        scanner::Scanner,
+        token::{
+            Intrinsic, Keyword, Loc,
+            Marker::{self, LeftParen},
+            Operator, Token, TokenKind,
         },
-    }, parser::{
+    },
+    parser::{
         argument::Argument,
         expr::{ParseExpr, ParseExprKind, ParseMatchExpr, ParsePlace},
         signature::Signature,
@@ -30,7 +41,6 @@ pub struct Parser<'src> {
 
 impl<'src> Parser<'src> {
     pub fn new() -> Result<Self, HayError> {
-
         let source = include_str!("../../std/prelude.hay");
         let file = "std/prelude.hay";
         let tokens = Scanner::new(file, &source).scan_tokens()?;
@@ -41,9 +51,8 @@ impl<'src> Parser<'src> {
         let mut parser = Parser {
             tokens: vec![],
             statements: vec![],
-            visited
+            visited,
         };
-        
 
         parser.parse(tokens)?;
 
@@ -62,7 +71,7 @@ impl<'src> Parser<'src> {
             if self.is_at_end() {
                 break;
             }
-            let statements =self.parse_declaration()?;
+            let statements = self.parse_declaration()?;
             self.statements.extend(statements)
         }
 
@@ -288,7 +297,7 @@ impl<'src> Parser<'src> {
             self.strip_whitespace();
 
             if self.matches(TokenKind::Operator(Operator::Bang)).is_ok() {
-                return Ok(None)
+                return Ok(None);
             }
 
             self.expect(TokenKind::Marker(Marker::LeftBracket))?;
@@ -1041,13 +1050,15 @@ impl<'src> Parser<'src> {
         self.strip_whitespace();
         let path = self.expect(TokenKind::string())?;
         let path_lexeme = &path.lexeme[1..path.lexeme.len() - 1];
-        let file = Path::new(path_lexeme).canonicalize().map_err(|_| HayError::new(
-                    format!("Failed to open file `{path_lexeme}`"),
-                    path.loc.clone(),
-                ))?;
+        let file = Path::new(path_lexeme).canonicalize().map_err(|_| {
+            HayError::new(
+                format!("Failed to open file `{path_lexeme}`"),
+                path.loc.clone(),
+            )
+        })?;
 
         if self.visited.contains(&file) {
-            return Ok(())
+            return Ok(());
         }
 
         let source: &'src str = std::fs::read_to_string(&file)
@@ -1091,7 +1102,7 @@ impl<'src> Parser<'src> {
             TokenKind::Keyword(Keyword::Include) => {
                 self.parse_include(token)?;
                 Ok(vec![])
-            },
+            }
             TokenKind::Keyword(Keyword::Extern) => Ok(vec![self.parse_extern_function(token)?]),
             TokenKind::EoF => Ok(vec![]),
             kind => Err(HayError::new(

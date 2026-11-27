@@ -31,8 +31,8 @@ use crate::{
         func::Function,
         typ::{
             typ::{
-                BuiltinType, EnumDef, EnumType, FunctionType, Mutability, Projection, StructDef,
-                Type,
+                BuiltinType, EnumDef, EnumType, FunctionType, Mutability, Projection, StackState,
+                StructDef, Type,
             },
             type_id::{EnumId, StructId, TypeId},
             type_var::TypeVar,
@@ -542,9 +542,7 @@ impl<'src> TypeCheck<'src> {
     fn get_tid(&mut self, ty: &ParseType<'src>) -> Result<TypeId, HayError> {
         match ty {
             ParseType::Simple(ident) => Ok(self.get_paramatarized_ident_tid(ident)?),
-            ParseType::Path(path) => {
-                self.get_type_path_tid(path)
-            }
+            ParseType::Path(path) => self.get_type_path_tid(path),
             ParseType::Pointer { inner, mutable } => {
                 let inner = self.get_tid(inner)?;
                 let tid = self.typestore.pointer(
@@ -569,16 +567,22 @@ impl<'src> TypeCheck<'src> {
             }
             ParseType::Function(_, sig) => {
                 let mut input = vec![];
-                let mut output = vec![];
 
                 for arg in &sig.input {
                     input.push(self.get_tid(&arg.typ)?);
                 }
 
-                todo!();
-                // for ty in &sig.output {
-                //     output.push(self.get_tid(&ty)?);
-                // }
+                let output = match &sig.output {
+                    Some(tys) => {
+                        let mut output = vec![];
+                        for ty in tys {
+                            output.push(self.get_tid(&ty)?);
+                        }
+
+                        StackState::Reachable(output)
+                    }
+                    None => StackState::Unreachable,
+                };
 
                 Ok(self.typestore.function(FunctionType { input, output }))
             }
@@ -592,13 +596,15 @@ impl<'src> TypeCheck<'src> {
                 .iter()
                 .map(|arg| self.get_tid(&arg.typ))
                 .collect::<Result<Vec<_>, _>>()?,
-            
-            output: todo!(),
-            // signature
-            //     .output
-            //     .iter()
-            //     .map(|ty| self.get_tid(ty))
-            //     .collect::<Result<Vec<_>, _>>()?,
+
+            output: match &signature.output {
+                Some(output) => output
+                    .iter()
+                    .map(|ty| self.get_tid(ty))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into(),
+                None => StackState::Unreachable,
+            },
         };
 
         Ok(self.typestore.function(function_type))
@@ -656,7 +662,7 @@ impl<'src> TypeCheck<'src> {
                 let u64_tid = self.typestore.intern(Type::u64());
                 let tid = self.typestore.function(FunctionType {
                     input: vec![u64_tid, u64_tid],
-                    output: vec![u64_tid],
+                    output: vec![u64_tid].into(),
                 });
                 Ok(Expr::add(tid, expr.token.clone()))
             }
@@ -667,7 +673,7 @@ impl<'src> TypeCheck<'src> {
                 let u64_tid = self.typestore.intern(Type::u64());
                 let tid = self.typestore.function(FunctionType {
                     input: vec![t_ptr_tid, u64_tid],
-                    output: vec![t_ptr_tid],
+                    output: vec![t_ptr_tid].into(),
                 });
                 Ok(Expr::add(tid, expr.token.clone()))
             }
@@ -678,7 +684,7 @@ impl<'src> TypeCheck<'src> {
                 let u64_tid = self.typestore.intern(Type::u64());
                 let tid = self.typestore.function(FunctionType {
                     input: vec![t_ptr_tid, u64_tid],
-                    output: vec![t_ptr_tid],
+                    output: vec![t_ptr_tid].into(),
                 });
                 Ok(Expr::add(tid, expr.token.clone()))
             }
@@ -877,10 +883,10 @@ impl<'src> TypeCheck<'src> {
             },
             Type::Function(func) => {
                 let mut s = format!("fn{}", self.format_stack(&func.input, '(', ')'));
-                if !func.output.is_empty() {
-                    s = format!("{s} -> {}", self.format_stack(&func.output, '[', ']'));
+                match &func.output {
+                    StackState::Reachable(tids) if tids.is_empty() => (),
+                    _ => s = format!("{s} -> {}", self.format_stack_state(&func.output, '[', ']')),
                 }
-
                 s
             }
             Type::Pointer(p) => {
@@ -947,6 +953,13 @@ impl<'src> TypeCheck<'src> {
             }
             s = format!("{s}{close}");
             s
+        }
+    }
+
+    fn format_stack_state(&mut self, stack: &StackState, open: char, close: char) -> String {
+        match stack {
+            StackState::Reachable(stack) => self.format_stack(stack, open, close),
+            StackState::Unreachable => String::from("!"),
         }
     }
 
@@ -1115,7 +1128,7 @@ impl<'src> TypeCheck<'src> {
                     e = e.with_hint(format!(
                         "Branch {}: {}",
                         i + 1,
-                        self.format_stack(&stack, '[', ']')
+                        self.format_stack_state(&stack, '[', ']')
                     ))
                 }
                 e = e.with_hint(format!(
@@ -1217,7 +1230,7 @@ impl<'src> TypeCheck<'src> {
         &mut self,
         params: &[ParseType<'src>],
         inputs: &[Argument<'src>],
-        outputs: &[ParseType<'src>],
+        outputs: &Option<Vec<ParseType<'src>>>,
         predicates: &[TypePredicate],
         token: &Token<'src>,
     ) -> Result<Scheme, HayError> {
@@ -1229,15 +1242,21 @@ impl<'src> TypeCheck<'src> {
             input.push(tid);
         }
 
-        let mut output = vec![];
-        for ty in outputs {
-            let tid = self.get_tid(&ty)?;
-            output.push(tid);
-        }
+        let output = match outputs {
+            Some(outputs) => {
+                let mut output = vec![];
+                for ty in outputs {
+                    let tid = self.get_tid(&ty)?;
+                    output.push(tid);
+                }
+                StackState::Reachable(output)
+            }
+            None => StackState::Unreachable,
+        };
 
         let tid = self.typestore.function(FunctionType {
             input: input.clone(),
-            output: output.clone(),
+            output: output,
         });
 
         Ok(Scheme::new(tyvar_params, tid, predicates))
@@ -1250,7 +1269,7 @@ impl<'src> TypeCheck<'src> {
         let scheme = self.create_scheme(
             &func.params,
             &func.signature.input,
-            todo!(), //&func.signature.output,
+            &func.signature.output,
             &[],
             &func.name,
         )?;
@@ -1275,7 +1294,7 @@ impl<'src> TypeCheck<'src> {
         let mut scheme = self.create_scheme(
             &func.params,
             &func.signature.input,
-            todo!(), //&func.signature.output,
+            &func.signature.output,
             &[predicate.clone()],
             &func.name,
         )?;
@@ -2173,9 +2192,13 @@ impl<'a, 'src> MonoContext<'a, 'src> {
                 }
                 Type::Builtin(_) => (),
                 Type::Function(f) => {
-                    f.input.iter().chain(f.output.iter()).for_each(
-                        (|tid| concrete.extend(self.request_type_inner(*tid, substitutions))),
-                    );
+                    f.input.iter().for_each(|tid| concrete.extend(self.request_type_inner(*tid, substitutions)));
+                    match &f.output {
+                        StackState::Reachable(output) => {
+                            output.iter().for_each(|tid| concrete.extend(self.request_type_inner(*tid, substitutions)))
+                        },
+                        StackState::Unreachable => (),
+                    }
                 }
                 Type::Pointer(pointer_type) => {
                     concrete.extend(self.request_type_inner(pointer_type.tid, substitutions));

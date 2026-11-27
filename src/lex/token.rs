@@ -109,7 +109,7 @@ impl PartialEq for Operator {
             | (Operator::Write, Operator::Write)
             | (Operator::Ampersand, Operator::Ampersand)
             | (Operator::Pipe, Operator::Pipe)
-            | (Operator::Caret, Operator::Caret) 
+            | (Operator::Caret, Operator::Caret)
             | (Operator::Bang, Operator::Bang) => true,
             (Operator::Plus, _)
             | (Operator::Minus, _)
@@ -126,7 +126,7 @@ impl PartialEq for Operator {
             | (Operator::Write, _)
             | (Operator::Ampersand, _)
             | (Operator::Pipe, _)
-            | (Operator::Caret, _) 
+            | (Operator::Caret, _)
             | (Operator::Bang, _) => false,
         }
     }

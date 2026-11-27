@@ -1,9 +1,12 @@
 use std::{cmp::Ordering, fmt::Debug};
 
-use crate::{
-    typecheck::environment::TypePredicate,
-    typecheck::typ::type_id::TypeId,
-    typecheck::typestore::{inference::InferenceError, Stack},
+use crate::typecheck::{
+    environment::TypePredicate,
+    typ::{
+        typ::{Stack, StackState},
+        type_id::TypeId,
+    },
+    typestore::inference::InferenceError,
 };
 
 use super::{expr::Var, typ::typ::Mutability};
@@ -54,7 +57,7 @@ pub enum ConstraintOrigin {
     Identifier(TypeId),
     Branching {
         fresh_stack: Stack,
-        stacks: Vec<Stack>,
+        stacks: Vec<StackState>,
     },
     TakeRef {
         var: Var,
@@ -94,35 +97,42 @@ where
         }
     }
 
-    pub fn output_subtyping(expected_stack: &Stack, found_stack: &Stack, meta: &M) -> Vec<Self> {
-        expected_stack
-            .iter()
-            .rev()
-            .zip(found_stack.iter().rev())
-            .map(|(expected, found)| {
-                Constraint::new(
-                    ConstraintType::Subtype {
-                        subty: *found,
-                        superty: *expected,
+    pub fn output_subtyping(
+        expected_stack: &Stack,
+        found_stack: &StackState,
+        meta: &M,
+    ) -> Vec<Self> {
+        match found_stack {
+            StackState::Reachable(found_stack) => expected_stack
+                .iter()
+                .rev()
+                .zip(found_stack.iter().rev())
+                .map(|(expected, found)| {
+                    Constraint::new(
+                        ConstraintType::Subtype {
+                            subty: *found,
+                            superty: *expected,
+                        },
+                        ConstraintOrigin::OutputSubtyping {
+                            expected: expected_stack.clone(),
+                            found: found_stack.clone(),
+                        },
+                        meta,
+                    )
+                })
+                .chain([Constraint::new(
+                    ConstraintType::Arity {
+                        expected: expected_stack.clone(),
+                        found: found_stack.clone(),
                     },
                     ConstraintOrigin::OutputSubtyping {
                         expected: expected_stack.clone(),
                         found: found_stack.clone(),
                     },
                     meta,
-                )
-            })
-            .chain([Constraint::new(
-                ConstraintType::Arity {
-                    expected: expected_stack.clone(),
-                    found: found_stack.clone(),
-                },
-                ConstraintOrigin::OutputSubtyping {
-                    expected: expected_stack.clone(),
-                    found: found_stack.clone(),
-                },
-                meta,
-            )])
-            .collect()
+                )])
+                .collect(),
+            StackState::Unreachable => vec![],
+        }
     }
 }

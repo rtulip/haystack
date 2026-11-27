@@ -973,10 +973,10 @@ where
                         writeln!(self.w, "        {},", Self::format_stack_ident(ident))?;
                     }
                     writeln!(self.w, "    }};")?;
-                    writeln!(self.w, "    }}")?;
-
                     stack.push((tid, ident));
                 }
+
+                writeln!(self.w, "    }}")?;
             }
             ExprKind::Bind(vars) => {
                 let FunctionType { input, output } = self.get_stack_effect(tid);

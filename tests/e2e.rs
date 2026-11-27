@@ -192,6 +192,21 @@ mod compilation_test {
         fn unreachable8() {
             run_test("tests/typecheck/unreachable8.hay");
         }
+
+        #[test]
+        fn unreachable9() {
+            run_test("tests/typecheck/unreachable9.hay");
+        }
+
+        #[test]
+        fn unreachable10() {
+            run_test("tests/typecheck/unreachable10.hay");
+        }
+
+        #[test]
+        fn unreachable11() {
+            run_test("tests/typecheck/unreachable11.hay");
+        }
     }
 
     mod scanning {

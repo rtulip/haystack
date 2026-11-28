@@ -174,6 +174,11 @@ mod compilation_test {
         }
 
         #[test]
+        fn call_after_swap() {
+            run_test("tests/typecheck/call_after_swap.hay");
+        }
+
+        #[test]
         fn unreachable1() {
             run_test("tests/typecheck/unreachable1.hay");
         }

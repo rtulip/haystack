@@ -1300,9 +1300,23 @@ where
 
                 writeln!(
                     self.w,
-                    "    if (!{}) break;",
+                    "    if (!{}) {{",
                     Self::format_stack_ident(ident)
                 )?;
+                
+                assert!(stack.len() == fresh_stack.len());
+
+                for ((_, ident), (_, value)) in fresh_stack.iter().zip(stack.iter()) {
+                    writeln!(
+                        self.w,
+                        "        {} = {};",
+                        Self::format_stack_ident(*ident),
+                        Self::format_stack_ident(*value)
+                    )?;
+                }
+
+                writeln!(self.w, "        break;")?;
+                writeln!(self.w, "    }}")?;
                 self.generate_expr(body, stack)?;
 
                 let FunctionType {

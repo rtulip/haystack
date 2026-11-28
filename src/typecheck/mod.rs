@@ -1217,6 +1217,18 @@ impl<'src> TypeCheck<'src> {
                 ),
                 e.meta.loc.clone(),
             ),
+            (ConstraintOrigin::Branching { fresh_stack, stacks }, InferenceErrorKind::JoinArity ) => {
+                let mut e = HayError::new("Branches must produce similar stacks.", e.meta.loc);
+                e = e.with_hint("Stack arity doesn't match");
+                for (i, stack) in stacks.into_iter().enumerate() {
+                    e = e.with_hint(format!(
+                        "Branch {}: {}",
+                        i + 1,
+                        self.format_stack_state(&stack, '[', ']')
+                    ))
+                }
+                e
+            },
             (origin, kind) => todo!("Generate Error message for {origin:?}, {kind:?}"),
         }
     }

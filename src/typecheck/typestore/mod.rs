@@ -1735,7 +1735,7 @@ where
         stacks: &[StackState],
         constraints: &mut Vec<Constraint<M>>,
         meta: &M,
-    ) -> Result<StackState, InferenceErrorKind> {
+    ) -> Result<StackState, InferenceError<M>> {
         let reachable: Vec<_> = stacks
             .iter()
             .filter_map(|stack| match stack {
@@ -1757,7 +1757,19 @@ where
         };
 
         if !reachable.iter().all(|stack| stack.len() == len) {
-            todo!("Error: Stack shapes differ")
+            let fresh_stack = reachable.first().unwrap();
+            let fresh_stack = fresh_stack.into_iter().map(|tid| *tid).collect();
+            
+            return Err(
+                InferenceError {
+                    kind: InferenceErrorKind::JoinArity,
+                    origin: ConstraintOrigin::Branching { 
+                        fresh_stack, 
+                        stacks: stacks.to_vec() 
+                    },
+                    meta: meta.clone(),
+                }
+            );
         }
 
         let fresh_stack: Stack = (0..len)
@@ -2149,16 +2161,19 @@ where
                     &expr.meta,
                 ));
 
+                let condition_output = stack.clone();
+
                 let (body, constrs) = self.infer(*body, stack, env, lookup)?;
+
                 constraints.extend(constrs);
 
                 let fresh_stack = self
                     .join_stacks(
-                        &[stack.clone(), stack_before.clone()],
+                        &[stack_before.clone(), condition_output.clone(), stack.clone()],
                         &mut constraints,
                         &expr.meta,
-                    )
-                    .map_err(|e| todo!())?;
+                    )?;
+
                 let expr_tid = self.function(FunctionType {
                     input: stack_before.reachable().clone(),
                     output: fresh_stack.clone(),
@@ -2200,8 +2215,7 @@ where
                 constraints.extend(constrs);
 
                 let fresh_stack = self
-                    .join_stacks(&[then_stack, otherwise_stack], &mut constraints, &expr.meta)
-                    .map_err(|_| todo!())?;
+                    .join_stacks(&[then_stack, otherwise_stack], &mut constraints, &expr.meta)?;
 
                 let expr_tid = self.function(FunctionType {
                     input,

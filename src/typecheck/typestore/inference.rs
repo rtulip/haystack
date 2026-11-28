@@ -47,6 +47,7 @@ pub enum InferenceErrorKind {
     UnreachableStateReached {
         stack: StackState,
     },
+    JoinArity,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

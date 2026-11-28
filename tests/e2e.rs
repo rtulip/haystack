@@ -412,48 +412,48 @@ mod compilation_test {
             #[test]
             fn _07_enums() {
                 run_test_with_meta_path(
-                    "examples/tutorial/enums.hay",
-                    "tests/examples/tutorial/enums",
+                    "examples/tutorial/07_enums.hay",
+                    "tests/examples/tutorial/07_enums",
                 );
             }
 
             #[test]
             fn _07_structs() {
                 run_test_with_meta_path(
-                    "examples/tutorial/structs.hay",
-                    "tests/examples/tutorial/structs",
+                    "examples/tutorial/07_structs.hay",
+                    "tests/examples/tutorial/07_structs",
                 );
             }
 
             #[test]
             fn _08() {
                 run_test_with_meta_path(
-                    "examples/tutorial/match.hay",
-                    "tests/examples/tutorial/match",
+                    "examples/tutorial/08_match.hay",
+                    "tests/examples/tutorial/08_match",
                 );
             }
 
             #[test]
             fn _09() {
                 run_test_with_meta_path(
-                    "examples/tutorial/tuples.hay",
-                    "tests/examples/tutorial/tuples",
+                    "examples/tutorial/09_tuples.hay",
+                    "tests/examples/tutorial/09_tuples",
                 );
             }
 
             #[test]
             fn _10() {
                 run_test_with_meta_path(
-                    "examples/tutorial/generics.hay",
-                    "tests/examples/tutorial/generics",
+                    "examples/tutorial/10_generics.hay",
+                    "tests/examples/tutorial/10_generics",
                 );
             }
 
             #[test]
             fn _11() {
                 run_test_with_meta_path(
-                    "examples/tutorial/pointers.hay",
-                    "tests/examples/tutorial/pointers",
+                    "examples/tutorial/11_pointers.hay",
+                    "tests/examples/tutorial/11_pointers",
                 );
             }
         }

@@ -1,0 +1,5 @@
+Error: [tests/typecheck/loop_header.hay:3:5] Error: Branches must produce similar stacks.
+    [Note]: Stack arity doesn't match
+    [Note]: Branch 1: []
+    [Note]: Branch 2: [bool]
+    [Note]: Branch 3: []

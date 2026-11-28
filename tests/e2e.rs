@@ -114,6 +114,16 @@ mod compilation_test {
         use super::*;
 
         #[test]
+        fn loop_header() {
+            run_test("tests/typecheck/loop_header.hay");
+        }
+
+        #[test]
+        fn loop_header_constrained() {
+            run_test("tests/typecheck/loop_header_constrained.hay");
+        }
+
+        #[test]
         fn bad_return() {
             run_test("tests/typecheck/bad_return.hay");
         }

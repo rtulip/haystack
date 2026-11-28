@@ -1,0 +1,4 @@
+Error: [examples/tutorial/07_enums.hay:8:4] Error: Incompatible Stacks at end of function
+    [Note]: Expected: [Colour::Blue]
+    [Note]: Found   : [Colour::Red]
+    [Note]: Type `Colour::Blue` is incompatible with `Colour::Red`

@@ -75,6 +75,7 @@ pub enum ConstraintOrigin {
     NamedMemberAccess(TypeId),
     WhileCondition,
     PlaceProjection,
+    WhileHeader,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

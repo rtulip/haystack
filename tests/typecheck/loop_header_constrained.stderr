@@ -1,0 +1,3 @@
+Error: [tests/typecheck/loop_header_constrained.hay:4:17] Error: Loop body constrains loop header
+    [Note]: Header requires: Option<u64>::None
+    [Note]: Constrained To : Option<u64>

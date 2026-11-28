@@ -1735,7 +1735,7 @@ where
         stacks: &[StackState],
         constraints: &mut Vec<Constraint<M>>,
         meta: &M,
-    ) -> Result<StackState, InferenceErrorKind> {
+    ) -> Result<StackState, InferenceError<M>> {
         let reachable: Vec<_> = stacks
             .iter()
             .filter_map(|stack| match stack {
@@ -1757,7 +1757,17 @@ where
         };
 
         if !reachable.iter().all(|stack| stack.len() == len) {
-            todo!("Error: Stack shapes differ")
+            let fresh_stack = reachable.first().unwrap();
+            let fresh_stack = fresh_stack.into_iter().map(|tid| *tid).collect();
+
+            return Err(InferenceError {
+                kind: InferenceErrorKind::JoinArity,
+                origin: ConstraintOrigin::Branching {
+                    fresh_stack,
+                    stacks: stacks.to_vec(),
+                },
+                meta: meta.clone(),
+            });
         }
 
         let fresh_stack: Stack = (0..len)
@@ -2100,9 +2110,7 @@ where
                     todo!("Error: Empty match")
                 }
 
-                let fresh_stack = self
-                    .join_stacks(&stacks, &mut constraints, &expr.meta)
-                    .map_err(|_| todo!())?;
+                let fresh_stack = self.join_stacks(&stacks, &mut constraints, &expr.meta)?;
                 let expr_tid = self.function(FunctionType {
                     input,
                     output: fresh_stack.clone(),
@@ -2117,23 +2125,56 @@ where
                 let stack_before = stack.clone();
                 let mut constraints = vec![];
                 let mut cond = vec![];
+
+                // Introduce fresh loop header variables.
+                let header = StackState::Reachable(
+                    stack_before
+                        .reachable()
+                        .iter()
+                        .map(|_| {
+                            let tyvar = self.fresh_type_var();
+                            self.intern(Type::TypeVar(tyvar))
+                        })
+                        .collect(),
+                );
+
+                // Infer the condition against the header,
+                // rather than the initial input.
+                *stack = header.clone();
+
                 {
                     let mut env = env.clone();
+
                     for e in condition {
                         let (e, constrs) = self.infer(e, stack, &mut env, lookup)?;
+
                         cond.push(e);
                         constraints.extend(constrs);
                     }
                 }
 
                 if !stack.is_reachable() {
-                    *stack = StackState::Unreachable;
+                    // The condition executes only once.
+                    // Constrain the header using the initial input.
+                    for (header, input) in header
+                        .reachable()
+                        .iter()
+                        .zip(stack_before.reachable().iter())
+                    {
+                        constraints.push(Constraint::new(
+                            ConstraintType::Equal(*header, *input),
+                            ConstraintOrigin::WhileHeader,
+                            &expr.meta,
+                        ));
+                    }
+
                     let tid = self.function(FunctionType {
                         input: stack_before.reachable().clone(),
                         output: StackState::Unreachable,
                     });
 
                     let expr = Expr::block(cond, (expr.meta, tid));
+
                     return Ok((expr, constraints));
                 }
 
@@ -2149,20 +2190,35 @@ where
                     &expr.meta,
                 ));
 
+                let condition_output = stack.clone();
+
                 let (body, constrs) = self.infer(*body, stack, env, lookup)?;
+
                 constraints.extend(constrs);
 
-                let fresh_stack = self
-                    .join_stacks(
-                        &[stack.clone(), stack_before.clone()],
-                        &mut constraints,
-                        &expr.meta,
-                    )
-                    .map_err(|e| todo!())?;
+                // Compute the LUB of all three stacks.
+                let fresh_stack = self.join_stacks(
+                    &[stack_before.clone(), condition_output, stack.clone()],
+                    &mut constraints,
+                    &expr.meta,
+                )?;
+
+                if let StackState::Reachable(fresh_stack) = &fresh_stack {
+                    // The header must be the LUB, NOT the original input.
+                    for (header, joined) in header.reachable().iter().zip(fresh_stack.iter()) {
+                        constraints.push(Constraint::new(
+                            ConstraintType::Equal(*header, *joined),
+                            ConstraintOrigin::WhileHeader,
+                            &expr.meta,
+                        ));
+                    }
+                }
+
                 let expr_tid = self.function(FunctionType {
                     input: stack_before.reachable().clone(),
                     output: fresh_stack.clone(),
                 });
+
                 let e = Expr::while_(cond, body, (expr.meta, expr_tid));
 
                 *stack = fresh_stack;
@@ -2199,9 +2255,8 @@ where
                 )?;
                 constraints.extend(constrs);
 
-                let fresh_stack = self
-                    .join_stacks(&[then_stack, otherwise_stack], &mut constraints, &expr.meta)
-                    .map_err(|_| todo!())?;
+                let fresh_stack =
+                    self.join_stacks(&[then_stack, otherwise_stack], &mut constraints, &expr.meta)?;
 
                 let expr_tid = self.function(FunctionType {
                     input,

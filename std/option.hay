@@ -19,6 +19,11 @@ requires [Print<T>]
 fn Option.Some<T>(T) -> [Option<T>::Some] { #Option::Some pack }
 fn Option.None<T>() -> [Option<T>::None] { #Option::None pack }
 
+fn Option.is_none<T>(Option<T>) -> [bool] match {
+    Option::None true
+    else         false
+}
+
 fn Option.unwrap<T>(Option<T>) -> [T] match {
     Option::Some {}
     Option::None { 1 exit }

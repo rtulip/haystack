@@ -1,0 +1,8 @@
+fn only_none<T>(Option<T>::None) -> [bool] { drop false }
+
+fn main() {
+    Option.None while dup only_none do {
+        drop
+        12345 Option.Some 
+    } println
+}

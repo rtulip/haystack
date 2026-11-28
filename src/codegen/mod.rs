@@ -703,7 +703,12 @@ where
             first = false;
         }
         if let Some(finally) = &match_expr.finally {
-            todo!();
+            let mut stack = stack.clone();
+            let FunctionType { output, .. } = self.get_stack_effect(finally.meta.1);
+            writeln!(self.w, "    else {{")?;
+            self.generate_expr(finally, &mut stack)?;
+            self.generate_back_assignment(&output, &outvars, &mut stack)?;
+            writeln!(self.w, "    }}")?;
         }
 
         for output in outvars {
@@ -1298,11 +1303,21 @@ where
 
                 let (tid, ident) = stack.pop().unwrap();
 
-                writeln!(
-                    self.w,
-                    "    if (!{}) break;",
-                    Self::format_stack_ident(ident)
-                )?;
+                writeln!(self.w, "    if (!{}) {{", Self::format_stack_ident(ident))?;
+
+                assert!(stack.len() == fresh_stack.len());
+
+                for ((_, ident), (_, value)) in fresh_stack.iter().zip(stack.iter()) {
+                    writeln!(
+                        self.w,
+                        "        {} = {};",
+                        Self::format_stack_ident(*ident),
+                        Self::format_stack_ident(*value)
+                    )?;
+                }
+
+                writeln!(self.w, "        break;")?;
+                writeln!(self.w, "    }}")?;
                 self.generate_expr(body, stack)?;
 
                 let FunctionType {

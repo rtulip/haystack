@@ -1,0 +1,3 @@
+fn foo(fn() u64) -> [u64] {
+    swap call
+}

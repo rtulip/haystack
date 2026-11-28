@@ -1911,19 +1911,20 @@ where
                 let input = stack.reachable().clone();
 
                 let mut local_env = env.clone();
-                let (exprs, constraints) = exprs
-                    .into_iter()
-                    .map(|e| self.infer(e, stack, &mut local_env, lookup))
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into_iter()
-                    .fold(
-                        (vec![], vec![]),
-                        |(mut exprs, mut constraints), (e, cons)| {
-                            exprs.push(e);
-                            constraints.extend(cons);
-                            (exprs, constraints)
-                        },
-                    );
+                let mut out_exprs = vec![];
+                let mut constraints = vec![];
+                for e in exprs {
+                    // A `call` needs the type of the function on top of the stack,
+                    // which may only be known once the constraints from earlier
+                    // expressions are solved. So solve them before inferring it.
+                    if matches!(e.expr, ExprKind::Call) {
+                        self.check_constraints(&local_env, &mut constraints, lookup)?;
+                    }
+                    let (e, cons) = self.infer(e, stack, &mut local_env, lookup)?;
+                    out_exprs.push(e);
+                    constraints.extend(cons);
+                }
+                let exprs = out_exprs;
 
                 let output = stack.clone();
                 let tid = self.function(FunctionType { input, output });
@@ -1936,6 +1937,7 @@ where
                 }
 
                 let tid = stack.pop().unwrap();
+                let (_, tid) = self.substitute_one(tid);
                 if let Some(Type::Function(mut func)) = self.get(tid).cloned() {
                     let constraints = self.infer_fn_call(&func, vec![], stack, &expr.meta);
                     func.input.push(tid);
